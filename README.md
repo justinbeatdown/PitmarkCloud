@@ -1,4 +1,4 @@
-# Pitmark Cloud v0.2.0
+# Pitmark Cloud v0.3.0
 
 Server-side backend foundation for Pitmark Racing Tools.
 
@@ -137,3 +137,35 @@ Required Render environment variables:
 The desktop app never receives the Discord client secret. OAuth `state` is HMAC signed and expires
 after 10 minutes. v0.2 stores linked identities in memory only, so Render restarts/spin-downs clear
 the development link. Persistent account linking comes with the database milestone.
+
+
+## Discord Bot v0.3.0
+
+Pitmark now supports Discord HTTP Interactions, which fits Render's web-service model better than
+depending on a permanently connected Gateway process.
+
+New endpoints:
+
+- `GET /api/discord/bot/status`
+- `POST /api/discord/bot/register` — protected by `X-Pitmark-Admin-Key`
+- `POST /api/discord/interactions` — Discord Interactions Endpoint URL
+
+Required Render environment variables:
+
+- `DISCORD_PUBLIC_KEY`
+- `DISCORD_BOT_TOKEN`
+- `DISCORD_GUILD_ID`
+- `PITMARK_ADMIN_KEY`
+- optional `DISCORD_SUPPORT_INVITE_URL`
+
+Existing OAuth variables remain required for desktop account linking.
+
+Initial slash commands:
+
+- `/pitmark`
+- `/status`
+- `/download`
+- `/support`
+- `/account`
+
+No privileged Gateway intents are needed for these first commands.

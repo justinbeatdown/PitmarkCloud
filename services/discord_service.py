@@ -184,3 +184,18 @@ def link_status(device_id: str) -> dict:
 def disconnect(device_id: str) -> dict:
     existed = _links.pop(device_id, None) is not None
     return {"device_id": device_id, "disconnected": existed}
+
+
+def find_link_by_discord_user_id(discord_user_id: str) -> dict | None:
+    if not discord_user_id:
+        return None
+    for link in _links.values():
+        if link.status == "connected" and link.discord_user_id == discord_user_id:
+            return {
+                "device_id": link.device_id,
+                "discord_user_id": link.discord_user_id,
+                "username": link.username,
+                "global_name": link.global_name,
+                "avatar": link.avatar,
+            }
+    return None

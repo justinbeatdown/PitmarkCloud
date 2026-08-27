@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     environment: str = "development"
-    app_version: str = "0.2.0"
+    app_version: str = "0.3.0"
     cors_origins: str = "*"
 
     pitmark_signing_secret: str = "development-only"
@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     discord_client_secret: str = ""
     discord_redirect_uri: str = ""
     discord_bot_token: str = ""
+    discord_public_key: str = ""
+    discord_guild_id: str = ""
+    discord_support_invite_url: str = ""
+    pitmark_admin_key: str = ""
 
     shopify_shop_domain: str = ""
     shopify_client_id: str = ""
