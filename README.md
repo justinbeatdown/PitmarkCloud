@@ -1,4 +1,4 @@
-# Pitmark Cloud v0.1.0
+# Pitmark Cloud v0.1.1
 
 Server-side backend foundation for Pitmark Racing Tools.
 
@@ -17,6 +17,29 @@ Server-side backend foundation for Pitmark Racing Tools.
 
 Nothing in this starter package pretends Shopify or Discord are connected before credentials and
 secure verification are actually configured.
+
+
+## v0.1.1 Render compatibility patch
+
+This patch changes dependency/runtime handling for Render:
+
+- pins Python to `3.12.8` via `.python-version`
+- uses flexible compatible package ranges instead of the original exact pins
+- uses plain `uvicorn` instead of `uvicorn[standard]` to avoid unnecessary native build extras
+- keeps the same Render commands
+
+Build:
+
+```bash
+pip install -r requirements.txt
+```
+
+Start:
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
 
 ## Render
 
@@ -53,7 +76,7 @@ Expected shape:
   "service": "Pitmark Cloud",
   "status": "online",
   "environment": "development",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "timestamp": "..."
 }
 ```
