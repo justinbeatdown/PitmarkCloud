@@ -1,4 +1,4 @@
-# Pitmark Cloud v0.1.1
+# Pitmark Cloud v0.2.0
 
 Server-side backend foundation for Pitmark Racing Tools.
 
@@ -115,3 +115,25 @@ Interactive API documentation is available at:
 5. Add persistent database.
 6. Replace development entitlements with real customer/device entitlements.
 7. Connect Pitmark Racing Tools `EntitlementService` to Pitmark Cloud.
+
+
+## Discord OAuth v0.2.0
+
+New development flow:
+
+- `GET /api/discord/status`
+- `POST /api/discord/link/start?device_id=...`
+- `GET /api/discord/link/status?device_id=...`
+- `POST /api/discord/link/disconnect?device_id=...`
+- `GET /api/discord/oauth/callback`
+
+Required Render environment variables:
+
+- `PITMARK_SIGNING_SECRET` — strong random value
+- `DISCORD_CLIENT_ID`
+- `DISCORD_CLIENT_SECRET`
+- `DISCORD_REDIRECT_URI=https://pitmarkcloud.onrender.com/api/discord/oauth/callback`
+
+The desktop app never receives the Discord client secret. OAuth `state` is HMAC signed and expires
+after 10 minutes. v0.2 stores linked identities in memory only, so Render restarts/spin-downs clear
+the development link. Persistent account linking comes with the database milestone.
