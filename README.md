@@ -1,4 +1,4 @@
-# Pitmark Cloud v0.3.0
+# Pitmark Cloud v0.4.0
 
 Server-side backend foundation for Pitmark Racing Tools.
 
@@ -169,3 +169,23 @@ Initial slash commands:
 - `/account`
 
 No privileged Gateway intents are needed for these first commands.
+
+
+## v0.4.0 — Live Session Discord Bridge
+
+New development endpoints:
+
+- `POST /api/discord/session/update?device_id=...`
+- `POST /api/discord/session/clear?device_id=...`
+
+The update endpoint only accepts a device that currently has a connected Discord OAuth link.
+
+New Discord command:
+
+- `/session` — shows the invoking user's live Pitmark/iRacing session as a Discord embed.
+
+The command registry now uses Discord's bulk-overwrite guild command endpoint, so re-registering also
+cleans up stale development commands.
+
+Current live session storage is in memory. Render restarts/spin-downs clear it; persistent account
+and session state comes with the database milestone.

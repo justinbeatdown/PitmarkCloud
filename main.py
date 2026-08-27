@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import discord, discord_bot, entitlements, health, shopify
+from api import discord, discord_bot, entitlements, health, live_session, shopify
 from utils.config import settings
 from utils.logger import configure_logging
 
@@ -25,6 +25,7 @@ app.include_router(health.router)
 app.include_router(entitlements.router, prefix="/api/entitlements", tags=["entitlements"])
 app.include_router(discord.router, prefix="/api/discord", tags=["discord"])
 app.include_router(discord_bot.router, prefix="/api/discord", tags=["discord-bot"])
+app.include_router(live_session.router, prefix="/api/discord/session", tags=["discord-session"])
 app.include_router(shopify.router, prefix="/api/shopify", tags=["shopify"])
 
 
