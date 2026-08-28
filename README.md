@@ -189,3 +189,21 @@ cleans up stale development commands.
 
 Current live session storage is in memory. Render restarts/spin-downs clear it; persistent account
 and session state comes with the database milestone.
+
+
+## Discord Gateway presence — working source
+
+A lightweight Discord Gateway connection now runs alongside the existing HTTP Interactions system
+solely to give the Pitmark bot a visible Online presence/status.
+
+Optional Render variables:
+
+- `DISCORD_GATEWAY_ENABLED=true`
+- `DISCORD_PRESENCE_TEXT=Pitmark Racing Tools`
+- `DISCORD_PRESENCE_TYPE=watching`
+
+Supported presence types: `watching`, `playing`, `listening`, `competing`.
+
+Important: Render Free can suspend the service after inactivity. If Render sleeps, the Gateway
+connection closes and Discord shows the bot Offline until Pitmark Cloud wakes again. Slash commands
+continue to use the HTTP Interactions architecture.

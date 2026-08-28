@@ -1,16 +1,29 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api import discord, discord_bot, entitlements, health, live_session, shopify
 from utils.config import settings
 from utils.logger import configure_logging
+from services import discord_gateway_service
 
 configure_logging()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await discord_gateway_service.start()
+    try:
+        yield
+    finally:
+        await discord_gateway_service.stop()
+
 
 app = FastAPI(
     title="Pitmark Cloud API",
     description="Backend foundation for Pitmark Racing Tools licensing and integrations.",
     version=settings.app_version,
+    lifespan=lifespan,
 )
 
 app.add_middleware(

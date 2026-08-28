@@ -54,3 +54,22 @@ class HealthResponse(BaseModel):
     environment: str
     version: str
     timestamp: datetime
+
+
+class LiveSessionUpdate(BaseModel):
+    track_name: str = Field(default="iRacing Session", max_length=160)
+    car_name: str = Field(default="Player Car", max_length=160)
+    lap: int = Field(default=0, ge=0, le=100000)
+    position: int = Field(default=0, ge=0, le=10000)
+    current_lap_time: float = Field(default=0.0, ge=0.0, le=86400.0)
+    best_lap_time: float = Field(default=0.0, ge=0.0, le=86400.0)
+    delta: float = Field(default=0.0, ge=-86400.0, le=86400.0)
+    speed_mph: float = Field(default=0.0, ge=0.0, le=1000.0)
+    gear: int = Field(default=0, ge=-2, le=20)
+    rpm: int = Field(default=0, ge=0, le=100000)
+    fuel_gallons: float = Field(default=0.0, ge=0.0, le=10000.0)
+    fuel_laps_remaining: float = Field(default=0.0, ge=0.0, le=100000.0)
+    incident_count: int = Field(default=0, ge=0, le=100000)
+    flag_text: str = Field(default="GREEN", max_length=80)
+    track_temp_f: float = Field(default=0.0, ge=-200.0, le=1000.0)
+    session_laps_remaining: int = Field(default=0, ge=0, le=100000)

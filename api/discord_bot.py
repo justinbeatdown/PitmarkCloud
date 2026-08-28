@@ -4,7 +4,7 @@ import json
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
-from services import discord_bot_service, discord_service
+from services import discord_bot_service, discord_gateway_service, discord_service
 
 router = APIRouter()
 
@@ -14,6 +14,7 @@ async def bot_status() -> dict:
     return {
         "interaction_endpoint_configured": discord_bot_service.interactions_configured(),
         "command_registration_configured": discord_bot_service.registration_configured(),
+        "gateway_presence": discord_gateway_service.state(),
     }
 
 

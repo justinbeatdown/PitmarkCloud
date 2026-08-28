@@ -100,6 +100,16 @@ def clear_session(device_id: str) -> bool:
         return _sessions.pop(discord_user_id, None) is not None
 
 
+def get_for_device(device_id: str) -> dict[str, Any] | None:
+    if not device_id:
+        return None
+    link = discord_service.link_status(device_id)
+    discord_user_id = str(link.get("discord_user_id") or "")
+    if not discord_user_id:
+        return None
+    return get_for_discord_user(discord_user_id)
+
+
 def get_for_discord_user(discord_user_id: str) -> dict[str, Any] | None:
     if not discord_user_id:
         return None
