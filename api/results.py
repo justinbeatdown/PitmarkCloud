@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from services import discord_service, guild_config_service, result_service
+from services import device_auth_service, discord_service, guild_config_service, result_service
 from utils.config import settings
+from utils.security import enforce_rate_limit, validate_device_id, validate_discord_id
 
 router = APIRouter()
 
@@ -29,7 +30,11 @@ class RaceResultPayload(BaseModel):
 
 
 @router.post("/result/publish")
-async def publish_result(payload: RaceResultPayload, device_id: str = Query(..., min_length=6, max_length=180)) -> dict:
+async def publish_result(request: Request, payload: RaceResultPayload, device_id: str = Query(..., min_length=16, max_length=64), x_pitmark_device_token: str | None = Header(default=None)) -> dict:
+    enforce_rate_limit(request, "result-publish", 180)
+    device_id = validate_device_id(device_id)
+    if not device_auth_service.authenticate(device_id, x_pitmark_device_token):
+        raise HTTPException(status_code=401, detail="Invalid device credential.")
     try:
         return {"published": True, "result": result_service.publish_result(device_id, payload.model_dump())}
     except PermissionError as exc:
@@ -37,7 +42,11 @@ async def publish_result(payload: RaceResultPayload, device_id: str = Query(...,
 
 
 @router.get("/result/latest")
-async def latest_result(device_id: str = Query(..., min_length=6, max_length=180)) -> dict:
+async def latest_result(request: Request, device_id: str = Query(..., min_length=16, max_length=64), x_pitmark_device_token: str | None = Header(default=None)) -> dict:
+    enforce_rate_limit(request, "result-latest", 120)
+    device_id = validate_device_id(device_id)
+    if not device_auth_service.authenticate(device_id, x_pitmark_device_token):
+        raise HTTPException(status_code=401, detail="Invalid device credential.")
     link = discord_service.link_status(device_id)
     if not link.get("connected"):
         raise HTTPException(status_code=403, detail="This device is not linked to Discord.")
@@ -72,7 +81,11 @@ async def _configured_destinations(device_id: str) -> list[dict[str, Any]]:
 
 
 @router.get("/share/destinations")
-async def share_destinations(device_id: str = Query(..., min_length=6, max_length=180)) -> dict:
+async def share_destinations(request: Request, device_id: str = Query(..., min_length=16, max_length=64), x_pitmark_device_token: str | None = Header(default=None)) -> dict:
+    enforce_rate_limit(request, "share-destinations", 120)
+    device_id = validate_device_id(device_id)
+    if not device_auth_service.authenticate(device_id, x_pitmark_device_token):
+        raise HTTPException(status_code=401, detail="Invalid device credential.")
     destinations = await _configured_destinations(device_id)
     return {"destinations": destinations, "count": len(destinations)}
 
@@ -110,9 +123,17 @@ def racecard_embed(result: dict[str, Any], display_name: str = "Pitmark Driver")
 
 @router.post("/share/racecard")
 async def share_racecard(
-    device_id: str = Query(..., min_length=6, max_length=180),
+    request: Request,
+    device_id: str = Query(..., min_length=16, max_length=64),
     guild_id: str | None = Query(default=None, min_length=5, max_length=32),
+    x_pitmark_device_token: str | None = Header(default=None),
 ) -> dict:
+    enforce_rate_limit(request, "share-racecard", 30)
+    device_id = validate_device_id(device_id)
+    if not device_auth_service.authenticate(device_id, x_pitmark_device_token):
+        raise HTTPException(status_code=401, detail="Invalid device credential.")
+    if guild_id is not None:
+        guild_id = validate_discord_id(guild_id, "guild id")
     link = discord_service.link_status(device_id)
     if not link.get("connected"):
         raise HTTPException(status_code=403, detail="Connect Discord in Pitmark Racing Tools first.")

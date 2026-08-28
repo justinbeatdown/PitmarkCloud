@@ -14,6 +14,7 @@ from cryptography.fernet import Fernet, InvalidToken
 
 from services import persistent_store
 from utils.config import settings
+from utils.security import DEVICE_ID_RE
 
 DISCORD_API = "https://discord.com/api/v10"
 DISCORD_AUTHORIZE = "https://discord.com/oauth2/authorize"
@@ -122,7 +123,7 @@ def create_link(device_id: str) -> dict:
     if not configured():
         raise RuntimeError("Discord OAuth is not configured on Pitmark Cloud.")
     device_id = device_id.strip()
-    if not device_id or len(device_id) > 200:
+    if not DEVICE_ID_RE.fullmatch(device_id):
         raise ValueError("Invalid device id.")
 
     persistent_store.upsert_link({

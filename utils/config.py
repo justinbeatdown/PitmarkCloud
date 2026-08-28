@@ -6,8 +6,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     environment: str = "development"
-    app_version: str = "0.7.0"
-    cors_origins: str = "*"
+    app_version: str = "0.8.0"
+    cors_origins: str = ""
 
     pitmark_signing_secret: str = "development-only"
 
@@ -41,8 +41,6 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        if self.cors_origins.strip() == "*":
-            return ["*"]
         return [x.strip() for x in self.cors_origins.split(",") if x.strip()]
 
 

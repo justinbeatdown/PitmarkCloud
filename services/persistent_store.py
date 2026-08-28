@@ -13,6 +13,15 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+class DeviceCredentialRow(Base):
+    __tablename__ = "device_credentials"
+
+    device_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    secret_hash: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[str] = mapped_column(String(64), default=_now_iso)
+    last_seen_at: Mapped[str] = mapped_column(String(64), default=_now_iso)
+
+
 class DiscordLinkRow(Base):
     __tablename__ = "discord_links"
 
@@ -61,6 +70,35 @@ class RaceResultRow(Base):
     consistency: Mapped[float] = mapped_column(Float, default=0.0)
     average_fuel_per_lap: Mapped[float] = mapped_column(Float, default=0.0)
     published_at: Mapped[str] = mapped_column(String(64), default=_now_iso)
+
+
+def get_device_credential(device_id: str) -> DeviceCredentialRow | None:
+    with SessionLocal() as db:
+        return db.get(DeviceCredentialRow, device_id)
+
+
+def register_device_credential(device_id: str, secret_hash: str) -> str:
+    with SessionLocal() as db:
+        row = db.get(DeviceCredentialRow, device_id)
+        if row is None:
+            row = DeviceCredentialRow(device_id=device_id, secret_hash=secret_hash)
+            db.add(row)
+            status = "created"
+        elif row.secret_hash != secret_hash:
+            return "conflict"
+        else:
+            status = "existing"
+        row.last_seen_at = _now_iso()
+        db.commit()
+        return status
+
+
+def touch_device_credential(device_id: str) -> None:
+    with SessionLocal() as db:
+        row = db.get(DeviceCredentialRow, device_id)
+        if row is not None:
+            row.last_seen_at = _now_iso()
+            db.commit()
 
 
 def upsert_link(values: dict[str, Any]) -> None:

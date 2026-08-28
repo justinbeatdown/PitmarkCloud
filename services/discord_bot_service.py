@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hmac
+import time
 from typing import Any
 
 import httpx
@@ -27,6 +28,9 @@ def verify_signature(signature: str, timestamp: str, body: bytes) -> bool:
     if not settings.discord_public_key:
         return False
     try:
+        signed_at = int(timestamp)
+        if abs(int(time.time()) - signed_at) > 300:
+            return False
         verify_key = VerifyKey(bytes.fromhex(settings.discord_public_key))
         verify_key.verify(timestamp.encode("utf-8") + body, bytes.fromhex(signature))
         return True
