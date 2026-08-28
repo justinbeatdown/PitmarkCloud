@@ -9,7 +9,7 @@ BASE = (sys.argv[1] if len(sys.argv) > 1 else "https://pitmarkcloud.onrender.com
 
 
 def request(path: str, method: str = "GET", body: bytes | None = None, content_type: str | None = None):
-    headers = {"User-Agent": "PitmarkCloud-SmokeTest/0.4.1"}
+    headers = {"User-Agent": "PitmarkCloud-SmokeTest/0.5.0"}
     if content_type:
         headers["Content-Type"] = content_type
     req = Request(BASE + path, data=body, headers=headers, method=method)
@@ -56,5 +56,22 @@ status, _ = request(
     content_type="application/json",
 )
 expect("Unlinked telemetry rejected", status == 403, f"HTTP {status}")
+
+
+status, _ = request(
+    "/api/discord/result/publish?device_id=smoke-test-unlinked",
+    method="POST",
+    body=b'{"track_name":"Smoke Test","laps":1}',
+    content_type="application/json",
+)
+expect("Unlinked completed result rejected", status == 403, f"HTTP {status}")
+
+status, _ = request(
+    "/api/discord/result/publish?device_id=smoke-test-unlinked",
+    method="POST",
+    body=b'{"laps":-1}',
+    content_type="application/json",
+)
+expect("Invalid completed result rejected", status == 422, f"HTTP {status}")
 
 print(f"\nPitmark Cloud smoke test passed against {BASE}")

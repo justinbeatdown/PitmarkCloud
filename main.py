@@ -2,16 +2,18 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import discord, discord_bot, entitlements, health, live_session, shopify
+from api import discord, discord_bot, entitlements, health, live_session, results, shopify
 from utils.config import settings
 from utils.logger import configure_logging
 from services import discord_gateway_service
+from services.database import init_database, database_status
 
 configure_logging()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_database()
     await discord_gateway_service.start()
     try:
         yield
@@ -39,6 +41,7 @@ app.include_router(entitlements.router, prefix="/api/entitlements", tags=["entit
 app.include_router(discord.router, prefix="/api/discord", tags=["discord"])
 app.include_router(discord_bot.router, prefix="/api/discord", tags=["discord-bot"])
 app.include_router(live_session.router, prefix="/api/discord/session", tags=["discord-session"])
+app.include_router(results.router, prefix="/api/discord", tags=["discord-results"])
 app.include_router(shopify.router, prefix="/api/shopify", tags=["shopify"])
 
 
@@ -50,4 +53,6 @@ async def root() -> dict:
         "version": settings.app_version,
         "health": "/health",
         "docs": "/docs",
+        "discord_install": "/api/discord/install",
+        "database": database_status(),
     }

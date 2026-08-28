@@ -4,7 +4,8 @@ import json
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
-from services import discord_bot_service, discord_gateway_service, discord_service
+from services import discord_bot_service, discord_gateway_service, discord_service, guild_config_service
+from services.database import database_status
 
 router = APIRouter()
 
@@ -14,7 +15,11 @@ async def bot_status() -> dict:
     return {
         "interaction_endpoint_configured": discord_bot_service.interactions_configured(),
         "command_registration_configured": discord_bot_service.registration_configured(),
+        "command_scope": "global",
         "gateway_presence": discord_gateway_service.state(),
+        "configured_guilds": len(guild_config_service.all_enabled()),
+        "database": database_status(),
+        "install_url": discord_service.install_url(),
     }
 
 
@@ -23,7 +28,7 @@ async def register_bot_commands(x_pitmark_admin_key: str | None = Header(default
     if not discord_bot_service.validate_admin_key(x_pitmark_admin_key):
         raise HTTPException(status_code=401, detail="Invalid Pitmark admin key.")
     try:
-        return await discord_bot_service.register_guild_commands()
+        return await discord_bot_service.register_commands()
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
 
@@ -46,7 +51,7 @@ async def interactions(request: Request) -> dict:
 
     # Application command.
     if interaction_type == 2:
-        return discord_bot_service.handle_command(
+        return await discord_bot_service.handle_command(
             payload, discord_service.find_link_by_discord_user_id
         )
 

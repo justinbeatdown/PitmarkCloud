@@ -11,6 +11,14 @@ async def status() -> dict:
     return discord_service.status()
 
 
+@router.get("/install")
+async def install() -> dict:
+    url = discord_service.install_url()
+    if not url:
+        raise HTTPException(status_code=503, detail="DISCORD_CLIENT_ID is not configured.")
+    return {"install_url": url, "scope": ["bot", "applications.commands"], "permissions": "View Channels, Send Messages, Embed Links, Attach Files, Read Message History"}
+
+
 @router.post("/link/start")
 async def link_start(device_id: str = Query(..., min_length=1, max_length=200)) -> dict:
     try:

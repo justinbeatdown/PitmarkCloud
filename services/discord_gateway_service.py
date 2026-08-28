@@ -103,5 +103,5 @@ def state() -> dict:
         "user": str(_client.user) if _client and _client.user else None,
         "presence_text": settings.discord_presence_text,
         "presence_type": settings.discord_presence_type,
-        "note": "Best-effort on Render Free; bot goes Offline if the service sleeps.",
+        "note": "Designed for an always-on Pitmark Cloud web service. HTTP interactions remain independent of Gateway presence.",
     }
