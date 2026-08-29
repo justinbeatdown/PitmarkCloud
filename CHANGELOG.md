@@ -1,3 +1,9 @@
+## v0.9.2
+- Control Center CSP-safe frontend assets; restored styling and JavaScript without unsafe-inline.
+- Fixed admin-key Connect flow by permitting same-origin API fetches.
+- Applied Pitmark Control Center UI Bible styling.
+- Added Pitmark Directory and Connected Accounts foundations.
+
 # v0.8.1 - OAuth Polish
 
 - Restored the branded Pitmark Discord OAuth success/failure page.

@@ -1,4 +1,4 @@
-# Pitmark Cloud v0.9.0 — Autopilot + Shield
+# Pitmark Cloud v0.9.2 — Autopilot + Shield + Control Center
 
 This build merges the existing Pitmark Autopilot Dev1 concepts into Pitmark Cloud instead of running them as a separate product.
 
@@ -22,6 +22,6 @@ Those actions require production OAuth/API credentials and should be connected a
 1. Back up current Render environment variable names/values.
 2. Deploy this package over the current Pitmark Cloud service.
 3. Keep existing DATABASE_URL, PITMARK_ADMIN_KEY, Discord and signing secrets unchanged.
-4. Set APP_VERSION=0.9.0.
+4. Set APP_VERSION=0.9.2.
 5. Visit `/health`, `/api/security/status`, then `/control`.
 6. Enter the existing Pitmark admin key in Control Center and click Connect.

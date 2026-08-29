@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pitmark Control Center</title>
+<link rel="stylesheet" href="/control.css">
+<script src="/control.js" defer></script>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+  <div class="brand"><div class="brand-main">PITMARK</div><div class="brand-sub">RACING CO.</div><div class="flag">▦▦▦</div></div>
+  <nav class="nav">
+    <a class="active" href="#dashboard"><span class="ico">◉</span><span>Dashboard</span></a>
+    <a href="#autopilot"><span class="ico">➤</span><span>Autopilot<small>Posts & Queue</small></span></a>
+    <a href="#shield"><span class="ico">⬡</span><span>Shield<small>Email Protection</small></span></a>
+    <a href="#outreach"><span class="ico">🤝</span><span>Outreach<small>Tracks & Partners</small></span></a>
+    <a href="#blog"><span class="ico">▤</span><span>Blog<small>Track Spotlight</small></span></a>
+    <a href="#directory"><span class="ico">⌘</span><span>Directory<small>Pitmark Links</small></span></a>
+    <a href="#accounts"><span class="ico">⚙</span><span>Settings<small>Connected Accounts</small></span></a>
+  </nav>
+  <div class="side-bottom"><div class="motto">LEAVE YOUR MARK</div><div>PITMARK RACING CO.</div><div>BUILT BY RACERS, FOR RACERS.</div></div>
+</aside>
+<main class="main" id="dashboard">
+<header class="hero">
+  <div class="topbar">
+    <div><div class="title">PITMARK <span>CONTROL CENTER</span></div><div class="subtitle">Autopilot + Shield + Outreach + Blog Foundation</div></div>
+    <div class="connect">
+      <label for="key">Admin Key</label><input class="input" id="key" type="password" autocomplete="off" placeholder="X-Pitmark-Admin-Key">
+      <button class="btn" id="connectBtn" type="button">Connect</button>
+      <span class="status-dot" id="statusDot"></span><span id="connectionText">Not connected</span>
+    </div>
+  </div>
+</header>
+<section class="content">
+  <section class="panel" id="autopilot"><div class="panel-head"><div class="panel-icon">✎</div><div><h2>Manual Post Generator</h2><div class="meta"><span>Autopilot</span><span>Approval workflow</span></div></div></div>
+    <div class="fields"><select class="select" id="platform"><option>facebook</option><option>instagram</option><option>tiktok</option><option>x</option></select><select class="select" id="goal"><option>community</option><option>education</option><option>entertainment</option><option>authority</option><option>product</option><option>partner</option></select><textarea class="textarea" id="topic" placeholder="What do you want to post about?"></textarea><button class="btn" id="generateBtn" type="button">Generate</button></div>
+    <pre class="output" id="draft"></pre><div class="approval"><button class="btn secondary" id="savePostBtn" type="button">Save to Approval Queue</button></div>
+  </section>
+  <section class="panel" id="shield"><div class="panel-head"><div class="panel-icon">✓</div><div><h2>Pitmark Shield</h2></div></div><p>Classification history and Review queue live in Pitmark Cloud. Gmail can feed the Shield API while mailbox credentials stay out of the dashboard.</p><div class="approval"><button class="btn secondary" id="shieldBtn" type="button">Load Review Queue</button></div><pre class="output" id="shieldOutput"></pre></section>
+  <section class="panel" id="outreach"><div class="panel-head"><div class="panel-icon">↔</div><div><h2>Track / Partner Outreach</h2></div></div><div class="fields three"><input class="input" id="oname" placeholder="Track / league / contact"><input class="input" id="oorg" placeholder="Organization"><input class="input" id="oemail" placeholder="Email"><button class="btn" id="addOutreachBtn" type="button">Add Prospect</button><button class="btn secondary" id="loadOutreachBtn" type="button">Refresh Pipeline</button></div><pre class="output" id="outreachOutput"></pre></section>
+  <section class="panel" id="blog"><div class="panel-head"><div class="panel-icon">▤</div><div><h2>Shopify Blog / Track Spotlight</h2></div></div><div class="fields blog"><input class="input" id="btitle" placeholder="Title"><textarea class="textarea" id="bbody" placeholder="Draft HTML / copy"></textarea><select class="select" id="btype"><option>article</option><option>track_spotlight</option><option>partner_spotlight</option></select><button class="btn" id="addBlogBtn" type="button">Save Draft</button><button class="btn secondary" id="loadBlogBtn" type="button">Refresh Drafts</button></div><pre class="output" id="blogOutput"></pre></section>
+
+  <section class="panel" id="directory"><div class="panel-head"><div class="panel-icon">⌘</div><div><h2>Pitmark Directory</h2><div class="meta"><span>Quick launch</span><span>Infrastructure</span></div></div></div>
+    <div class="directory-grid">
+      <a class="directory-card" href="https://github.com/justinbeatdown/PitmarkCloud" target="_blank" rel="noopener"><strong>GitHub</strong><span>PitmarkCloud repository</span></a>
+      <a class="directory-card" href="https://dashboard.render.com" target="_blank" rel="noopener"><strong>Render</strong><span>Services & deployments</span></a>
+      <a class="directory-card" href="https://pitmarkcloud.onrender.com" target="_blank" rel="noopener"><strong>Pitmark Cloud</strong><span>Production service</span></a>
+      <a class="directory-card" href="https://admin.shopify.com" target="_blank" rel="noopener"><strong>Shopify</strong><span>Store administration</span></a>
+      <a class="directory-card" href="https://pitmarkracing.com" target="_blank" rel="noopener"><strong>Pitmark Racing</strong><span>Live storefront</span></a>
+      <a class="directory-card" href="https://discord.com/developers/applications" target="_blank" rel="noopener"><strong>Discord Dev</strong><span>Applications & bot settings</span></a>
+    </div>
+  </section>
+
+  <section class="panel" id="accounts"><div class="panel-head"><div class="panel-icon">⚙</div><div><h2>Connected Accounts</h2><div class="meta"><span>OAuth foundation</span><span>No passwords stored</span></div></div></div>
+    <div class="account-grid">
+      <div class="account-card"><div><strong>Facebook</strong><span>Meta publishing</span></div><b>Not connected</b></div>
+      <div class="account-card"><div><strong>Instagram</strong><span>Meta publishing</span></div><b>Not connected</b></div>
+      <div class="account-card"><div><strong>TikTok</strong><span>Publishing API</span></div><b>Not connected</b></div>
+      <div class="account-card"><div><strong>X</strong><span>Publishing API</span></div><b>Not connected</b></div>
+    </div>
+    <p class="note">Connector buttons will activate as each platform OAuth integration is added. Pitmark will use revocable tokens instead of account passwords.</p>
+  </section>
+  <div class="footer">PITMARK CLOUD v0.9.2 · LEAVE YOUR MARK</div>
+</section>
+</main></div>
+</body></html>
