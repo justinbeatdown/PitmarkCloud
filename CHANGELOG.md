@@ -1,3 +1,14 @@
+## v0.10.0 — Private Control Center + Real Views
+- Added first-time Control Center admin bootstrap using the existing Pitmark Admin Key once.
+- Added username/password login with scrypt password hashing and signed HttpOnly session cookies.
+- Added logout and in-dashboard password change.
+- Protected /control with a server-side login gate.
+- Preserved X-Pitmark-Admin-Key as emergency/service API authentication.
+- Converted sidebar anchors into real Control Center views.
+- Added Autopilot Posts & Queue with status filters, approve/reject/schedule/archive actions.
+- Added Dashboard status cards and live views for Shield, Outreach, Blog, Directory, and Settings.
+- Removed the Control Center URL advertisement from the public root payload.
+
 # Pitmark Cloud v0.9.3 — Autopilot AI Composer
 
 - Replaced Manual Composer's canned-first behavior with the real AI provider path.

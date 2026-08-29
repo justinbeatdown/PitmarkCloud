@@ -41,6 +41,7 @@ def init_database() -> None:
     # Import model modules before create_all so SQLAlchemy knows all tables.
     from services import persistent_store  # noqa: F401
     from services import control_center  # noqa: F401
+    from services import control_auth  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     if not settings.database_url:

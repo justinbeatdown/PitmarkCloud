@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pitmark Control Center · Login</title>
+<link rel="stylesheet" href="/control.css"><script src="/control-login.js" defer></script>
+</head>
+<body class="login-page">
+<main class="login-shell">
+  <section class="login-brand">
+    <img class="login-wide-logo" src="/control-logo-wide.png" alt="Pitmark Racing Co.">
+    <div class="login-kicker">PRIVATE OPERATIONS</div>
+    <h1>PITMARK <span>CONTROL CENTER</span></h1>
+    <p>Autopilot · Shield · Outreach · Blog · Pitmark Cloud</p>
+    <div class="login-motto">LEAVE YOUR MARK</div>
+  </section>
+  <section class="login-card" id="loginCard">
+    <div class="login-badge-wrap"><img src="/control-logo-badge.png" alt="Pitmark badge"></div>
+    <h2 id="loginTitle">CONTROL CENTER LOGIN</h2>
+    <p class="login-sub" id="loginSub">Authorized Pitmark access only.</p>
+    <div id="loginForm">
+      <label>Username<input class="input" id="loginUsername" autocomplete="username" value="admin"></label>
+      <label>Password<input class="input" id="loginPassword" type="password" autocomplete="current-password"></label>
+      <button class="btn login-btn" id="loginBtn" type="button">LOGIN</button>
+    </div>
+    <div id="setupForm" class="hidden">
+      <div class="setup-note">First-time setup. Use the existing Pitmark Admin Key once to create your private login.</div>
+      <label>Admin Key<input class="input" id="setupAdminKey" type="password" autocomplete="off"></label>
+      <label>Username<input class="input" id="setupUsername" value="admin" autocomplete="username"></label>
+      <label>New Password<input class="input" id="setupPassword" type="password" autocomplete="new-password" placeholder="12+ characters"></label>
+      <label>Confirm Password<input class="input" id="setupConfirm" type="password" autocomplete="new-password"></label>
+      <button class="btn login-btn" id="setupBtn" type="button">INITIALIZE CONTROL CENTER</button>
+    </div>
+    <div class="login-error" id="loginError"></div>
+  </section>
+</main>
+</body></html>

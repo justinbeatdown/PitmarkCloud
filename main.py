@@ -65,7 +65,6 @@ async def root() -> dict:
         "health": "/health",
         "docs": None if _production else "/docs",
         "discord_install": "/api/discord/install",
-        "control_center": "/control",
         "database": database_status(),
     }
 
