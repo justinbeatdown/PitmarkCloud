@@ -1,3 +1,15 @@
+## v0.12.0 — Mobile Control + Workflow Test Harness
+
+- Replaces the older circular Control Center badge with the new official Pitmark badge asset.
+- Adds `/control/mobile`, a phone-first installable PWA using the same signed Control Center session.
+- Adds mobile quick status, Autopilot approvals, intelligence trigger, Shield review/test, Outreach list, and infrastructure links.
+- Adds a repeatable Shield synthetic test harness for Legit / Review / Spam / System classifications.
+- Expands Outreach UI around contact method/handle, relationship stage, supporter status, follow-up, and notes using the existing durable schema.
+- Adds AI-assisted Blog / Track Spotlight draft generation plus approve/reject/schedule/archive workflow.
+- Improves Autopilot Intelligence scan results so a zero-candidate run clearly reports that the scan completed.
+- Adds server-side social OAuth readiness status without storing social passwords in the browser or Control Center.
+- Adds mobile/PWA CSP allowances while keeping inline scripts/styles blocked.
+
 ## v0.10.0 — Private Control Center + Real Views
 - Added first-time Control Center admin bootstrap using the existing Pitmark Admin Key once.
 - Added username/password login with scrypt password hashing and signed HttpOnly session cookies.

@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     environment: str = "development"
-    app_version: str = "0.11.0"
+    app_version: str = "0.12.0"
     cors_origins: str = ""
 
     pitmark_signing_secret: str = "development-only"
@@ -32,6 +32,15 @@ class Settings(BaseSettings):
     autopilot_intelligence_enabled: bool = True
     autopilot_scan_hours: int = 6
     autopilot_scan_query: str = "grassroots racing OR dirt track racing OR short track racing OR sim racing OR motorsports"
+
+
+    # Social publishing OAuth readiness. Credentials stay server-side.
+    meta_app_id: str = ""
+    meta_app_secret: str = ""
+    tiktok_client_key: str = ""
+    tiktok_client_secret: str = ""
+    x_client_id: str = ""
+    x_client_secret: str = ""
 
     shopify_shop_domain: str = ""
     shopify_client_id: str = ""

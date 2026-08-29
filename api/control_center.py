@@ -101,6 +101,10 @@ class ShieldAction(BaseModel):
     acknowledged: bool = False
 
 
+class ShieldTestRequest(BaseModel):
+    clear_previous_tests: bool = False
+
+
 class OutreachCreate(BaseModel):
     name: str
     organization: str | None = None
@@ -134,6 +138,13 @@ class BlogCreate(BaseModel):
 
 class BlogDecision(BaseModel):
     action: str
+    scheduled_for: str | None = None
+
+
+class BlogGenerate(BaseModel):
+    subject: str
+    content_type: str = 'track_spotlight'
+    notes: str | None = None
 
 
 @router.get('/auth/state')
@@ -305,6 +316,37 @@ def shield_ingest(req: ShieldIngest, request: Request, x_pitmark_admin_key: str 
         return serialize(ev)
 
 
+@router.post('/shield/test')
+def shield_test(req: ShieldTestRequest, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    enforce_rate_limit(request, 'shield-test', 6, 300)
+    samples = [
+        ('legit', 'customer@example.com', 'Question about my order', 'Hi, I bought from Pitmark and had a size question about my order.'),
+        ('review', 'hello@example.net', 'Quick question', 'Is this the owner? I wanted to talk briefly about the store.'),
+        ('spam', 'growth@example.biz', 'Store growth question', 'Your store has potential. We can increase conversions and increase your sales with our SEO services and marketing agency.'),
+        ('system', 'no-reply@shopify.com', 'Shopify security notification', 'Security notice for your Shopify account.'),
+    ]
+    created = []
+    stamp = str(int(__import__('time').time() * 1000))
+    with SessionLocal() as db:
+        if req.clear_previous_tests:
+            for ev in db.scalars(select(ShieldEvent).where(ShieldEvent.source_message_id.like('shield-test:%'))).all():
+                db.delete(ev)
+            db.commit()
+        for kind, sender, subject, body in samples:
+            result = classify(sender, subject, body)
+            ev = ShieldEvent(
+                source_message_id=f'shield-test:{stamp}:{kind}', sender=sender, subject=subject,
+                fingerprint=fingerprint(subject, body), classification=result['classification'],
+                confidence=result['confidence'], protected=result['protected'],
+                reasons_json=json.dumps(result['reasons']),
+                action_taken='archive' if result['classification'] == 'Spam' and not result['protected'] else 'leave-accessible',
+            )
+            db.add(ev); db.flush(); created.append(serialize(ev))
+        db.commit()
+    return {'ok': True, 'created': created, 'summary': {x['classification']: sum(1 for y in created if y['classification'] == x['classification']) for x in created}}
+
+
 @router.get('/shield/events')
 def shield_events(request: Request, classification: str | None = None, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
@@ -358,6 +400,25 @@ def outreach_update(contact_id: int, req: OutreachUpdate, request: Request, x_pi
         return serialize(o)
 
 
+@router.post('/blog/generate')
+def blog_generate(req: BlogGenerate, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    subject = req.subject.strip()
+    if not subject:
+        raise HTTPException(400, 'A subject is required.')
+    notes = (req.notes or '').strip()
+    prompt = f"""Write a Pitmark Racing Co. blog draft. Content type: {req.content_type}. Subject: {subject}.
+Keep it community-first, grounded, and useful. Do not invent facts. If details are missing, write around what is known instead of making claims.
+Return a finished article draft with a strong title on the first line, then a blank line, then the body.
+Extra notes: {notes or 'none'}"""
+    ai = compose_with_ai(platform='facebook', goal='authority', prompt=prompt, tone='editorial')
+    lines = [x.strip() for x in ai.body.splitlines()]
+    title = next((x.lstrip('# ').strip() for x in lines if x.strip()), subject)
+    body_lines = lines[lines.index(next(x for x in lines if x.strip())) + 1:] if any(x.strip() for x in lines) else []
+    body = '\n'.join(body_lines).strip() or ai.body.strip()
+    return {'title': title[:240], 'body_html': body, 'content_type': req.content_type, 'provider': ai.provider, 'model': ai.model}
+
+
 @router.post('/blog/drafts')
 def blog_create(req: BlogCreate, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
@@ -379,14 +440,35 @@ def blog_list(request: Request, status: str | None = None, x_pitmark_admin_key: 
 @router.post('/blog/drafts/{draft_id}/decision')
 def blog_decide(draft_id: int, req: BlogDecision, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
-    if req.action not in {'approve', 'reject'}:
-        raise HTTPException(400, 'action must be approve or reject')
+    if req.action not in {'approve', 'reject', 'schedule', 'archive'}:
+        raise HTTPException(400, 'action must be approve, reject, schedule or archive')
     with SessionLocal() as db:
         b = db.get(BlogDraft, draft_id)
         if not b:
             raise HTTPException(404, 'Draft not found')
-        b.status = 'approved' if req.action == 'approve' else 'rejected'; b.updated_at = utcnow(); db.commit(); db.refresh(b)
+        if req.action == 'schedule':
+            if not req.scheduled_for:
+                raise HTTPException(400, 'scheduled_for is required')
+            b.status = 'scheduled'; b.scheduled_for = req.scheduled_for
+        elif req.action == 'approve':
+            b.status = 'approved'
+        elif req.action == 'reject':
+            b.status = 'rejected'
+        else:
+            b.status = 'archived'
+        b.updated_at = utcnow(); db.commit(); db.refresh(b)
         return serialize(b)
+
+@router.get('/settings/connections')
+def connection_readiness(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    return {
+        'facebook': {'connected': False, 'ready': bool(settings.meta_app_id and settings.meta_app_secret), 'label': 'Meta OAuth'},
+        'instagram': {'connected': False, 'ready': bool(settings.meta_app_id and settings.meta_app_secret), 'label': 'Meta OAuth'},
+        'tiktok': {'connected': False, 'ready': bool(settings.tiktok_client_key and settings.tiktok_client_secret), 'label': 'TikTok OAuth'},
+        'x': {'connected': False, 'ready': bool(settings.x_client_id and settings.x_client_secret), 'label': 'X OAuth'},
+    }
+
 
 @router.get('/autopilot/intelligence/status')
 def intelligence_status(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):

@@ -60,11 +60,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; "
                 "base-uri 'none'; form-action 'none'; img-src 'none'; script-src 'none'"
             )
-        elif request.url.path in {"/control", "/control.css", "/control.js", "/control-login.js"}:
+        elif request.url.path in {"/control", "/control.css", "/control.js", "/control-login.js", "/control/mobile", "/control-mobile.css", "/control-mobile.js", "/control-mobile-login.js", "/control.webmanifest", "/control-sw.js", "/control-logo-wide.png", "/control-logo-badge.png"}:
             # Control Center assets are served from Pitmark Cloud itself. Keep inline code
             # blocked while permitting same-origin CSS, JavaScript and API fetches.
             response.headers["Content-Security-Policy"] = (
-                "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; "
+                "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; "
                 "frame-ancestors 'none'; base-uri 'none'; form-action 'self'; img-src 'self'"
             )
         else:

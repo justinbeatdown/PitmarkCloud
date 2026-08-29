@@ -137,3 +137,12 @@ development-only command deployment. Production should remain `global`.
 - OAuth access/refresh tokens are encrypted at rest in the database.
 - Bot command registration is protected by `X-Pitmark-Admin-Key`.
 - No privileged Discord Gateway intents are required for the current feature set.
+
+## v0.12.0 Control Center additions
+
+- Desktop Control Center: `/control`
+- Mobile/PWA Control Center: `/control/mobile`
+- Shield synthetic test harness verifies Legit / Review / Spam / System behavior before mailbox integration.
+- Outreach supports contact method/handle, stage, supporter status, follow-up and notes using the existing durable schema.
+- Blog supports AI-assisted Track/Partner Spotlight drafting and approval/scheduling.
+- Social account cards report OAuth app readiness; live provider authorization/publishing remains intentionally disabled until provider apps are configured.
