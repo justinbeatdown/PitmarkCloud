@@ -1,3 +1,12 @@
+# Pitmark Cloud v0.9.3 — Autopilot AI Composer
+
+- Replaced Manual Composer's canned-first behavior with the real AI provider path.
+- Added OpenAI Responses API adapter using `gpt-5.6-luna` by default for low-cost social generation.
+- Added Pitmark-specific brand, racing-culture, platform, and anti-hallucination writing rules.
+- Kept deterministic fallback generation only as an outage/configuration fallback.
+- Added official supplied Pitmark wide logo and badge assets to the Control Center UI.
+- No social-platform passwords are stored or required.
+
 ## v0.9.2
 - Control Center CSP-safe frontend assets; restored styling and JavaScript without unsafe-inline.
 - Fixed admin-key Connect flow by permitting same-origin API fetches.

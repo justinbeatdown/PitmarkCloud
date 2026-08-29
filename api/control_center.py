@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from services.database import SessionLocal
 from services.control_center import SocialPost, ShieldEvent, OutreachContact, BlogDraft, classify, fingerprint, compose_fallback, serialize, utcnow
+from services.autopilot_ai import compose_with_ai
 from utils.config import settings
 
 router=APIRouter()
@@ -36,7 +37,21 @@ def status(x_pitmark_admin_key:str|None=Header(default=None)):
 @router.post('/autopilot/composer/generate')
 def compose(req:ComposeRequest,x_pitmark_admin_key:str|None=Header(default=None)):
     admin(x_pitmark_admin_key)
-    result=compose_fallback(req.platform,req.goal,req.topic or req.prompt)
+    request_text=(req.topic or req.prompt).strip()
+    try:
+        ai=compose_with_ai(platform=req.platform,goal=req.goal,prompt=request_text,tone=req.tone)
+        result={
+            "platform":req.platform,
+            "goal":req.goal,
+            "body":ai.body,
+            "visual_suggestion":None,
+            "provider":ai.provider,
+            "model":ai.model,
+            "warnings":[],
+        }
+    except Exception as exc:
+        result=compose_fallback(req.platform,req.goal,request_text)
+        result['warnings']=[f"AI unavailable: {type(exc).__name__}"]
     result['tone']=req.tone; result['context_used']=req.use_context
     return result
 

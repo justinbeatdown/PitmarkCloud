@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     environment: str = "development"
-    app_version: str = "0.9.2"
+    app_version: str = "0.9.3"
     cors_origins: str = ""
 
     pitmark_signing_secret: str = "development-only"
@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     discord_command_scope: str = "global"
     discord_install_permissions: int = 117760
     pitmark_admin_key: str = ""
+
+    pitmark_ai_provider: str = "openai"
+    pitmark_ai_model: str = "gpt-5.6-luna"
+    pitmark_ai_timeout_seconds: float = 30.0
+    openai_api_key: str = ""
 
     shopify_shop_domain: str = ""
     shopify_client_id: str = ""
