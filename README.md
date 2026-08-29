@@ -1,6 +1,6 @@
-# Pitmark Cloud v0.8.0 — Security Foundation
+# Pitmark Cloud v0.8.1 — Security Foundation + OAuth Polish
 
-This package is the coordinated backend for Pitmark Racing Tools v0.16.0. See `SECURITY.md` and `SECURITY_DEPLOY_CHECKLIST.md` before deploying.
+This package is the coordinated backend for Pitmark Racing Tools v0.16.4. See `SECURITY.md` and `SECURITY_DEPLOY_CHECKLIST.md` before deploying.
 
 **Important:** v0.8.0 requires the new per-device credential on sensitive desktop endpoints. Older Pitmark desktop builds are intentionally incompatible with those endpoints after this deploy.
 

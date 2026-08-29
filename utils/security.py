@@ -52,9 +52,18 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
         response.headers["Cache-Control"] = "no-store"
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
-        )
+        if request.url.path == "/api/discord/oauth/callback":
+            # OAuth completion is a tiny server-rendered page. Permit only inline CSS on this
+            # one route so branding survives CSP; scripts, frames, forms, images and network
+            # resources remain blocked.
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; "
+                "base-uri 'none'; form-action 'none'; img-src 'none'; script-src 'none'"
+            )
+        else:
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+            )
         response.headers["X-Pitmark-Request-Id"] = request.headers.get("X-Request-Id") or secrets.token_hex(8)
         return response
 

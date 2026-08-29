@@ -1,3 +1,10 @@
+# v0.8.1 - OAuth Polish
+
+- Restored the branded Pitmark Discord OAuth success/failure page.
+- CSP now permits inline CSS only on the OAuth callback page; scripts, images, frames, forms, and external resources remain blocked.
+- OAuth callback validation/errors render through the same safe branded page.
+- Security Foundation behavior is otherwise unchanged.
+
 # v0.8.0 — Security Foundation
 
 - Added per-device credential registration + authentication.
@@ -9,3 +16,12 @@
 - Added credential/query log redaction.
 - Added `/api/security/status` readiness endpoint.
 - Shopify webhook remains intentionally 501 until HMAC verification is implemented.
+
+
+## v0.9.0 — Autopilot + Shield Integration
+- Added Pitmark Control Center at `/control`.
+- Migrated Autopilot approval queue/manual composer into Pitmark Cloud persistent database.
+- Added Pitmark Shield deterministic classification/history/review API.
+- Added outreach relationship pipeline and Shopify blog/Track Spotlight draft models.
+- All Control Center API endpoints require the existing X-Pitmark-Admin-Key.
+- Live social publishing, Gmail mailbox mutation, and Shopify article publishing remain connector-gated and are not silently enabled.

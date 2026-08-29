@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from utils.security import SecurityHeadersMiddleware, security_summary
 
-from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify
+from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_ui
 from utils.config import settings
 from utils.logger import configure_logging
 from services import discord_gateway_service
@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
 _production = settings.environment.strip().lower() == "production"
 app = FastAPI(
     title="Pitmark Cloud API",
-    description="Backend foundation for Pitmark Racing Tools licensing and integrations.",
+    description="Pitmark Cloud backend for Racing Tools, Autopilot, Shield, marketing workflows, licensing, and integrations.",
     version=settings.app_version,
     lifespan=lifespan,
     docs_url=None if _production else "/docs",
@@ -52,6 +52,8 @@ app.include_router(discord_bot.router, prefix="/api/discord", tags=["discord-bot
 app.include_router(live_session.router, prefix="/api/discord/session", tags=["discord-session"])
 app.include_router(results.router, prefix="/api/discord", tags=["discord-results"])
 app.include_router(shopify.router, prefix="/api/shopify", tags=["shopify"])
+app.include_router(control_center.router, prefix="/api/control", tags=["control-center"])
+app.include_router(control_center_ui.router)
 
 
 @app.get("/")
@@ -63,6 +65,7 @@ async def root() -> dict:
         "health": "/health",
         "docs": None if _production else "/docs",
         "discord_install": "/api/discord/install",
+        "control_center": "/control",
         "database": database_status(),
     }
 
