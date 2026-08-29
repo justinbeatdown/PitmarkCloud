@@ -63,3 +63,10 @@
 - Added outreach relationship pipeline and Shopify blog/Track Spotlight draft models.
 - All Control Center API endpoints require the existing X-Pitmark-Admin-Key.
 - Live social publishing, Gmail mailbox mutation, and Shopify article publishing remain connector-gated and are not silently enabled.
+
+## v0.12.1 — Opportunity Engine Foundation
+- Explainable scoring layer on top of existing Racing Intelligence; original discovery/blog workflows preserved.
+- Scores Pitmark relevance, relationship relevance, story strength, verification, timeliness, content balance and risk.
+- Rookie/first-season detection can recommend research + personalized outreach drafting.
+- Cross-checks existing Outreach relationships and exposes WHY PITMARK CARES / weaknesses in Control Center.
+- No automatic outreach or publishing.

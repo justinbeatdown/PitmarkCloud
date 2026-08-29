@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from services.database import SessionLocal
 from services.control_center import SocialPost, ShieldEvent, OutreachContact, BlogDraft, AutopilotOpportunity, classify, fingerprint, compose_fallback, serialize, utcnow
+from services.opportunity_engine import evaluate_recent
 from services.autopilot_ai import compose_with_ai
 from services.control_auth import (
     SESSION_COOKIE,
@@ -479,8 +480,112 @@ def opportunities(request: Request, x_pitmark_admin_key: str | None = Header(def
     auth(request, x_pitmark_admin_key)
     with SessionLocal() as db: return [serialize(x) for x in db.scalars(select(AutopilotOpportunity).order_by(AutopilotOpportunity.id.desc()).limit(30)).all()]
 
+@router.get('/autopilot/opportunity-engine')
+def opportunity_engine(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    rows=evaluate_recent(30)
+    return {'count':len(rows),'high_priority':sum(1 for x in rows if x['score']>=80),'review':sum(1 for x in rows if 65<=x['score']<80),'watching':sum(1 for x in rows if 50<=x['score']<65),'no_action':sum(1 for x in rows if x['score']<50),'opportunities':rows}
+
 @router.post('/autopilot/intelligence/run')
 def run_intelligence(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key); enforce_rate_limit(request,'autopilot-intelligence',4,300)
     try: return scan_now()
     except Exception as exc: raise HTTPException(502, f'Intelligence scan failed: {type(exc).__name__}')
+
+# --- Racing Community / PRT-ready foundation (v0.12.2) ---
+class CommunityEntityCreate(BaseModel):
+    entity_type: str
+    name: str
+    community_lane: str = 'real'
+    platform: str | None = None
+    external_id: str | None = None
+    region: str | None = None
+    summary: str | None = None
+    visibility: str = 'internal'
+    source_url: str | None = None
+    source_name: str | None = None
+
+class CommunityRelationshipCreate(BaseModel):
+    subject_id: int
+    predicate: str
+    object_id: int
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    source_url: str | None = None
+    source_name: str | None = None
+
+class ResearchPrepareRequest(BaseModel):
+    entity_id: int | None = None
+    opportunity_id: int | None = None
+    research_type: str = 'entity_deep_dive'
+
+@router.get('/community/entities')
+def community_entities(request: Request, q: str = '', entity_type: str | None = None, lane: str | None = None, limit: int = 50, x_admin_key: str | None = Header(default=None)):
+    auth(request, x_admin_key)
+    from services.racing_community import search_entities
+    return {'items': search_entities(q, entity_type, lane, limit)}
+
+@router.get('/community/entities/{entity_id}')
+def community_entity(entity_id: int, request: Request, x_admin_key: str | None = Header(default=None)):
+    auth(request, x_admin_key)
+    from services.racing_community import entity_detail
+    item = entity_detail(entity_id)
+    if not item: raise HTTPException(404, 'Community entity not found')
+    return item
+
+@router.post('/community/entities')
+def community_entity_create(payload: CommunityEntityCreate, request: Request, x_admin_key: str | None = Header(default=None)):
+    auth(request, x_admin_key)
+    from services.racing_community import CommunityEntity, serialize_entity, utcnow
+    allowed_types = {'racer','person','team','track','league','series','event','organization','community'}
+    allowed_lanes = {'real','sim','crossover'}
+    if payload.entity_type not in allowed_types: raise HTTPException(400, 'Unsupported entity_type')
+    if payload.community_lane not in allowed_lanes: raise HTTPException(400, 'community_lane must be real, sim, or crossover')
+    with SessionLocal() as db:
+        row = CommunityEntity(**payload.model_dump(), updated_at=utcnow())
+        db.add(row); db.commit(); db.refresh(row)
+        return serialize_entity(row)
+
+@router.post('/community/relationships')
+def community_relationship_create(payload: CommunityRelationshipCreate, request: Request, x_admin_key: str | None = Header(default=None)):
+    auth(request, x_admin_key)
+    from services.racing_community import CommunityEntity, CommunityRelationship
+    with SessionLocal() as db:
+        if not db.get(CommunityEntity, payload.subject_id) or not db.get(CommunityEntity, payload.object_id):
+            raise HTTPException(400, 'Both community entities must exist')
+        row = CommunityRelationship(**payload.model_dump())
+        db.add(row); db.commit(); db.refresh(row)
+        return {'id': row.id, 'subject_id': row.subject_id, 'predicate': row.predicate, 'object_id': row.object_id, 'confidence': row.confidence}
+
+@router.post('/community/research/prepare')
+def community_research_prepare(payload: ResearchPrepareRequest, request: Request, x_admin_key: str | None = Header(default=None)):
+    auth(request, x_admin_key)
+    from services.racing_community import CommunityEntity, ResearchJob
+    from services.control_center import AutopilotOpportunity
+    if not payload.entity_id and not payload.opportunity_id:
+        raise HTTPException(400, 'entity_id or opportunity_id is required')
+    with SessionLocal() as db:
+        entity = db.get(CommunityEntity, payload.entity_id) if payload.entity_id else None
+        opp = db.get(AutopilotOpportunity, payload.opportunity_id) if payload.opportunity_id else None
+        if payload.entity_id and not entity: raise HTTPException(404, 'Community entity not found')
+        if payload.opportunity_id and not opp: raise HTTPException(404, 'Opportunity not found')
+        # Foundation deliberately queues a durable job. Live web research is connected in the next integration layer.
+        seed = entity.name if entity else opp.headline
+        row = ResearchJob(entity_id=payload.entity_id, opportunity_id=payload.opportunity_id,
+                          research_type=payload.research_type, status='queued',
+                          brief_json=json.dumps({'subject': seed, 'research_more_supported': True,
+                                                 'required_outputs': ['verified facts','source ledger','strengths','weaknesses','PRT fit','Pitmark fit','recommended action','personalized outreach']}))
+        db.add(row); db.commit(); db.refresh(row)
+        return {'job_id': row.id, 'status': row.status, 'subject': seed, 'message': 'Research & Prepare queued. No outreach will be sent without approval.'}
+
+@router.get('/community/research/{job_id}')
+def community_research_job(job_id: int, request: Request, x_admin_key: str | None = Header(default=None)):
+    auth(request, x_admin_key)
+    from services.racing_community import ResearchJob, _json
+    with SessionLocal() as db:
+        row = db.get(ResearchJob, job_id)
+        if not row: raise HTTPException(404, 'Research job not found')
+        return {'id': row.id, 'entity_id': row.entity_id, 'opportunity_id': row.opportunity_id, 'research_type': row.research_type,
+                'status': row.status, 'completeness': row.completeness, 'verification_score': row.verification_score,
+                'brief': _json(row.brief_json, {}), 'facts_used': _json(row.facts_used_json, []),
+                'facts_omitted': _json(row.facts_omitted_json, []), 'sources': _json(row.source_urls_json, []),
+                'recommended_action': row.recommended_action, 'outreach_draft': row.outreach_draft}

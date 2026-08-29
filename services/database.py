@@ -42,6 +42,7 @@ def init_database() -> None:
     from services import persistent_store  # noqa: F401
     from services import control_center  # noqa: F401
     from services import control_auth  # noqa: F401
+    from services import racing_community  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     if not settings.database_url:
