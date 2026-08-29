@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     environment: str = "development"
-    app_version: str = "0.10.0"
+    app_version: str = "0.11.0"
     cors_origins: str = ""
 
     pitmark_signing_secret: str = "development-only"
@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     pitmark_ai_model: str = "gpt-5.6-luna"
     pitmark_ai_timeout_seconds: float = 30.0
     openai_api_key: str = ""
+    autopilot_intelligence_enabled: bool = True
+    autopilot_scan_hours: int = 6
+    autopilot_scan_query: str = "grassroots racing OR dirt track racing OR short track racing OR sim racing OR motorsports"
 
     shopify_shop_domain: str = ""
     shopify_client_id: str = ""

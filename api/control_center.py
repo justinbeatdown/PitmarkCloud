@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from services.database import SessionLocal
-from services.control_center import SocialPost, ShieldEvent, OutreachContact, BlogDraft, classify, fingerprint, compose_fallback, serialize, utcnow
+from services.control_center import SocialPost, ShieldEvent, OutreachContact, BlogDraft, AutopilotOpportunity, classify, fingerprint, compose_fallback, serialize, utcnow
 from services.autopilot_ai import compose_with_ai
 from services.control_auth import (
     SESSION_COOKIE,
@@ -22,6 +22,7 @@ from services.control_auth import (
 )
 from utils.config import settings
 from utils.security import enforce_rate_limit
+from services.autopilot_intelligence import scan_now, status as intelligence_status_data
 
 router = APIRouter()
 
@@ -386,3 +387,18 @@ def blog_decide(draft_id: int, req: BlogDecision, request: Request, x_pitmark_ad
             raise HTTPException(404, 'Draft not found')
         b.status = 'approved' if req.action == 'approve' else 'rejected'; b.updated_at = utcnow(); db.commit(); db.refresh(b)
         return serialize(b)
+
+@router.get('/autopilot/intelligence/status')
+def intelligence_status(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key); return intelligence_status_data()
+
+@router.get('/autopilot/opportunities')
+def opportunities(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    with SessionLocal() as db: return [serialize(x) for x in db.scalars(select(AutopilotOpportunity).order_by(AutopilotOpportunity.id.desc()).limit(30)).all()]
+
+@router.post('/autopilot/intelligence/run')
+def run_intelligence(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key); enforce_rate_limit(request,'autopilot-intelligence',4,300)
+    try: return scan_now()
+    except Exception as exc: raise HTTPException(502, f'Intelligence scan failed: {type(exc).__name__}')

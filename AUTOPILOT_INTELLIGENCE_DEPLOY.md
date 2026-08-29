@@ -1,0 +1,1 @@
+Pitmark Cloud v0.11.0. No new required environment variables. Existing OPENAI_API_KEY is used. Default scan interval: 6 hours. After deploy: Autopilot > Run Intelligence Now.

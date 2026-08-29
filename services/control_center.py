@@ -23,6 +23,27 @@ class SocialPost(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
+class AutopilotOpportunity(Base):
+    __tablename__ = "autopilot_opportunities"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    headline: Mapped[str] = mapped_column(Text)
+    source_name: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    relevance: Mapped[str] = mapped_column(String(20), default="review", index=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="new", index=True)
+    fingerprint: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+class AutopilotRun(Base):
+    __tablename__ = "autopilot_runs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    status: Mapped[str] = mapped_column(String(30), default="started")
+    found_count: Mapped[int] = mapped_column(Integer, default=0)
+    queued_count: Mapped[int] = mapped_column(Integer, default=0)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
 class ShieldEvent(Base):
     __tablename__ = "shield_events"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

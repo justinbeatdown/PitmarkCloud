@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from utils.security import SecurityHeadersMiddleware, security_summary
@@ -8,6 +9,7 @@ from utils.config import settings
 from utils.logger import configure_logging
 from services import discord_gateway_service
 from services.database import init_database, database_status
+from services.autopilot_intelligence import scheduler_loop
 
 configure_logging()
 
@@ -16,9 +18,11 @@ configure_logging()
 async def lifespan(app: FastAPI):
     init_database()
     await discord_gateway_service.start()
+    autopilot_task = asyncio.create_task(scheduler_loop())
     try:
         yield
     finally:
+        autopilot_task.cancel()
         await discord_gateway_service.stop()
 
 
