@@ -194,3 +194,12 @@ class OpportunitySourceMeta(Base):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     freshness: Mapped[str] = mapped_column(String(20), default="unknown", index=True)
     age_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+class AutopilotPlan(Base):
+    __tablename__ = "autopilot_plans"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    status: Mapped[str] = mapped_column(String(30), default="current", index=True)
+    summary: Mapped[str] = mapped_column(Text)
+    plan_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+

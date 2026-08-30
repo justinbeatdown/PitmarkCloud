@@ -806,3 +806,16 @@ def rookie_year_update(participant_id: int, payload: CampaignParticipantUpdate, 
         for k,v in payload.model_dump(exclude_none=True).items(): setattr(row,k,v)
         row.updated_at=utcnow(); db.commit(); db.refresh(row)
         return {'id':row.id,'stage':row.stage,'intake_status':row.intake_status,'verification_status':row.verification_status,'media_permission':row.media_permission,'guardian_status':row.guardian_status,'story_readiness':row.story_readiness}
+
+@router.get('/autopilot/planner')
+def autopilot_planner_get(request: Request, x_admin_key: str | None = Header(default=None)):
+    auth(request, x_admin_key)
+    from services.autopilot_planner import latest_plan
+    return latest_plan()
+
+@router.post('/autopilot/planner/run')
+def autopilot_planner_run(request: Request, x_admin_key: str | None = Header(default=None)):
+    auth(request, x_admin_key)
+    enforce_rate_limit(request,'autopilot-planner',12,300)
+    from services.autopilot_planner import build_plan
+    return build_plan(save=True)

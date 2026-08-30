@@ -1,4 +1,4 @@
-const CACHE='pitmark-mobile-v0.12.9';
+const CACHE='pitmark-mobile-v0.13.0';
 const STATIC=['/control-mobile.css','/control-mobile.js','/control-logo-badge.png','/control.webmanifest'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(STATIC)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));

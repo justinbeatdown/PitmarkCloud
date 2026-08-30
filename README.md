@@ -1,4 +1,13 @@
-# Pitmark Cloud v0.12.9
+# Pitmark Cloud v0.13.0
+
+## v0.13.0 — Autopilot Planner + Autonomy UI
+
+Pitmark now turns fresh intelligence, campaign state, relationship context and existing workload into a small prioritized daily plan. The Planner explicitly allows **no new content** when there is nothing useful to say, and suppresses busy-work generation when the approval queue is already full.
+
+The Autonomy Control Center is now exposed directly inside Autopilot (while remaining available in Settings), so OFF → APPROVAL → AUTO policies and permanent HUMAN ONLY red-zone boundaries are visible where Autopilot work is managed.
+
+This release preserves Intelligence freshness hardening, Notification Engine/mobile sync, Shield ecosystem security, Research Agent, Outreach Prep, Campaigns, Racing Community/PRT foundations, README/changelog continuity, and shared Cloud-first architecture.
+
 
 Pitmark Cloud is the shared backend and operations layer for the Pitmark ecosystem: Control Center, Autopilot, Shield, Campaigns, Outreach, Racing Community, and the Pitmark Racing Tools architecture.
 

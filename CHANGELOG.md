@@ -1,3 +1,19 @@
+# v0.13.0 — Autopilot Planner + Autonomy UI
+
+## Added
+- Durable Autopilot Planner plans stored in Pitmark Cloud.
+- Planner prioritizes existing approvals, campaigns, fresh intelligence and relationship context.
+- Explicit HOLD/no-content plan when Pitmark has nothing useful to add.
+- Approval-queue pressure suppresses unnecessary content generation.
+- Autonomy Control Center is now visible directly on the Autopilot page.
+
+## Preserved / Integrated
+- Freshness hardening for current opportunities.
+- Notification Engine and shared mobile state.
+- Shield ecosystem-security direction and audit layer.
+- Research Agent, Outreach Prep, Campaign Manager, Racing Community and PRT foundations.
+- Human-only red-zone boundaries for money, contracts, refunds, legal/tax, permission and security overrides.
+
 # v0.12.9 — Ecosystem Notification Engine
 
 ## Added
