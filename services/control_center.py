@@ -152,3 +152,36 @@ def serialize(obj):
         try: d['reasons']=json.loads(d.pop('reasons_json'))
         except Exception: pass
     return d
+
+class EcosystemNotification(Base):
+    __tablename__ = "pitmark_notifications"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dedupe_key: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    priority: Mapped[str] = mapped_column(String(20), default="info", index=True)
+    module: Mapped[str] = mapped_column(String(60), default="Pitmark", index=True)
+    title: Mapped[str] = mapped_column(String(240))
+    detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    action_view: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="unread", index=True)
+    delivery: Mapped[str] = mapped_column(String(40), default="in_app")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+class NotificationPreference(Base):
+    __tablename__ = "pitmark_notification_preferences"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_key: Mapped[str] = mapped_column(String(120), unique=True, index=True, default="admin")
+    quiet_hours_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    quiet_start: Mapped[str] = mapped_column(String(5), default="21:00")
+    quiet_end: Mapped[str] = mapped_column(String(5), default="08:00")
+    opportunity_push: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+class OpportunitySourceMeta(Base):
+    __tablename__ = "autopilot_opportunity_source_meta"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    opportunity_id: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    freshness: Mapped[str] = mapped_column(String(20), default="unknown", index=True)
+    age_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)

@@ -239,6 +239,32 @@ def status(request: Request, x_pitmark_admin_key: str | None = Header(default=No
         }
 
 
+
+@router.post('/notifications/sync')
+def notifications_sync(request: Request, x_admin_key: str | None = Header(default=None)):
+    auth(request, x_admin_key)
+    from services.notification_engine import sync_from_ecosystem
+    return sync_from_ecosystem()
+
+@router.get('/notifications')
+def notifications_list(request: Request, x_admin_key: str | None = Header(default=None)):
+    auth(request, x_admin_key)
+    from services.notification_engine import list_notifications
+    return {'items': list_notifications()}
+
+@router.post('/notifications/{notification_id}/read')
+def notifications_read(notification_id: int, request: Request, x_admin_key: str | None = Header(default=None)):
+    auth(request, x_admin_key)
+    from services.notification_engine import mark_read
+    if not mark_read(notification_id): raise HTTPException(404, 'Notification not found')
+    return {'ok': True}
+
+@router.get('/notifications/preferences')
+def notifications_preferences(request: Request, x_admin_key: str | None = Header(default=None)):
+    user=auth(request, x_admin_key)
+    from services.notification_engine import preferences
+    return preferences(str(user))
+
 @router.get('/brief')
 def command_brief(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
@@ -535,7 +561,15 @@ def intelligence_status(request: Request, x_pitmark_admin_key: str | None = Head
 @router.get('/autopilot/opportunities')
 def opportunities(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
-    with SessionLocal() as db: return [serialize(x) for x in db.scalars(select(AutopilotOpportunity).order_by(AutopilotOpportunity.id.desc()).limit(30)).all()]
+    with SessionLocal() as db:
+        from services.control_center import OpportunitySourceMeta
+        rows=list(db.scalars(select(AutopilotOpportunity).order_by(AutopilotOpportunity.id.desc()).limit(30)).all())
+        out=[]
+        for x in rows:
+            item=serialize(x); meta=db.scalar(select(OpportunitySourceMeta).where(OpportunitySourceMeta.opportunity_id==x.id))
+            item['freshness']=None if not meta else {'status':meta.freshness,'age_hours':meta.age_hours,'published_at':meta.published_at.isoformat() if meta.published_at else None}
+            out.append(item)
+        return out
 
 @router.get('/autopilot/opportunity-engine')
 def opportunity_engine(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
