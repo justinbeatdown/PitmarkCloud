@@ -1,3 +1,9 @@
+
+## v0.12.3.2 — Control Center Polish
+- Themed the desktop navigation scrollbar for the Pitmark dark/orange UI.
+- Standardized remaining Control Center browser error alerts onto Pitmark in-page notifications.
+- Added warning/info notification styles for future workflows.
+- Hardened Rookie Year driver-name field against browser/password-manager autofill.
 ## v0.12.0 — Mobile Control + Workflow Test Harness
 
 - Replaces the older circular Control Center badge with the new official Pitmark badge asset.

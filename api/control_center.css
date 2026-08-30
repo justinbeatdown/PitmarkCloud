@@ -32,3 +32,13 @@
 .pitmark-toast{position:fixed;right:24px;bottom:24px;z-index:9999;width:min(420px,calc(100vw - 48px));background:#0b0e0e;border:1px solid #4b5051;border-left:4px solid var(--orange);box-shadow:0 18px 55px rgba(0,0,0,.6);padding:14px 16px;color:#eee;opacity:0;transform:translateY(14px);pointer-events:none;transition:.2s ease}
 .pitmark-toast.show{opacity:1;transform:translateY(0);pointer-events:auto}.pitmark-toast strong{display:block;color:#fff;text-transform:uppercase;font-style:italic}.pitmark-toast span{display:block;color:#aeb2b2;margin-top:4px;font-size:12px}.pitmark-toast.error{border-left-color:#ff6a6a}
 @media(max-width:680px){.stats{grid-template-columns:repeat(2,1fr)}.pitmark-toast{right:12px;bottom:12px;width:calc(100vw - 24px)}}
+
+/* v0.12.3.2 themed navigation scrollbar */
+.nav{scrollbar-width:thin;scrollbar-color:#5a5f60 #0b0d0d}
+.nav::-webkit-scrollbar{width:8px}
+.nav::-webkit-scrollbar-track{background:#0b0d0d;border-left:1px solid #1c1f1f}
+.nav::-webkit-scrollbar-thumb{background:#4b5051;border:2px solid #0b0d0d;border-radius:999px}
+.nav::-webkit-scrollbar-thumb:hover{background:var(--orange)}
+.nav::-webkit-scrollbar-thumb:active{background:#ff6b1a}
+.pitmark-toast.warning{border-left-color:#f1a229}
+.pitmark-toast.info{border-left-color:#4aa4ff}
