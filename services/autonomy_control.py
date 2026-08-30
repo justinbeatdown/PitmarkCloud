@@ -46,3 +46,22 @@ def mode_for(capability:str, fallback='approval'):
     with SessionLocal() as db:
         r=db.scalar(select(AutonomyPolicy).where(AutonomyPolicy.capability==capability))
         return r.mode if r else fallback
+
+
+RANK = {'off':0,'approval':1,'auto':2,'human_only':-1}
+
+def effective_mode(capability:str, uncertainty:float=0.0, fallback='approval'):
+    """Return policy after safety downgrade. Uncertainty can only reduce autonomy."""
+    mode=mode_for(capability,fallback)
+    if mode in {'off','human_only'}: return mode
+    try: u=max(0.0,min(1.0,float(uncertainty)))
+    except Exception: u=0.0
+    if mode=='auto' and u>=0.35: return 'approval'
+    return mode
+
+def enforce(capability:str, *, uncertainty:float=0.0, allow_approval:bool=True):
+    mode=effective_mode(capability,uncertainty)
+    if mode=='off': raise PermissionError(f'{capability} is OFF in Autonomy Control Center')
+    if mode=='human_only': raise PermissionError(f'{capability} is HUMAN ONLY')
+    if mode=='approval' and not allow_approval: raise PermissionError(f'{capability} requires human approval')
+    return mode

@@ -1,5 +1,9 @@
 # Pitmark Cloud v0.13.0
 
+## v0.13.1 — Autonomy Enforcement + Ecosystem Polish
+
+Autonomy policies now begin enforcing execution boundaries in backend actions. Intelligence Discovery and Research Agent respect OFF/APPROVAL/AUTO policy, with uncertainty designed to downgrade autonomy only. The Control Center brand logo now uses the same dashboard router as sidebar navigation, and non-auth forms receive stronger browser/password-manager autofill suppression.
+
 ## v0.13.0 — Autopilot Planner + Autonomy UI
 
 Pitmark now turns fresh intelligence, campaign state, relationship context and existing workload into a small prioritized daily plan. The Planner explicitly allows **no new content** when there is nothing useful to say, and suppresses busy-work generation when the approval queue is already full.

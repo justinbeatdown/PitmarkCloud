@@ -598,6 +598,9 @@ def opportunity_engine(request: Request, x_pitmark_admin_key: str | None = Heade
 @router.post('/autopilot/intelligence/run')
 def run_intelligence(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key); enforce_rate_limit(request,'autopilot-intelligence',4,300)
+    from services.autonomy_control import enforce
+    try: enforce('intelligence_discovery', allow_approval=True)
+    except PermissionError as exc: raise HTTPException(409, str(exc))
     try: return scan_now()
     except Exception as exc: raise HTTPException(502, f'Intelligence scan failed: {type(exc).__name__}')
 
@@ -688,6 +691,9 @@ def community_relationship_create(payload: CommunityRelationshipCreate, request:
 @router.post('/community/research/prepare')
 def community_research_prepare(payload: ResearchPrepareRequest, request: Request, background_tasks: BackgroundTasks, x_admin_key: str | None = Header(default=None)):
     auth(request, x_admin_key)
+    from services.autonomy_control import enforce
+    try: enforce('research_agent', allow_approval=True)
+    except PermissionError as exc: raise HTTPException(409, str(exc))
     from services.racing_community import CommunityEntity, ResearchJob
     from services.control_center import AutopilotOpportunity
     if not payload.entity_id and not payload.opportunity_id:

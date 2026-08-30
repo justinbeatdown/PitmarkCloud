@@ -1,3 +1,12 @@
+# v0.13.1 — Autonomy Enforcement + Ecosystem Polish
+
+- Backend autonomy enforcement foundation added.
+- Intelligence Discovery and Research Agent now honor autonomy policy.
+- Uncertainty can downgrade AUTO to APPROVAL; it cannot increase autonomy.
+- Brand logo uses the Control Center dashboard router directly.
+- Stronger anti-autofill protection across Rookie Year and Outreach creation fields.
+- README updated with every release.
+
 # v0.13.0 — Autopilot Planner + Autonomy UI
 
 ## Added
