@@ -1,3 +1,7 @@
+## Current release
+
+**v0.14.1 — Shopify Live Publishing Foundation**
+
 # Pitmark Cloud v0.14.0
 
 ## v0.14.0 — Shared Intelligence Ledger

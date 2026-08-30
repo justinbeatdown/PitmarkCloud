@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from services.database import SessionLocal
-from services.control_center import SocialPost, ShieldEvent, OutreachContact, BlogDraft, AutopilotOpportunity, SecurityAuditEvent, classify, fingerprint, compose_fallback, serialize, utcnow
+from services.control_center import SocialPost, ShieldEvent, OutreachContact, BlogDraft, ShopifyPublishRecord, AutopilotOpportunity, SecurityAuditEvent, classify, fingerprint, compose_fallback, serialize, utcnow
 from services.opportunity_engine import evaluate_recent
 from services.autopilot_ai import compose_with_ai
 from services.control_auth import (
@@ -24,6 +24,8 @@ from services.control_auth import (
 from utils.config import settings
 from utils.security import enforce_rate_limit
 from services.autopilot_intelligence import scan_now, status as intelligence_status_data
+from services.autonomy_control import enforce as enforce_autonomy
+from services.shopify_service import connection_test as shopify_connection_test, list_blogs as shopify_list_blogs, publish_article as shopify_publish_article
 
 router = APIRouter()
 
@@ -825,3 +827,65 @@ def autopilot_planner_run(request: Request, x_admin_key: str | None = Header(def
     enforce_rate_limit(request,'autopilot-planner',12,300)
     from services.autopilot_planner import build_plan
     return build_plan(save=True)
+
+
+@router.get('/shopify/connection')
+def control_shopify_connection(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    try:
+        return shopify_connection_test()
+    except Exception as exc:
+        raise HTTPException(502, f'Shopify authentication failed: {exc}')
+
+
+@router.get('/shopify/blogs')
+def control_shopify_blogs(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    try:
+        return {'blogs': shopify_list_blogs()}
+    except Exception as exc:
+        raise HTTPException(502, f'Unable to load Shopify blogs: {exc}')
+
+
+@router.post('/blog/drafts/{draft_id}/shopify-publish')
+def blog_publish_shopify(draft_id: int, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    user = auth(request, x_pitmark_admin_key)
+    try:
+        enforce_autonomy('blog_publish', allow_approval=True)
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc))
+    with SessionLocal() as db:
+        b = db.get(BlogDraft, draft_id)
+        if not b:
+            raise HTTPException(404, 'Draft not found')
+        if b.status != 'approved':
+            raise HTTPException(409, 'Approve the blog draft before publishing to Shopify.')
+        existing = db.scalar(select(ShopifyPublishRecord).where(ShopifyPublishRecord.draft_id == draft_id))
+        if existing:
+            raise HTTPException(409, 'This draft already has a Shopify publish record.')
+        try:
+            blogs = shopify_list_blogs()
+            if not blogs:
+                raise RuntimeError('No Shopify blog is available. Create a blog in Shopify first.')
+            preferred = next((x for x in blogs if (x.get('handle') or '').lower() in {'news','pitmark','track-spotlight'}), blogs[0])
+            article = shopify_publish_article(
+                blog_id=preferred['id'],
+                title=b.title,
+                body_html=b.body_html,
+                image_url=b.featured_image_url,
+            )
+        except Exception as exc:
+            shield_audit('shopify_blog_publish_failed', 'warning', getattr(user, 'username', None), f'draft={draft_id}; error={exc}')
+            raise HTTPException(502, f'Shopify publish failed: {exc}')
+        rec = ShopifyPublishRecord(
+            draft_id=draft_id,
+            shopify_article_id=article['id'],
+            title=article.get('title') or b.title,
+            url=None,
+        )
+        db.add(rec)
+        b.status = 'published'
+        b.updated_at = utcnow()
+        db.commit(); db.refresh(rec); db.refresh(b)
+        shield_audit('shopify_blog_published', 'info', getattr(user, 'username', None), f'draft={draft_id}; article={article.get("id")}')
+        return {'ok': True, 'draft': serialize(b), 'shopify': article, 'blog': preferred}

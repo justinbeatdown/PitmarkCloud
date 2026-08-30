@@ -1,3 +1,13 @@
+# Pitmark Cloud Changelog
+
+## v0.14.1 — Shopify Live Publishing Foundation
+- Added real Shopify client-credentials authentication with 24-hour token caching and safe refresh.
+- Added live Shopify connection test and blog discovery endpoints.
+- Added approval-gated Shopify blog publishing from Control Center.
+- Added durable Shopify publish records and Shield audit events for publish success/failure.
+- Blog publish respects the existing `blog_publish` Autonomy policy.
+- Updated Shopify status messaging to distinguish configured credentials from authenticated connectivity.
+
 # v0.14.0 — Shared Intelligence Ledger
 
 - Added durable `racing_community_evidence` shared intelligence ledger.

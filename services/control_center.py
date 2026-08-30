@@ -83,6 +83,16 @@ class OutreachContact(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
+class ShopifyPublishRecord(Base):
+    __tablename__ = "shopify_publish_records"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    draft_id: Mapped[int] = mapped_column(Integer, index=True)
+    shopify_article_id: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(240))
+    url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="published", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
 class BlogDraft(Base):
     __tablename__ = "autopilot_blog_drafts"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
