@@ -1,3 +1,12 @@
+## v0.12.5 — Autopilot Outreach Prep + Research Agent V1.1
+- Added durable Autopilot Outreach Prep packages with approval-first status.
+- Outreach Prep shows WHY THIS MESSAGE, recommended channel, goal, verified facts used, facts excluded, and a ready-to-review message draft.
+- No outbound message is sent by this build; human approval remains required.
+- Research Agent discovery expanded across Bing web RSS, Google News, DuckDuckGo, and more racer-specific search combinations.
+- Active research-job deduping prevents repeated clicks from creating duplicate running jobs.
+- Fixed Rookie Year prospect creation so intake defaults to not sent unless the participant is explicitly added at Intake Sent stage.
+- Added Pitmark Control Center favicon assets/routes and linked them across desktop/mobile login and app views.
+
 
 ## v0.12.4 — Control Center Polish
 - Themed the desktop navigation scrollbar for the Pitmark dark/orange UI.

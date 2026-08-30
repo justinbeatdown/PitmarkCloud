@@ -127,6 +127,23 @@ def entity_detail(entity_id: int):
         } for r in relationships]
         return result
 
+class OutreachPrep(Base):
+    __tablename__ = "autopilot_outreach_preps"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    research_job_id: Mapped[int] = mapped_column(Integer, index=True)
+    entity_id: Mapped[int] = mapped_column(Integer, index=True)
+    status: Mapped[str] = mapped_column(String(40), default="ready_for_approval", index=True)
+    goal: Mapped[str] = mapped_column(String(180))
+    recommended_channel: Mapped[str] = mapped_column(String(180))
+    why_message: Mapped[str] = mapped_column(Text)
+    facts_used_json: Mapped[str] = mapped_column(Text, default="[]")
+    facts_excluded_json: Mapped[str] = mapped_column(Text, default="[]")
+    draft_message: Mapped[str] = mapped_column(Text)
+    risk_notes_json: Mapped[str] = mapped_column(Text, default="[]")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Campaign(Base):
     __tablename__ = "pitmark_campaigns"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

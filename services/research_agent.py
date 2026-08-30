@@ -17,6 +17,7 @@ from services.racing_community import CommunityEntity, ResearchJob, CampaignPart
 log = logging.getLogger('pitmark.autopilot.research')
 GOOGLE_NEWS = 'https://news.google.com/rss/search?q={}&hl=en-US&gl=US&ceid=US:en'
 DDG_HTML = 'https://html.duckduckgo.com/html/?q={}'
+BING_RSS = 'https://www.bing.com/search?format=rss&q={}'
 RACING_TERMS = (
     'racing','race','racer','speedway','motorsport','motorsports','iracing','sim racing',
     'late model','sprint car','modified','stock car','kart','nascar','indycar','imsa','dirt','oval','road course'
@@ -86,6 +87,22 @@ def _ddg_search(client: httpx.Client, query: str, limit: int = 8) -> list[dict]:
     return out
 
 
+
+def _bing_search(client: httpx.Client, query: str, limit: int = 8) -> list[dict]:
+    out = []
+    try:
+        r = client.get(BING_RSS.format(quote_plus(query)), headers={'User-Agent': 'Mozilla/5.0 PitmarkAutopilot/0.12.5'})
+        r.raise_for_status()
+        for raw in re.findall(r'<item>(.*?)</item>', r.text, re.I | re.S)[:limit]:
+            title = _tag(raw, 'title')
+            url = _tag(raw, 'link')
+            desc = _tag(raw, 'description')
+            if title and url:
+                out.append({'title': title, 'url': url, 'snippet': desc, 'source': 'Bing Web', 'search': query})
+    except Exception as exc:
+        log.info('Bing research search failed for %s: %s', query, exc)
+    return out
+
 def _dedupe(items: list[dict]) -> list[dict]:
     seen = set(); out = []
     for item in items:
@@ -116,7 +133,18 @@ def _evidence_score(name: str, item: dict, entity: CommunityEntity) -> tuple[int
 
 def _queries(entity: CommunityEntity, research_type: str) -> list[str]:
     n = f'"{entity.name}"'
-    qs = [f'{n} racing', f'{n} motorsports']
+    qs = [
+        f'{n} racing',
+        f'{n} race car',
+        f'{n} driver',
+        f'{n} speedway',
+        f'{n} race results',
+        f'{n} motorsports',
+    ]
+    if entity.region:
+        qs.extend([f'{n} racing {entity.region}', f'{n} driver {entity.region}'])
+    if entity.platform:
+        qs.append(f'{n} {entity.platform}')
     if entity.community_lane in ('sim','crossover') or entity.platform:
         qs.extend([f'{n} iRacing', f'{n} sim racing'])
     if research_type == 'rookie_deep_dive':
@@ -124,9 +152,8 @@ def _queries(entity: CommunityEntity, research_type: str) -> list[str]:
     if entity.entity_type == 'league':
         qs.extend([f'{n} iRacing league', f'{n} racing league'])
     if entity.entity_type == 'track':
-        qs.append(f'{n} speedway track')
-    # preserve order while removing duplicates
-    return list(dict.fromkeys(qs))[:6]
+        qs.extend([f'{n} speedway track', f'{n} raceway'])
+    return list(dict.fromkeys(qs))[:12]
 
 
 def _participant_context(db, entity_id: int) -> dict:
@@ -166,9 +193,10 @@ def process_job(job_id: int) -> dict:
     items = []
     with httpx.Client(timeout=14, follow_redirects=True) as client:
         for q in queries:
-            items.extend(_google_news_search(client, q, 6))
-            items.extend(_ddg_search(client, q, 6))
-    items = _dedupe(items)[:24]
+            items.extend(_bing_search(client, q, 8))
+            items.extend(_google_news_search(client, q, 5))
+            items.extend(_ddg_search(client, q, 5))
+    items = _dedupe(items)[:40]
 
     scored = []
     for item in items:

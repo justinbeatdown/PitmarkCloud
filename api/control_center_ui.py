@@ -69,3 +69,13 @@ def control_logo_wide():
 @router.get('/control-logo-badge.png', include_in_schema=False)
 def control_logo_badge():
     return FileResponse(ASSET_DIR / 'pitmark_badge.png', media_type='image/png')
+
+
+@router.get('/control-favicon.png', include_in_schema=False)
+def control_favicon():
+    return FileResponse(ASSET_DIR / 'pitmark_favicon.png', media_type='image/png', headers={'Cache-Control':'public, max-age=3600'})
+
+
+@router.get('/favicon.ico', include_in_schema=False)
+def favicon_ico():
+    return FileResponse(ASSET_DIR / 'pitmark_favicon.ico', media_type='image/x-icon', headers={'Cache-Control':'public, max-age=3600'})
