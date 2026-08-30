@@ -59,6 +59,16 @@ class ShieldEvent(Base):
     acknowledged: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
+class SecurityAuditEvent(Base):
+    __tablename__ = "shield_security_audit"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_type: Mapped[str] = mapped_column(String(80), index=True)
+    severity: Mapped[str] = mapped_column(String(20), default="info", index=True)
+    actor: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    source: Mapped[str] = mapped_column(String(80), default="control_center")
+    detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
 class OutreachContact(Base):
     __tablename__ = "marketing_outreach_contacts"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

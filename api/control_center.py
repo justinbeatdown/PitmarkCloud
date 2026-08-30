@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from services.database import SessionLocal
-from services.control_center import SocialPost, ShieldEvent, OutreachContact, BlogDraft, AutopilotOpportunity, classify, fingerprint, compose_fallback, serialize, utcnow
+from services.control_center import SocialPost, ShieldEvent, OutreachContact, BlogDraft, AutopilotOpportunity, SecurityAuditEvent, classify, fingerprint, compose_fallback, serialize, utcnow
 from services.opportunity_engine import evaluate_recent
 from services.autopilot_ai import compose_with_ai
 from services.control_auth import (
@@ -26,6 +26,15 @@ from utils.security import enforce_rate_limit
 from services.autopilot_intelligence import scan_now, status as intelligence_status_data
 
 router = APIRouter()
+
+def shield_audit(event_type: str, severity: str = 'info', actor: str | None = None, detail: str | None = None):
+    try:
+        with SessionLocal() as db:
+            db.add(SecurityAuditEvent(event_type=event_type, severity=severity, actor=actor, detail=detail))
+            db.commit()
+    except Exception:
+        pass
+
 
 
 def auth(request: Request, admin_key: str | None):
@@ -181,7 +190,9 @@ def login(req: LoginRequest, request: Request, response: Response):
         raise HTTPException(409, 'Control Center setup is required.')
     user = authenticate_password(req.username, req.password)
     if not user:
+        shield_audit('control_login_failed','warning',req.username,'Invalid credentials')
         raise HTTPException(401, 'Invalid username or password.')
+    shield_audit('control_login_success','info',user.username,'Signed Control Center session issued')
     set_session_cookie(response, issue_session(user))
     return {'ok': True, 'username': user.username}
 
@@ -207,6 +218,7 @@ def change_control_password(req: ChangePasswordRequest, request: Request, respon
         change_password(user.id, req.current_password, req.new_password)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
+    shield_audit('control_password_changed','warning',user.username,'Password changed; existing browser session revoked')
     response.delete_cookie(SESSION_COOKIE, path='/', samesite='strict')
     return {'ok': True, 'reauthenticate': True}
 
@@ -256,9 +268,18 @@ def shield_status(request: Request, x_pitmark_admin_key: str | None = Header(def
             'discord_signature_verification': bool(sec.get('discord_signature_verification')),
             'oauth_tokens_encrypted_at_rest': bool(sec.get('oauth_tokens_encrypted_at_rest')),
             'persistent_database': bool(database_status().get('durable_for_render')),
+            'security_audit_log': True,
         },
         'next_layers': ['account protection','device security','API authorization','integration/webhook validation','security audit events'],
     }
+
+
+@router.get('/shield/audit')
+def shield_audit_events(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    with SessionLocal() as db:
+        rows=list(db.scalars(select(SecurityAuditEvent).order_by(SecurityAuditEvent.id.desc()).limit(30)).all())
+        return [serialize(x) for x in rows]
 
 
 @router.post('/autopilot/composer/generate')

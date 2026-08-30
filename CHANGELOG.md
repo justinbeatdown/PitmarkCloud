@@ -1,3 +1,10 @@
+# v0.12.7 — Intelligence V2 + Shield Account Protection
+
+- Added Autopilot Intelligence V2 community-fit scoring, targeted discovery queries, story dedupe, and stricter candidate drafting.
+- Added durable Shield security audit events for Control Center login success/failure and password changes.
+- Added Security Audit UI and posture control to Pitmark Shield.
+- Advanced the full ecosystem release version and documentation together.
+
 ## v0.12.5 — Autopilot Outreach Prep + Research Agent V1.1
 - Added durable Autopilot Outreach Prep packages with approval-first status.
 - Outreach Prep shows WHY THIS MESSAGE, recommended channel, goal, verified facts used, facts excluded, and a ready-to-review message draft.

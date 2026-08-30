@@ -1,4 +1,4 @@
-# Pitmark Cloud v0.12.6
+# Pitmark Cloud v0.12.7
 
 Pitmark Cloud is the shared backend and operations layer for the Pitmark Racing ecosystem. The Control Center, Autopilot, Pitmark Shield, Campaigns, Outreach, Racing Community, and Pitmark Racing Tools foundations are designed to share the same data, security, relationship, and entitlement infrastructure rather than evolve as separate products.
 
@@ -11,6 +11,36 @@ Pitmark Cloud is the shared backend and operations layer for the Pitmark Racing 
 - **Racing Community** — shared relationship/entity layer for racers, teams, tracks, leagues, series, organizations, and crossover real/sim communities.
 - **Outreach** — relationship pipeline for tracks, leagues, teams, partners, and community contacts.
 - **Pitmark Racing Tools foundations** — licensing, device security, Discord, race-result services, and future profile/league APIs.
+
+
+## v0.12.7 — Intelligence V2 + Shield Account Protection
+
+This ecosystem release advances Autopilot and Shield together.
+
+### Autopilot Intelligence V2
+
+- Expands discovery across three targeted racing-community searches instead of relying on one broad feed query.
+- Scores signals for Pitmark fit before they reach the opportunity list.
+- Strongly favors grassroots, local/short-track, dirt, rookie/first-season, iRacing, sim-league, and community signals.
+- Filters low-Pitmark-fit broad motorsports headlines before they clutter the Command Brief.
+- Adds story-level deduplication across feeds and persisted opportunities.
+- Uses a stricter threshold before generating an approval-queue social candidate. Discovery can watch a lead without automatically drafting from it.
+- Intelligence run status now records filtered and duplicate counts for easier tuning.
+
+### Pitmark Shield
+
+- Adds a durable Shield Security Audit ledger.
+- Records successful and failed Control Center sign-ins and password changes without storing passwords or credentials.
+- Adds Security Audit visibility inside the Shield Control Center view.
+- Adds Security Audit Log to the visible Shield security posture controls.
+- Communications protection remains staged until a production mailbox connector is connected; synthetic classifier events remain isolated.
+
+### Ecosystem carry-forward
+
+- Daily Command Brief remains the cross-module priority view.
+- Research Agent, Outreach Prep, Campaigns, Racing Community, PRT foundations, and approval-first external actions remain integrated.
+- README and CHANGELOG advance with the release.
+- Runtime data/caches remain excluded from deployment artifacts.
 
 ## v0.12.6 — Daily Command Brief + Shield ecosystem pass
 
