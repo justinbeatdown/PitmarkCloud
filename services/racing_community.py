@@ -63,6 +63,31 @@ class CommunityClaim(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+
+class ResearchEvidence(Base):
+    """Durable, reusable evidence discovered by Autopilot Research.
+
+    Evidence is not automatically treated as fact. Verification state and confidence
+    travel with it so Campaigns, Outreach and future PRT clients can safely reuse it.
+    """
+    __tablename__ = "racing_community_evidence"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_id: Mapped[int] = mapped_column(Integer, index=True)
+    research_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    evidence_type: Mapped[str] = mapped_column(String(50), default="public_source", index=True)
+    title: Mapped[str] = mapped_column(Text)
+    source_name: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    source_url: Mapped[str] = mapped_column(Text)
+    source_domain: Mapped[str | None] = mapped_column(String(240), nullable=True, index=True)
+    identity_score: Mapped[float] = mapped_column(Float, default=0.0)
+    verification_status: Mapped[str] = mapped_column(String(30), default="lead", index=True)
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class ResearchJob(Base):
     __tablename__ = "autopilot_research_jobs"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -125,6 +150,13 @@ def entity_detail(entity_id: int):
             "confidence": r.confidence, "status": r.status, "source_url": r.source_url,
             "last_verified_at": r.last_verified_at.isoformat() if r.last_verified_at else None,
         } for r in relationships]
+        evidence = db.scalars(select(ResearchEvidence).where(ResearchEvidence.entity_id == entity_id).order_by(ResearchEvidence.updated_at.desc()).limit(50)).all()
+        result["evidence"] = [{
+            "id": e.id, "research_job_id": e.research_job_id, "title": e.title,
+            "source_name": e.source_name, "source_url": e.source_url, "source_domain": e.source_domain,
+            "identity_score": e.identity_score, "verification_status": e.verification_status,
+            "confidence": e.confidence, "last_verified_at": e.last_verified_at.isoformat() if e.last_verified_at else None,
+        } for e in evidence]
         return result
 
 class OutreachPrep(Base):

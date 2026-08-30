@@ -12,7 +12,8 @@ import httpx
 from sqlalchemy import select
 
 from services.database import SessionLocal
-from services.racing_community import CommunityEntity, ResearchJob, CampaignParticipant
+from services.shield_ecosystem import inspect_external_url, audit_blocked_research_source
+from services.racing_community import CommunityEntity, ResearchJob, CampaignParticipant, ResearchEvidence
 
 log = logging.getLogger('pitmark.autopilot.research')
 GOOGLE_NEWS = 'https://news.google.com/rss/search?q={}&hl=en-US&gl=US&ceid=US:en'
@@ -198,8 +199,21 @@ def process_job(job_id: int) -> dict:
             items.extend(_ddg_search(client, q, 5))
     items = _dedupe(items)[:40]
 
-    scored = []
+    # Shield protects the entire ecosystem, including URLs found by Autopilot.
+    # Unsafe/local/non-web targets never enter the reusable intelligence ledger.
+    safe_items = []
+    blocked_count = 0
     for item in items:
+        verdict = inspect_external_url(item.get('url', ''))
+        if not verdict.get('safe'):
+            blocked_count += 1
+            audit_blocked_research_source(item.get('url', ''), verdict.get('reason', 'unsafe source'), job.id)
+            continue
+        item = dict(item); item['source_domain'] = verdict.get('domain')
+        safe_items.append(item)
+
+    scored = []
+    for item in safe_items:
         score, reasons = _evidence_score(entity_snapshot['name'], item, entity)
         item = dict(item); item['identity_score'] = score; item['match_reasons'] = reasons
         if score >= 35:
@@ -264,6 +278,7 @@ def process_job(job_id: int) -> dict:
         'identity_confidence': identity_conf,
         'verification_score': verification,
         'source_count': len(scored),
+        'shield_blocked_source_count': blocked_count,
         'strong_source_count': len(strong),
         'plausible_source_count': len(plausible),
         'verified_external_identity': corroborated,
@@ -288,6 +303,45 @@ def process_job(job_id: int) -> dict:
     with SessionLocal() as db:
         job = db.get(ResearchJob, job_id)
         job.status = 'verifying'; job.updated_at = utcnow(); db.commit()
+
+        # Shared Racing Community intelligence ledger. Reuse evidence across Campaigns,
+        # Outreach and future PRT clients instead of rediscovering it in each module.
+        for source in scored[:12]:
+            existing = db.scalar(select(ResearchEvidence).where(
+                ResearchEvidence.entity_id == entity_snapshot['id'],
+                ResearchEvidence.source_url == source['url']
+            ))
+            status = 'verified' if corroborated and source['identity_score'] >= 75 else ('supported' if source['identity_score'] >= 55 else 'lead')
+            confidence = min(100.0, float(source['identity_score']))
+            if existing:
+                existing.research_job_id = job.id
+                existing.title = source['title']
+                existing.source_name = source.get('source')
+                existing.source_domain = source.get('source_domain') or urlparse(source['url']).netloc.lower().removeprefix('www.')
+                existing.identity_score = float(source['identity_score'])
+                existing.verification_status = status
+                existing.confidence = confidence
+                existing.last_verified_at = utcnow()
+                existing.updated_at = utcnow()
+            else:
+                db.add(ResearchEvidence(
+                    entity_id=entity_snapshot['id'], research_job_id=job.id, title=source['title'],
+                    source_name=source.get('source'), source_url=source['url'],
+                    source_domain=source.get('source_domain') or urlparse(source['url']).netloc.lower().removeprefix('www.'),
+                    identity_score=float(source['identity_score']), verification_status=status, confidence=confidence,
+                    last_verified_at=utcnow(), updated_at=utcnow()
+                ))
+
+        entity_row = db.get(CommunityEntity, entity_snapshot['id'])
+        if entity_row:
+            # Research can raise confidence only when corroborated; otherwise it records
+            # evidence without pretending an uncertain identity is verified.
+            entity_row.identity_confidence = max(float(entity_row.identity_confidence or 0), float(identity_conf))
+            if corroborated:
+                entity_row.verification_status = 'supported'
+                entity_row.last_verified_at = utcnow()
+            entity_row.updated_at = utcnow()
+
         job.status = 'complete'
         job.completeness = float(completeness)
         job.verification_score = float(verification)

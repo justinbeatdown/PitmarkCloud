@@ -1,3 +1,14 @@
+# v0.14.0 — Shared Intelligence Ledger
+
+- Added durable `racing_community_evidence` shared intelligence ledger.
+- Research Agent persists source provenance, identity score, confidence and verification state for safe reuse.
+- Corroborated research can raise Community identity confidence without promoting uncertain evidence to fact.
+- Shield now gates Research Agent URLs and audits blocked unsafe/local/non-web targets.
+- Community entity detail API exposes reusable evidence for Campaigns, Outreach and future PRT clients.
+- Dashboard counters are clickable and use a quiet orange attention state when non-zero.
+- Mobile remains backed by the same Cloud services; no duplicated mobile intelligence logic.
+- README/version metadata advanced with the ecosystem.
+
 # v0.13.1 — Autonomy Enforcement + Ecosystem Polish
 
 - Backend autonomy enforcement foundation added.

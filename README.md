@@ -1,4 +1,20 @@
-# Pitmark Cloud v0.13.0
+# Pitmark Cloud v0.14.0
+
+## v0.14.0 — Shared Intelligence Ledger
+
+Pitmark's Research Agent now writes reusable, confidence-aware evidence into the shared Racing Community layer instead of leaving research trapped inside a single job. Campaigns, Outreach and future Pitmark Racing Tools clients can build on the same durable evidence without repeating discovery work.
+
+- **Research Agent:** live background research, identity scoring, corroboration and durable evidence reuse.
+- **Racing Community:** new `racing_community_evidence` ledger with source, domain, confidence, verification state and research-job provenance.
+- **Safe reuse:** evidence remains explicitly `lead`, `supported`, or `verified`; uncertain search results never silently become facts.
+- **Shield:** public research URLs now pass an ecosystem security gate before entering Pitmark memory. Local/private targets, credential-bearing URLs and non-web schemes are blocked and audited.
+- **Campaigns + Outreach:** continue consuming the same Research Job and Community identity context; no duplicate subsystem research architecture.
+- **PRT foundation:** entity detail API now exposes the reusable evidence ledger for future scoped Racing Tools clients.
+- **Dashboard:** operational counters are clickable; non-zero counters receive a quiet orange attention state and route directly to the relevant module.
+- **Mobile:** remains Cloud-first; the same backend intelligence/security records are available to mobile without duplicating logic.
+- **Docs:** README and changelog advance with the ecosystem release.
+
+The governing rule remains: **build the capability once in Pitmark Cloud, then expose it safely everywhere it belongs.**
 
 ## v0.13.1 — Autonomy Enforcement + Ecosystem Polish
 
