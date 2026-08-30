@@ -110,3 +110,19 @@
 - Rookie Year cards now show live research state and an expandable Research Brief.
 - Added Research More action and automatic status refresh while jobs are active.
 - Research never sends external outreach automatically.
+
+## v0.12.6 — Pitmark Ecosystem / Daily Command Brief
+
+- Added cross-ecosystem Daily Command Brief to the Control Center Dashboard.
+- Added Critical, Action Required, Opportunities, Info, and Caught Up prioritization.
+- Added deep links from Command Brief items into relevant Control Center modules.
+- Reframed Pitmark Shield as the ecosystem security layer.
+- Added Shield Security Posture view for active server-side protections.
+- Added explicit Shield production mailbox connection state.
+- Hid `shield-test:*` synthetic events from production Shield queues, dashboard counts, and Command Brief.
+- Kept Shield synthetic classifier harness available without polluting operational data.
+- Restored Rookie Year View Research / Check Research controls after v0.12.5 regression.
+- Preserved Outreach Prep and Research Agent approval-first workflow.
+- Corrected default Rookie intake status to `not_sent`.
+- Updated README to describe the current unified Pitmark architecture and release state.
+- Clean release packaging excludes runtime databases, `data/`, bytecode, and cache directories.

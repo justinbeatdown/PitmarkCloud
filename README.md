@@ -1,148 +1,106 @@
-# Pitmark Cloud v0.8.1 — Security Foundation + OAuth Polish
+# Pitmark Cloud v0.12.6
 
-This package is the coordinated backend for Pitmark Racing Tools v0.16.4. See `SECURITY.md` and `SECURITY_DEPLOY_CHECKLIST.md` before deploying.
+Pitmark Cloud is the shared backend and operations layer for the Pitmark Racing ecosystem. The Control Center, Autopilot, Pitmark Shield, Campaigns, Outreach, Racing Community, and Pitmark Racing Tools foundations are designed to share the same data, security, relationship, and entitlement infrastructure rather than evolve as separate products.
 
-**Important:** v0.8.0 requires the new per-device credential on sensitive desktop endpoints. Older Pitmark desktop builds are intentionally incompatible with those endpoints after this deploy.
+## Current ecosystem
 
-# Pitmark Cloud v0.7.0
+- **Pitmark Control Center** — desktop/mobile operations UI for the whole ecosystem.
+- **Autopilot** — content generation, racing intelligence, research, opportunity evaluation, approval queues, and Outreach Prep.
+- **Pitmark Shield** — ecosystem security layer. Communications classification is one capability; Shield is also the home for account, device, API, integration, request, token, and audit protection as those layers come online.
+- **Campaign Manager** — durable campaign workflows including Rookie Year 2026.
+- **Racing Community** — shared relationship/entity layer for racers, teams, tracks, leagues, series, organizations, and crossover real/sim communities.
+- **Outreach** — relationship pipeline for tracks, leagues, teams, partners, and community contacts.
+- **Pitmark Racing Tools foundations** — licensing, device security, Discord, race-result services, and future profile/league APIs.
 
-Pitmark Cloud is the always-on backend for Pitmark Racing Tools.
+## v0.12.6 — Daily Command Brief + Shield ecosystem pass
 
-## Current architecture
+This release advances the ecosystem together instead of treating modules as isolated projects.
 
-- FastAPI web service on Render
-- Discord HTTP Interactions for slash commands
-- Discord Gateway connection for continuous Online presence
-- Public/global Discord commands
-- Discord user OAuth with `identify guilds`
-- Per-guild Pitmark configuration
-- SQLAlchemy persistence for guild settings, Discord links/tokens, and published race results
-- Live iRacing session bridge for `/session`
-- Completed-result bridge for `/driver`, `/results`, `/racecard`, and desktop Race Card sharing
+### Daily Command Brief
 
-## Public Discord setup
+The Control Center Dashboard now answers **“Does Pitmark need me right now?”** using live cross-module data. The brief groups current state into:
 
-The bot is designed to be installable in any Discord server.
+- Critical
+- Action Required
+- Opportunities
+- Info
+- Caught Up
 
-`GET /api/discord/install` returns the public installation URL using the minimum Pitmark permission set.
+It currently surfaces real Shield review items, Autopilot post approvals, Outreach Prep approvals, failed research jobs, returned Rookie Year intakes, new racing opportunities, active research, blog drafts, and core security/database posture. Items deep-link to the relevant Control Center area.
 
-Server managers configure their own server:
+### Pitmark Shield
 
-- `/pitmark setup channel:#channel` — choose the channel used by the Windows app's Share to Discord action.
-- `/pitmark config` — show the server's current Pitmark configuration.
-- `/pitmark reset` — remove the saved configuration.
+Shield is now explicitly presented as **Ecosystem Security**, not only email protection.
 
-Only members with **Manage Server** or **Administrator** can change setup/reset. `/pitmark config`
-is readable by normal members.
+Current visible controls include signed Control Center sessions, security headers, rate limiting, request-size limits, device identity validation, Discord signature verification, OAuth-token encryption readiness, persistent-database readiness, and communications protection status.
 
-Regular slash commands such as `/session`, `/driver`, `/results`, and `/racecard` respond in the
-channel where invoked, subject to Discord's own command/channel permissions.
+Synthetic Shield harness messages are excluded from production Review Queue counts, Shield production queues, and the Daily Command Brief. The harness remains available for safe classifier testing.
 
-## Desktop sharing
+The production mailbox connector is still not connected; the UI now says so clearly instead of making an empty queue look like a live inbox.
 
-Pitmark Racing Tools links Discord using OAuth scopes:
+### Campaigns / Autopilot fixes
 
-- `identify`
-- `guilds`
+- Restored **View Research / Check Research** on Rookie Year participant cards after the v0.12.5 UI regression.
+- Preserved Research Agent and Outreach Prep workflows.
+- New Rookie prospects default to **Intake Not Sent** unless explicitly created at the Intake Sent stage.
+- Research/Outreach remains approval-first; nothing is sent automatically.
 
-Pitmark Cloud compares the linked user's Discord server list with guilds that have completed
-`/pitmark setup`. The Race Card screen then shows only valid Pitmark-enabled destinations the user
-actually belongs to. There is no global hard-coded Discord channel.
+### Deployment hygiene
 
-Existing users upgrading from an older OAuth link should disconnect/reconnect Discord once so the
-new `guilds` scope is granted.
+- `README.md` and `CHANGELOG.md` are versioned with every ecosystem release.
+- Runtime `data/`, `__pycache__/`, `.pyc`, and other local test artifacts are excluded from release ZIPs and Git commits.
+- Production persistence must come from `DATABASE_URL`, never a bundled local database.
 
-## Always-on Render environment
+## Architecture rules
 
-The paid Render web service keeps the Pitmark Discord Gateway connected continuously, so the bot can
-remain visibly Online instead of depending on a sleeping free service.
+1. **Build a capability once and reuse it across Pitmark.** Identity verification, permissions, relationships, assets, notifications, security, and analytics should be shared services where practical.
+2. **Every release gets an ecosystem pass.** A feature is checked for effects on Autopilot, Shield, Control Center, Campaigns, Racing Community, Outreach, PRT-facing architecture, shared security/data, and documentation.
+3. **Security is part of feature design.** New external actions and data paths must fit the Shield security model rather than bolt security on later.
+4. **Uncertainty reduces autonomy.** Research may discover broadly, but unverified facts are not treated as true and external communication remains approval-first.
+5. **Secrets stay server-side.** Desktop clients must never contain Shopify Admin secrets, OpenAI keys, Discord bot secrets, or equivalent privileged credentials.
 
-Always-on compute does **not** make the service filesystem durable across deploys/restarts.
+## Production
 
-Before public multi-server launch, configure:
+Pitmark Cloud production service:
 
-`DATABASE_URL=<persistent PostgreSQL connection string>`
+`https://pitmarkcloud.onrender.com`
 
-Pitmark supports standard `postgres://` and `postgresql://` connection strings and normalizes them
-for psycopg automatically. Render Postgres or another persistent PostgreSQL provider is appropriate.
+Control Center:
 
-If `DATABASE_URL` is absent, local SQLite is used only as a development fallback. `/api/discord/bot/status`
-and `/` expose the database readiness state so this cannot be mistaken for production persistence.
+`https://pitmarkcloud.onrender.com/control`
 
-Keep `PITMARK_SIGNING_SECRET` stable. Discord OAuth refresh tokens are encrypted using a key derived
-from that secret; rotating it invalidates stored OAuth tokens and users would need to reconnect.
+### Required production foundation
 
-## Required Render environment variables
+- `ENVIRONMENT=production`
+- strong stable `PITMARK_SIGNING_SECRET`
+- strong `PITMARK_ADMIN_KEY`
+- durable PostgreSQL `DATABASE_URL`
+- provider credentials only where the corresponding integration is enabled
 
-```text
-ENVIRONMENT=production
-PITMARK_SIGNING_SECRET=<stable strong secret>
-PITMARK_ADMIN_KEY=<strong admin key>
+See `.env.example`, `SECURITY.md`, and the deployment checklists for detailed configuration.
 
-DISCORD_CLIENT_ID=<Discord application ID>
-DISCORD_CLIENT_SECRET=<Discord OAuth client secret>
-DISCORD_REDIRECT_URI=https://pitmarkcloud.onrender.com/api/discord/oauth/callback
-DISCORD_BOT_TOKEN=<Discord bot token>
-DISCORD_PUBLIC_KEY=<Discord application public key>
-DISCORD_SUPPORT_INVITE_URL=<optional support server invite>
+## Current integration status
 
-DISCORD_GATEWAY_ENABLED=true
-DISCORD_PRESENCE_TEXT=Pitmark Racing Tools
-DISCORD_PRESENCE_TYPE=watching
+- Persistent PostgreSQL: supported and required for production durability.
+- Control Center authentication: live.
+- Discord backend / gateway foundations: live where configured.
+- Autopilot AI composer: live where OpenAI credentials are configured.
+- Racing Intelligence: live public-news foundation.
+- Research Agent: live background research workflow; discovery quality continues to improve.
+- Outreach Prep: live, approval-only.
+- Shopify publishing: scaffolded, not yet live.
+- Meta / TikTok / X publishing: OAuth readiness only; publishing not yet live.
+- Shield mailbox connector: not yet live.
+- PRT public/community APIs: foundation stage; dedicated scoped customer auth remains future work.
 
-DISCORD_COMMAND_SCOPE=global
-DISCORD_INSTALL_PERMISSIONS=117760
+## Release workflow
 
-DATABASE_URL=<persistent PostgreSQL URL>
-```
+1. Unzip the release package locally.
+2. Upload the release files to the `PitmarkCloud` GitHub repository root.
+3. Do **not** upload a local `data/` folder if one exists outside the release package.
+4. Commit the changes.
+5. Let Render deploy the commit.
+6. Confirm the Control Center footer version.
+7. Run the short release smoke test in the UI.
 
-`DISCORD_GUILD_ID` is only useful if `DISCORD_COMMAND_SCOPE=guild` is intentionally used for a
-development-only command deployment. Production should remain `global`.
-
-## Deploy / update
-
-1. Push the Pitmark Cloud files to the connected GitHub repository.
-2. Let Render deploy the new commit.
-3. Check `GET /api/discord/bot/status`.
-4. Confirm:
-   - interaction endpoint configured = true
-   - command registration configured = true
-   - Gateway connected = true
-   - command scope = global
-   - database durable_for_render = true
-5. Run `POST /api/discord/bot/register` with the current `X-Pitmark-Admin-Key`.
-6. Existing desktop testers should reconnect Discord once for the `guilds` OAuth scope.
-7. Install the bot in a second test server and run `/pitmark setup` there to verify multi-server behavior.
-
-## Current command set
-
-- `/pitmark about`
-- `/pitmark setup`
-- `/pitmark config`
-- `/pitmark reset`
-- `/status`
-- `/download`
-- `/support`
-- `/account`
-- `/session`
-- `/driver`
-- `/results`
-- `/racecard`
-
-## Security
-
-- Discord bot token and client secret never ship in the Windows app.
-- Interaction requests are Ed25519 signature-verified.
-- OAuth state is HMAC-signed and expires.
-- OAuth access/refresh tokens are encrypted at rest in the database.
-- Bot command registration is protected by `X-Pitmark-Admin-Key`.
-- No privileged Discord Gateway intents are required for the current feature set.
-
-## v0.12.0 Control Center additions
-
-- Desktop Control Center: `/control`
-- Mobile/PWA Control Center: `/control/mobile`
-- Shield synthetic test harness verifies Legit / Review / Spam / System behavior before mailbox integration.
-- Outreach supports contact method/handle, stage, supporter status, follow-up and notes using the existing durable schema.
-- Blog supports AI-assisted Track/Partner Spotlight drafting and approval/scheduling.
-- Social account cards report OAuth app readiness; live provider authorization/publishing remains intentionally disabled until provider apps are configured.
+Pitmark Racing Co. — **Leave Your Mark.**

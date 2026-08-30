@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     environment: str = "development"
-    app_version: str = "0.12.5"
+    app_version: str = "0.12.6"
     cors_origins: str = ""
 
     pitmark_signing_secret: str = "development-only"

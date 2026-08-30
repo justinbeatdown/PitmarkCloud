@@ -221,10 +221,44 @@ def status(request: Request, x_pitmark_admin_key: str | None = Header(default=No
             'autopilot': True,
             'shield': True,
             'social_pending': len(db.scalars(select(SocialPost).where(SocialPost.status == 'pending')).all()),
-            'shield_review': len(db.scalars(select(ShieldEvent).where(ShieldEvent.classification == 'Review')).all()),
+            'shield_review': len(db.scalars(select(ShieldEvent).where(ShieldEvent.classification == 'Review', ~ShieldEvent.source_message_id.like('shield-test:%'))).all()),
             'outreach_contacts': len(db.scalars(select(OutreachContact)).all()),
             'blog_drafts': len(db.scalars(select(BlogDraft).where(BlogDraft.status == 'draft')).all()),
         }
+
+
+@router.get('/brief')
+def command_brief(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    from services.command_brief import build_command_brief
+    return build_command_brief()
+
+
+@router.get('/shield/status')
+def shield_status(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    from utils.security import security_summary
+    from services.database import database_status
+    sec = security_summary(environment=settings.environment, signing_secret=settings.pitmark_signing_secret, admin_key=settings.pitmark_admin_key, cors_origins=settings.cors_origin_list)
+    with SessionLocal() as db:
+        real_review = len(db.scalars(select(ShieldEvent).where(ShieldEvent.classification == 'Review', ~ShieldEvent.source_message_id.like('shield-test:%'))).all())
+    return {
+        'name': 'Pitmark Shield',
+        'purpose': 'ecosystem_security',
+        'overall': 'healthy' if sec.get('ready') else 'attention',
+        'communications': {'mailbox_connected': False, 'review_count': real_review, 'synthetic_hidden': True},
+        'controls': {
+            'signed_control_sessions': True,
+            'security_headers': bool(sec.get('security_headers')),
+            'rate_limiting': bool(sec.get('rate_limiting')),
+            'request_size_limits': bool(sec.get('max_request_body_bytes')),
+            'device_id_validation': bool(sec.get('device_id_validation')),
+            'discord_signature_verification': bool(sec.get('discord_signature_verification')),
+            'oauth_tokens_encrypted_at_rest': bool(sec.get('oauth_tokens_encrypted_at_rest')),
+            'persistent_database': bool(database_status().get('durable_for_render')),
+        },
+        'next_layers': ['account protection','device security','API authorization','integration/webhook validation','security audit events'],
+    }
 
 
 @router.post('/autopilot/composer/generate')
@@ -349,10 +383,12 @@ def shield_test(req: ShieldTestRequest, request: Request, x_pitmark_admin_key: s
 
 
 @router.get('/shield/events')
-def shield_events(request: Request, classification: str | None = None, x_pitmark_admin_key: str | None = Header(default=None)):
+def shield_events(request: Request, classification: str | None = None, include_synthetic: bool = False, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
     with SessionLocal() as db:
         q = select(ShieldEvent).order_by(ShieldEvent.id.desc())
+        if not include_synthetic:
+            q = q.where(~ShieldEvent.source_message_id.like('shield-test:%'))
         if classification:
             q = q.where(ShieldEvent.classification == classification)
         return [serialize(x) for x in db.scalars(q).all()]
@@ -524,7 +560,7 @@ class CampaignParticipantCreate(BaseModel):
     community_lane: str = 'real'
     platform: str | None = None
     stage: str = 'interested'
-    intake_status: str = 'sent'
+    intake_status: str = 'not_sent'
     notes: str | None = None
 
 
