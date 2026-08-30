@@ -78,3 +78,10 @@
 - Added participant stage, intake, verification, media-permission and guardian-status foundation.
 - Added Research & Prepare action from Rookie Year participants using the durable Research Agent job foundation.
 - Publication remains approval-first; Research & Prepare does not send outreach.
+
+## v0.12.3.1 — Campaign Manager UI Polish
+- Replaced Rookie Year Research & Prepare browser alert with a Pitmark-styled in-page toast.
+- Rookie cards now show the latest research job status and job number after refresh.
+- Fixed Campaign Manager stat spacing/layout.
+- Fixed sidebar footer/badge overlap after adding Campaigns navigation.
+- Disabled autocomplete on the Add Rookie name field to reduce credential autofill.

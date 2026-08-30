@@ -619,9 +619,12 @@ def rookie_year_campaign(request: Request, year: str = '2026', x_admin_key: str 
         campaign = ensure_rookie_year_campaign(db, year)
         rows = db.scalars(select(CampaignParticipant).where(CampaignParticipant.campaign_id == campaign.id).order_by(CampaignParticipant.updated_at.desc())).all()
         items=[]
+        from services.racing_community import ResearchJob
         for r in rows:
             e=db.get(CommunityEntity,r.entity_id)
-            items.append({'id':r.id,'entity_id':r.entity_id,'name':e.name if e else 'Unknown','stage':r.stage,'intake_status':r.intake_status,'verification_status':r.verification_status,'media_permission':r.media_permission,'guardian_status':r.guardian_status,'story_readiness':r.story_readiness,'notes':r.notes})
+            job = db.scalars(select(ResearchJob).where(ResearchJob.entity_id == r.entity_id).order_by(ResearchJob.created_at.desc())).first()
+            research = ({'id': job.id, 'status': job.status, 'completeness': job.completeness, 'verification_score': job.verification_score} if job else None)
+            items.append({'id':r.id,'entity_id':r.entity_id,'name':e.name if e else 'Unknown','stage':r.stage,'intake_status':r.intake_status,'verification_status':r.verification_status,'media_permission':r.media_permission,'guardian_status':r.guardian_status,'story_readiness':r.story_readiness,'notes':r.notes,'research_job':research})
         return {'campaign':{'id':campaign.id,'name':campaign.name,'year':campaign.cohort,'status':campaign.status,'autonomy':campaign.autonomy,'objective':campaign.objective},'participants':items}
 
 @router.post('/campaigns/rookie-year/participants')
