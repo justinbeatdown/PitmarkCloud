@@ -38,7 +38,6 @@ def shield_audit(event_type: str, severity: str = 'info', actor: str | None = No
         pass
 
 
-
 def auth(request: Request, admin_key: str | None):
     return require_control_user(request, admin_key)
 
@@ -239,7 +238,6 @@ def status(request: Request, x_pitmark_admin_key: str | None = Header(default=No
             'outreach_contacts': len(db.scalars(select(OutreachContact)).all()),
             'blog_drafts': len(db.scalars(select(BlogDraft).where(BlogDraft.status == 'draft')).all()),
         }
-
 
 
 @router.post('/notifications/sync')
@@ -867,7 +865,18 @@ def blog_publish_shopify(draft_id: int, request: Request, x_pitmark_admin_key: s
             blogs = shopify_list_blogs()
             if not blogs:
                 raise RuntimeError('No Shopify blog is available. Create a blog in Shopify first.')
-            preferred = next((x for x in blogs if (x.get('handle') or '').lower() in {'news','pitmark','track-spotlight'}), blogs[0])
+            preferred = next(
+                (
+                    x for x in blogs
+                    if (x.get('handle') or '').lower() in {
+                        'racing-culture',
+                        'news',
+                        'pitmark',
+                        'track-spotlight',
+                    }
+                ),
+                blogs[0],
+            )
             article = shopify_publish_article(
                 blog_id=preferred['id'],
                 title=b.title,
