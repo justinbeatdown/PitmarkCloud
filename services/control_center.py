@@ -178,6 +178,15 @@ class NotificationPreference(Base):
     opportunity_push: Mapped[bool] = mapped_column(Boolean, default=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
+class AutonomyPolicy(Base):
+    __tablename__ = "pitmark_autonomy_policies"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    capability: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    mode: Mapped[str] = mapped_column(String(20), default="approval", index=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    safety_class: Mapped[str] = mapped_column(String(20), default="standard")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
 class OpportunitySourceMeta(Base):
     __tablename__ = "autopilot_opportunity_source_meta"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

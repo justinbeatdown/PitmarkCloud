@@ -35,14 +35,21 @@ def scan_now():
  with SessionLocal() as db: db.add(run); db.commit(); db.refresh(run); rid=run.id
  found=queued=filtered=duplicates=0
  try:
-  queries=[settings.autopilot_scan_query,'rookie racer OR first season racing OR local speedway OR short track racing','iRacing league OR sim racing league OR grassroots motorsports']
+  queries=[f'{settings.autopilot_scan_query} when:3d','(rookie racer OR first season racing OR local speedway OR short track racing) when:3d','(iRacing league OR sim racing league OR grassroots motorsports) when:3d']
   raws=[]
-  with httpx.Client(timeout=20,follow_redirects=True,headers={'User-Agent':'PitmarkAutopilot/0.12.8'}) as c:
+  with httpx.Client(timeout=20,follow_redirects=True,headers={'User-Agent':'PitmarkAutopilot/0.12.9'}) as c:
    for q in queries:
     try: raws.extend(re.findall(r'<item>(.*?)</item>',c.get(FEED.format(quote_plus(q))).text,re.I|re.S)[:18])
     except Exception as e: log.warning('feed query failed: %s',e)
   seen_story=set()
   with SessionLocal() as db:
+   # Archive stale persisted opportunities so old articles stop surfacing in UI/Command Brief.
+   metas={m.opportunity_id:m for m in db.scalars(select(OpportunitySourceMeta)).all()}
+   for old in db.scalars(select(AutopilotOpportunity).where(AutopilotOpportunity.status=='new')).all():
+    meta=metas.get(old.id)
+    if not meta or meta.age_hours is None or meta.age_hours > 96:
+     old.status='archived_stale'
+   db.flush()
    for raw in raws:
     title,url,desc=tag(raw,'title'),tag(raw,'link'),tag(raw,'description'); pub=tag(raw,'pubDate'); text=(title+' '+desc).lower()
     published=None; age_hours=None
@@ -52,8 +59,8 @@ def scan_now():
       if published.tzinfo is None: published=published.replace(tzinfo=timezone.utc)
       age_hours=max(0,int((datetime.now(timezone.utc)-published.astimezone(timezone.utc)).total_seconds()//3600))
      except Exception: pass
-    # Current opportunity feed: seven-day hard ceiling. Older material belongs to Research Agent background context.
-    if age_hours is not None and age_hours > 168: filtered+=1; continue
+    # Current opportunity feed is deliberately strict. Missing dates and anything older than 96h are background, never current opportunities.
+    if age_hours is None or age_hours > 96: filtered+=1; continue
     if not title or not url or not any(x in text for x in TERMS): continue
     story=_story_key(title)
     if story in seen_story: duplicates+=1; continue
@@ -64,16 +71,16 @@ def scan_now():
     recent=list(db.scalars(select(AutopilotOpportunity).order_by(AutopilotOpportunity.id.desc()).limit(80)).all())
     if any(_story_key(x.headline)==story for x in recent): duplicates+=1; continue
     score,reason=_quality(title,desc)
-    if age_hours is None:
-     score-=15; reason += '; publication date unverified'
+    if age_hours<=48:
+     score+=22; reason += f'; fresh ({age_hours}h old)'
     elif age_hours<=72:
-     score+=18; reason += f'; fresh ({age_hours}h old)'
+     score+=10; reason += f'; fresh ({age_hours}h old)'
     else:
-     score-=8; reason += f'; recent ({age_hours//24}d old)'
+     score-=12; reason += f'; aging ({age_hours}h old)'
     if score<20: filtered+=1; continue
     rel='high' if score>=45 else 'medium'
     op=AutopilotOpportunity(headline=title,source_name='Google News',source_url=url,relevance=rel,reason=reason,fingerprint=fp); db.add(op); db.flush();
-    freshness='fresh' if age_hours is not None and age_hours<=72 else ('recent' if age_hours is not None else 'unknown')
+    freshness='fresh' if age_hours<=72 else 'aging'
     db.add(OpportunitySourceMeta(opportunity_id=op.id,published_at=published,age_hours=age_hours,freshness=freshness)); found+=1
     # Approval queue is intentionally stricter than discovery.
     if score>=45 and queued<3:
@@ -89,7 +96,7 @@ def scan_now():
 
 def status():
  with SessionLocal() as db:
-  r=db.scalar(select(AutopilotRun).order_by(AutopilotRun.id.desc()).limit(1)); return {'enabled':settings.autopilot_intelligence_enabled,'interval_hours':settings.autopilot_scan_hours,'version':'v2.1-freshness','last_run':None if not r else {'status':r.status,'found':r.found_count,'queued':r.queued_count,'note':r.note,'created_at':r.created_at.isoformat()}}
+  r=db.scalar(select(AutopilotRun).order_by(AutopilotRun.id.desc()).limit(1)); return {'enabled':settings.autopilot_intelligence_enabled,'interval_hours':settings.autopilot_scan_hours,'version':'v2.2-strict-freshness','last_run':None if not r else {'status':r.status,'found':r.found_count,'queued':r.queued_count,'note':r.note,'created_at':r.created_at.isoformat()}}
 async def scheduler_loop():
  await asyncio.sleep(30)
  while True:

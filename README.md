@@ -1,8 +1,8 @@
-# Pitmark Cloud v0.12.8
+# Pitmark Cloud v0.12.9
 
 Pitmark Cloud is the shared backend and operations layer for the Pitmark ecosystem: Control Center, Autopilot, Shield, Campaigns, Outreach, Racing Community, and the Pitmark Racing Tools architecture.
 
-## v0.12.8 — Ecosystem Notification Engine
+## v0.12.9 — Ecosystem Notification Engine
 
 This release introduces a Cloud-owned Notification Engine designed once for desktop, mobile, and future Pitmark clients.
 
@@ -21,3 +21,10 @@ Build a capability once in Pitmark Cloud, then expose it safely to every Pitmark
 ## Safety / autonomy
 
 Pitmark remains approval-first for external communication and publishing. Notification priority does not grant additional autonomy. Uncertainty reduces autonomy; it never increases it.
+
+
+## v0.12.9 ecosystem release
+- Autonomy Control Center provides shared OFF / APPROVAL / AUTO policies, with red-zone actions permanently HUMAN ONLY.
+- Intelligence v2.2 uses strict current-source freshness: dated sources only, Google News `when:3d`, 96-hour ceiling, stale persisted opportunities archived/hidden from current views.
+- Mobile notifications use the same Cloud sync endpoint as desktop and the PWA service worker is network-first with a versioned cache.
+- Pitmark continues to advance Autopilot, Shield, Campaigns, Outreach, Racing Community, Control Center, mobile and PRT-facing architecture as one ecosystem.

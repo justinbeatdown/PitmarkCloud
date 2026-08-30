@@ -52,3 +52,5 @@
 
 .brand-home{display:block;cursor:pointer;text-decoration:none}.brand-home:hover img{filter:brightness(1.08)}
 .notification-center .record-card[data-priority="critical"]{border-left:3px solid #ff5500}.notification-center .record-card[data-priority="action"]{border-left:3px solid #d7a400}
+/* v0.12.9 Autonomy Control Center */
+.autonomy-card small{display:block;color:var(--muted,#9da3a6);margin-top:4px}.autonomy-card .outreach-fields{margin-top:12px}.autonomy-card select{max-width:240px}

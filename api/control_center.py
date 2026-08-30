@@ -265,6 +265,24 @@ def notifications_preferences(request: Request, x_admin_key: str | None = Header
     from services.notification_engine import preferences
     return preferences(str(user))
 
+class AutonomyUpdate(BaseModel):
+    mode: str
+
+@router.get('/autonomy')
+def autonomy_list(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    from services.autonomy_control import list_policies
+    return {'policies': list_policies(), 'modes':['off','approval','auto','human_only'], 'rule':'Uncertainty reduces autonomy. It never increases it.'}
+
+@router.patch('/autonomy/{capability}')
+def autonomy_update(capability: str, payload: AutonomyUpdate, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    from services.autonomy_control import set_policy
+    try: return set_policy(capability, payload.mode)
+    except KeyError: raise HTTPException(404, 'Unknown autonomy capability')
+    except PermissionError as exc: raise HTTPException(403, str(exc))
+    except ValueError as exc: raise HTTPException(400, str(exc))
+
 @router.get('/brief')
 def command_brief(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
@@ -563,7 +581,7 @@ def opportunities(request: Request, x_pitmark_admin_key: str | None = Header(def
     auth(request, x_pitmark_admin_key)
     with SessionLocal() as db:
         from services.control_center import OpportunitySourceMeta
-        rows=list(db.scalars(select(AutopilotOpportunity).order_by(AutopilotOpportunity.id.desc()).limit(30)).all())
+        rows=list(db.scalars(select(AutopilotOpportunity).where(AutopilotOpportunity.status.in_(['new','drafted'])).order_by(AutopilotOpportunity.id.desc()).limit(30)).all())
         out=[]
         for x in rows:
             item=serialize(x); meta=db.scalar(select(OpportunitySourceMeta).where(OpportunitySourceMeta.opportunity_id==x.id))

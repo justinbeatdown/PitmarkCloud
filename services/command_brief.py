@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 
 from services.database import SessionLocal, database_status
-from services.control_center import SocialPost, ShieldEvent, OutreachContact, BlogDraft, AutopilotOpportunity
+from services.control_center import SocialPost, ShieldEvent, OutreachContact, BlogDraft, AutopilotOpportunity, OpportunitySourceMeta
 from services.racing_community import ResearchJob, OutreachPrep, CampaignParticipant, CommunityEntity
 from utils.config import settings
 from utils.security import security_summary
@@ -72,9 +72,14 @@ def build_command_brief() -> dict:
             entity = db.get(CommunityEntity, participant.entity_id)
             opportunities.append(_item('opportunity', 'Campaigns', 'Rookie intake ready to review', f"{entity.name if entity else 'Racer'} has returned intake information.", action_view='campaigns', entity_id=participant.entity_id, record_id=participant.id))
 
-        new_ops = db.scalars(select(AutopilotOpportunity).where(AutopilotOpportunity.status == 'new').order_by(AutopilotOpportunity.id.desc()).limit(3)).all()
-        for op in new_ops:
-            opportunities.append(_item('opportunity', 'Autopilot', op.headline, op.reason or 'New racing signal detected by Autopilot Intelligence.', action_view='autopilot', record_id=op.id))
+        candidate_ops = db.scalars(select(AutopilotOpportunity).where(AutopilotOpportunity.status == 'new').order_by(AutopilotOpportunity.id.desc()).limit(20)).all()
+        for op in candidate_ops:
+            meta = db.scalar(select(OpportunitySourceMeta).where(OpportunitySourceMeta.opportunity_id == op.id))
+            if not meta or meta.age_hours is None or meta.age_hours > 96:
+                continue
+            opportunities.append(_item('opportunity', 'Autopilot', op.headline, (op.reason or 'New racing signal detected by Autopilot Intelligence.') + f' · {meta.age_hours}h old', action_view='autopilot', record_id=op.id))
+            if len(opportunities) >= 3:
+                break
 
         draft_count = len(db.scalars(select(BlogDraft).where(BlogDraft.status == 'draft')).all())
         contact_count = len(db.scalars(select(OutreachContact)).all())

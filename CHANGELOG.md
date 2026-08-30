@@ -1,4 +1,4 @@
-# v0.12.8 — Ecosystem Notification Engine
+# v0.12.9 — Ecosystem Notification Engine
 
 ## Added
 - Durable Pitmark Cloud Notification Engine.
