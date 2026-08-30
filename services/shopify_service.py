@@ -111,7 +111,12 @@ def connection_test() -> dict[str, Any]:
 
 def list_blogs() -> list[dict[str, Any]]:
     data = graphql("query PitmarkBlogs { blogs(first: 25) { nodes { id title handle } } }")
-    return list(((data.get("blogs") or {}).get("nodes") or []))
+    blogs = list(((data.get("blogs") or {}).get("nodes") or []))
+    preferred_handles = {"racing-culture", "news", "pitmark", "track-spotlight"}
+    return sorted(
+        blogs,
+        key=lambda blog: 0 if (blog.get("handle") or "").lower() in preferred_handles else 1,
+    )
 
 
 def publish_article(*, blog_id: str, title: str, body_html: str, author: str = "Pitmark Racing Co.", image_url: str | None = None) -> dict[str, Any]:
