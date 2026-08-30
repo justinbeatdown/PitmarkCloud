@@ -52,3 +52,28 @@ $('changePasswordBtn').addEventListener('click',changePassword);
 (async()=>{try{await loadSession();setView(location.hash.replace('#','')||'dashboard')}catch(e){console.error(e)}})();
 
 window.addEventListener('load',()=>{clearRookieAutofill();setTimeout(clearRookieAutofill,250);setTimeout(clearRookieAutofill,900)});
+
+/* v0.12.4 Autopilot Research Agent */
+rookieCard = function(r){
+ const stages=['prospect','interested','intake_sent','submitted','verification','ready_for_review','selected','story_building','racer_review','scheduled','published','alumni'];
+ const job=r.research_job;
+ const jobStatus=job?String(job.status||'queued'):'none';
+ const jobLabel=job?`Research ${esc(jobStatus)} · Job #${job.id}`:'';
+ const view=job?`<button class="btn ghost mini" data-ry-view data-job="${job.id}">${jobStatus==='complete'?'View Research':'Check Research'}</button>`:'';
+ return `<article class="record-card rookie-card" data-id="${r.id}"><div class="record-row"><strong>${esc(r.name)}</strong><span class="status-pill">${esc(r.stage)}</span></div><div class="meta"><span>Intake: ${esc(r.intake_status)}</span><span>Verification: ${esc(r.verification_status)}</span><span>Media: ${esc(r.media_permission)}</span><span>Guardian: ${esc(r.guardian_status)}</span>${job?`<span class="research-chip research-${esc(jobStatus)}">${jobLabel}</span>`:''}</div><div class="outreach-fields"><select class="select" data-ry-stage>${stages.map(x=>`<option value="${x}" ${x===r.stage?'selected':''}>${x.replaceAll('_',' ')}</option>`).join('')}</select><select class="select" data-ry-intake><option value="not_sent" ${r.intake_status==='not_sent'?'selected':''}>Intake not sent</option><option value="sent" ${r.intake_status==='sent'?'selected':''}>Intake sent</option><option value="received" ${r.intake_status==='received'?'selected':''}>Intake received</option></select><select class="select" data-ry-media><option value="pending" ${r.media_permission==='pending'?'selected':''}>Media pending</option><option value="approved" ${r.media_permission==='approved'?'selected':''}>Media approved</option></select><button class="btn secondary mini" data-ry-save>Save</button><button class="btn mini" data-ry-research data-entity="${r.entity_id}">Research & Prepare</button>${view}</div><div class="research-detail" data-research-detail></div></article>`
+}
+function researchList(items,empty){if(!items||!items.length)return `<div class="research-empty">${esc(empty)}</div>`;return `<ul>${items.map(x=>`<li>${esc(typeof x==='string'?x:(x.claim||x.title||''))}</li>`).join('')}</ul>`}
+async function showResearch(jobId,card){
+ const box=card.querySelector('[data-research-detail]');
+ box.classList.add('show');box.innerHTML='<div class="research-loading">AUTOPILOT RESEARCH AGENT · Loading…</div>';
+ try{
+  const x=await apiCall('/api/control/community/research/'+jobId),b=x.brief||{};
+  const sources=(x.sources||b.sources||[]);
+  box.innerHTML=`<div class="research-head"><div><span class="eyebrow">AUTOPILOT RESEARCH AGENT</span><strong>${esc(b.subject||'Research Brief')}</strong></div><span class="status-pill status-${esc(x.status)}">${esc(x.status)}</span></div><div class="research-score-grid"><div><span>Completeness</span><strong>${Math.round(x.completeness||0)}%</strong></div><div><span>Verification</span><strong>${Math.round(x.verification_score||0)}%</strong></div><div><span>Identity</span><strong>${Math.round(b.identity_confidence||0)}%</strong></div><div><span>Sources</span><strong>${Number(b.source_count||sources.length||0)}</strong></div></div><div class="research-grid"><section><h4>WHAT WE KNOW</h4>${researchList(b.what_we_know,'No internal facts added yet.')}</section><section><h4>STRENGTHS</h4>${researchList(b.strengths,'No strong external identity evidence yet.')}</section><section><h4>GAPS / WEAKNESSES</h4>${researchList(b.weaknesses,'No major gaps flagged.')}</section><section><h4>AUTOPILOT RECOMMENDATION</h4><p>${esc(b.recommendation||x.recommended_action||'Research is still processing.')}</p></section></div><section class="research-sources"><h4>SOURCE LEDGER</h4>${sources.length?sources.map(s=>`<a href="${esc(s.url)}" target="_blank" rel="noopener"><span>${esc(s.title||s.url)}</span><small>${esc(s.source||'Public source')} · identity ${Math.round(s.identity_score||0)}%</small></a>`).join(''):'<div class="research-empty">No safe candidate sources found yet.</div>'}</section><div class="research-safety">${esc(b.safety_note||'Uncertain facts are not used as verified facts.')}</div>${x.status==='complete'?`<button class="btn secondary mini" data-ry-research-more data-job="${jobId}">Research More</button>`:''}`;
+ }catch(err){box.innerHTML='<div class="error-box">'+esc(err.message)+'</div>'}
+}
+$('rookieOutput').addEventListener('click',async e=>{
+ const view=e.target.closest('[data-ry-view]');if(view){e.preventDefault();e.stopPropagation();await showResearch(Number(view.dataset.job),view.closest('.rookie-card'));return}
+ const more=e.target.closest('[data-ry-research-more]');if(more){e.preventDefault();e.stopPropagation();try{more.disabled=true;more.textContent='Queuing…';const x=await apiCall('/api/control/community/research/'+more.dataset.job+'/run',{method:'POST',body:'{}'});showToast('Research More Queued',`Job #${x.job_id} is running another verification pass.`,'info');setTimeout(loadRookies,2500)}catch(err){showToast('Research Failed',err.message,'error')}finally{more.disabled=false;more.textContent='Research More'}return}
+});
+setInterval(()=>{const active=document.querySelector('[data-view-section="campaigns"].active');if(active&&[...document.querySelectorAll('.research-chip')].some(x=>/queued|researching|verifying/i.test(x.textContent)))loadRookies()},7000);

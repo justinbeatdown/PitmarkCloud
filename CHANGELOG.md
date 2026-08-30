@@ -1,5 +1,5 @@
 
-## v0.12.3.2 — Control Center Polish
+## v0.12.4 — Control Center Polish
 - Themed the desktop navigation scrollbar for the Pitmark dark/orange UI.
 - Standardized remaining Control Center browser error alerts onto Pitmark in-page notifications.
 - Added warning/info notification styles for future workflows.
@@ -91,3 +91,13 @@
 - Fixed Campaign Manager stat spacing/layout.
 - Fixed sidebar footer/badge overlap after adding Campaigns navigation.
 - Disabled autocomplete on the Add Rookie name field to reduce credential autofill.
+
+## v0.12.4 — Autopilot Research Agent V1
+- Research & Prepare now executes durable background research jobs instead of only queueing placeholders.
+- Added public-source discovery via Google News RSS and conservative public web search fallback.
+- Added identity-confidence scoring, source ledger, verification score, completeness score, gaps, strengths, and safe recommended actions.
+- External facts are not treated as verified from a name match alone; corroboration is required and uncertain facts are omitted.
+- Existing queued jobs are picked up by the Research Agent worker after deployment.
+- Rookie Year cards now show live research state and an expandable Research Brief.
+- Added Research More action and automatic status refresh while jobs are active.
+- Research never sends external outreach automatically.

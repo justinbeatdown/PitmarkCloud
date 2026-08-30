@@ -10,6 +10,7 @@ from utils.logger import configure_logging
 from services import discord_gateway_service
 from services.database import init_database, database_status
 from services.autopilot_intelligence import scheduler_loop
+from services.research_agent import research_worker_loop
 
 configure_logging()
 
@@ -19,10 +20,12 @@ async def lifespan(app: FastAPI):
     init_database()
     await discord_gateway_service.start()
     autopilot_task = asyncio.create_task(scheduler_loop())
+    research_task = asyncio.create_task(research_worker_loop())
     try:
         yield
     finally:
         autopilot_task.cancel()
+        research_task.cancel()
         await discord_gateway_service.stop()
 
 

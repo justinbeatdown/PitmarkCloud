@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hmac
 import json
-from fastapi import APIRouter, Header, HTTPException, Request, Response
+from fastapi import APIRouter, Header, HTTPException, Request, Response, BackgroundTasks
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
@@ -577,7 +577,7 @@ def community_relationship_create(payload: CommunityRelationshipCreate, request:
         return {'id': row.id, 'subject_id': row.subject_id, 'predicate': row.predicate, 'object_id': row.object_id, 'confidence': row.confidence}
 
 @router.post('/community/research/prepare')
-def community_research_prepare(payload: ResearchPrepareRequest, request: Request, x_admin_key: str | None = Header(default=None)):
+def community_research_prepare(payload: ResearchPrepareRequest, request: Request, background_tasks: BackgroundTasks, x_admin_key: str | None = Header(default=None)):
     auth(request, x_admin_key)
     from services.racing_community import CommunityEntity, ResearchJob
     from services.control_center import AutopilotOpportunity
@@ -588,13 +588,14 @@ def community_research_prepare(payload: ResearchPrepareRequest, request: Request
         opp = db.get(AutopilotOpportunity, payload.opportunity_id) if payload.opportunity_id else None
         if payload.entity_id and not entity: raise HTTPException(404, 'Community entity not found')
         if payload.opportunity_id and not opp: raise HTTPException(404, 'Opportunity not found')
-        # Foundation deliberately queues a durable job. Live web research is connected in the next integration layer.
         seed = entity.name if entity else opp.headline
         row = ResearchJob(entity_id=payload.entity_id, opportunity_id=payload.opportunity_id,
                           research_type=payload.research_type, status='queued',
                           brief_json=json.dumps({'subject': seed, 'research_more_supported': True,
                                                  'required_outputs': ['verified facts','source ledger','strengths','weaknesses','PRT fit','Pitmark fit','recommended action','personalized outreach']}))
         db.add(row); db.commit(); db.refresh(row)
+        from services.research_agent import process_job
+        background_tasks.add_task(process_job, row.id)
         return {'job_id': row.id, 'status': row.status, 'subject': seed, 'message': 'Research & Prepare queued. No outreach will be sent without approval.'}
 
 @router.get('/community/research/{job_id}')
@@ -609,6 +610,19 @@ def community_research_job(job_id: int, request: Request, x_admin_key: str | Non
                 'brief': _json(row.brief_json, {}), 'facts_used': _json(row.facts_used_json, []),
                 'facts_omitted': _json(row.facts_omitted_json, []), 'sources': _json(row.source_urls_json, []),
                 'recommended_action': row.recommended_action, 'outreach_draft': row.outreach_draft}
+
+
+@router.post('/community/research/{job_id}/run')
+def community_research_run(job_id: int, request: Request, background_tasks: BackgroundTasks, x_admin_key: str | None = Header(default=None)):
+    auth(request, x_admin_key)
+    from services.racing_community import ResearchJob
+    from services.research_agent import process_job
+    with SessionLocal() as db:
+        row = db.get(ResearchJob, job_id)
+        if not row: raise HTTPException(404, 'Research job not found')
+        row.status = 'queued'; db.commit()
+    background_tasks.add_task(process_job, job_id)
+    return {'job_id': job_id, 'status': 'queued'}
 
 
 @router.get('/campaigns/rookie-year')
