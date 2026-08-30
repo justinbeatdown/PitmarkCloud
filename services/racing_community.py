@@ -126,3 +126,40 @@ def entity_detail(entity_id: int):
             "last_verified_at": r.last_verified_at.isoformat() if r.last_verified_at else None,
         } for r in relationships]
         return result
+
+class Campaign(Base):
+    __tablename__ = "pitmark_campaigns"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(240), index=True)
+    campaign_type: Mapped[str] = mapped_column(String(60), default="custom", index=True)
+    cohort: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    objective: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="active", index=True)
+    autonomy: Mapped[str] = mapped_column(String(30), default="approval")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CampaignParticipant(Base):
+    __tablename__ = "pitmark_campaign_participants"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    campaign_id: Mapped[int] = mapped_column(Integer, index=True)
+    entity_id: Mapped[int] = mapped_column(Integer, index=True)
+    stage: Mapped[str] = mapped_column(String(50), default="prospect", index=True)
+    intake_status: Mapped[str] = mapped_column(String(30), default="not_sent")
+    verification_status: Mapped[str] = mapped_column(String(30), default="unverified")
+    media_permission: Mapped[str] = mapped_column(String(30), default="pending")
+    guardian_status: Mapped[str] = mapped_column(String(30), default="not_required")
+    story_readiness: Mapped[float] = mapped_column(Float, default=0.0)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+def ensure_rookie_year_campaign(db, year: str = "2026"):
+    row = db.scalar(select(Campaign).where(Campaign.campaign_type == "rookie_year", Campaign.cohort == year))
+    if not row:
+        row = Campaign(name=f"Rookie Year {year}", campaign_type="rookie_year", cohort=year,
+                       objective="Celebrate first-season racers and build long-term racing relationships.", status="active", autonomy="approval")
+        db.add(row); db.commit(); db.refresh(row)
+    return row

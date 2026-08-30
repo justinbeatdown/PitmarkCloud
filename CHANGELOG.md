@@ -70,3 +70,11 @@
 - Rookie/first-season detection can recommend research + personalized outreach drafting.
 - Cross-checks existing Outreach relationships and exposes WHY PITMARK CARES / weaknesses in Control Center.
 - No automatic outreach or publishing.
+
+## v0.12.3 — Rookie Year + Campaign Manager V1
+- Added durable Campaign and CampaignParticipant models.
+- Added Rookie Year 2026 campaign API and participant pipeline.
+- Added Campaigns / Rookie Year Control Center view.
+- Added participant stage, intake, verification, media-permission and guardian-status foundation.
+- Added Research & Prepare action from Rookie Year participants using the durable Research Agent job foundation.
+- Publication remains approval-first; Research & Prepare does not send outreach.

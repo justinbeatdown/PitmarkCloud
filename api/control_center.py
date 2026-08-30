@@ -518,6 +518,26 @@ class ResearchPrepareRequest(BaseModel):
     opportunity_id: int | None = None
     research_type: str = 'entity_deep_dive'
 
+class CampaignParticipantCreate(BaseModel):
+    name: str
+    campaign_year: str = '2026'
+    community_lane: str = 'real'
+    platform: str | None = None
+    stage: str = 'interested'
+    intake_status: str = 'sent'
+    notes: str | None = None
+
+
+class CampaignParticipantUpdate(BaseModel):
+    stage: str | None = None
+    intake_status: str | None = None
+    verification_status: str | None = None
+    media_permission: str | None = None
+    guardian_status: str | None = None
+    story_readiness: float | None = None
+    notes: str | None = None
+
+
 @router.get('/community/entities')
 def community_entities(request: Request, q: str = '', entity_type: str | None = None, lane: str | None = None, limit: int = 50, x_admin_key: str | None = Header(default=None)):
     auth(request, x_admin_key)
@@ -589,3 +609,41 @@ def community_research_job(job_id: int, request: Request, x_admin_key: str | Non
                 'brief': _json(row.brief_json, {}), 'facts_used': _json(row.facts_used_json, []),
                 'facts_omitted': _json(row.facts_omitted_json, []), 'sources': _json(row.source_urls_json, []),
                 'recommended_action': row.recommended_action, 'outreach_draft': row.outreach_draft}
+
+
+@router.get('/campaigns/rookie-year')
+def rookie_year_campaign(request: Request, year: str = '2026', x_admin_key: str | None = Header(default=None)):
+    auth(request, x_admin_key)
+    from services.racing_community import CampaignParticipant, CommunityEntity, ensure_rookie_year_campaign
+    with SessionLocal() as db:
+        campaign = ensure_rookie_year_campaign(db, year)
+        rows = db.scalars(select(CampaignParticipant).where(CampaignParticipant.campaign_id == campaign.id).order_by(CampaignParticipant.updated_at.desc())).all()
+        items=[]
+        for r in rows:
+            e=db.get(CommunityEntity,r.entity_id)
+            items.append({'id':r.id,'entity_id':r.entity_id,'name':e.name if e else 'Unknown','stage':r.stage,'intake_status':r.intake_status,'verification_status':r.verification_status,'media_permission':r.media_permission,'guardian_status':r.guardian_status,'story_readiness':r.story_readiness,'notes':r.notes})
+        return {'campaign':{'id':campaign.id,'name':campaign.name,'year':campaign.cohort,'status':campaign.status,'autonomy':campaign.autonomy,'objective':campaign.objective},'participants':items}
+
+@router.post('/campaigns/rookie-year/participants')
+def rookie_year_add(payload: CampaignParticipantCreate, request: Request, x_admin_key: str | None = Header(default=None)):
+    auth(request, x_admin_key)
+    from services.racing_community import CampaignParticipant, CommunityEntity, ensure_rookie_year_campaign, utcnow
+    if not payload.name.strip(): raise HTTPException(400,'Driver name is required')
+    with SessionLocal() as db:
+        campaign=ensure_rookie_year_campaign(db,payload.campaign_year)
+        entity=CommunityEntity(entity_type='racer',name=payload.name.strip(),community_lane=payload.community_lane,platform=payload.platform,visibility='internal',pitmark_tags_json=json.dumps(['rookie_year']))
+        db.add(entity); db.flush()
+        row=CampaignParticipant(campaign_id=campaign.id,entity_id=entity.id,stage=payload.stage,intake_status=payload.intake_status,notes=payload.notes,updated_at=utcnow())
+        db.add(row); db.commit(); db.refresh(row)
+        return {'id':row.id,'entity_id':entity.id,'name':entity.name,'stage':row.stage}
+
+@router.post('/campaigns/rookie-year/participants/{participant_id}')
+def rookie_year_update(participant_id: int, payload: CampaignParticipantUpdate, request: Request, x_admin_key: str | None = Header(default=None)):
+    auth(request, x_admin_key)
+    from services.racing_community import CampaignParticipant, utcnow
+    with SessionLocal() as db:
+        row=db.get(CampaignParticipant,participant_id)
+        if not row: raise HTTPException(404,'Participant not found')
+        for k,v in payload.model_dump(exclude_none=True).items(): setattr(row,k,v)
+        row.updated_at=utcnow(); db.commit(); db.refresh(row)
+        return {'id':row.id,'stage':row.stage,'intake_status':row.intake_status,'verification_status':row.verification_status,'media_permission':row.media_permission,'guardian_status':row.guardian_status,'story_readiness':row.story_readiness}
