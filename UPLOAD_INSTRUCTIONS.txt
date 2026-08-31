@@ -1,17 +1,9 @@
-Pitmark Cloud v0.16.15
+Pitmark Cloud v0.16.16
 
-Extract this ZIP over the root of the local PitmarkCloud repository.
+Extract over the root of the local PitmarkCloud repository, commit/push, and let Render deploy.
 
-Expected files:
-- services/pitmark_mail_identities.py
-- utils/config.py
-- RELEASE_v0.16.15.md
-- UPLOAD_INSTRUCTIONS.txt
-
-Commit/push and let Render deploy.
-
-Verify BOTH desktop and mobile:
-1. Support appears in the From selector.
-2. Send a test from support@mail.pitmarkracing.com.
-3. Send a test inbound to support@mail.pitmarkracing.com.
-4. Reply to that inbound message and confirm Auto sends from Support.
+Verify desktop and mobile:
+- Orders appears in From.
+- Send from orders@mail.pitmarkracing.com.
+- Receive at orders@mail.pitmarkracing.com.
+- Reply with Auto and confirm the reply is sent from Orders.

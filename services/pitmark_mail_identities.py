@@ -27,6 +27,12 @@ IDENTITIES = {
         "name": "Pitmark Racing Co. Support",
         "address": "support@mail.pitmarkracing.com",
     },
+    "orders": {
+        "key": "orders",
+        "label": "Orders",
+        "name": "Pitmark Racing Co. Orders",
+        "address": "orders@mail.pitmarkracing.com",
+    },
 }
 
 
