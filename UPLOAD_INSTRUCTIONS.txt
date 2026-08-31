@@ -1,10 +1,9 @@
-Pitmark Cloud v0.16.2 coordinated patch
+Pitmark Cloud v0.16.3 — Source Reader HTTP 202 Hotfix
 
-1. Extract this ZIP into the ROOT of your local PitmarkCloud repo and allow merge/replace.
-2. Delete these two tracked accidental files if they are still present:
-   services/__pycache__/research_agent.cpython-311.pyc
-   utils/__pycache__/config.cpython-311.pyc
-3. In GitHub Desktop, confirm the intended changes, commit, then Push origin.
-4. Render: wait for the automatic deploy, then test Create Article from Source with the Inside Track News URL on desktop and mobile.
+1. Extract this ZIP into the PitmarkCloud repository root and merge/replace.
+2. GitHub Desktop: review changes, commit, and Push origin.
+3. Let Render auto-deploy.
+4. Retest the exact Inside Track News article in desktop Control Center.
+5. Retest Create Article from Source on mobile before marking v0.16.3 complete.
 
-Do not change Resend/DNS/webhook/API secrets for this build.
+Do not change Resend, DNS, webhook, or API secrets.

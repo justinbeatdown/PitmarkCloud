@@ -198,7 +198,7 @@ def read_page_excerpt(client: httpx.Client, url: str) -> PageReadResult:
 
     # Public WordPress publishers frequently expose the post through wp-json
     # even when their front-end WAF challenges server-side readers.
-    if primary.status_code in {401, 403, 406, 429, 503} or primary.category == "content":
+    if primary.status_code in {202, 401, 403, 406, 429, 503} or primary.category == "content":
         fallback = _wordpress_fallback(client, url)
         if fallback.ok:
             log.info("Research page used WordPress fallback for %s after %s", url, primary.reason)
