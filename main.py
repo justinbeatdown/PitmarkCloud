@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from utils.security import SecurityHeadersMiddleware, security_summary
 
-from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_ui, social_publish
+from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_ui, social_publish, email_center, content_tools
 from utils.config import settings
 from utils.logger import configure_logging
 from services import discord_gateway_service
@@ -65,6 +65,9 @@ app.include_router(shopify.router, prefix="/api/shopify", tags=["shopify"])
 app.include_router(control_center.router, prefix="/api/control", tags=["control-center"])
 app.include_router(social_publish.router, prefix="/api/control/social", tags=["social-publishing"])
 app.include_router(social_publish.public_router, tags=["public-social-assets"])
+app.include_router(email_center.router, prefix="/api/control/email", tags=["email"])
+app.include_router(email_center.public_router, tags=["email-webhooks"])
+app.include_router(content_tools.router, prefix="/api/control/content", tags=["content-tools"])
 app.include_router(control_center_ui.router)
 
 

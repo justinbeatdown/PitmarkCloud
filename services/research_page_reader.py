@@ -51,7 +51,7 @@ def fetch_page_excerpt(client: httpx.Client, url: str) -> str:
         response = client.get(
             url,
             headers={
-                "User-Agent": "Mozilla/5.0 (compatible; PitmarkAutopilot/0.15.8; +https://pitmarkracing.com)"
+                "User-Agent": "Mozilla/5.0 (compatible; PitmarkAutopilot/0.16.0; +https://pitmarkracing.com)"
             },
             follow_redirects=True,
         )

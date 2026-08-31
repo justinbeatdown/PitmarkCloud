@@ -35,7 +35,11 @@ def generate_image(*, prompt: str, size: str = "1024x1024", quality: str = "medi
     pitmark_prompt = (
         "Create a polished motorsports marketing image for Pitmark Racing Co. "
         "Visual direction: dark charcoal/black, energetic racing-poster composition, gritty track texture, "
-        "orange/white accents, authentic grassroots motorsports energy, strong depth and lighting. "
+        "orange/white accents, authentic motorsports energy, strong depth and lighting. "
+        "Pitmark's grassroots identity describes the attitude and storytelling perspective, not a racing class; "
+        "never default to dirt late models, sprint cars, stock cars, or any specific discipline unless the user request supports it. "
+        "For real people or stories, do not invent a person's likeness, car number, team livery, vehicle class, or racing discipline. "
+        "When specifics are unknown, use neutral editorial motorsports imagery such as pits, garages, helmets, crews, grandstands, or track atmosphere. "
         "Do not invent, redraw, approximate, distort, or place the Pitmark logo or wordmark; leave branding-safe "
         "negative space so an official logo asset can be overlaid later if desired. Avoid generic slideshow design. "
         "No tiny unreadable text. User request: " + clean_prompt

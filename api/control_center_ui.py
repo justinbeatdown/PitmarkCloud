@@ -53,6 +53,11 @@ AUTOFILL_GUARD = r"""
 </script>
 """
 
+EMAIL_ASSETS = """
+<link rel="stylesheet" href="/control-email.css">
+<script src="/control-email.js" defer></script>
+"""
+
 
 @router.get('/control', response_class=HTMLResponse, include_in_schema=False)
 def control(request: Request):
@@ -61,7 +66,8 @@ def control(request: Request):
     if filename == 'control_center.html':
         import re
         html = re.sub(r'PITMARK CLOUD v[0-9]+(?:\.[0-9]+)*', f'PITMARK CLOUD v{settings.app_version}', html, flags=re.IGNORECASE)
-        html = html.replace('</body>', AUTOFILL_GUARD + '\n</body>')
+        html = html.replace('</head>', '<link rel="stylesheet" href="/control-email.css">\n</head>')
+        html = html.replace('</body>', AUTOFILL_GUARD + '\n<script src="/control-email.js" defer></script>\n</body>')
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
 
 
@@ -70,6 +76,12 @@ def control_css(): return Response((ASSET_DIR / 'control_center.css').read_text(
 
 @router.get('/control.js', include_in_schema=False)
 def control_js(): return Response((ASSET_DIR / 'control_center.js').read_text(encoding='utf-8'), media_type='application/javascript')
+
+@router.get('/control-email.css', include_in_schema=False)
+def control_email_css(): return Response((ASSET_DIR / 'control_email.css').read_text(encoding='utf-8'), media_type='text/css', headers={'Cache-Control':'no-store'})
+
+@router.get('/control-email.js', include_in_schema=False)
+def control_email_js(): return Response((ASSET_DIR / 'control_email.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-store'})
 
 @router.get('/control-login.js', include_in_schema=False)
 def control_login_js(): return Response((ASSET_DIR / 'control_login.js').read_text(encoding='utf-8'), media_type='application/javascript')
