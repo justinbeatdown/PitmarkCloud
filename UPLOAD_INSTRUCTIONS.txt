@@ -1,9 +1,10 @@
-Pitmark Cloud v0.17.1
+Pitmark Cloud v0.17.2
 
-Extract over repository root, commit, push, deploy.
+Extract over the PitmarkCloud repository root, commit, push, deploy.
 
-Verify desktop + mobile:
-1. PRT hero shows actual app screenshot and compact status strip.
-2. Pitmark Shield shows ACTIVE.
-3. Add Pitmark Bot opens Discord authorization/server selection.
-4. Open an inbound email and use Mark as Spam; badge should become Spam after refresh.
+Verify:
+1. Desktop Control Center: Email is back.
+2. Mobile Control Center: Email is back.
+3. Open inbound mail: Mark as Spam appears.
+4. PRT: Add Pitmark Bot opens Discord authorization/server selection.
+5. PRT: product preview matches the actual PRT build reference.

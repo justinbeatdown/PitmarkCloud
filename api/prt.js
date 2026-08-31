@@ -16,18 +16,13 @@ async function loadPrt(){
     $("botStatus").textContent=installUrl
       ?"Pitmark Bot is ready — Discord will let you choose the server."
       :"Pitmark Bot install is not configured yet.";
-    document.querySelectorAll("#installBot,#installBot2").forEach(b=>b.disabled=!installUrl);
+    
   }catch(e){
     $("discordState").textContent="UNAVAILABLE";
     $("botStatus").textContent=e.message||"Discord install is unavailable.";
-    document.querySelectorAll("#installBot,#installBot2").forEach(b=>b.disabled=true);
+    
   }
 }
-function install(){
-  window.location.assign("/api/discord/install/launch");
-}
 document.addEventListener("DOMContentLoaded",()=>{
-  $("installBot")?.addEventListener("click",install);
-  $("installBot2")?.addEventListener("click",install);
   loadPrt();
 });

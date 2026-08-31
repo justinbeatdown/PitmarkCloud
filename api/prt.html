@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0a0a0a">
   <title>Pitmark Racing Tools</title>
   <link rel="icon" href="/control-favicon.png">
-  <link rel="stylesheet" href="/prt.css?v=01701">
+  <link rel="stylesheet" href="/prt.css?v=01702">
 </head>
 <body>
   <header class="topbar">
@@ -27,7 +27,7 @@
         <h1>Race smarter.<br><em>Leave your mark.</em></h1>
         <p class="lead">Pitmark Racing Tools brings drivers, leagues and teams into one racing-first workspace for race prep, live tools, league operations and Discord integration.</p>
         <div class="hero-actions">
-          <button id="installBot" class="primary">ADD PITMARK BOT TO DISCORD</button>
+          <a id="installBot" class="primary action-link" href="/api/discord/install/launch">ADD PITMARK BOT TO DISCORD</a>
           <button class="secondary" disabled>WINDOWS APP — COMING SOON</button>
         </div>
         <p id="botStatus" class="status-line">Checking Pitmark Bot availability…</p>
@@ -63,7 +63,7 @@
         <h2>Bring PRT into your Discord server.</h2>
         <p>The first PRT onboarding action is already wired to Pitmark Cloud. Choose your server in Discord, approve the requested permissions, and the bot is installed.</p>
       </div>
-      <button id="installBot2" class="primary">ADD TO DISCORD</button>
+      <a id="installBot2" class="primary action-link" href="/api/discord/install/launch">ADD TO DISCORD</a>
     </section>
   </main>
 
@@ -71,6 +71,6 @@
     <span>PITMARK RACING CO. · LEAVE YOUR MARK.</span>
     <span>PRT v{{PITMARK_VERSION}}</span>
   </footer>
-  <script src="/prt.js?v=01701" defer></script>
+  <script src="/prt.js?v=01702" defer></script>
 </body>
 </html>
