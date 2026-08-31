@@ -1,9 +1,19 @@
-Pitmark Cloud v0.16.17
+Pitmark Cloud v0.16.18 — Shield Mail Protection
 
-Extract over the root of the local PitmarkCloud repository, commit/push, and let Render deploy.
+Extract over the root of the local PitmarkCloud repository.
 
-Verify desktop and mobile:
-- Hello / General appears in From.
-- Send from hello@mail.pitmarkracing.com.
-- Receive at hello@mail.pitmarkracing.com.
-- Reply with Auto and confirm the reply is sent from Hello.
+Expected files:
+- api/email_center.py
+- services/shield_mail.py
+- utils/config.py
+- RELEASE_v0.16.18.md
+- UPLOAD_INSTRUCTIONS.txt
+
+Commit/push and let Render deploy.
+
+Live verification:
+1. Open Pitmark Mail once (this backfills existing inbound mail into Shield).
+2. Open Shield and refresh; Pitmark Mail-origin events should now be part of Shield's event data/review count.
+3. Send a normal test email to any @mail.pitmarkracing.com identity and verify it still arrives.
+4. Send a clearly suspicious test message (for example subject/body containing 'urgent action required' and 'verify your account') and verify Shield places it in Review.
+5. Verify Pitmark Mail still works on desktop and mobile.

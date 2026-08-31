@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 from services.control_auth import require_control_user
 from services.pitmark_mail import (
     get_thread,
-    ingest_resend_event,
     list_threads,
     verify_svix_signature,
 )
@@ -16,6 +15,12 @@ from services.pitmark_mail_identities import (
     save_draft,
     send_message,
     status,
+)
+from services.shield_mail import (
+    decorate_thread,
+    decorate_threads,
+    ingest_resend_event_protected,
+    sync_unprotected_mail,
 )
 from utils.security import enforce_rate_limit
 
@@ -53,7 +58,9 @@ class MailDraft(BaseModel):
 @router.get("/status")
 def mail_status(request: Request):
     auth(request)
-    return status()
+    result = status()
+    result["shield_protection"] = sync_unprotected_mail()
+    return result
 
 
 @router.get("/identities")
@@ -65,13 +72,17 @@ def mail_identities(request: Request):
 @router.get("/threads")
 def mail_threads(request: Request, folder: str = "inbox", limit: int = 100):
     auth(request)
-    return list_threads(folder=folder, limit=limit)
+    # Backfill older inbound messages once so Shield covers the mailbox that
+    # existed before this integration release.
+    if (folder or "inbox").lower().strip() == "inbox":
+        sync_unprotected_mail()
+    return decorate_threads(list_threads(folder=folder, limit=limit))
 
 
 @router.get("/threads/{thread_id}")
 def mail_thread(thread_id: int, request: Request):
     auth(request)
-    result = get_thread(thread_id, mark_read=True)
+    result = decorate_thread(get_thread(thread_id, mark_read=True))
     if not result:
         raise HTTPException(404, "Mail thread not found.")
     return result
@@ -143,6 +154,6 @@ async def resend_webhook(request: Request):
         raise HTTPException(401, "Invalid Resend webhook signature.")
     try:
         event = await request.json()
-        return ingest_resend_event(event)
+        return ingest_resend_event_protected(event)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
