@@ -1,1 +1,10 @@
-Extract into repo root. GitHub Desktop MUST show services/research_page_reader.py and utils/config.py changed. Commit/push, deploy, retest Inside Track on desktop then mobile.
+Pitmark Cloud v0.16.7 — Corroborated Source Recovery
+
+1. Extract this ZIP into the PitmarkCloud repository root and merge/replace.
+2. GitHub Desktop MUST show services/research_page_reader.py and utils/config.py changed.
+3. Commit and Push origin.
+4. Let Render auto-deploy.
+5. Retest the Inside Track article on desktop.
+6. If desktop succeeds, test Create Article from Source on mobile before marking complete.
+
+Do not change DNS, Resend, webhook, Shopify, or API secrets.

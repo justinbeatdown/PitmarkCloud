@@ -171,30 +171,152 @@ def _wordpress_fallback(client: httpx.Client, source_url: str) -> PageReadResult
 
 
 
-def _search_cache_fallback(client: httpx.Client, source_url: str) -> PageReadResult:
-    """Last-resort public-web retrieval when a publisher WAF returns only a challenge.
+def _search_terms_from_url(source_url: str) -> list[str]:
+    """Derive conservative article identity terms from the requested permalink."""
+    parsed = urlparse(source_url)
+    slug = parsed.path.rstrip("/").split("/")[-1].lower()
+    raw = [x for x in re.split(r"[^a-z0-9]+", slug) if x]
+    stop = {
+        "the", "and", "for", "with", "from", "into", "this", "that", "wins",
+        "win", "news", "article", "race", "racing", "motorsport", "motorsports",
+    }
+    terms = [x for x in raw if len(x) >= 4 and x not in stop]
+    return list(dict.fromkeys(terms))[:10]
 
-    Queries Bing for the exact source URL and accepts only a result whose displayed
-    destination matches the requested publisher URL. Shield still validates the
-    search request and the original publisher URL before this path is reached.
+
+def _rss_items(raw: str) -> list[dict]:
+    items: list[dict] = []
+    for block in re.findall(r"<item\b[^>]*>(.*?)</item>", raw or "", re.I | re.S):
+        def tag(name: str) -> str:
+            m = re.search(fr"<{name}\b[^>]*>(.*?)</{name}>", block, re.I | re.S)
+            return _clean_html(m.group(1)) if m else ""
+        title = tag("title")
+        link = tag("link")
+        desc = tag("description")
+        if title and link.startswith(("http://", "https://")):
+            items.append({"title": title, "url": link, "snippet": desc})
+    return items
+
+
+def _term_matches(text: str, terms: list[str]) -> int:
+    low = (text or "").lower()
+    return sum(1 for term in terms if term in low)
+
+
+def _read_candidate_html(client: httpx.Client, url: str) -> tuple[str, str] | None:
+    response, failure = _safe_get(client, url)
+    if failure or response is None or response.status_code != 200:
+        return None
+    content_type = (response.headers.get("content-type") or "").lower()
+    if "text/html" not in content_type and "application/xhtml" not in content_type:
+        return None
+    excerpt = _excerpt_from_html(_decode_response(response))
+    if not excerpt:
+        return None
+    return excerpt, str(response.url)
+
+
+def _research_fallback(client: httpx.Client, source_url: str) -> PageReadResult:
+    """Recover grounded facts from independent public coverage when a publisher WAF blocks us.
+
+    This does not treat a generic search-results page as article content. It uses
+    RSS search discovery, verifies article-identity terms, then reads matching
+    public result pages through the same Shield-safe request path.
     """
     from urllib.parse import quote_plus
 
-    parsed = urlparse(source_url)
-    query = quote_plus(f'"{source_url}"')
-    search_url = f"https://www.google.com/search?q={query}"
-    response, failure = _safe_get(client, search_url)
-    if failure:
-        return PageReadResult(ok=False, reason=f"public-web fallback failed: {failure.reason}", category=failure.category, final_url=search_url)
-    assert response is not None
-    if response.status_code != 200:
-        return PageReadResult(ok=False, reason=f"public-web fallback returned HTTP {response.status_code}", category="fetch", status_code=response.status_code, final_url=str(response.url))
-    text = _excerpt_from_html(_decode_response(response))
-    host = (parsed.hostname or "").lower()
-    slug_words = [x for x in parsed.path.rstrip("/").split("/")[-1].replace("-", " ").split() if len(x) > 3]
-    if not text or host not in text.lower() or (slug_words and sum(w.lower() in text.lower() for w in slug_words) < min(3, len(slug_words))):
-        return PageReadResult(ok=False, reason="public-web fallback could not verify enough source-specific article text", category="content", status_code=200, final_url=str(response.url))
-    return PageReadResult(ok=True, excerpt=text[:MAX_PAGE_TEXT], category="ok", status_code=200, final_url=str(response.url))
+    terms = _search_terms_from_url(source_url)
+    if len(terms) < 2:
+        return PageReadResult(
+            ok=False,
+            reason="research fallback could not derive enough article identity terms",
+            category="content",
+            final_url=source_url,
+        )
+
+    query = " ".join(terms)
+    search_urls = (
+        f"https://www.bing.com/search?format=rss&q={quote_plus(query)}",
+        f"https://news.google.com/rss/search?q={quote_plus(query)}&hl=en-US&gl=US&ceid=US:en",
+    )
+
+    discovered: list[dict] = []
+    for search_url in search_urls:
+        response, failure = _safe_get(client, search_url)
+        if failure or response is None or response.status_code != 200:
+            continue
+        discovered.extend(_rss_items(_decode_response(response)))
+
+    # Keep only strongly article-specific results, then de-dupe URLs.
+    ranked: list[tuple[int, dict]] = []
+    seen_urls: set[str] = set()
+    for item in discovered:
+        url = item["url"]
+        if url in seen_urls:
+            continue
+        seen_urls.add(url)
+        evidence = f'{item.get("title","")} {item.get("snippet","")} {url}'
+        score = _term_matches(evidence, terms)
+        if score >= 3:
+            ranked.append((score, item))
+    ranked.sort(key=lambda x: x[0], reverse=True)
+
+    source_host = (urlparse(source_url).hostname or "").lower().removeprefix("www.")
+    recovered: list[tuple[int, str, str, str]] = []
+    used_domains: set[str] = set()
+
+    for score, item in ranked[:8]:
+        candidate = _read_candidate_html(client, item["url"])
+        if not candidate:
+            continue
+        excerpt, final_url = candidate
+        domain = (urlparse(final_url).hostname or "").lower().removeprefix("www.")
+        if not domain or domain == source_host or domain in used_domains:
+            continue
+        content_score = _term_matches(
+            f'{item.get("title","")} {item.get("snippet","")} {excerpt[:5000]}',
+            terms,
+        )
+        if content_score < 3:
+            continue
+        used_domains.add(domain)
+        recovered.append((content_score, item.get("title", ""), final_url, excerpt))
+        if len(recovered) >= 3:
+            break
+
+    if not recovered:
+        return PageReadResult(
+            ok=False,
+            reason="research fallback found search results but no Shield-safe corroborating article could be verified",
+            category="content",
+            final_url=source_url,
+        )
+
+    # One very strong independent article is enough; otherwise require two
+    # independently hosted corroborating pages before allowing generation.
+    strongest = max(x[0] for x in recovered)
+    if strongest < 5 and len(recovered) < 2:
+        return PageReadResult(
+            ok=False,
+            reason="research fallback found related coverage but not enough independent corroboration",
+            category="content",
+            final_url=recovered[0][2],
+        )
+
+    parts: list[str] = [
+        "RECOVERY NOTE: The requested publisher blocked direct server-side reading. "
+        "The following facts come from independently retrieved public coverage matching the requested article."
+    ]
+    for _, title, final_url, excerpt in recovered:
+        parts.append(f"\nCORROBORATING SOURCE: {title}\nURL: {final_url}\n{excerpt[:4500]}")
+    combined = "\n".join(parts)[:MAX_PAGE_TEXT]
+    return PageReadResult(
+        ok=True,
+        excerpt=combined,
+        category="ok",
+        status_code=200,
+        final_url=recovered[0][2],
+    )
 
 def read_page_excerpt(client: httpx.Client, url: str) -> PageReadResult:
     """Read a public article with Shield-safe redirects and useful diagnostics.
@@ -229,15 +351,16 @@ def read_page_excerpt(client: httpx.Client, url: str) -> PageReadResult:
         if fallback.ok:
             log.info("Research page used WordPress fallback for %s after %s", url, primary.reason)
             return fallback
-        # If the publisher WAF also intercepts its own REST API, try a public
-        # search-index representation of the exact source. This is intentionally
-        # source-specific and refuses unverified snippets.
+        # If the publisher WAF also intercepts its own REST API, recover facts
+        # from independently hosted public coverage discovered through RSS search.
+        # Candidate pages are still fetched through Shield and must strongly match
+        # the requested article's permalink identity before they are accepted.
         if primary.status_code == 202 and fallback.status_code == 202:
-            indexed = _search_cache_fallback(client, url)
-            if indexed.ok:
-                log.info("Research page used public-web fallback for %s", url)
-                return indexed
-            fallback_reason = f"{fallback.reason}; {indexed.reason}"
+            researched = _research_fallback(client, url)
+            if researched.ok:
+                log.info("Research page used corroborated research fallback for %s via %s", url, researched.final_url)
+                return researched
+            fallback_reason = f"{fallback.reason}; {researched.reason}"
         else:
             fallback_reason = fallback.reason
         combined = PageReadResult(
