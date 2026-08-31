@@ -1,9 +1,8 @@
-Pitmark Cloud v0.16.22
+Pitmark Cloud v0.16.23
 
-Extract over the repository root, commit/push, and let Render deploy.
+Extract over repository root, commit/push, Render deploy.
 
-Expected result:
-- Open Email and click Refresh.
-- The neutral Test message should update to Unverified 40%.
-- Existing phishing/review messages remain Review.
-- Desktop and mobile refresh existing Shield markup instead of leaving stale badges/details.
+Expected:
+Twst/Test -> Shield Unverified 40%
+Reason -> no risk signals / sender not yet trusted
+Action -> allow unverified

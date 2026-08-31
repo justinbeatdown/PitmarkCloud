@@ -79,12 +79,15 @@ def mail_threads(request: Request, folder: str = "inbox", limit: int = 100):
     # existed before this integration release.
     if (folder or "inbox").lower().strip() == "inbox":
         sync_unprotected_mail()
+        rescan_pitmark_mail()
     return decorate_threads(list_threads(folder=folder, limit=limit))
 
 
 @router.get("/threads/{thread_id}")
 def mail_thread(thread_id: int, request: Request):
     auth(request)
+    sync_unprotected_mail()
+    rescan_pitmark_mail()
     result = decorate_thread(get_thread(thread_id, mark_read=True))
     if not result:
         raise HTTPException(404, "Mail thread not found.")

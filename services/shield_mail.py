@@ -274,6 +274,31 @@ def sync_unprotected_mail(limit: int = 250) -> dict:
 
 
 def shield_for_message(message: MailMessage) -> dict | None:
+    """Return the authoritative ShieldEvent verdict for mail UI/API decoration.
+
+    ShieldEvent is the source of truth. The Resend payload copy is retained for
+    audit/debugging only and must never override a rescanned event.
+    """
+    source_id = f"pitmark-mail:{message.provider_message_id or message.id}"
+    with SessionLocal() as db:
+        event = db.scalar(select(ShieldEvent).where(ShieldEvent.source_message_id == source_id))
+        if event:
+            try:
+                reasons = json.loads(event.reasons_json or "[]")
+                if not isinstance(reasons, list):
+                    reasons = []
+            except Exception:
+                reasons = []
+            return {
+                "classification": event.classification,
+                "confidence": float(event.confidence or 0),
+                "protected": bool(event.protected),
+                "reasons": reasons,
+                "action": event.action_taken,
+                "action_taken": event.action_taken,
+            }
+
+    # Legacy fallback only for a message that somehow has no ShieldEvent yet.
     try:
         payload = json.loads(message.provider_payload_json or "{}")
         value = payload.get("shield") if isinstance(payload, dict) else None
