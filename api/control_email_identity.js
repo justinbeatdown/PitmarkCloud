@@ -63,6 +63,66 @@
     header.appendChild(b);
   }
 
+
+  function pitmarkConfirm(message, title = 'Confirm Delete') {
+    return new Promise(resolve => {
+      document.getElementById('pitmarkConfirmOverlay')?.remove();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'pitmarkConfirmOverlay';
+      overlay.setAttribute('role', 'presentation');
+      overlay.style.cssText = [
+        'position:fixed','inset:0','z-index:99999','display:flex',
+        'align-items:center','justify-content:center','padding:20px',
+        'background:rgba(0,0,0,.72)','backdrop-filter:blur(7px)'
+      ].join(';');
+
+      const modal = document.createElement('div');
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      modal.setAttribute('aria-labelledby', 'pitmarkConfirmTitle');
+      modal.style.cssText = [
+        'width:min(430px,100%)','background:#111214','color:#f5f5f5',
+        'border:1px solid rgba(255,85,0,.55)','border-radius:18px',
+        'box-shadow:0 22px 70px rgba(0,0,0,.55)','overflow:hidden',
+        'font-family:inherit'
+      ].join(';');
+
+      modal.innerHTML = `
+        <div style="height:4px;background:#ff5500"></div>
+        <div style="padding:22px 22px 8px">
+          <div style="font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#ff5500;margin-bottom:8px">Pitmark Mail</div>
+          <h3 id="pitmarkConfirmTitle" style="margin:0 0 10px;font-size:22px;line-height:1.15;color:#fff">${title}</h3>
+          <p style="margin:0;color:#b8bbc2;line-height:1.5;font-size:14px">${message}</p>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;padding:18px 22px 22px">
+          <button type="button" data-pm-confirm="cancel" style="border:1px solid #353840;background:#1b1d21;color:#e8e8e8;border-radius:10px;padding:10px 16px;font:inherit;font-weight:750;cursor:pointer">Cancel</button>
+          <button type="button" data-pm-confirm="delete" style="border:1px solid #ff5500;background:#ff5500;color:#fff;border-radius:10px;padding:10px 16px;font:inherit;font-weight:850;cursor:pointer">Delete</button>
+        </div>`;
+
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+
+      const finish = value => {
+        document.removeEventListener('keydown', onKey);
+        overlay.remove();
+        resolve(value);
+      };
+      const onKey = e => {
+        if (e.key === 'Escape') finish(false);
+        if (e.key === 'Enter') finish(true);
+      };
+
+      document.addEventListener('keydown', onKey);
+      overlay.addEventListener('click', e => {
+        if (e.target === overlay || e.target.closest('[data-pm-confirm="cancel"]')) finish(false);
+        if (e.target.closest('[data-pm-confirm="delete"]')) finish(true);
+      });
+
+      modal.querySelector('[data-pm-confirm="cancel"]')?.focus();
+    });
+  }
+
   async function loadIdentities() {
     ensureSelector();
     const select = byId('mailFromIdentity');
@@ -138,7 +198,7 @@
   async function deleteDraft(e) {
     e?.preventDefault(); e?.stopImmediatePropagation();
     if (!activeDraftId) return;
-    if (!confirm('Delete this draft permanently?')) return;
+    if (!(await pitmarkConfirm('This draft will be permanently removed from Pitmark Mail.', 'Delete Draft?'))) return;
     const b = byId('mailDeleteDraftBtn');
     if (b) { b.disabled = true; b.textContent = 'Deleting…'; }
     try {
@@ -158,7 +218,7 @@
   async function deleteThread(e) {
     e?.preventDefault(); e?.stopImmediatePropagation();
     if (!activeThreadId) return;
-    if (!confirm('Delete this entire conversation permanently?')) return;
+    if (!(await pitmarkConfirm('This entire conversation and its locally stored messages will be permanently removed.', 'Delete Conversation?'))) return;
     const id = activeThreadId;
     const b = byId('mailDeleteThreadBtn');
     if (b) { b.disabled = true; b.textContent = 'Deleting…'; }

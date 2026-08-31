@@ -1,16 +1,14 @@
-Pitmark Cloud v0.16.13
+Pitmark Cloud v0.16.14
 
-1. Extract this ZIP directly over the root of your local PitmarkCloud repository.
-2. Confirm these changed/new files in GitHub Desktop:
-   - api/email_center.py
-   - api/control_email_identity.js
-   - api/control_mobile_mail_identity.js
-   - services/pitmark_mail_delete.py
-   - utils/config.py
-   - RELEASE_v0.16.13.md
-   - UPLOAD_INSTRUCTIONS.txt
-3. Commit and push.
-4. Let Render deploy.
-5. Verify delete controls on BOTH desktop and mobile Pitmark Mail.
+Extract this ZIP over the root of your local PitmarkCloud repository.
 
-No DNS, Resend, Shopify, webhook, or environment-variable changes are required.
+Expected changed/new files:
+- api/control_email_identity.js
+- api/control_mobile_mail_identity.js
+- utils/config.py
+- RELEASE_v0.16.14.md
+- UPLOAD_INSTRUCTIONS.txt
+
+Commit/push and let Render deploy.
+
+Verify the delete confirmation modal on BOTH desktop and mobile.
