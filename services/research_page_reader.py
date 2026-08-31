@@ -3,7 +3,6 @@ from __future__ import annotations
 import html as html_lib
 import logging
 import re
-from urllib.parse import urlparse
 
 import httpx
 

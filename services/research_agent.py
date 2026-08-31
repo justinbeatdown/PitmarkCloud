@@ -14,6 +14,7 @@ from sqlalchemy import select
 from services.database import SessionLocal
 from services.shield_ecosystem import inspect_external_url, audit_blocked_research_source
 from services.racing_community import CommunityEntity, ResearchJob, CampaignParticipant, ResearchEvidence
+from services.research_page_reader import enrich_ranked_sources
 
 log = logging.getLogger('pitmark.autopilot.research')
 GOOGLE_NEWS = 'https://news.google.com/rss/search?q={}&hl=en-US&gl=US&ceid=US:en'
@@ -119,8 +120,11 @@ def _source_authority(item: dict) -> int:
     domain = (item.get('source_domain') or urlparse(item.get('url','')).netloc).lower().removeprefix('www.')
     source = str(item.get('source') or '').lower()
     official = ('nascar.com','imsa.com','indycar.com','worldofoutlaws.com','dirtcar.com','myracepass.com','racemonitor.com')
+    reference = ('wikipedia.org',)
     if any(domain == d or domain.endswith('.'+d) or d in source for d in official):
         return 3
+    if any(domain == d or domain.endswith('.'+d) for d in reference):
+        return 2
     if any(x in domain or x in source for x in ('speedway','raceway','motorsports','racing','team')):
         return 2
     return 1
@@ -175,7 +179,8 @@ def _queries(entity: CommunityEntity, research_type: str, hint: str = "") -> lis
             f'{n} race team', f'{n} car number racing',
             f'site:nascar.com {n}', f'site:imsa.com {n}', f'site:indycar.com {n}',
             f'site:worldofoutlaws.com {n}', f'site:dirtcar.com {n}',
-            f'{n} official driver stats', f'{n} official driver profile'
+            f'{n} official driver stats', f'{n} official driver profile',
+            f'site:wikipedia.org {n} racing driver', f'{n} biography racing driver'
         ])
     if entity.entity_type == 'league':
         qs.extend([f'{n} iRacing league', f'{n} racing league'])
@@ -231,7 +236,7 @@ def _extract_rookie_fields(name: str, strong: list[dict], corroborated: bool) ->
         'arca menards series','indycar series','imsa'
     ]
     for item in strong:
-        text = _clean(' '.join([item.get('title',''), item.get('snippet','')]))
+        text = _clean(' '.join([item.get('title',''), item.get('snippet',''), item.get('page_excerpt','')]))
         low = text.lower()
         domain = (item.get('source_domain') or urlparse(item.get('url','')).netloc).lower().removeprefix('www.')
         m = re.search(r'(?:car(?:\s+number)?|no\.?|number|#)\s*#?\s*(\d{1,3}[A-Za-z]?)\b', text, re.I)
@@ -258,7 +263,7 @@ def _extract_rookie_fields(name: str, strong: list[dict], corroborated: bool) ->
     for item in strong:
         if _source_authority(item) < 3:
             continue
-        text = _clean(' '.join([item.get('title',''), item.get('snippet','')]))
+        text = _clean(' '.join([item.get('title',''), item.get('snippet',''), item.get('page_excerpt','')]))
         low = text.lower()
         if 'class_division' not in verified:
             for term in class_terms:
@@ -296,9 +301,10 @@ def _ai_rookie_scout(name: str, evidence: list[dict]) -> dict:
             'url': item.get('url',''),
             'domain': item.get('source_domain',''),
             'identity_score': item.get('identity_score',0),
+            'page_excerpt': item.get('page_excerpt',''),
         })
     instructions = """You are Pitmark Racing Co.'s conservative motorsports scouting analyst.
-Use ONLY the supplied public-search evidence. Never guess. Identify whether the evidence
+Use ONLY the supplied evidence, including fetched page excerpts. Never guess. Prefer facts stated directly in page excerpts from official racing sources; use Wikipedia or reputable racing coverage as secondary corroboration. Identify whether the evidence
 appears to describe the named racing driver. Return JSON only. Every non-null factual field
 must include source_indexes that directly support it. A single clearly official sanctioning-body, series, team, track, or driver profile may verify a basic profile fact; do not require two unrelated websites when an authoritative first-party source directly states it. If identity is ambiguous, leave facts
 null and say why. Evaluate feature_candidate based on public racing story value, not fame.
@@ -433,7 +439,12 @@ def process_job(job_id: int) -> dict:
         item = dict(item); item['identity_score'] = score; item['match_reasons'] = reasons
         if score >= 35:
             scored.append(item)
-    scored.sort(key=lambda x: x['identity_score'], reverse=True)
+    scored.sort(key=lambda x: (_source_authority(x), x['identity_score']), reverse=True)
+
+    # v0.15.8 verification layer: discovery finds candidates; this step actually
+    # reads the best safe pages so profile extraction is not limited to snippets.
+    if job.research_type == 'rookie_deep_dive' and scored:
+        scored = enrich_ranked_sources(scored, limit=8)
 
     strong = [x for x in scored if x['identity_score'] >= 75]
     plausible = [x for x in scored if 55 <= x['identity_score'] < 75]
@@ -587,7 +598,7 @@ def process_job(job_id: int) -> dict:
         'recommendation': recommendation,
         'research_more_supported': True,
         'search_queries': queries,
-        'sources': scored[:12],
+        'sources': [{k:v for k,v in x.items() if k != 'page_excerpt'} for x in scored[:12]],
         'safety_note': 'Public search results are leads until identity is corroborated. Uncertain facts are omitted from outreach/content.',
         'source_quality': 'strong' if corroborated else ('mixed' if strong or plausible else 'limited'),
     }
