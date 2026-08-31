@@ -10,6 +10,7 @@ from services.pitmark_mail import (
     list_threads,
     verify_svix_signature,
 )
+from services.pitmark_mail_delete import delete_draft, delete_thread
 from services.pitmark_mail_identities import (
     list_identities,
     save_draft,
@@ -74,6 +75,25 @@ def mail_thread(thread_id: int, request: Request):
     if not result:
         raise HTTPException(404, "Mail thread not found.")
     return result
+
+
+@router.delete("/threads/{thread_id}")
+def mail_delete_thread(thread_id: int, request: Request):
+    auth(request)
+    if not delete_thread(thread_id):
+        raise HTTPException(404, "Mail thread not found.")
+    return {"ok": True, "deleted_thread_id": thread_id}
+
+
+@router.delete("/drafts/{message_id}")
+def mail_delete_draft(message_id: int, request: Request):
+    auth(request)
+    try:
+        if not delete_draft(message_id):
+            raise HTTPException(404, "Mail draft not found.")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"ok": True, "deleted_draft_id": message_id}
 
 
 @router.post("/send")
