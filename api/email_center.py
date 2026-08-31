@@ -8,10 +8,13 @@ from services.pitmark_mail import (
     get_thread,
     ingest_resend_event,
     list_threads,
+    verify_svix_signature,
+)
+from services.pitmark_mail_identities import (
+    list_identities,
     save_draft,
     send_message,
     status,
-    verify_svix_signature,
 )
 from utils.security import enforce_rate_limit
 
@@ -28,6 +31,7 @@ class MailCompose(BaseModel):
     cc: list[str] = Field(default_factory=list)
     bcc: list[str] = Field(default_factory=list)
     reply_to: list[str] = Field(default_factory=list)
+    from_identity: str = ""
     subject: str = ""
     text: str = ""
     html: str = ""
@@ -39,6 +43,7 @@ class MailDraft(BaseModel):
     to: list[str] = Field(default_factory=list)
     cc: list[str] = Field(default_factory=list)
     bcc: list[str] = Field(default_factory=list)
+    from_identity: str = ""
     subject: str = ""
     text: str = ""
     html: str = ""
@@ -48,6 +53,12 @@ class MailDraft(BaseModel):
 def mail_status(request: Request):
     auth(request)
     return status()
+
+
+@router.get("/identities")
+def mail_identities(request: Request):
+    auth(request)
+    return list_identities()
 
 
 @router.get("/threads")
@@ -75,6 +86,7 @@ def mail_send(req: MailCompose, request: Request):
             cc=req.cc,
             bcc=req.bcc,
             reply_to=req.reply_to,
+            from_identity=req.from_identity,
             subject=req.subject,
             text=req.text,
             html=req.html,
@@ -94,6 +106,7 @@ def mail_save_draft(req: MailDraft, request: Request):
             to=req.to,
             cc=req.cc,
             bcc=req.bcc,
+            from_identity=req.from_identity,
             subject=req.subject,
             text=req.text,
             html=req.html,

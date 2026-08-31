@@ -53,6 +53,7 @@ AUTOFILL_GUARD = r"""
 EMAIL_ASSETS = """
 <link rel="stylesheet" href="/control-email.css">
 <script src="/control-email.js" defer></script>
+<script src="/control-email-identity.js?v=01612" defer></script>
 """
 
 
@@ -64,7 +65,7 @@ def control(request: Request):
         import re
         html = re.sub(r'PITMARK CLOUD v[0-9]+(?:\.[0-9]+)*', f'PITMARK CLOUD v{settings.app_version}', html, flags=re.IGNORECASE)
         html = html.replace('</head>', '<link rel="stylesheet" href="/control-email.css">\n</head>')
-        html = html.replace('</body>', AUTOFILL_GUARD + '\n<script src="/control-email.js" defer></script>\n</body>')
+        html = html.replace('</body>', AUTOFILL_GUARD + '\n<script src="/control-email.js" defer></script>\n<script src="/control-email-identity.js?v=01612" defer></script>\n</body>')
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
 
 
@@ -80,6 +81,9 @@ def control_email_css(): return Response((ASSET_DIR / 'control_email.css').read_
 @router.get('/control-email.js', include_in_schema=False)
 def control_email_js(): return Response((ASSET_DIR / 'control_email.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-store'})
 
+@router.get('/control-email-identity.js', include_in_schema=False)
+def control_email_identity_js(): return Response((ASSET_DIR / 'control_email_identity.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-store'})
+
 @router.get('/control-login.js', include_in_schema=False)
 def control_login_js(): return Response((ASSET_DIR / 'control_login.js').read_text(encoding='utf-8'), media_type='application/javascript')
 
@@ -88,7 +92,7 @@ def control_mobile(request: Request):
     filename = 'control_mobile.html' if user_from_request(request) else 'control_mobile_login.html'
     html = (ASSET_DIR / filename).read_text(encoding='utf-8')
     if filename == 'control_mobile.html':
-        html = html.replace('</body>', AUTOFILL_GUARD + '\n</body>')
+        html = html.replace('</body>', AUTOFILL_GUARD + '\n<script src="/control-mobile-mail-identity.js?v=01612" defer></script>\n</body>')
     return HTMLResponse(html, headers={'Cache-Control':'no-store'})
 
 @router.get('/control-mobile.css', include_in_schema=False)
@@ -103,6 +107,14 @@ def control_mobile_blog_js():
         (ASSET_DIR / 'control_mobile_blog.js').read_text(encoding='utf-8'),
         media_type='application/javascript',
         headers={'Cache-Control': 'no-store'},
+    )
+
+@router.get('/control-mobile-mail-identity.js', include_in_schema=False)
+def control_mobile_mail_identity_js():
+    return Response(
+        (ASSET_DIR / 'control_mobile_mail_identity.js').read_text(encoding='utf-8'),
+        media_type='application/javascript',
+        headers={'Cache-Control':'no-store'},
     )
 
 @router.get('/control-mobile-login.js', include_in_schema=False)
