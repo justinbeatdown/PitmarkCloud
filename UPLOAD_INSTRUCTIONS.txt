@@ -1,4 +1,1 @@
-v0.16.5 verified reader patch
-Extract into PitmarkCloud repo root and replace files.
-BEFORE COMMIT: GitHub Desktop MUST show services/research_page_reader.py and utils/config.py changed.
-Commit and push. Render deploy. Retest Inside Track.
+Extract into repo root. GitHub Desktop MUST show services/research_page_reader.py and utils/config.py changed. Commit/push, deploy, retest Inside Track on desktop then mobile.
