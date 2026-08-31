@@ -1,4 +1,7 @@
 (() => {
+  let lastStatus = null;
+  let applying = false;
+
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[c]));
@@ -26,41 +29,58 @@
     </div>`;
   }
 
-  async function sync() {
+  function render() {
+    if (!lastStatus || applying) return;
+    applying = true;
     try {
-      const x = await getMailStatus();
-      const connected = Boolean(x?.shield_protection?.connected);
-
+      const connected = Boolean(lastStatus?.shield_protection?.connected);
       const desktop = document.getElementById('shieldMailboxStatus');
       if (desktop) {
-        desktop.textContent = connected
-          ? desktopText(x)
+        const wanted = connected
+          ? desktopText(lastStatus)
           : 'Communications Protection: Pitmark Mail protection is unavailable.';
+        if (desktop.textContent !== wanted) desktop.textContent = wanted;
       }
 
       const mobileList = document.getElementById('mShieldList');
       if (mobileList) {
-        document.getElementById('mShieldMailStatus')?.remove();
-        mobileList.insertAdjacentHTML(
-          'beforebegin',
-          connected
-            ? mobileCard(x)
-            : '<div id="mShieldMailStatus" class="m-card bad">Pitmark Mail protection unavailable.</div>'
-        );
+        const old = document.getElementById('mShieldMailStatus');
+        const wanted = connected
+          ? mobileCard(lastStatus)
+          : '<div id="mShieldMailStatus" class="m-card bad">Pitmark Mail protection unavailable.</div>';
+        if (old) old.outerHTML = wanted;
+        else mobileList.insertAdjacentHTML('beforebegin', wanted);
       }
+    } finally {
+      applying = false;
+    }
+  }
+
+  async function sync() {
+    try {
+      lastStatus = await getMailStatus();
+      render();
     } catch (_) {
       const desktop = document.getElementById('shieldMailboxStatus');
       if (desktop) desktop.textContent = 'Communications Protection: unable to read Pitmark Mail status.';
     }
   }
 
-  document.addEventListener('click', e => {
-    if (e.target.closest?.('[data-view="shield"], [data-mnav="shield"], #mShieldRefresh')) {
-      setTimeout(sync, 120);
-    }
-  }, true);
+  // The core Shield renderer runs asynchronously after navigation and used to
+  // overwrite the mail-aware message. Re-apply after that renderer mutates it.
+  const observer = new MutationObserver(() => {
+    const desktop = document.getElementById('shieldMailboxStatus');
+    if (desktop && lastStatus && !applying) queueMicrotask(render);
+  });
 
   document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(sync, 180);
+    observer.observe(document.documentElement, {subtree:true, childList:true, characterData:true});
+    sync();
   });
+
+  document.addEventListener('click', e => {
+    if (e.target.closest?.('[data-view="shield"], [data-mnav="shield"], #mShieldRefresh')) {
+      [120, 350, 800].forEach(ms => setTimeout(sync, ms));
+    }
+  }, true);
 })();

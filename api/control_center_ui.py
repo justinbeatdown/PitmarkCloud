@@ -65,7 +65,7 @@ def control(request: Request):
         import re
         html = re.sub(r'PITMARK CLOUD v[0-9]+(?:\.[0-9]+)*', f'PITMARK CLOUD v{settings.app_version}', html, flags=re.IGNORECASE)
         html = html.replace('</head>', '<link rel="stylesheet" href="/control-email.css">\n<link rel="stylesheet" href="/control-email-shield.css?v=01623">\n</head>')
-        html = html.replace('</body>', AUTOFILL_GUARD + '\n<script src="/control-email.js" defer></script>\n<script src="/control-email-identity.js?v=01612" defer></script>\n<script src="/control-email-shield.js?v=01623" defer></script>\n<script src="/control-shield-mail-status.js?v=01625" defer></script>\n</body>')
+        html = html.replace('</body>', AUTOFILL_GUARD + '\n<script src="/control-email.js" defer></script>\n<script src="/control-email-identity.js?v=01612" defer></script>\n<script src="/control-email-shield.js?v=01623" defer></script>\n<script src="/control-shield-mail-status.js?v=01626" defer></script>\n</body>')
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
 
 
@@ -108,7 +108,7 @@ def control_mobile(request: Request):
     html = (ASSET_DIR / filename).read_text(encoding='utf-8')
     if filename == 'control_mobile.html':
         html = html.replace('</head>', '<link rel="stylesheet" href="/control-email-shield.css?v=01623">\n</head>')
-        html = html.replace('</body>', AUTOFILL_GUARD + '\n<script src="/control-mobile-mail-identity.js?v=01612" defer></script>\n<script src="/control-email-shield.js?v=01623" defer></script>\n<script src="/control-shield-mail-status.js?v=01625" defer></script>\n</body>')
+        html = html.replace('</body>', AUTOFILL_GUARD + '\n<script src="/control-mobile-mail-identity.js?v=01612" defer></script>\n<script src="/control-email-shield.js?v=01623" defer></script>\n<script src="/control-shield-mail-status.js?v=01626" defer></script>\n</body>')
     return HTMLResponse(html, headers={'Cache-Control':'no-store'})
 
 @router.get('/control-mobile.css', include_in_schema=False)

@@ -1,8 +1,12 @@
-Pitmark Cloud v0.16.25
+Pitmark Cloud v0.16.26
 
-Extract over repository root, commit/push, Render deploy.
+Extract over the repository root.
 
-Verify:
-- Desktop Shield no longer says the production mailbox is not connected.
-- It reports Pitmark Mail connected / Shield-aware with scan and review counts.
-- Mobile Shield shows Pitmark Mail Protection ACTIVE.
+GitHub Desktop should show:
+- api/control_shield_mail_status.js
+- api/control_center_ui.py
+- utils/config.py
+- RELEASE_v0.16.26.md
+- UPLOAD_INSTRUCTIONS.txt
+
+Commit and push. No script to run.
