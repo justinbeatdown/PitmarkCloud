@@ -39,6 +39,12 @@ IDENTITIES = {
         "name": "Pitmark Racing Co.",
         "address": "hello@mail.pitmarkracing.com",
     },
+    "prt": {
+        "key": "prt",
+        "label": "PRT Support / Licensing",
+        "name": "Pitmark Racing Tools",
+        "address": "prt@mail.pitmarkracing.com",
+    },
 }
 
 
