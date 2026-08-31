@@ -1,10 +1,14 @@
-Pitmark Cloud v0.16.7 — Corroborated Source Recovery
+Pitmark Cloud v0.16.8 — CLEAN Mobile Blog Parity
 
-1. Extract this ZIP into the PitmarkCloud repository root and merge/replace.
-2. GitHub Desktop MUST show services/research_page_reader.py and utils/config.py changed.
-3. Commit and Push origin.
-4. Let Render auto-deploy.
-5. Retest the Inside Track article on desktop.
-6. If desktop succeeds, test Create Article from Source on mobile before marking complete.
-
-Do not change DNS, Resend, webhook, Shopify, or API secrets.
+1. Make sure the previous bad v0.16.8 local changes were discarded.
+2. Extract this ZIP into the PitmarkCloud repository root.
+3. GitHub Desktop should show:
+   - api/control_mobile.html
+   - api/control_mobile.css
+   - api/control_mobile_blog.js (NEW)
+   - utils/config.py
+   - RELEASE_v0.16.8.md
+   - UPLOAD_INSTRUCTIONS.txt
+4. IMPORTANT: api/control_mobile.js should NOT be changed.
+5. Commit/push and let Render deploy.
+6. Refresh/relaunch Control Mobile and test Blog.
