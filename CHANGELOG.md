@@ -1,3 +1,10 @@
+# Changelog
+
+## 0.14.7
+- Root-cause fix for Social Timeline 500 (`OpportunitySourceMeta` import).
+- Dynamic source freshness calculation for Timeline and Intelligence UI.
+- Preserves 4-hour reactive social cutoff.
+
 
 ## 0.14.6
 - Rebuilt social queue as a source-time chronological real-time timeline.

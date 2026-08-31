@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from services.database import SessionLocal
-from services.control_center import SocialPost, ShieldEvent, OutreachContact, BlogDraft, ShopifyPublishRecord, AutopilotOpportunity, SecurityAuditEvent, classify, fingerprint, compose_fallback, serialize, utcnow
+from services.control_center import SocialPost, ShieldEvent, OutreachContact, BlogDraft, ShopifyPublishRecord, AutopilotOpportunity, OpportunitySourceMeta, SecurityAuditEvent, classify, fingerprint, compose_fallback, serialize, utcnow
 from services.opportunity_engine import evaluate_recent
 from services.autopilot_ai import compose_with_ai
 from services.control_auth import (
@@ -37,6 +37,31 @@ def shield_audit(event_type: str, severity: str = 'info', actor: str | None = No
     except Exception:
         pass
 
+
+
+def _source_freshness(published_at):
+    """Return freshness derived from source time *now*, never a stale stored label."""
+    from datetime import datetime, timezone
+    if not published_at:
+        return {'status': 'unknown', 'age_hours': None, 'age_minutes': None, 'stale_for_social': False}
+    published = published_at if published_at.tzinfo else published_at.replace(tzinfo=timezone.utc)
+    age_seconds = max(0, (datetime.now(timezone.utc) - published.astimezone(timezone.utc)).total_seconds())
+    age_minutes = int(age_seconds // 60)
+    age_hours = int(age_seconds // 3600)
+    if age_minutes <= 120:
+        status = 'realtime'
+    elif age_minutes <= settings.social_realtime_max_age_hours * 60:
+        status = 'recent'
+    elif age_hours <= 24:
+        status = 'background'
+    else:
+        status = 'longform'
+    return {
+        'status': status,
+        'age_hours': age_hours,
+        'age_minutes': age_minutes,
+        'stale_for_social': age_minutes > settings.social_realtime_max_age_hours * 60,
+    }
 
 
 def auth(request: Request, admin_key: str | None):
@@ -385,10 +410,11 @@ def posts(request: Request, status: str | None = None, x_pitmark_admin_key: str 
                     meta = db.scalar(select(OpportunitySourceMeta).where(OpportunitySourceMeta.opportunity_id == oid))
                     if meta and meta.published_at:
                         published = meta.published_at if meta.published_at.tzinfo else meta.published_at.replace(tzinfo=timezone.utc)
+                        current = _source_freshness(published)
                         event_time = published
                         source_published_at = published.isoformat()
-                        age_minutes = max(0, int((datetime.now(timezone.utc)-published.astimezone(timezone.utc)).total_seconds()//60))
-                        stale_for_social = age_minutes > settings.social_realtime_max_age_hours * 60
+                        age_minutes = current['age_minutes']
+                        stale_for_social = current['stale_for_social']
                 except (ValueError, TypeError):
                     pass
             if age_minutes is None:
@@ -642,7 +668,15 @@ def opportunities(request: Request, x_pitmark_admin_key: str | None = Header(def
         out=[]
         for x in rows:
             item=serialize(x); meta=db.scalar(select(OpportunitySourceMeta).where(OpportunitySourceMeta.opportunity_id==x.id))
-            item['freshness']=None if not meta else {'status':meta.freshness,'age_hours':meta.age_hours,'published_at':meta.published_at.isoformat() if meta.published_at else None}
+            if not meta:
+                item['freshness'] = None
+            else:
+                current = _source_freshness(meta.published_at)
+                item['freshness'] = {
+                    'status': current['status'],
+                    'age_hours': current['age_hours'],
+                    'published_at': meta.published_at.isoformat() if meta.published_at else None,
+                }
             out.append(item)
         return out
 
