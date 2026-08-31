@@ -13,42 +13,41 @@ AUTOFILL_GUARD = r"""
 <script>
 (() => {
   const BAD = new Set(['justin', 'admin']);
-  const selector = 'input:not([type="password"]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea';
+  const selector = 'input:not([type="password"]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea';
+  const normalize = v => String(v || '').trim().toLowerCase().replace(/[.!]+$/,'');
+  const bad = el => BAD.has(normalize(el.value));
+  const trustedIntent = new WeakSet();
 
   function protect(el) {
-    if (!el) return;
-    el.setAttribute('autocomplete', 'new-password');
+    if (!el || el.dataset.pitmarkAutofillGuard) return;
+    el.dataset.pitmarkAutofillGuard = '1';
+    el.setAttribute('autocomplete', 'off');
     el.setAttribute('data-lpignore', 'true');
     el.setAttribute('data-1p-ignore', 'true');
     el.setAttribute('data-form-type', 'other');
-    if (!el.dataset.pitmarkAutofillGuard) {
-      el.dataset.pitmarkAutofillGuard = '1';
-      el.dataset.pitmarkUserEdited = '0';
-      const edited = () => { el.dataset.pitmarkUserEdited = '1'; };
-      el.addEventListener('input', edited, {once:true});
-      el.addEventListener('keydown', edited, {once:true});
-      el.addEventListener('paste', edited, {once:true});
+    // Browser/password-manager autofill often emits input/change events. Those
+    // are NOT proof of user intent. Only trusted typing/paste marks a value as
+    // intentional, so a real manually typed "Justin" is preserved.
+    el.addEventListener('keydown', ev => { if (ev.isTrusted) trustedIntent.add(el); }, true);
+    el.addEventListener('paste', ev => { if (ev.isTrusted) trustedIntent.add(el); }, true);
+    el.addEventListener('drop', ev => { if (ev.isTrusted) trustedIntent.add(el); }, true);
+    el.addEventListener('focus', () => setTimeout(() => scrubOne(el), 60));
+  }
+  function scrubOne(el) {
+    protect(el);
+    if (trustedIntent.has(el)) return;
+    if (bad(el)) {
+      el.value = '';
+      el.dispatchEvent(new Event('change', {bubbles:true}));
     }
   }
-
-  function scrub() {
-    document.querySelectorAll(selector).forEach(el => {
-      protect(el);
-      if (el.dataset.pitmarkUserEdited === '1') return;
-      const value = String(el.value || '').trim().toLowerCase().replace(/[.!]+$/,'');
-      if (BAD.has(value)) {
-        el.value = '';
-        el.dispatchEvent(new Event('change', {bubbles:true}));
-      }
-    });
-  }
-
+  function scrub() { document.querySelectorAll(selector).forEach(scrubOne); }
   document.addEventListener('DOMContentLoaded', () => {
     scrub();
-    [40,120,300,700,1400,2500].forEach(ms => setTimeout(scrub, ms));
-    const observer = new MutationObserver(() => setTimeout(scrub, 25));
-    observer.observe(document.documentElement, {childList:true, subtree:true});
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(scrub, 40); });
+    [50,150,350,750,1500,3000,5000].forEach(ms => setTimeout(scrub, ms));
+    new MutationObserver(() => setTimeout(scrub, 30)).observe(document.documentElement,{childList:true,subtree:true});
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(scrub, 50); });
+    window.addEventListener('pageshow', () => setTimeout(scrub, 50));
   });
 })();
 </script>

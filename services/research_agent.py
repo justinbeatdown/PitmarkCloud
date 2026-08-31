@@ -170,6 +170,49 @@ def _participant_context(db, entity_id: int) -> dict:
     }
 
 
+
+def _extract_rookie_fields(name: str, strong: list[dict], corroborated: bool) -> dict:
+    """Extract only conservative, source-backed rookie profile fields.
+    A field is persisted only when the same normalized value appears in at
+    least two strong sources from different domains.
+    """
+    if not corroborated:
+        return {}
+    candidates: dict[str, list[tuple[str,str]]] = {
+        'car_number': [], 'class_division': [], 'home_track_series': [],
+        'hometown_region': [], 'rookie_status': []
+    }
+    class_terms = [
+        'late model','sprint car','modified','stock car','street stock',
+        'sportsman','legend','kart','pro late model','super late model'
+    ]
+    for item in strong:
+        text = _clean(' '.join([item.get('title',''), item.get('snippet','')]))
+        low = text.lower()
+        domain = (item.get('source_domain') or urlparse(item.get('url','')).netloc).lower().removeprefix('www.')
+        m = re.search(r'(?:car|no\.?|#)\s*#?\s*(\d{1,3}[A-Za-z]?)\b', text, re.I)
+        if m: candidates['car_number'].append((m.group(1), domain))
+        for term in class_terms:
+            if term in low: candidates['class_division'].append((term.title(), domain))
+        m = re.search(r'\b(?:at|from)\s+([A-Z][A-Za-z0-9&.\' -]{2,60}(?:Speedway|Raceway|Motorsports Park|Motor Speedway|Racing Series|Series))\b', text)
+        if m: candidates['home_track_series'].append((m.group(1).strip(), domain))
+        m = re.search(r'\b(?:from|hometown[:\s]+)\s+([A-Z][A-Za-z.\' -]+,\s*[A-Z]{2})\b', text)
+        if m: candidates['hometown_region'].append((m.group(1).strip(), domain))
+        if re.search(r'\b(rookie|first[- ]year|first season)\b', low):
+            candidates['rookie_status'].append(('Public sources identify this as a rookie/first-season campaign.', domain))
+    verified={}
+    for field, vals in candidates.items():
+        grouped={}
+        for value, domain in vals:
+            key=value.strip().lower()
+            grouped.setdefault(key, {'value':value.strip(),'domains':set()})['domains'].add(domain)
+        winners=[v for v in grouped.values() if len(v['domains']) >= 2]
+        if winners:
+            winners.sort(key=lambda x: len(x['domains']), reverse=True)
+            verified[field]=winners[0]['value']
+    return verified
+
+
 def process_job(job_id: int) -> dict:
     with SessionLocal() as db:
         job = db.get(ResearchJob, job_id)
@@ -249,6 +292,8 @@ def process_job(job_id: int) -> dict:
         if ctx.get('intake_status') != 'received': gaps.append('completed Rookie Year intake')
         if ctx.get('media_permission') != 'approved': gaps.append('approved media / photo permission')
 
+    verified_profile = _extract_rookie_fields(entity_snapshot['name'], strong, corroborated) if job.research_type == 'rookie_deep_dive' else {}
+
     facts_used = []
     for s in strong[:6]:
         facts_used.append({'claim': s['title'], 'source': s['source'], 'url': s['url'], 'identity_score': s['identity_score']})
@@ -282,6 +327,7 @@ def process_job(job_id: int) -> dict:
         'strong_source_count': len(strong),
         'plausible_source_count': len(plausible),
         'verified_external_identity': corroborated,
+        'verified_profile': verified_profile,
         'strengths': ([f'{len(strong)} strong public-source match(es) found'] if strong else []) + (['Existing Pitmark campaign context is available'] if ctx else []),
         'weaknesses': gaps,
         'recommended_action': action,
@@ -340,6 +386,17 @@ def process_job(job_id: int) -> dict:
             if corroborated:
                 entity_row.verification_status = 'supported'
                 entity_row.last_verified_at = utcnow()
+            if verified_profile:
+                try:
+                    public_data = json.loads(entity_row.public_data_json or '{}')
+                except Exception:
+                    public_data = {}
+                public_data.setdefault('rookie_year', {}).update(verified_profile)
+                public_data['rookie_year']['research_job_id'] = job.id
+                public_data['rookie_year']['verification'] = 'corroborated_public_sources'
+                entity_row.public_data_json = json.dumps(public_data)
+                if verified_profile.get('hometown_region') and not entity_row.region:
+                    entity_row.region = verified_profile['hometown_region']
             entity_row.updated_at = utcnow()
 
         job.status = 'complete'

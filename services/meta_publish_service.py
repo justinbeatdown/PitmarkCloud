@@ -26,12 +26,35 @@ def connection_status() -> dict:
     return facebook_connection_status()
 
 
+
+def _live_meta_health() -> dict:
+    if not settings.meta_page_access_token.strip():
+        return {"connected": False, "healthy": False, "error": "Page access token is not configured."}
+    token = settings.meta_page_access_token.strip()
+    try:
+        r = httpx.get(
+            _graph_url(settings.meta_page_id or "me"),
+            params={"fields": "id,name", "access_token": token},
+            timeout=12.0,
+        )
+        data = _decode(r)
+        expected = settings.meta_page_id.strip()
+        actual = str(data.get("id") or "")
+        if expected and actual and actual != expected:
+            return {"connected": False, "healthy": False, "error": "Token resolves to a different Meta Page.", "resolved_id": actual}
+        return {"connected": True, "healthy": True, "page_name": data.get("name"), "resolved_id": actual}
+    except Exception as exc:
+        return {"connected": False, "healthy": False, "error": str(exc)[:300]}
+
+
 def facebook_connection_status() -> dict:
-    return {"configured": facebook_configured(), "connected": facebook_configured(), "page_id_set": bool(settings.meta_page_id.strip()), "page_access_token_set": bool(settings.meta_page_access_token.strip()), "graph_version": settings.meta_graph_version}
+    health = _live_meta_health() if facebook_configured() else {"connected": False, "healthy": False}
+    return {"configured": facebook_configured(), **health, "page_id_set": bool(settings.meta_page_id.strip()), "page_access_token_set": bool(settings.meta_page_access_token.strip()), "graph_version": settings.meta_graph_version}
 
 
 def instagram_connection_status() -> dict:
-    return {"configured": instagram_configured(), "connected": instagram_configured(), "instagram_account_id_set": bool(settings.meta_instagram_account_id.strip()), "page_access_token_set": bool(settings.meta_page_access_token.strip()), "graph_version": settings.meta_graph_version, "requires_media": True}
+    health = _live_meta_health() if instagram_configured() else {"connected": False, "healthy": False}
+    return {"configured": instagram_configured(), **health, "instagram_account_id_set": bool(settings.meta_instagram_account_id.strip()), "page_access_token_set": bool(settings.meta_page_access_token.strip()), "graph_version": settings.meta_graph_version, "requires_media": True}
 
 
 def _graph_url(object_id: str, edge: str | None = None) -> str:

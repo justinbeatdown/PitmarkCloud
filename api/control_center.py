@@ -390,14 +390,24 @@ def save_post(req: SavePost, request: Request, x_pitmark_admin_key: str | None =
 @router.get('/autopilot/posts')
 def posts(request: Request, status: str | None = None, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
-    from datetime import datetime, timezone
+    from datetime import datetime, timezone, timedelta
     with SessionLocal() as db:
         q = select(SocialPost).order_by(SocialPost.created_at.desc())
         if status:
             q = q.where(SocialPost.status == status)
         rows = list(db.scalars(q).all())
         out = []
+        published_cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
         for row in rows:
+            # Default timeline is operational, not an infinite archive. Published
+            # records remain durable in the DB and are still available via
+            # ?status=published; they simply roll off the default view after 48h.
+            if not status and row.status == 'published':
+                published_at = row.updated_at or row.created_at
+                if published_at:
+                    published_at = published_at if published_at.tzinfo else published_at.replace(tzinfo=timezone.utc)
+                    if published_at < published_cutoff:
+                        continue
             item = serialize(row)
             event_time = row.created_at
             age_minutes = None
@@ -877,7 +887,11 @@ def rookie_year_campaign(request: Request, year: str = '2026', x_admin_key: str 
             e=db.get(CommunityEntity,r.entity_id)
             job = db.scalars(select(ResearchJob).where(ResearchJob.entity_id == r.entity_id).order_by(ResearchJob.created_at.desc())).first()
             research = ({'id': job.id, 'status': job.status, 'completeness': job.completeness, 'verification_score': job.verification_score} if job else None)
-            items.append({'id':r.id,'entity_id':r.entity_id,'name':e.name if e else 'Unknown','stage':r.stage,'intake_status':r.intake_status,'verification_status':r.verification_status,'media_permission':r.media_permission,'guardian_status':r.guardian_status,'story_readiness':r.story_readiness,'notes':r.notes,'research_job':research})
+            public_data = {}
+            if e:
+                try: public_data = json.loads(e.public_data_json or '{}')
+                except Exception: public_data = {}
+            items.append({'id':r.id,'entity_id':r.entity_id,'name':e.name if e else 'Unknown','stage':r.stage,'intake_status':r.intake_status,'verification_status':r.verification_status,'media_permission':r.media_permission,'guardian_status':r.guardian_status,'story_readiness':r.story_readiness,'notes':r.notes,'region':e.region if e else None,'verified_profile':public_data.get('rookie_year',{}),'research_job':research})
         return {'campaign':{'id':campaign.id,'name':campaign.name,'year':campaign.cohort,'status':campaign.status,'autonomy':campaign.autonomy,'objective':campaign.objective},'participants':items}
 
 @router.post('/campaigns/rookie-year/participants')
