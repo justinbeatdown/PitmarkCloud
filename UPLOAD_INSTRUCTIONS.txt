@@ -1,8 +1,8 @@
-Pitmark Cloud v0.16.24
+Pitmark Cloud v0.16.25
 
 Extract over repository root, commit/push, Render deploy.
 
-Verify desktop + mobile:
-- Compose From selector includes PRT Support / Licensing
-- Sender address is prt@mail.pitmarkracing.com
-- Send a test and reply to an inbound PRT message
+Verify:
+- Desktop Shield no longer says the production mailbox is not connected.
+- It reports Pitmark Mail connected / Shield-aware with scan and review counts.
+- Mobile Shield shows Pitmark Mail Protection ACTIVE.
