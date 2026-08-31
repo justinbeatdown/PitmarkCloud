@@ -115,7 +115,7 @@ def _dedupe(items: list[dict]) -> list[dict]:
 
 
 def _evidence_score(name: str, item: dict, entity: CommunityEntity) -> tuple[int, list[str]]:
-    text = ' '.join([item.get('title',''), item.get('snippet','')]).lower()
+    text = ' '.join([item.get('title',''), item.get('snippet',''), item.get('url','')]).lower()
     reasons = []
     score = 0
     if name.lower() in text:
@@ -132,7 +132,7 @@ def _evidence_score(name: str, item: dict, entity: CommunityEntity) -> tuple[int
     return min(score, 100), reasons
 
 
-def _queries(entity: CommunityEntity, research_type: str) -> list[str]:
+def _queries(entity: CommunityEntity, research_type: str, hint: str = "") -> list[str]:
     n = f'"{entity.name}"'
     qs = [
         f'{n} racing',
@@ -154,13 +154,31 @@ def _queries(entity: CommunityEntity, research_type: str) -> list[str]:
             f'{n} racing results 2026', f'{n} race results 2026',
             f'{n} speedway results', f'{n} driver profile',
             f'{n} racing Facebook', f'{n} racing Instagram',
+            f'site:facebook.com {n} racing', f'site:instagram.com {n} racing',
+            f'site:facebook.com {n} race car', f'site:instagram.com {n} motorsports',
+            f'site:myracepass.com {n}', f'site:race-monitor.com {n}',
             f'{n} race team', f'{n} car number racing'
         ])
     if entity.entity_type == 'league':
         qs.extend([f'{n} iRacing league', f'{n} racing league'])
     if entity.entity_type == 'track':
         qs.extend([f'{n} speedway track', f'{n} raceway'])
-    return list(dict.fromkeys(qs))[:18]
+    hint = (hint or '').strip()
+    if hint:
+        hint_terms = [f'{n} {hint} racing', f'{n} {hint}']
+        try:
+            parsed = urlparse(hint if '://' in hint else 'https://' + hint if '.' in hint and ' ' not in hint else '')
+            host = parsed.netloc.lower().removeprefix('www.') if parsed.netloc else ''
+            handle = parsed.path.strip('/').split('/')[0] if parsed.path else ''
+            if host in {'facebook.com','instagram.com'} and handle:
+                hint_terms.extend([f'site:{host} "{handle}" racing', f'{n} "{handle}"'])
+            elif hint.startswith('@'):
+                handle = hint.lstrip('@')
+                hint_terms.extend([f'site:instagram.com "{handle}" racing', f'site:facebook.com "{handle}" racing'])
+        except Exception:
+            pass
+        qs = [*hint_terms, *qs]
+    return list(dict.fromkeys(qs))[:32]
 
 
 def _participant_context(db, entity_id: int) -> dict:
@@ -339,7 +357,12 @@ def process_job(job_id: int) -> dict:
         }
         ctx = _participant_context(db, entity.id)
 
-    queries = _queries(entity, job.research_type)
+    try:
+        existing_brief = json.loads(job.brief_json or '{}')
+    except Exception:
+        existing_brief = {}
+    research_hint = str(existing_brief.get('research_hint') or '').strip()
+    queries = _queries(entity, job.research_type, research_hint)
     items = []
     with httpx.Client(timeout=14, follow_redirects=True) as client:
         for q in queries:
@@ -383,12 +406,6 @@ def process_job(job_id: int) -> dict:
     if entity_snapshot.get('platform'): known.append(f"Platform: {entity_snapshot['platform']}")
     if entity_snapshot.get('region'): known.append(f"Region: {entity_snapshot['region']}")
     if entity_snapshot.get('summary'): known.append(entity_snapshot['summary'])
-    if ctx:
-        known.extend([
-            f"Rookie Year stage: {ctx.get('campaign_stage')}",
-            f"Intake: {ctx.get('intake_status')}",
-            f"Media permission: {ctx.get('media_permission')}",
-        ])
 
     gaps = []
     if not entity_snapshot.get('region'): gaps.append('hometown / racing region')
@@ -400,6 +417,27 @@ def process_job(job_id: int) -> dict:
     scout = _ai_rookie_scout(entity_snapshot['name'], scored) if job.research_type == 'rookie_deep_dive' else {}
     verified_profile = _profile_from_scout(scout) if scout else (_extract_rookie_fields(entity_snapshot['name'], strong, corroborated) if job.research_type == 'rookie_deep_dive' else {})
     scout_identity = str(scout.get('identity_match') or '').lower()
+    if verified_profile:
+        labels = [
+            ('hometown_region', 'Hometown / region'),
+            ('class_division', 'Class / division'),
+            ('car_number', 'Car number'),
+            ('home_track_series', 'Home track / series'),
+            ('rookie_status', 'Rookie status'),
+            ('notable_results_story', 'Notable story / results'),
+            ('public_presence', 'Public racing presence'),
+        ]
+        for key, label in labels:
+            if verified_profile.get(key):
+                known.append(f"{label}: {verified_profile[key]}")
+        resolved = {
+            'hometown_region': 'hometown / racing region',
+            'class_division': 'class / division',
+            'car_number': 'car number',
+            'home_track_series': 'home track / series',
+            'rookie_status': 'rookie-status confirmation',
+        }
+        gaps = [g for g in gaps if not any(verified_profile.get(k) and g == v for k, v in resolved.items())]
     if scout_identity == 'high' and verified_profile:
         identity_conf = max(identity_conf, 85)
         verification = max(verification, 78)
@@ -407,6 +445,16 @@ def process_job(job_id: int) -> dict:
     facts_used = []
     for s in strong[:6]:
         facts_used.append({'claim': s['title'], 'source': s['source'], 'url': s['url'], 'identity_score': s['identity_score']})
+    if scout:
+        packet = scout.get('_evidence_packet') or []
+        by_index = {x.get('source_index'): x for x in packet}
+        for key in ('hometown_region','class_division','car_number','home_track_series','rookie_evidence','notable_results_story','public_social_or_team_presence'):
+            field = scout.get(key) or {}
+            value = field.get('value') if isinstance(field, dict) else None
+            refs = field.get('source_indexes') if isinstance(field, dict) else []
+            if value and refs:
+                src = by_index.get(refs[0]) or {}
+                facts_used.append({'claim': str(value), 'source': src.get('domain') or 'Public source', 'url': src.get('url'), 'identity_score': src.get('identity_score', identity_conf)})
     facts_omitted = []
     for s in (plausible + weak)[:6]:
         facts_omitted.append({'claim': s['title'], 'reason': 'Identity match is not strong enough to use as a fact.', 'url': s['url'], 'identity_score': s['identity_score']})
@@ -452,7 +500,10 @@ def process_job(job_id: int) -> dict:
         'scouting': {k:v for k,v in scout.items() if k != '_evidence_packet'} if scout else {},
         'feature_candidate': scout.get('feature_candidate') if scout else 'insufficient_evidence',
         'why_feature': scout.get('why_feature',[]) if scout else [],
-        'strengths': ([f'{len(strong)} strong public-source match(es) found'] if strong else []) + (['Existing Pitmark campaign context is available'] if ctx else []),
+        'strengths': ([f'{len(strong)} strong public-source match(es) found'] if strong else []) + ([f"Public racing/social presence found: {verified_profile.get('public_presence')}"] if verified_profile.get('public_presence') else []),
+        'story_hooks': scout.get('why_feature',[]) if scout else [],
+        'research_hint': research_hint or None,
+        'limited_public_footprint': len(scored) == 0,
         'weaknesses': gaps,
         'recommended_action': action,
         'recommendation': recommendation,
@@ -460,6 +511,7 @@ def process_job(job_id: int) -> dict:
         'search_queries': queries,
         'sources': scored[:12],
         'safety_note': 'Public search results are leads until identity is corroborated. Uncertain facts are omitted from outreach/content.',
+        'source_quality': 'strong' if corroborated else ('mixed' if strong or plausible else 'limited'),
     }
 
     # Outreach draft only uses current internal facts. For an intake-sent rookie, no redundant pitch is generated.
@@ -467,7 +519,10 @@ def process_job(job_id: int) -> dict:
     if job.research_type != 'rookie_deep_dive' and corroborated:
         outreach = f"Hey! I’m with Pitmark Racing Co. I was checking out {entity_snapshot['name']} and wanted to introduce ourselves. We’re building tools and community projects around racers and racing organizations, and there looks like there may be a natural fit. If you’re open to it, I’d love to learn a little more about what you’re doing and see where Pitmark might be useful. 🏁"
 
-    completeness = min(100, 35 + min(len(scored), 8) * 5 + (15 if ctx else 0) + (10 if corroborated else 0))
+    profile_points = sum(1 for k in ('hometown_region','class_division','car_number','home_track_series','rookie_status','notable_results_story','public_presence') if verified_profile.get(k))
+    completeness = min(100, 15 + min(len(scored), 10) * 4 + profile_points * 7 + (10 if corroborated else 0))
+    if not scored:
+        completeness = 20 if research_hint else 10
     source_urls = [{'title': x['title'], 'url': x['url'], 'source': x['source'], 'identity_score': x['identity_score']} for x in scored[:12]]
 
     with SessionLocal() as db:

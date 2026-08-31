@@ -18,10 +18,21 @@ from services.meta_publish_service import (
 )
 from services.x_publish_service import XPublishError, connection_status as x_connection_status, publish_x_post
 from services.social_asset_pool import add_asset, choose_asset, get_asset, get_uploaded_image, list_assets, mark_used, store_uploaded_image, sync_shopify_images
+from services.openai_image_service import PitmarkImageGenerationError, generate_image
+from utils.security import enforce_rate_limit
 
 router = APIRouter()
 public_router = APIRouter()
 
+
+
+
+class GeneratedImageRequest(BaseModel):
+    prompt: str
+    size: str = "1024x1024"
+    quality: str = "medium"
+    add_to_library: bool = True
+    content_type: str = "social"
 
 class AssetCreate(BaseModel):
     url: str
@@ -69,6 +80,41 @@ def sync_social_assets_from_shopify(request: Request, x_pitmark_admin_key: str |
         return sync_shopify_images()
     except Exception as exc:
         raise HTTPException(502, f"Shopify asset sync failed: {exc}")
+
+
+@router.post("/assets/generate")
+def generate_social_asset(payload: GeneratedImageRequest, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    enforce_rate_limit(request, "openai-image-generation", 6, 300)
+    try:
+        result = generate_image(prompt=payload.prompt, size=payload.size, quality=payload.quality)
+        stored = store_uploaded_image(
+            data=result["data"],
+            filename=f"pitmark-ai-{payload.size}.png",
+            mime_type=result["mime_type"],
+        )
+    except (PitmarkImageGenerationError, ValueError) as exc:
+        raise HTTPException(400, str(exc))
+    base = str(request.base_url).rstrip("/")
+    public_url = f"{base}/social-assets/{stored['public_token']}"
+    asset = None
+    if payload.add_to_library:
+        asset = add_asset(
+            url=public_url,
+            title="Pitmark AI generated image",
+            source="openai_image",
+            source_ref=f"generated:{stored['id']}",
+            tags=["generated", "openai", "pitmark", payload.content_type, payload.size, payload.quality],
+        )
+    return {
+        "ok": True,
+        "url": public_url,
+        "asset": asset,
+        "model": result["model"],
+        "size": result["size"],
+        "quality": result["quality"],
+        "revised_prompt": result.get("revised_prompt"),
+    }
 
 
 @router.post("/assets/suggest")
@@ -192,6 +238,7 @@ def publish_post(post_id: int, request: Request, x_pitmark_admin_key: str | None
         if not post:
             raise HTTPException(404, "Post not found.")
         platform = (post.platform or "").strip().lower()
+        freshness_warning = None
 
         # Reactive social posts sourced from intelligence expire quickly. Manual/evergreen posts do not.
         if (post.source or "").startswith("intelligence:") and platform in {"facebook", "instagram", "x"}:
@@ -205,8 +252,11 @@ def publish_post(post_id: int, request: Request, x_pitmark_admin_key: str | None
                     age_hours = (datetime.now(timezone.utc) - published.astimezone(timezone.utc)).total_seconds() / 3600
                     from utils.config import settings
                     max_age = (settings.x_realtime_max_age_minutes / 60.0) if platform == "x" else settings.social_realtime_max_age_hours
+                    # Freshness is advisory for an explicit human Publish click.
+                    # Automated lanes still use freshness gates upstream, but the
+                    # Control Center operator retains final authority to publish.
                     if age_hours > max_age:
-                        raise HTTPException(409, f"This reactive {platform} opportunity is {age_hours:.1f} hours old and has expired from its real-time lane. Use it for long-form/blog context instead.")
+                        freshness_warning = f"This reactive {platform} opportunity is {age_hours:.1f} hours old and outside the recommended real-time window."
             except ValueError:
                 pass
         if platform not in {"facebook", "instagram", "x"}:
@@ -235,4 +285,4 @@ def publish_post(post_id: int, request: Request, x_pitmark_admin_key: str | None
         post.status = "published"
         post.updated_at = utcnow()
         db.commit(); db.refresh(post)
-        return {"ok": True, "post": serialize(post), "publish": result}
+        return {"ok": True, "post": serialize(post), "publish": result, "warning": freshness_warning}

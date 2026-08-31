@@ -736,6 +736,10 @@ class ResearchPrepareRequest(BaseModel):
     entity_id: int | None = None
     opportunity_id: int | None = None
     research_type: str = 'entity_deep_dive'
+    hint: str | None = None
+
+class ResearchRunRequest(BaseModel):
+    hint: str | None = None
 
 class CampaignParticipantCreate(BaseModel):
     name: str
@@ -822,7 +826,8 @@ def community_research_prepare(payload: ResearchPrepareRequest, request: Request
         row = ResearchJob(entity_id=payload.entity_id, opportunity_id=payload.opportunity_id,
                           research_type=payload.research_type, status='queued',
                           brief_json=json.dumps({'subject': seed, 'research_more_supported': True,
-                                                 'required_outputs': ['verified facts','source ledger','strengths','weaknesses','PRT fit','Pitmark fit','recommended action','personalized outreach']}))
+                                                 'research_hint': (payload.hint or '').strip() or None,
+                                                 'required_outputs': ['verified facts','source ledger','story hooks','identity gaps','feature recommendation','personalized outreach']}))
         db.add(row); db.commit(); db.refresh(row)
         from services.research_agent import process_job
         background_tasks.add_task(process_job, row.id)
@@ -847,13 +852,20 @@ def community_research_job(job_id: int, request: Request, x_admin_key: str | Non
 
 
 @router.post('/community/research/{job_id}/run')
-def community_research_run(job_id: int, request: Request, background_tasks: BackgroundTasks, x_admin_key: str | None = Header(default=None)):
+def community_research_run(job_id: int, payload: ResearchRunRequest, request: Request, background_tasks: BackgroundTasks, x_admin_key: str | None = Header(default=None)):
     auth(request, x_admin_key)
     from services.racing_community import ResearchJob
     from services.research_agent import process_job
     with SessionLocal() as db:
         row = db.get(ResearchJob, job_id)
         if not row: raise HTTPException(404, 'Research job not found')
+        if payload.hint is not None:
+            try:
+                brief = json.loads(row.brief_json or '{}')
+            except Exception:
+                brief = {}
+            brief['research_hint'] = payload.hint.strip() or None
+            row.brief_json = json.dumps(brief)
         row.status = 'queued'; db.commit()
     background_tasks.add_task(process_job, job_id)
     return {'job_id': job_id, 'status': 'queued'}

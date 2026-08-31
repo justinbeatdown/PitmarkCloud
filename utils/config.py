@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PITMARK_RELEASE_VERSION = "0.15.4"
+PITMARK_RELEASE_VERSION = "0.15.5"
 
 
 class Settings(BaseSettings):
@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     pitmark_ai_model: str = "gpt-5.6-luna"
     pitmark_ai_timeout_seconds: float = 30.0
     openai_api_key: str = ""
+    pitmark_image_model: str = "gpt-image-2"
+    pitmark_image_timeout_seconds: float = 90.0
     autopilot_intelligence_enabled: bool = True
     autopilot_scan_hours: int = 1
     autopilot_scan_minutes: int = 15
