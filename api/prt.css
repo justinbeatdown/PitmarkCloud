@@ -29,3 +29,12 @@
 @media(max-width:420px){
   .compact-status{grid-template-columns:1fr;}
 }
+
+/* v0.17.6 — keep Support visible in the PRT mobile header */
+@media(max-width:900px){
+  .top-actions .ghost-link{display:inline-flex;align-items:center;justify-content:center}
+}
+@media(max-width:560px){
+  .top-actions{gap:8px}
+  .top-actions .ghost-link{font-size:10px;letter-spacing:.5px}
+}
