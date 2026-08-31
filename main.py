@@ -4,13 +4,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from utils.security import SecurityHeadersMiddleware, security_summary
 
-from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_ui
+from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_ui, social_publish
 from utils.config import settings
 from utils.logger import configure_logging
 from services import discord_gateway_service
 from services.database import init_database, database_status
 from services.autopilot_intelligence import scheduler_loop
 from services.research_agent import research_worker_loop
+from services.social_publish_worker import social_publish_worker_loop
 
 configure_logging()
 
@@ -21,11 +22,13 @@ async def lifespan(app: FastAPI):
     await discord_gateway_service.start()
     autopilot_task = asyncio.create_task(scheduler_loop())
     research_task = asyncio.create_task(research_worker_loop())
+    social_publish_task = asyncio.create_task(social_publish_worker_loop())
     try:
         yield
     finally:
         autopilot_task.cancel()
         research_task.cancel()
+        social_publish_task.cancel()
         await discord_gateway_service.stop()
 
 
@@ -60,6 +63,7 @@ app.include_router(live_session.router, prefix="/api/discord/session", tags=["di
 app.include_router(results.router, prefix="/api/discord", tags=["discord-results"])
 app.include_router(shopify.router, prefix="/api/shopify", tags=["shopify"])
 app.include_router(control_center.router, prefix="/api/control", tags=["control-center"])
+app.include_router(social_publish.router, prefix="/api/control/social", tags=["social-publishing"])
 app.include_router(control_center_ui.router)
 
 

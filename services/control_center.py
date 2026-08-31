@@ -212,3 +212,4 @@ class AutopilotPlan(Base):
     summary: Mapped[str] = mapped_column(Text)
     plan_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+

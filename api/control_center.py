@@ -38,6 +38,7 @@ def shield_audit(event_type: str, severity: str = 'info', actor: str | None = No
         pass
 
 
+
 def auth(request: Request, admin_key: str | None):
     return require_control_user(request, admin_key)
 
@@ -238,6 +239,7 @@ def status(request: Request, x_pitmark_admin_key: str | None = Header(default=No
             'outreach_contacts': len(db.scalars(select(OutreachContact)).all()),
             'blog_drafts': len(db.scalars(select(BlogDraft).where(BlogDraft.status == 'draft')).all()),
         }
+
 
 
 @router.post('/notifications/sync')

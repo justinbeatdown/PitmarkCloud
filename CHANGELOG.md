@@ -1,5 +1,15 @@
 # Pitmark Cloud Changelog
 
+## v0.14.2 — Facebook Autopilot Publishing
+- Added server-side Facebook Page publishing through the Meta Graph API.
+- Added `/api/control/social/status` and approval-gated live publish endpoint.
+- Added background worker that checks scheduled Facebook posts every minute.
+- Control Center Publish activates only when Facebook publishing is configured.
+- Added `META_PAGE_ID`, `META_PAGE_ACCESS_TOKEN`, configurable Graph API version, and Pitmark timezone settings.
+- Preserved the verified Shopify Racing Culture hard-priority routing fix.
+- Preserved the Control Center autofill guard that prevents username/password-manager bleed into content fields.
+- Runtime/package version advanced consistently to `0.14.2`.
+
 ## v0.14.1 — Shopify Live Publishing Foundation
 - Added real Shopify client-credentials authentication with 24-hour token caching and safe refresh.
 - Added live Shopify connection test and blog discovery endpoints.
