@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PITMARK_RELEASE_VERSION = "0.14.7"
+PITMARK_RELEASE_VERSION = "0.15.0"
 
 
 class Settings(BaseSettings):
@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     tiktok_client_secret: str = ""
     x_client_id: str = ""
     x_client_secret: str = ""
+    x_api_key: str = ""
+    x_api_secret: str = ""
+    x_access_token: str = ""
+    x_access_token_secret: str = ""
+    x_realtime_max_age_minutes: int = 60
 
     shopify_shop_domain: str = ""
     shopify_client_id: str = ""

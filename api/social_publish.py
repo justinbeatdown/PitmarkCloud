@@ -15,6 +15,7 @@ from services.meta_publish_service import (
     publish_facebook_post,
     publish_instagram_post,
 )
+from services.x_publish_service import XPublishError, connection_status as x_connection_status, publish_x_post
 from services.social_asset_pool import add_asset, choose_asset, get_uploaded_image, list_assets, mark_used, store_uploaded_image, sync_shopify_images
 
 router = APIRouter()
@@ -36,10 +37,12 @@ def social_publish_status(request: Request, x_pitmark_admin_key: str | None = He
     auth(request, x_pitmark_admin_key)
     facebook = facebook_connection_status()
     instagram = instagram_connection_status()
+    x = x_connection_status()
     supported = []
     if facebook.get("configured"): supported.append("facebook")
     if instagram.get("configured"): supported.append("instagram")
-    return {"facebook": facebook, "instagram": instagram, "supported_platforms": supported}
+    if x.get("configured"): supported.append("x")
+    return {"facebook": facebook, "instagram": instagram, "x": x, "supported_platforms": supported}
 
 
 @router.get("/assets")
@@ -145,7 +148,7 @@ def publish_post(post_id: int, request: Request, x_pitmark_admin_key: str | None
         platform = (post.platform or "").strip().lower()
 
         # Reactive social posts sourced from intelligence expire quickly. Manual/evergreen posts do not.
-        if (post.source or "").startswith("intelligence:") and platform in {"facebook", "instagram"}:
+        if (post.source or "").startswith("intelligence:") and platform in {"facebook", "instagram", "x"}:
             try:
                 opportunity_id = int((post.source or "").split(":", 1)[1])
                 from services.control_center import OpportunitySourceMeta
@@ -155,17 +158,20 @@ def publish_post(post_id: int, request: Request, x_pitmark_admin_key: str | None
                     published = meta.published_at if meta.published_at.tzinfo else meta.published_at.replace(tzinfo=timezone.utc)
                     age_hours = (datetime.now(timezone.utc) - published.astimezone(timezone.utc)).total_seconds() / 3600
                     from utils.config import settings
-                    if age_hours > settings.social_realtime_max_age_hours:
-                        raise HTTPException(409, f"This reactive social opportunity is {age_hours:.1f} hours old and has expired from the real-time social lane. Use it for long-form/blog context instead.")
+                    max_age = (settings.x_realtime_max_age_minutes / 60.0) if platform == "x" else settings.social_realtime_max_age_hours
+                    if age_hours > max_age:
+                        raise HTTPException(409, f"This reactive {platform} opportunity is {age_hours:.1f} hours old and has expired from its real-time lane. Use it for long-form/blog context instead.")
             except ValueError:
                 pass
-        if platform not in {"facebook", "instagram"}:
+        if platform not in {"facebook", "instagram", "x"}:
             raise HTTPException(400, f"Live publishing is not connected for {platform or 'this platform'} yet.")
         if post.status not in {"approved", "scheduled"}:
             raise HTTPException(409, "Only approved or scheduled posts may be published.")
         try:
             if platform == "facebook":
                 result = publish_facebook_post(post.body)
+            elif platform == "x":
+                result = publish_x_post(post.body)
             else:
                 media_url = (post.media_url or "").strip()
                 if not media_url:
@@ -178,7 +184,7 @@ def publish_post(post_id: int, request: Request, x_pitmark_admin_key: str | None
                 mark_used(media_url)
         except HTTPException:
             raise
-        except MetaPublishError as exc:
+        except (MetaPublishError, XPublishError) as exc:
             raise HTTPException(502, str(exc))
         post.status = "published"
         post.updated_at = utcnow()

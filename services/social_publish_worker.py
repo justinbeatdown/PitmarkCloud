@@ -10,6 +10,7 @@ from sqlalchemy import select
 from services.control_center import SocialPost, utcnow
 from services.database import SessionLocal
 from services.meta_publish_service import facebook_configured, instagram_configured, publish_facebook_post, publish_instagram_post
+from services.x_publish_service import configured as x_configured, publish_x_post
 from services.social_asset_pool import choose_asset, mark_used, sync_shopify_images
 from utils.config import settings
 
@@ -33,7 +34,7 @@ def _scheduled_time(value: str | None) -> datetime | None:
 
 
 def _platform_ready(platform: str) -> bool:
-    return facebook_configured() if platform == "facebook" else instagram_configured() if platform == "instagram" else False
+    return facebook_configured() if platform == "facebook" else instagram_configured() if platform == "instagram" else x_configured() if platform == "x" else False
 
 
 def _asset_for(post: SocialPost) -> str | None:
@@ -53,7 +54,7 @@ def publish_due_posts() -> int:
     now = datetime.now(timezone.utc)
     published = 0
     with SessionLocal() as db:
-        rows = list(db.scalars(select(SocialPost).where(SocialPost.status == "scheduled", SocialPost.platform.in_(["facebook", "instagram"])).order_by(SocialPost.id.asc())).all())
+        rows = list(db.scalars(select(SocialPost).where(SocialPost.status == "scheduled", SocialPost.platform.in_(["facebook", "instagram", "x"])).order_by(SocialPost.id.asc())).all())
         for post in rows:
             platform = (post.platform or "").strip().lower()
             if not _platform_ready(platform):
@@ -69,7 +70,8 @@ def publish_due_posts() -> int:
                     if meta and meta.published_at:
                         published_at = meta.published_at if meta.published_at.tzinfo else meta.published_at.replace(tzinfo=timezone.utc)
                         age_hours = (now - published_at.astimezone(timezone.utc)).total_seconds() / 3600
-                        if age_hours > settings.social_realtime_max_age_hours:
+                        max_age = (settings.x_realtime_max_age_minutes / 60.0) if platform == "x" else settings.social_realtime_max_age_hours
+                        if age_hours > max_age:
                             log.warning("Skipping expired reactive social post %s (%.1fh old)", post.id, age_hours)
                             post.status = "archived"
                             post.updated_at = utcnow()
@@ -80,6 +82,8 @@ def publish_due_posts() -> int:
             try:
                 if platform == "facebook":
                     publish_facebook_post(post.body)
+                elif platform == "x":
+                    publish_x_post(post.body)
                 else:
                     media_url = _asset_for(post)
                     if not media_url:
