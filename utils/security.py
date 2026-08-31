@@ -55,16 +55,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Cross-Origin-Resource-Policy"] = "cross-origin" if request.url.path.startswith("/social-assets/") else "same-origin"
         response.headers["Cache-Control"] = "no-store"
         if request.url.path == "/api/discord/oauth/callback":
-            # OAuth completion is a tiny server-rendered page. Permit only inline CSS on this
-            # one route so branding survives CSP; scripts, frames, forms, images and network
-            # resources remain blocked.
             response.headers["Content-Security-Policy"] = (
                 "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; "
                 "base-uri 'none'; form-action 'none'; img-src 'none'; script-src 'none'"
             )
+        elif request.url.path.startswith("/prt"):
+            # PRT pages and PRT-served assets are same-origin. Allow only the assets and
+            # API calls required by the PRT website/Support Hub while keeping CSP strict.
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; "
+                "frame-ancestors 'none'; base-uri 'none'; form-action 'none'; img-src 'self'; "
+                "font-src 'self'"
+            )
         elif request.url.path in {"/control", "/control.css", "/control.js", "/control-login.js", "/control/mobile", "/control-mobile.css", "/control-mobile.js", "/control-mobile-login.js", "/control.webmanifest", "/control-sw.js", "/control-logo-wide.png", "/control-logo-badge.png"}:
-            # Control Center assets are served from Pitmark Cloud itself. Keep inline code
-            # blocked while permitting same-origin CSS, JavaScript and API fetches.
             response.headers["Content-Security-Policy"] = (
                 "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; "
                 "frame-ancestors 'none'; base-uri 'none'; form-action 'self'; img-src 'self'"
@@ -99,8 +102,6 @@ _rate_limiter = SlidingWindowRateLimiter()
 
 
 def client_ip(request: Request) -> str:
-    # Render sits behind a proxy. We intentionally use only the first forwarded value,
-    # falling back to the ASGI peer. Rate limiting is defense-in-depth, not authentication.
     forwarded = request.headers.get("x-forwarded-for", "").split(",", 1)[0].strip()
     return forwarded or (request.client.host if request.client else "unknown")
 

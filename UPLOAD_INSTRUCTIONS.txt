@@ -1,1 +1,1 @@
-Extract this ZIP over the PitmarkCloud repository root, review the changed files in GitHub Desktop, commit, push, and let Render deploy.
+Extract over the PitmarkCloud repository root. GitHub Desktop should show 5 changed/new files. Commit, push, and let Render redeploy.
