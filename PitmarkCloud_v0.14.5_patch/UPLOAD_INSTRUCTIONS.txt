@@ -1,0 +1,32 @@
+PITMARK CLOUD v0.14.5 PATCH
+
+Upload each file to the SAME path shown inside this ZIP:
+
+api/social_publish.py
+api/control_center_ui.py
+api/control_social_v0145.js   (NEW FILE)
+api/control_mobile.html
+api/control_mobile.js
+api/control_mobile.css
+services/meta_publish_service.py
+services/social_publish_worker.py
+services/social_asset_pool.py  (NEW FILE)
+services/database.py
+utils/config.py
+RELEASE_v0.14.5.md             (NEW FILE)
+
+RENDER ENVIRONMENT VARIABLE TO ADD:
+META_INSTAGRAM_ACCOUNT_ID=17841438661440658
+
+Keep your existing META_PAGE_ACCESS_TOKEN and META_PAGE_ID values.
+Do NOT paste tokens into GitHub or source files.
+
+After Render redeploys:
+1. Open Control Center > Settings. Facebook and Instagram should show Connected.
+2. Open Mobile Control Center. Tap Sync Shopify Images once.
+3. Create a fresh Instagram test post, save it, approve it, then Publish.
+4. Instagram should automatically select a Pitmark image if none is already assigned.
+5. Test the old autofill problem in several fields. Exact stray "justin" / "admin" values should be scrubbed before use.
+
+NOTE:
+The desktop footer is changed to v0.14.5 at runtime by control_social_v0145.js so the existing control_center.html does not need replacement in this patch.
