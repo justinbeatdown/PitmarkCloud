@@ -1,3 +1,12 @@
+# v0.14.5 — Instagram Autopilot + Asset Pool + Mobile Publish
+
+- Adds Instagram Graph API publishing using the linked Pitmark professional account.
+- Adds Shopify-backed social image asset pool with automatic selection and reuse tracking.
+- Adds real Facebook/Instagram Connected Accounts status.
+- Adds expanded mobile Autopilot generate/edit/approve/schedule/publish workflow.
+- Broadens Control Center autofill protection.
+- Makes displayed release version derive from the code-owned release version.
+
 # Pitmark Cloud Changelog
 
 ## v0.14.4 — Direct Facebook Publish Integration

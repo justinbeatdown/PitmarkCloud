@@ -3,10 +3,12 @@ from __future__ import annotations
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+PITMARK_RELEASE_VERSION = "0.14.5"
+
 
 class Settings(BaseSettings):
     environment: str = "development"
-    app_version: str = "0.14.4"
+    app_version: str = PITMARK_RELEASE_VERSION
     cors_origins: str = ""
 
     pitmark_signing_secret: str = "development-only"
@@ -38,8 +40,10 @@ class Settings(BaseSettings):
     meta_app_secret: str = ""
     meta_page_id: str = ""
     meta_page_access_token: str = ""
-    meta_graph_version: str = "v24.0"
+    meta_instagram_account_id: str = ""
+    meta_graph_version: str = "v26.0"
     pitmark_timezone: str = "America/New_York"
+    pitmark_public_store_url: str = "https://pitmarkracing.com"
 
     tiktok_client_key: str = ""
     tiktok_client_secret: str = ""
@@ -67,7 +71,10 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    configured = Settings()
+    # Release display/API version is owned by the deployed code, not a stale host env var.
+    configured.app_version = PITMARK_RELEASE_VERSION
+    return configured
 
 
 settings = get_settings()

@@ -18,15 +18,12 @@ class Base(DeclarativeBase):
 def _normalized_url() -> str:
     raw = (settings.database_url or "").strip()
     if raw:
-        # Render/Supabase-style URLs are sometimes supplied as postgres://.
         if raw.startswith("postgres://"):
             raw = "postgresql+psycopg://" + raw[len("postgres://"):]
         elif raw.startswith("postgresql://"):
             raw = "postgresql+psycopg://" + raw[len("postgresql://"):]
         return raw
 
-    # Local development fallback only. Render's filesystem is ephemeral, so production
-    # multi-server deployments should always set DATABASE_URL.
     Path("data").mkdir(exist_ok=True)
     return "sqlite:///./data/pitmark-dev.db"
 
@@ -38,11 +35,11 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False
 
 
 def init_database() -> None:
-    # Import model modules before create_all so SQLAlchemy knows all tables.
     from services import persistent_store  # noqa: F401
     from services import control_center  # noqa: F401
     from services import control_auth  # noqa: F401
     from services import racing_community  # noqa: F401
+    from services import social_asset_pool  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     if not settings.database_url:

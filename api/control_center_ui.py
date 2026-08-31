@@ -62,15 +62,8 @@ def control(request: Request):
     filename = 'control_center.html' if user_from_request(request) else 'control_login.html'
     html = (ASSET_DIR / filename).read_text(encoding='utf-8')
     if filename == 'control_center.html':
-        # Keep the visible Control Center version tied to the real app version.
-        # This prevents the footer from drifting behind future releases.
         import re
-        html = re.sub(
-            r'PITMARK CLOUD v[0-9]+(?:\\.[0-9]+)*',
-            f'PITMARK CLOUD v{settings.app_version}',
-            html,
-            flags=re.IGNORECASE,
-        )
+        html = re.sub(r'PITMARK CLOUD v[0-9]+(?:\.[0-9]+)*', f'PITMARK CLOUD v{settings.app_version}', html, flags=re.IGNORECASE)
         html = html.replace('</body>', AUTOFILL_GUARD + '\n' + SOCIAL_PATCH + '\n</body>')
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
 

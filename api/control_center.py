@@ -87,6 +87,7 @@ class SavePost(BaseModel):
     source: str = 'manual'
     risk: str = 'low'
     scheduled_for: str | None = None
+    media_url: str | None = None
 
 
 class Decision(BaseModel):
@@ -99,6 +100,7 @@ class PostUpdate(BaseModel):
     title: str | None = None
     content_type: str | None = None
     scheduled_for: str | None = None
+    media_url: str | None = None
 
 
 class ShieldIngest(BaseModel):
@@ -355,7 +357,7 @@ def compose(req: ComposeRequest, request: Request, x_pitmark_admin_key: str | No
 def save_post(req: SavePost, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
     with SessionLocal() as db:
-        p = SocialPost(platform=req.platform, title=req.title, body=req.body, content_type=req.content_type, source=req.source, risk=req.risk, status='pending', scheduled_for=req.scheduled_for)
+        p = SocialPost(platform=req.platform, title=req.title, body=req.body, content_type=req.content_type, source=req.source, risk=req.risk, status='pending', scheduled_for=req.scheduled_for, media_url=req.media_url)
         db.add(p); db.commit(); db.refresh(p)
         return serialize(p)
 
@@ -566,9 +568,19 @@ def blog_decide(draft_id: int, req: BlogDecision, request: Request, x_pitmark_ad
 @router.get('/settings/connections')
 def connection_readiness(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
+    facebook_connected = bool(settings.meta_page_id.strip() and settings.meta_page_access_token.strip())
+    instagram_connected = bool(facebook_connected and settings.meta_instagram_account_id.strip())
     return {
-        'facebook': {'connected': False, 'ready': bool(settings.meta_app_id and settings.meta_app_secret), 'label': 'Meta OAuth'},
-        'instagram': {'connected': False, 'ready': bool(settings.meta_app_id and settings.meta_app_secret), 'label': 'Meta OAuth'},
+        'facebook': {
+            'connected': facebook_connected,
+            'ready': facebook_connected or bool(settings.meta_app_id and settings.meta_app_secret),
+            'label': 'Meta publishing',
+        },
+        'instagram': {
+            'connected': instagram_connected,
+            'ready': instagram_connected or bool(settings.meta_app_id and settings.meta_app_secret),
+            'label': 'Meta publishing',
+        },
         'tiktok': {'connected': False, 'ready': bool(settings.tiktok_client_key and settings.tiktok_client_secret), 'label': 'TikTok OAuth'},
         'x': {'connected': False, 'ready': bool(settings.x_client_id and settings.x_client_secret), 'label': 'X OAuth'},
     }
