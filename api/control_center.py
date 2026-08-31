@@ -674,7 +674,10 @@ def opportunities(request: Request, x_pitmark_admin_key: str | None = Header(def
     auth(request, x_pitmark_admin_key)
     with SessionLocal() as db:
         from services.control_center import OpportunitySourceMeta
-        rows=list(db.scalars(select(AutopilotOpportunity).where(AutopilotOpportunity.status.in_(['new','drafted'])).order_by(AutopilotOpportunity.id.desc()).limit(30)).all())
+        rows=list(db.scalars(select(AutopilotOpportunity).where(
+            AutopilotOpportunity.status.in_(['new','drafted']),
+            AutopilotOpportunity.source_name != 'X'
+        ).order_by(AutopilotOpportunity.id.desc()).limit(30)).all())
         out=[]
         for x in rows:
             item=serialize(x); meta=db.scalar(select(OpportunitySourceMeta).where(OpportunitySourceMeta.opportunity_id==x.id))
@@ -694,6 +697,9 @@ def opportunities(request: Request, x_pitmark_admin_key: str | None = Header(def
 def opportunity_engine(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
     rows=evaluate_recent(30)
+    # Legacy X opportunities are intentionally excluded until the paid X lane
+    # is reintroduced behind the strict motorsports relevance/safety gate.
+    rows=[x for x in rows if str(x.get('source_name') or '').lower() != 'x']
     return {'count':len(rows),'high_priority':sum(1 for x in rows if x['score']>=80),'review':sum(1 for x in rows if 65<=x['score']<80),'watching':sum(1 for x in rows if 50<=x['score']<65),'no_action':sum(1 for x in rows if x['score']<50),'opportunities':rows}
 
 @router.post('/autopilot/intelligence/run')

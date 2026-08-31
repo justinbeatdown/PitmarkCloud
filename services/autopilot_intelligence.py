@@ -15,6 +15,9 @@ TERMS=('racing','race','motorsport','speedway','nascar','indycar','imsa','sprint
 COMMUNITY=('grassroots','local','short track','dirt','speedway','sprint','late model','modified','kart','sim racing','iracing','league','rookie','first season','track','club')
 MAJOR=('nascar.com','formula 1','f1','indycar','cup series','motogp')
 LOW_SIGNAL=('farm and dairy','drag bike news')
+X_STRONG_RACING=('nascar','indycar','imsa','iracing','motorsport','motorsports','speedway','raceway','sprint car','late model','short track','dirt track','modified racing','stock car racing','karting','sim racing')
+X_REJECT_CONTEXT=('white race','human race','race relations','racial','racist','race war','master race','genetics','ancestry','ethnicity','army','navy','air force','military','politics','election','government')
+X_TOXIC=('nigger','nigga','white race','master race','racial purity','diluting their genetics','inferior race','superior race','white genocide')
 
 def tag(x,t):
  m=re.search(fr'<{t}[^>]*>(.*?)</{t}>',x,re.I|re.S); return html.unescape(re.sub('<[^>]+>','',m.group(1))).strip() if m else ''
@@ -31,6 +34,33 @@ def _quality(title:str, description:str)->tuple[int,str]:
  reason='strong Pitmark community fit' if score>=45 else ('possible community fit; verify relevance' if score>=20 else 'broad motorsports signal; low Pitmark fit')
  return score,reason
 
+
+def _x_relevance_gate(text: str) -> tuple[bool, str]:
+    """Strict gate for paid X discovery.
+    The word 'race/racing' alone is never enough because X uses those words in
+    politics, ethnicity, military news, gaming, memes and unrelated chatter.
+    """
+    low = re.sub(r'\s+', ' ', (text or '').lower()).strip()
+    if not low:
+        return False, 'empty'
+    if any(term in low for term in X_TOXIC):
+        return False, 'unsafe/toxic context'
+    if any(term in low for term in X_REJECT_CONTEXT):
+        return False, 'non-motorsports race context'
+    strong = [term for term in X_STRONG_RACING if term in low]
+    # Require a real motorsports anchor. Bare "race" or "racing" is rejected.
+    if not strong:
+        return False, 'no strong motorsports anchor'
+    # Prefer community/competition context, not just a brand/name collision.
+    context = any(term in low for term in (
+        'driver','car','track','lap','laps','qualifying','practice','feature',
+        'heat race','championship','series','team','rookie','season','pits',
+        'podium','checkered','green flag','race winner','race weekend'
+    ))
+    if not context and len(strong) < 2:
+        return False, 'weak motorsports context'
+    return True, 'motorsports-qualified'
+
 def scan_now():
  run=AutopilotRun()
  with SessionLocal() as db: db.add(run); db.commit(); db.refresh(run); rid=run.id
@@ -45,6 +75,14 @@ def scan_now():
   seen_story=set()
   with SessionLocal() as db:
    # Archive stale persisted opportunities so old articles stop surfacing in UI/Command Brief.
+   # Legacy X discovery used a broad `racing` query and produced false positives
+   # (including race/ethnicity content). Retire those stored candidates; future
+   # paid X discovery must pass _x_relevance_gate before it can enter Pitmark.
+   for legacy_x in db.scalars(select(AutopilotOpportunity).where(
+       AutopilotOpportunity.source_name == 'X',
+       AutopilotOpportunity.status.in_(['new','drafted'])
+   )).all():
+    legacy_x.status='archived_irrelevant'
    metas={m.opportunity_id:m for m in db.scalars(select(OpportunitySourceMeta)).all()}
    for old in db.scalars(select(AutopilotOpportunity).where(AutopilotOpportunity.status=='new')).all():
     meta=metas.get(old.id)
