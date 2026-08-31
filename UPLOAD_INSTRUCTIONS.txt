@@ -1,9 +1,9 @@
-Pitmark Cloud v0.16.16
+Pitmark Cloud v0.16.17
 
 Extract over the root of the local PitmarkCloud repository, commit/push, and let Render deploy.
 
 Verify desktop and mobile:
-- Orders appears in From.
-- Send from orders@mail.pitmarkracing.com.
-- Receive at orders@mail.pitmarkracing.com.
-- Reply with Auto and confirm the reply is sent from Orders.
+- Hello / General appears in From.
+- Send from hello@mail.pitmarkracing.com.
+- Receive at hello@mail.pitmarkracing.com.
+- Reply with Auto and confirm the reply is sent from Hello.
