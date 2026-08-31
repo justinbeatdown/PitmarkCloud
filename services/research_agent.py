@@ -129,6 +129,10 @@ def _evidence_score(name: str, item: dict, entity: CommunityEntity) -> tuple[int
         score += 10; reasons.append(f'{entity.platform} context')
     if entity.region and entity.region.lower() in text:
         score += 10; reasons.append('region match')
+    domain = urlparse(item.get('url','')).netloc.lower().removeprefix('www.')
+    authoritative = ('nascar.com','imsa.com','indycar.com','worldofoutlaws.com','dirtcar.com','myracepass.com','racemonitor.com')
+    if any(domain == d or domain.endswith('.'+d) for d in authoritative):
+        score += 15; reasons.append('authoritative racing source')
     return min(score, 100), reasons
 
 
@@ -157,7 +161,10 @@ def _queries(entity: CommunityEntity, research_type: str, hint: str = "") -> lis
             f'site:facebook.com {n} racing', f'site:instagram.com {n} racing',
             f'site:facebook.com {n} race car', f'site:instagram.com {n} motorsports',
             f'site:myracepass.com {n}', f'site:race-monitor.com {n}',
-            f'{n} race team', f'{n} car number racing'
+            f'{n} race team', f'{n} car number racing',
+            f'site:nascar.com {n}', f'site:imsa.com {n}', f'site:indycar.com {n}',
+            f'site:worldofoutlaws.com {n}', f'site:dirtcar.com {n}',
+            f'{n} official driver stats', f'{n} official driver profile'
         ])
     if entity.entity_type == 'league':
         qs.extend([f'{n} iRacing league', f'{n} racing league'])
@@ -260,7 +267,7 @@ def _ai_rookie_scout(name: str, evidence: list[dict]) -> dict:
     instructions = """You are Pitmark Racing Co.'s conservative motorsports scouting analyst.
 Use ONLY the supplied public-search evidence. Never guess. Identify whether the evidence
 appears to describe the named racing driver. Return JSON only. Every non-null factual field
-must include source_indexes that directly support it. If identity is ambiguous, leave facts
+must include source_indexes that directly support it. A single clearly official sanctioning-body, series, team, track, or driver profile may verify a basic profile fact; do not require two unrelated websites when an authoritative first-party source directly states it. If identity is ambiguous, leave facts
 null and say why. Evaluate feature_candidate based on public racing story value, not fame.
 Good candidates include rookies, grassroots racers, compelling first seasons, community
 stories, progression, unusual paths, or documented accomplishments."""
@@ -483,6 +490,29 @@ def process_job(job_id: int) -> dict:
         action = 'needs_more_context'
         recommendation = 'No safe identity match was established from the current information. Add class, car number, track, league, region, or social handle before deeper outreach research.'
 
+    # Decision score: answer the operator's real question — is this person worth outreach?
+    # Identity confidence gates the score, while story value/profile evidence raises it.
+    profile_fields = sum(1 for k in ('hometown_region','class_division','car_number','home_track_series','rookie_status','notable_results_story','public_presence') if verified_profile.get(k))
+    fit = str(scout.get('feature_candidate') or 'insufficient_evidence') if scout else 'insufficient_evidence'
+    fit_points = {'strong': 30, 'possible': 20, 'insufficient_evidence': 5, 'not_a_fit': 0}.get(fit, 5)
+    outreach_score = int(min(100, round(identity_conf * .35 + verification * .20 + min(profile_fields, 6) * 5 + fit_points)))
+    if identity_conf < 50:
+        outreach_score = min(outreach_score, 49)
+    if fit == 'not_a_fit':
+        outreach_score = min(outreach_score, 35)
+    if outreach_score >= 75:
+        outreach_verdict = 'REACH OUT'
+        outreach_reason = 'Strong enough identity and story evidence to justify outreach. Prepare a personalized message.'
+    elif outreach_score >= 55:
+        outreach_verdict = 'GOOD PROSPECT'
+        outreach_reason = 'There is a real Pitmark story angle here. Review the profile, then prepare outreach if it fits the campaign.'
+    elif outreach_score >= 35:
+        outreach_verdict = 'NEED MORE INFO'
+        outreach_reason = 'Potential fit, but the public profile is too thin or ambiguous. Add one known clue and research again.'
+    else:
+        outreach_verdict = 'SKIP FOR NOW'
+        outreach_reason = 'Not enough reliable evidence yet to spend outreach time on this candidate.'
+
     brief = {
         'subject': entity_snapshot['name'],
         'entity_type': entity_snapshot['entity_type'],
@@ -499,6 +529,9 @@ def process_job(job_id: int) -> dict:
         'verified_profile': verified_profile,
         'scouting': {k:v for k,v in scout.items() if k != '_evidence_packet'} if scout else {},
         'feature_candidate': scout.get('feature_candidate') if scout else 'insufficient_evidence',
+        'outreach_score': outreach_score,
+        'outreach_verdict': outreach_verdict,
+        'outreach_reason': outreach_reason,
         'why_feature': scout.get('why_feature',[]) if scout else [],
         'strengths': ([f'{len(strong)} strong public-source match(es) found'] if strong else []) + ([f"Public racing/social presence found: {verified_profile.get('public_presence')}"] if verified_profile.get('public_presence') else []),
         'story_hooks': scout.get('why_feature',[]) if scout else [],

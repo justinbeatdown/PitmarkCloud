@@ -395,6 +395,9 @@ def posts(request: Request, status: str | None = None, x_pitmark_admin_key: str 
         q = select(SocialPost).order_by(SocialPost.created_at.desc())
         if status:
             q = q.where(SocialPost.status == status)
+        else:
+            # Working queue only. Rejected/archived records stay durable but never clutter the default view.
+            q = q.where(~SocialPost.status.in_(['rejected','archived']))
         rows = list(db.scalars(q).all())
         out = []
         published_cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
@@ -585,6 +588,17 @@ def outreach_update(contact_id: int, req: OutreachUpdate, request: Request, x_pi
         return serialize(o)
 
 
+@router.delete('/outreach/{contact_id}')
+def outreach_delete(contact_id: int, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    with SessionLocal() as db:
+        o = db.get(OutreachContact, contact_id)
+        if not o:
+            raise HTTPException(404, 'Contact not found')
+        db.delete(o); db.commit()
+        return {'ok': True, 'deleted_id': contact_id}
+
+
 @router.post('/blog/generate')
 def blog_generate(req: BlogGenerate, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
@@ -661,7 +675,8 @@ def connection_readiness(request: Request, x_pitmark_admin_key: str | None = Hea
             'label': 'Meta publishing',
         },
         'tiktok': {'connected': False, 'ready': bool(settings.tiktok_client_key and settings.tiktok_client_secret), 'label': 'TikTok OAuth'},
-        'x': {'connected': False, 'ready': bool(settings.x_client_id and settings.x_client_secret), 'label': 'X OAuth'},
+        'x': {'connected': bool(settings.x_api_key and settings.x_api_secret and settings.x_access_token and settings.x_access_token_secret), 'ready': bool(settings.x_client_id and settings.x_client_secret), 'label': 'X publishing'},
+        'openai': {'connected': bool(settings.openai_api_key.strip()), 'ready': bool(settings.openai_api_key.strip()), 'label': 'AI copy + image generation'},
     }
 
 
