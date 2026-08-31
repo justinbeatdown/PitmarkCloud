@@ -23,6 +23,7 @@
     if (c === 'legit' || c === 'system') return 'good';
     if (c === 'spam') return 'bad';
     if (c === 'review') return 'warn';
+    if (c === 'unverified') return 'neutral';
     return 'neutral';
   }
 
@@ -115,8 +116,9 @@
     if (!d && !m) return;
     const x = await getJson('/api/control/email/status');
     const s = x.shield_protection || {};
+    const counts = s.classification_counts || {};
     const text = s.connected
-      ? `Shield active · ${Number(s.protected_events || 0)} scanned · ${Number(s.review_count || 0)} review`
+      ? `Shield active · ${Number(s.protected_events || 0)} scanned · ${Number(counts.review || 0)} review · ${Number(counts.unverified || 0)} unverified`
       : 'Shield unavailable';
     if (d && !q('.pm-shield-status', d)) d.insertAdjacentHTML('beforeend', `<span class="status-pill status-approved pm-shield-status">🛡 ${esc(text)}</span>`);
     if (m && !q('.pm-shield-status', m.parentElement || document)) {

@@ -20,6 +20,7 @@ from services.shield_mail import (
     decorate_thread,
     decorate_threads,
     ingest_resend_event_protected,
+    rescan_pitmark_mail,
     sync_unprotected_mail,
 )
 from utils.security import enforce_rate_limit
@@ -59,6 +60,8 @@ class MailDraft(BaseModel):
 def mail_status(request: Request):
     auth(request)
     result = status()
+    sync_unprotected_mail()
+    result["shield_rescan"] = rescan_pitmark_mail()
     result["shield_protection"] = sync_unprotected_mail()
     return result
 

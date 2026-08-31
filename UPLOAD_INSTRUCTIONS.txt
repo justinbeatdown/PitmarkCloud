@@ -1,3 +1,9 @@
-Extract over the PitmarkCloud repository root, commit/push, and let Render deploy.
+Pitmark Cloud v0.16.21
 
-Verify Delete Conversation on desktop and mobile. The modal should retain the Pitmark dark/orange design and the Cancel/Delete buttons should no longer render as native white browser buttons.
+Extract over the repository root, commit/push, and let Render deploy.
+
+Verify:
+- Open Email once; existing neutral test mail should rescan from Review 40% to Unverified 40%.
+- The phishing test remains Review 94%.
+- Normal customer-intent/system messages remain Legit/System where applicable.
+- Desktop and mobile show neutral gray for Unverified and yellow only for real Review events.

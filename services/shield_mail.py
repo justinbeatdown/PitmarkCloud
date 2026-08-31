@@ -65,6 +65,22 @@ def _shield_result(message: MailMessage) -> dict:
         reasons.extend(["shield-blocked-url"] + blocked_urls[:3])
 
     result["reasons"] = list(dict.fromkeys(str(x) for x in reasons if x))
+
+    # "Insufficient evidence" is neutral uncertainty, not an actual warning.
+    # Keep Review only for concrete risk signals such as protected-topic,
+    # suspicious-pattern, phishing-language, or blocked URLs.
+    neutral_only = (
+        result.get("classification") == "Review"
+        and set(result["reasons"]) <= {"insufficient-evidence"}
+        and not phishing_hits
+        and not blocked_urls
+    )
+    if neutral_only:
+        result["classification"] = "Unverified"
+        result["confidence"] = 0.40
+        result["protected"] = False
+        result["reasons"] = ["no-risk-signals", "sender-not-yet-trusted"]
+
     return result
 
 
@@ -74,6 +90,8 @@ def _action_for(result: dict) -> str:
         return "archive-recommended"
     if classification == "Review":
         return "flag-review"
+    if classification == "Unverified":
+        return "allow-unverified"
     return "allow"
 
 
@@ -157,6 +175,62 @@ def ingest_resend_event_protected(event: dict) -> dict:
     return result
 
 
+
+def rescan_pitmark_mail(limit: int = 500) -> dict:
+    """Re-evaluate existing Pitmark Mail Shield events with the current rules."""
+    with SessionLocal() as db:
+        messages = list(db.scalars(
+            select(MailMessage)
+            .where(MailMessage.direction == "inbound")
+            .order_by(MailMessage.id.desc())
+            .limit(max(1, min(limit, 1000)))
+        ).all())
+
+    updated = 0
+    counts: dict[str, int] = {}
+    for message in messages:
+        source_id = f"pitmark-mail:{message.provider_message_id or message.id}"
+        result = _shield_result(message)
+        action = _action_for(result)
+        with SessionLocal() as db:
+            event = db.scalar(select(ShieldEvent).where(ShieldEvent.source_message_id == source_id))
+            if not event:
+                continue
+            changed = (
+                event.classification != result["classification"]
+                or float(event.confidence or 0) != float(result["confidence"])
+                or bool(event.protected) != bool(result["protected"])
+                or event.action_taken != action
+            )
+            event.classification = result["classification"]
+            event.confidence = float(result["confidence"])
+            event.protected = bool(result["protected"])
+            event.reasons_json = json.dumps(result["reasons"], ensure_ascii=False)
+            event.action_taken = action
+
+            payload = {}
+            try:
+                payload = json.loads(message.provider_payload_json or "{}")
+                if not isinstance(payload, dict):
+                    payload = {}
+            except Exception:
+                payload = {}
+            payload["shield"] = {
+                "classification": result["classification"],
+                "confidence": float(result["confidence"]),
+                "protected": bool(result["protected"]),
+                "reasons": result["reasons"],
+                "action": action,
+            }
+            message.provider_payload_json = json.dumps(payload, ensure_ascii=False)[:200000]
+            message.updated_at = utcnow()
+            if changed:
+                updated += 1
+            counts[result["classification"]] = counts.get(result["classification"], 0) + 1
+            db.commit()
+    return {"rescanned": len(messages), "updated": updated, "counts": counts}
+
+
 def sync_unprotected_mail(limit: int = 250) -> dict:
     with SessionLocal() as db:
         rows = list(db.scalars(
@@ -178,11 +252,25 @@ def sync_unprotected_mail(limit: int = 250) -> dict:
 
     with SessionLocal() as db:
         total = len(db.scalars(select(ShieldEvent.id).where(ShieldEvent.source_message_id.like("pitmark-mail:%"))).all())
-        review = len(db.scalars(select(ShieldEvent.id).where(
-            ShieldEvent.source_message_id.like("pitmark-mail:%"),
-            ShieldEvent.classification == "Review",
-        )).all())
-    return {"connected": True, "scanned_now": scanned, "protected_events": total, "review_count": review}
+        def count(name: str) -> int:
+            return len(db.scalars(select(ShieldEvent.id).where(
+                ShieldEvent.source_message_id.like("pitmark-mail:%"),
+                ShieldEvent.classification == name,
+            )).all())
+        summary = {
+            "review": count("Review"),
+            "unverified": count("Unverified"),
+            "legit": count("Legit"),
+            "system": count("System"),
+            "spam": count("Spam"),
+        }
+    return {
+        "connected": True,
+        "scanned_now": scanned,
+        "protected_events": total,
+        "review_count": summary["review"],
+        "classification_counts": summary,
+    }
 
 
 def shield_for_message(message: MailMessage) -> dict | None:

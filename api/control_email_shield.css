@@ -245,3 +245,16 @@
   outline:2px solid #ff7a33!important;
   outline-offset:2px!important;
 }
+
+/* v0.16.21 — neutral Unverified state */
+.pm-shield-badge.neutral{
+  border-color:rgba(158,166,171,.36);
+  color:#aeb5b9!important;
+  background:rgba(116,126,132,.08);
+}
+.pm-shield-badge.neutral .pm-shield-icon{background:rgba(158,166,171,.12)}
+.pm-shield-detail.neutral{
+  border-left-color:#777f84;
+  background:rgba(116,126,132,.06);
+}
+#mMailList .m-row:has(.pm-shield-badge.neutral){border-left-color:#777f84}
