@@ -114,6 +114,18 @@ def _dedupe(items: list[dict]) -> list[dict]:
     return out
 
 
+def _source_authority(item: dict) -> int:
+    """Rank first-party/official racing evidence ahead of generic coverage."""
+    domain = (item.get('source_domain') or urlparse(item.get('url','')).netloc).lower().removeprefix('www.')
+    source = str(item.get('source') or '').lower()
+    official = ('nascar.com','imsa.com','indycar.com','worldofoutlaws.com','dirtcar.com','myracepass.com','racemonitor.com')
+    if any(domain == d or domain.endswith('.'+d) or d in source for d in official):
+        return 3
+    if any(x in domain or x in source for x in ('speedway','raceway','motorsports','racing','team')):
+        return 2
+    return 1
+
+
 def _evidence_score(name: str, item: dict, entity: CommunityEntity) -> tuple[int, list[str]]:
     text = ' '.join([item.get('title',''), item.get('snippet',''), item.get('url','')]).lower()
     reasons = []
@@ -130,9 +142,8 @@ def _evidence_score(name: str, item: dict, entity: CommunityEntity) -> tuple[int
     if entity.region and entity.region.lower() in text:
         score += 10; reasons.append('region match')
     domain = urlparse(item.get('url','')).netloc.lower().removeprefix('www.')
-    authoritative = ('nascar.com','imsa.com','indycar.com','worldofoutlaws.com','dirtcar.com','myracepass.com','racemonitor.com')
-    if any(domain == d or domain.endswith('.'+d) for d in authoritative):
-        score += 15; reasons.append('authoritative racing source')
+    if _source_authority(item) >= 3:
+        score += 20; reasons.append('authoritative racing source')
     return min(score, 100), reasons
 
 
@@ -215,13 +226,15 @@ def _extract_rookie_fields(name: str, strong: list[dict], corroborated: bool) ->
     }
     class_terms = [
         'late model','sprint car','modified','stock car','street stock',
-        'sportsman','legend','kart','pro late model','super late model'
+        'sportsman','legend','kart','pro late model','super late model',
+        'nascar cup series','nascar xfinity series','nascar craftsman truck series',
+        'arca menards series','indycar series','imsa'
     ]
     for item in strong:
         text = _clean(' '.join([item.get('title',''), item.get('snippet','')]))
         low = text.lower()
         domain = (item.get('source_domain') or urlparse(item.get('url','')).netloc).lower().removeprefix('www.')
-        m = re.search(r'(?:car|no\.?|#)\s*#?\s*(\d{1,3}[A-Za-z]?)\b', text, re.I)
+        m = re.search(r'(?:car(?:\s+number)?|no\.?|number|#)\s*#?\s*(\d{1,3}[A-Za-z]?)\b', text, re.I)
         if m: candidates['car_number'].append((m.group(1), domain))
         for term in class_terms:
             if term in low: candidates['class_division'].append((term.title(), domain))
@@ -241,6 +254,25 @@ def _extract_rookie_fields(name: str, strong: list[dict], corroborated: bool) ->
         if winners:
             winners.sort(key=lambda x: len(x['domains']), reverse=True)
             verified[field]=winners[0]['value']
+    # A clearly official first-party source is sufficient for basic profile facts.
+    for item in strong:
+        if _source_authority(item) < 3:
+            continue
+        text = _clean(' '.join([item.get('title',''), item.get('snippet','')]))
+        low = text.lower()
+        if 'class_division' not in verified:
+            for term in class_terms:
+                if term in low:
+                    verified['class_division'] = term.title(); break
+        if 'home_track_series' not in verified:
+            for label in ('NASCAR Cup Series','NASCAR Xfinity Series','NASCAR Craftsman Truck Series','ARCA Menards Series','INDYCAR Series','IMSA'):
+                if label.lower() in low:
+                    verified['home_track_series'] = label; break
+        if 'car_number' not in verified:
+            m = re.search(r'(?:car(?:\s+number)?|no\.?|number|#)\s*#?\s*(\d{1,3}[A-Za-z]?)\b', text, re.I)
+            if m: verified['car_number'] = m.group(1)
+        if 'rookie_status' not in verified and re.search(r'\b(rookie|first[- ]year|first season)\b', low):
+            verified['rookie_status'] = 'Official/public racing evidence identifies a rookie or first-season campaign.'
     return verified
 
 
@@ -255,7 +287,8 @@ def _ai_rookie_scout(name: str, evidence: list[dict]) -> dict:
     if not ai_enabled() or not evidence:
         return {}
     packet=[]
-    for i,item in enumerate(evidence[:24], start=1):
+    ranked = sorted(evidence, key=lambda x: (_source_authority(x), x.get('identity_score',0)), reverse=True)[:40]
+    for i,item in enumerate(ranked, start=1):
         packet.append({
             'source_index': i,
             'title': item.get('title',''),
@@ -270,7 +303,10 @@ appears to describe the named racing driver. Return JSON only. Every non-null fa
 must include source_indexes that directly support it. A single clearly official sanctioning-body, series, team, track, or driver profile may verify a basic profile fact; do not require two unrelated websites when an authoritative first-party source directly states it. If identity is ambiguous, leave facts
 null and say why. Evaluate feature_candidate based on public racing story value, not fame.
 Good candidates include rookies, grassroots racers, compelling first seasons, community
-stories, progression, unusual paths, or documented accomplishments."""
+stories, progression, unusual paths, or documented accomplishments. IMPORTANT: if multiple
+search results clearly identify the same well-known driver/series, synthesize the supported
+profile facts instead of returning an empty profile merely because every field is not repeated
+across two domains. Official first-party racing evidence outranks generic news coverage."""
     prompt = {
         'driver_name': name,
         'task': 'Pre-outreach Rookie Year scouting. Find real-world racing facts before Pitmark contacts the driver.',
@@ -406,8 +442,8 @@ def process_job(job_id: int) -> dict:
     # External identity is only considered verified when multiple independent-looking sources strongly match.
     strong_domains = {urlparse(x['url']).netloc.lower().removeprefix('www.') for x in strong if x.get('url')}
     corroborated = len(strong) >= 2 and len(strong_domains) >= 2
-    identity_conf = 92 if corroborated else (72 if strong else (50 if plausible else 25))
-    verification = 88 if corroborated else (62 if strong else (40 if plausible else 20))
+    identity_conf = 94 if corroborated else (85 if len(strong) >= 4 else (72 if strong else (55 if len(plausible) >= 4 else (50 if plausible else 25))))
+    verification = 90 if corroborated else (78 if len(strong) >= 4 else (62 if strong else (48 if len(plausible) >= 4 else (40 if plausible else 20))))
 
     known = []
     if entity_snapshot.get('platform'): known.append(f"Platform: {entity_snapshot['platform']}")
@@ -422,7 +458,16 @@ def process_job(job_id: int) -> dict:
         # Intake and media permission are post-scouting workflow steps, not public-research gaps.
 
     scout = _ai_rookie_scout(entity_snapshot['name'], scored) if job.research_type == 'rookie_deep_dive' else {}
-    verified_profile = _profile_from_scout(scout) if scout else (_extract_rookie_fields(entity_snapshot['name'], strong, corroborated) if job.research_type == 'rookie_deep_dive' else {})
+    verified_profile = _profile_from_scout(scout) if scout else {}
+    if job.research_type == 'rookie_deep_dive':
+        fallback_profile = _extract_rookie_fields(entity_snapshot['name'], strong + plausible, corroborated or bool(strong))
+        for key, value in fallback_profile.items():
+            verified_profile.setdefault(key, value)
+        # Even when detailed fields are sparse, relevant public evidence is itself useful context.
+        if scored and not verified_profile.get('public_presence'):
+            verified_profile['public_presence'] = f"{len(scored)} relevant public racing source(s) found"
+        if scored and not verified_profile.get('notable_results_story'):
+            verified_profile['notable_results_story'] = scored[0].get('title') or None
     scout_identity = str(scout.get('identity_match') or '').lower()
     if verified_profile:
         labels = [
