@@ -10,16 +10,43 @@ class MetaPublishError(RuntimeError):
     pass
 
 
+
+def _base_token() -> str:
+    """Prefer a Business Manager System User token for production server auth."""
+    return (settings.meta_system_user_access_token or settings.meta_page_access_token).strip()
+
+def _page_token() -> str:
+    """Resolve a Page token from the production System User token when configured.
+    Fall back to the legacy Page token only for backwards compatibility.
+    """
+    system = settings.meta_system_user_access_token.strip()
+    if not system:
+        return settings.meta_page_access_token.strip()
+    if not settings.meta_page_id.strip():
+        return system
+    try:
+        r=httpx.get(
+            _graph_url(settings.meta_page_id),
+            params={'fields':'access_token','access_token':system},
+            timeout=12.0
+        )
+        data=_decode(r)
+        return str(data.get('access_token') or system).strip()
+    except Exception:
+        # Some system-user configurations can act directly on assigned Page assets.
+        return system
+
+
 def configured() -> bool:
     return facebook_configured()
 
 
 def facebook_configured() -> bool:
-    return bool(settings.meta_page_id.strip() and settings.meta_page_access_token.strip())
+    return bool(settings.meta_page_id.strip() and _base_token())
 
 
 def instagram_configured() -> bool:
-    return bool(settings.meta_instagram_account_id.strip() and settings.meta_page_access_token.strip())
+    return bool(settings.meta_instagram_account_id.strip() and _base_token())
 
 
 def connection_status() -> dict:
@@ -28,9 +55,9 @@ def connection_status() -> dict:
 
 
 def _live_meta_health() -> dict:
-    if not settings.meta_page_access_token.strip():
+    if not _base_token():
         return {"connected": False, "healthy": False, "error": "Page access token is not configured."}
-    token = settings.meta_page_access_token.strip()
+    token = _page_token()
     try:
         r = httpx.get(
             _graph_url(settings.meta_page_id or "me"),
@@ -49,12 +76,12 @@ def _live_meta_health() -> dict:
 
 def facebook_connection_status() -> dict:
     health = _live_meta_health() if facebook_configured() else {"connected": False, "healthy": False}
-    return {"configured": facebook_configured(), **health, "page_id_set": bool(settings.meta_page_id.strip()), "page_access_token_set": bool(settings.meta_page_access_token.strip()), "graph_version": settings.meta_graph_version}
+    return {"configured": facebook_configured(), **health, "page_id_set": bool(settings.meta_page_id.strip()), "page_access_token_set": bool(settings.meta_page_access_token.strip()), "system_user_token_set": bool(settings.meta_system_user_access_token.strip()), "auth_mode": "system_user" if settings.meta_system_user_access_token.strip() else "legacy_page_token", "graph_version": settings.meta_graph_version}
 
 
 def instagram_connection_status() -> dict:
     health = _live_meta_health() if instagram_configured() else {"connected": False, "healthy": False}
-    return {"configured": instagram_configured(), **health, "instagram_account_id_set": bool(settings.meta_instagram_account_id.strip()), "page_access_token_set": bool(settings.meta_page_access_token.strip()), "graph_version": settings.meta_graph_version, "requires_media": True}
+    return {"configured": instagram_configured(), **health, "instagram_account_id_set": bool(settings.meta_instagram_account_id.strip()), "page_access_token_set": bool(settings.meta_page_access_token.strip()), "system_user_token_set": bool(settings.meta_system_user_access_token.strip()), "auth_mode": "system_user" if settings.meta_system_user_access_token.strip() else "legacy_page_token", "system_user_token_set": bool(settings.meta_system_user_access_token.strip()), "auth_mode": "system_user" if settings.meta_system_user_access_token.strip() else "legacy_page_token", "graph_version": settings.meta_graph_version, "requires_media": True}
 
 
 def _graph_url(object_id: str, edge: str | None = None) -> str:
@@ -81,7 +108,7 @@ def publish_facebook_post(message: str) -> dict:
     if not body:
         raise MetaPublishError("Facebook post body is empty.")
     try:
-        response = httpx.post(_graph_url(settings.meta_page_id, "feed"), data={"message": body, "access_token": settings.meta_page_access_token.strip()}, timeout=30.0)
+        response = httpx.post(_graph_url(settings.meta_page_id, "feed"), data={"message": body, "access_token": _page_token()}, timeout=30.0)
     except httpx.HTTPError as exc:
         raise MetaPublishError(f"Meta request failed: {exc}") from exc
     data = _decode(response)
@@ -93,7 +120,7 @@ def publish_facebook_post(message: str) -> dict:
 
 def _wait_for_instagram_container(creation_id: str, timeout_seconds: float = 25.0) -> None:
     deadline = time.time() + timeout_seconds
-    token = settings.meta_page_access_token.strip()
+    token = _page_token()
     while time.time() < deadline:
         try:
             response = httpx.get(_graph_url(creation_id), params={"fields": "status_code,status", "access_token": token}, timeout=15.0)
@@ -115,7 +142,7 @@ def publish_instagram_post(*, caption: str, image_url: str) -> dict:
     media = (image_url or "").strip()
     if not media.startswith(("https://", "http://")):
         raise MetaPublishError("Instagram requires a publicly reachable image URL.")
-    token = settings.meta_page_access_token.strip()
+    token = _page_token()
     ig_id = settings.meta_instagram_account_id.strip()
     try:
         create_response = httpx.post(_graph_url(ig_id, "media"), data={"image_url": media, "caption": body, "access_token": token}, timeout=30.0)

@@ -149,12 +149,18 @@ def _queries(entity: CommunityEntity, research_type: str) -> list[str]:
     if entity.community_lane in ('sim','crossover') or entity.platform:
         qs.extend([f'{n} iRacing', f'{n} sim racing'])
     if research_type == 'rookie_deep_dive':
-        qs.extend([f'{n} rookie driver', f'{n} first season racing', f'{n} first year racing'])
+        qs.extend([
+            f'{n} rookie driver', f'{n} first season racing', f'{n} first year racing',
+            f'{n} racing results 2026', f'{n} race results 2026',
+            f'{n} speedway results', f'{n} driver profile',
+            f'{n} racing Facebook', f'{n} racing Instagram',
+            f'{n} race team', f'{n} car number racing'
+        ])
     if entity.entity_type == 'league':
         qs.extend([f'{n} iRacing league', f'{n} racing league'])
     if entity.entity_type == 'track':
         qs.extend([f'{n} speedway track', f'{n} raceway'])
-    return list(dict.fromkeys(qs))[:12]
+    return list(dict.fromkeys(qs))[:18]
 
 
 def _participant_context(db, entity_id: int) -> dict:
@@ -213,6 +219,106 @@ def _extract_rookie_fields(name: str, strong: list[dict], corroborated: bool) ->
     return verified
 
 
+
+def _ai_rookie_scout(name: str, evidence: list[dict]) -> dict:
+    """Turn public search evidence into a conservative pre-outreach scouting brief.
+    The model is not allowed to invent facts: every populated field must cite source
+    indexes supplied in the evidence packet.
+    """
+    from services.autopilot_ai import ai_enabled
+    from utils.config import settings
+    if not ai_enabled() or not evidence:
+        return {}
+    packet=[]
+    for i,item in enumerate(evidence[:24], start=1):
+        packet.append({
+            'source_index': i,
+            'title': item.get('title',''),
+            'snippet': item.get('snippet',''),
+            'url': item.get('url',''),
+            'domain': item.get('source_domain',''),
+            'identity_score': item.get('identity_score',0),
+        })
+    instructions = """You are Pitmark Racing Co.'s conservative motorsports scouting analyst.
+Use ONLY the supplied public-search evidence. Never guess. Identify whether the evidence
+appears to describe the named racing driver. Return JSON only. Every non-null factual field
+must include source_indexes that directly support it. If identity is ambiguous, leave facts
+null and say why. Evaluate feature_candidate based on public racing story value, not fame.
+Good candidates include rookies, grassroots racers, compelling first seasons, community
+stories, progression, unusual paths, or documented accomplishments."""
+    prompt = {
+        'driver_name': name,
+        'task': 'Pre-outreach Rookie Year scouting. Find real-world racing facts before Pitmark contacts the driver.',
+        'required_output': {
+            'identity_match':'high|medium|low',
+            'hometown_region':{'value':None,'source_indexes':[]},
+            'class_division':{'value':None,'source_indexes':[]},
+            'car_number':{'value':None,'source_indexes':[]},
+            'home_track_series':{'value':None,'source_indexes':[]},
+            'rookie_evidence':{'value':None,'source_indexes':[]},
+            'notable_results_story':{'value':None,'source_indexes':[]},
+            'public_social_or_team_presence':{'value':None,'source_indexes':[]},
+            'feature_candidate':'strong|possible|insufficient_evidence|not_a_fit',
+            'why_feature':[],
+            'identity_notes':'',
+        },
+        'evidence': packet,
+    }
+    import json as _json
+    headers={'Authorization':f'Bearer {settings.openai_api_key.strip()}','Content-Type':'application/json'}
+    payload={
+        'model':settings.pitmark_ai_model,
+        'instructions':instructions,
+        'input':_json.dumps(prompt),
+        'max_output_tokens':1000,
+        'text':{'format':{'type':'json_object'}},
+    }
+    try:
+        with httpx.Client(timeout=max(30.0,settings.pitmark_ai_timeout_seconds)) as client:
+            r=client.post('https://api.openai.com/v1/responses',headers=headers,json=payload)
+            r.raise_for_status()
+            data=r.json()
+        raw=data.get('output_text')
+        if not raw:
+            chunks=[]
+            for out in data.get('output') or []:
+                for content in out.get('content') or []:
+                    if isinstance(content,dict) and isinstance(content.get('text'),str):
+                        chunks.append(content['text'])
+            raw=''.join(chunks)
+        result=_json.loads(raw or '{}')
+        # Enforce source-index provenance after the model returns.
+        valid=set(range(1,len(packet)+1))
+        for key in ('hometown_region','class_division','car_number','home_track_series','rookie_evidence','notable_results_story','public_social_or_team_presence'):
+            field=result.get(key)
+            if not isinstance(field,dict):
+                result[key]={'value':None,'source_indexes':[]}; continue
+            refs=[x for x in field.get('source_indexes',[]) if isinstance(x,int) and x in valid]
+            if field.get('value') and not refs:
+                result[key]={'value':None,'source_indexes':[]}
+            else:
+                field['source_indexes']=refs
+        result['_evidence_packet']=packet
+        return result
+    except Exception as exc:
+        log.warning('AI rookie scouting synthesis failed for %s: %s',name,exc)
+        return {}
+
+def _profile_from_scout(scout: dict) -> dict:
+    out={}
+    mapping={
+        'hometown_region':'hometown_region','class_division':'class_division',
+        'car_number':'car_number','home_track_series':'home_track_series',
+        'rookie_evidence':'rookie_status','notable_results_story':'notable_results_story',
+        'public_social_or_team_presence':'public_presence'
+    }
+    for src,dst in mapping.items():
+        field=scout.get(src)
+        if isinstance(field,dict) and field.get('value'):
+            out[dst]=str(field['value']).strip()
+            out[dst+'_source_indexes']=field.get('source_indexes',[])
+    return out
+
 def process_job(job_id: int) -> dict:
     with SessionLocal() as db:
         job = db.get(ResearchJob, job_id)
@@ -240,7 +346,7 @@ def process_job(job_id: int) -> dict:
             items.extend(_bing_search(client, q, 8))
             items.extend(_google_news_search(client, q, 5))
             items.extend(_ddg_search(client, q, 5))
-    items = _dedupe(items)[:40]
+    items = _dedupe(items)[:80]
 
     # Shield protects the entire ecosystem, including URLs found by Autopilot.
     # Unsafe/local/non-web targets never enter the reusable intelligence ledger.
@@ -289,10 +395,14 @@ def process_job(job_id: int) -> dict:
     if not entity_snapshot.get('platform') and entity_snapshot.get('community_lane') in ('sim','crossover'): gaps.append('sim platform / iRacing identity')
     if job.research_type == 'rookie_deep_dive':
         gaps.extend(['class / division', 'car number', 'home track / series', 'rookie-status confirmation'])
-        if ctx.get('intake_status') != 'received': gaps.append('completed Rookie Year intake')
-        if ctx.get('media_permission') != 'approved': gaps.append('approved media / photo permission')
+        # Intake and media permission are post-scouting workflow steps, not public-research gaps.
 
-    verified_profile = _extract_rookie_fields(entity_snapshot['name'], strong, corroborated) if job.research_type == 'rookie_deep_dive' else {}
+    scout = _ai_rookie_scout(entity_snapshot['name'], scored) if job.research_type == 'rookie_deep_dive' else {}
+    verified_profile = _profile_from_scout(scout) if scout else (_extract_rookie_fields(entity_snapshot['name'], strong, corroborated) if job.research_type == 'rookie_deep_dive' else {})
+    scout_identity = str(scout.get('identity_match') or '').lower()
+    if scout_identity == 'high' and verified_profile:
+        identity_conf = max(identity_conf, 85)
+        verification = max(verification, 78)
 
     facts_used = []
     for s in strong[:6]:
@@ -301,9 +411,20 @@ def process_job(job_id: int) -> dict:
     for s in (plausible + weak)[:6]:
         facts_omitted.append({'claim': s['title'], 'reason': 'Identity match is not strong enough to use as a fact.', 'url': s['url'], 'identity_score': s['identity_score']})
 
-    if job.research_type == 'rookie_deep_dive' and ctx.get('intake_status') == 'sent':
-        action = 'wait_for_intake_then_verify'
-        recommendation = 'Jon is already in the intake stage. Wait for his answers, then use them to target a second verification pass before story drafting.' if entity_snapshot['name'].lower() == 'jon russel' else 'Wait for the driver intake, then use those details to run a targeted verification pass before story drafting.'
+    if job.research_type == 'rookie_deep_dive' and scout:
+        fit = scout.get('feature_candidate','insufficient_evidence')
+        if fit == 'strong':
+            action='strong_feature_candidate'
+            recommendation='Strong pre-outreach feature candidate. Review the sourced scouting brief, then reach out for confirmation, permission and the driver’s own story.'
+        elif fit == 'possible':
+            action='possible_feature_candidate'
+            recommendation='Promising feature candidate. Public evidence gives Pitmark a reason to reach out; use intake to confirm details and fill the human side of the story.'
+        elif fit == 'not_a_fit':
+            action='not_recommended'
+            recommendation='Public evidence does not currently suggest a strong Rookie Year feature fit.'
+        else:
+            action='insufficient_public_evidence'
+            recommendation='Not enough reliable public racing evidence yet to judge this driver. Add one known detail such as track, class, car number, region or social handle and research again.'
     elif corroborated:
         action = 'review_verified_research'
         recommendation = 'Strong public-source identity evidence found. Review the source ledger before using the facts in outreach or content.'
@@ -328,6 +449,9 @@ def process_job(job_id: int) -> dict:
         'plausible_source_count': len(plausible),
         'verified_external_identity': corroborated,
         'verified_profile': verified_profile,
+        'scouting': {k:v for k,v in scout.items() if k != '_evidence_packet'} if scout else {},
+        'feature_candidate': scout.get('feature_candidate') if scout else 'insufficient_evidence',
+        'why_feature': scout.get('why_feature',[]) if scout else [],
         'strengths': ([f'{len(strong)} strong public-source match(es) found'] if strong else []) + (['Existing Pitmark campaign context is available'] if ctx else []),
         'weaknesses': gaps,
         'recommended_action': action,
@@ -383,7 +507,7 @@ def process_job(job_id: int) -> dict:
             # Research can raise confidence only when corroborated; otherwise it records
             # evidence without pretending an uncertain identity is verified.
             entity_row.identity_confidence = max(float(entity_row.identity_confidence or 0), float(identity_conf))
-            if corroborated:
+            if corroborated or (scout_identity == 'high' and verified_profile):
                 entity_row.verification_status = 'supported'
                 entity_row.last_verified_at = utcnow()
             if verified_profile:
@@ -393,7 +517,7 @@ def process_job(job_id: int) -> dict:
                     public_data = {}
                 public_data.setdefault('rookie_year', {}).update(verified_profile)
                 public_data['rookie_year']['research_job_id'] = job.id
-                public_data['rookie_year']['verification'] = 'corroborated_public_sources'
+                public_data['rookie_year']['verification'] = 'source_cited_public_scouting'
                 entity_row.public_data_json = json.dumps(public_data)
                 if verified_profile.get('hometown_region') and not entity_row.region:
                     entity_row.region = verified_profile['hometown_region']
