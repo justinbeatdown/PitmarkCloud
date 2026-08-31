@@ -8,11 +8,75 @@ from services.control_auth import user_from_request
 router = APIRouter()
 ASSET_DIR = Path(__file__).resolve().parent
 
+AUTOFILL_GUARD = r"""
+<script>
+(() => {
+  const protectedIds = [
+    'bsubject', 'bnotes', 'btitle', 'bbody',
+    'topic', 'ryName', 'oname', 'oorg', 'ocontact'
+  ];
+
+  function protectField(el) {
+    if (!el) return;
+    el.setAttribute('autocomplete', 'new-password');
+    el.setAttribute('data-lpignore', 'true');
+    el.setAttribute('data-1p-ignore', 'true');
+    el.setAttribute('data-form-type', 'other');
+    el.setAttribute('spellcheck', 'false');
+
+    if (!el.dataset.pitmarkAutofillGuard) {
+      el.dataset.pitmarkAutofillGuard = '1';
+      el.dataset.pitmarkUserEdited = '0';
+
+      const markEdited = () => {
+        el.dataset.pitmarkUserEdited = '1';
+      };
+      el.addEventListener('input', markEdited, { once: true });
+      el.addEventListener('keydown', markEdited, { once: true });
+      el.addEventListener('paste', markEdited, { once: true });
+    }
+  }
+
+  function clearBrowserAutofill() {
+    for (const id of protectedIds) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      protectField(el);
+
+      if (el.dataset.pitmarkUserEdited === '1') continue;
+
+      const value = String(el.value || '').trim().toLowerCase();
+      if (value === 'justin' || value === 'admin') {
+        el.value = '';
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    clearBrowserAutofill();
+
+    // Browsers/password managers can inject values after DOMContentLoaded.
+    [50, 150, 400, 900, 1600].forEach(delay => {
+      window.setTimeout(clearBrowserAutofill, delay);
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) window.setTimeout(clearBrowserAutofill, 50);
+    });
+  });
+})();
+</script>
+"""
+
 
 @router.get('/control', response_class=HTMLResponse, include_in_schema=False)
 def control(request: Request):
     filename = 'control_center.html' if user_from_request(request) else 'control_login.html'
-    return HTMLResponse((ASSET_DIR / filename).read_text(encoding='utf-8'))
+    html = (ASSET_DIR / filename).read_text(encoding='utf-8')
+    if filename == 'control_center.html':
+        html = html.replace('</body>', AUTOFILL_GUARD + '\n</body>')
+    return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
 
 
 @router.get('/control.css', include_in_schema=False)
