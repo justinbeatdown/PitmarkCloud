@@ -868,15 +868,22 @@ def blog_publish_shopify(draft_id: int, request: Request, x_pitmark_admin_key: s
             preferred = next(
                 (
                     x for x in blogs
-                    if (x.get('handle') or '').lower() in {
-                        'racing-culture',
-                        'news',
-                        'pitmark',
-                        'track-spotlight',
-                    }
+                    if (x.get('handle') or '').lower() == 'racing-culture'
                 ),
-                blogs[0],
+                None,
             )
+            if preferred is None:
+                preferred = next(
+                    (
+                        x for x in blogs
+                        if (x.get('handle') or '').lower() in {
+                            'news',
+                            'pitmark',
+                            'track-spotlight',
+                        }
+                    ),
+                    blogs[0],
+                )
             article = shopify_publish_article(
                 blog_id=preferred['id'],
                 title=b.title,
