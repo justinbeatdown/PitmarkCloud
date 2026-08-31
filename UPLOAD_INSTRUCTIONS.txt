@@ -1,9 +1,1 @@
-Pitmark Cloud v0.17.3
-
-Extract over repo root, commit, push, deploy.
-
-Verify PRT only:
-1. Discord opens in a new tab/window.
-2. Generated screenshot is gone.
-3. Header logo is larger, crisp, and properly proportioned.
-4. Control Center Email remains untouched.
+Extract this ZIP over the PitmarkCloud repository root, review the changed files in GitHub Desktop, commit, push, and let Render deploy.

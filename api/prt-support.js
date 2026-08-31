@@ -1,0 +1,3 @@
+const q=document.getElementById('faqSearch'), items=[...document.querySelectorAll('#faqList details')];
+function filter(v){v=(v||'').toLowerCase().trim();items.forEach(x=>x.hidden=!!v&&!((x.innerText+' '+(x.dataset.tags||'')).toLowerCase().includes(v)));}
+q.addEventListener('input',e=>filter(e.target.value));document.querySelectorAll('[data-filter]').forEach(b=>b.addEventListener('click',()=>{q.value=b.dataset.filter;filter(b.dataset.filter);q.focus();}));
