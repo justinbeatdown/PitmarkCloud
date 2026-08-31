@@ -1,5 +1,13 @@
 # Pitmark Cloud Changelog
 
+## v0.14.4 — Direct Facebook Publish Integration
+- Moved Facebook publishing readiness and click handling directly into `control_center.js`.
+- Queue rendering now enables Publish only for APPROVED/SCHEDULED Facebook posts when Meta Page credentials are configured.
+- Publish action now calls the server-side social publishing endpoint directly from the standard queue action flow.
+- Removed the v0.14.3 injected social-publish UI workaround to eliminate duplicate/fragile handlers.
+- Fixed the Control Center footer version, which was still hardcoded to v0.14.0.
+- Runtime/default version advanced to v0.14.4.
+
 ## v0.14.3 — Facebook Publish UI Fix
 - Fixed Control Center Facebook Publish buttons remaining disabled after Meta credentials were configured.
 - Added live `/api/control/social/status` readiness detection to the authenticated Control Center.
