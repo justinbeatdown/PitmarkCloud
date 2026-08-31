@@ -169,6 +169,9 @@ def _queries(entity: CommunityEntity, research_type: str, hint: str = "") -> lis
         qs.extend([f'{n} iRacing', f'{n} sim racing'])
     if research_type == 'rookie_deep_dive':
         qs.extend([
+            f'site:nascar.com/drivers {n}', f'site:wikipedia.org/wiki {n} racing driver',
+            f'{n} official driver profile', f'{n} official driver stats',
+            f'{n} team car number series', f'{n} rookie of the year',
             f'{n} rookie driver', f'{n} first season racing', f'{n} first year racing',
             f'{n} racing results 2026', f'{n} race results 2026',
             f'{n} speedway results', f'{n} driver profile',
@@ -280,6 +283,104 @@ def _extract_rookie_fields(name: str, strong: list[dict], corroborated: bool) ->
             verified['rookie_status'] = 'Official/public racing evidence identifies a rookie or first-season campaign.'
     return verified
 
+
+
+
+def _structured_rookie_rescue(name: str, evidence: list[dict]) -> dict:
+    ranked = sorted(
+        [x for x in evidence if x.get('identity_score', 0) >= 55],
+        key=lambda x: (_source_authority(x), x.get('identity_score', 0)),
+        reverse=True,
+    )
+    texts = []
+    for item in ranked[:16]:
+        raw = _clean(' '.join([item.get('title',''), item.get('snippet',''), item.get('page_excerpt','')]))
+        if raw:
+            texts.append((raw, _source_authority(item), item))
+
+    out = {}
+    series_labels = (
+        'NASCAR Cup Series', 'NASCAR Xfinity Series', 'NASCAR Craftsman Truck Series',
+        'ARCA Menards Series', 'INDYCAR Series', 'IMSA WeatherTech SportsCar Championship',
+        'World of Outlaws Sprint Car Series', 'World of Outlaws Late Model Series',
+    )
+
+    for raw, authority, item in texts:
+        low = raw.lower()
+        for label in series_labels:
+            if label.lower() in low:
+                out.setdefault('class_division', label)
+                out.setdefault('series', label)
+                break
+        if out.get('class_division'):
+            break
+
+    for raw, authority, item in texts:
+        m = re.search(r'(?:car(?:\s+number)?|no\.?|number|#)\s*#?\s*(\d{1,3}[A-Za-z]?)\b', raw, re.I)
+        if m:
+            out['car_number'] = m.group(1)
+            break
+
+    place_patterns = (
+        r'\b(?:hometown(?:\s+is)?|native of|born in|from)\s+([A-Z][A-Za-z.\'-]+(?:\s+[A-Z][A-Za-z.\'-]+){0,3},\s*(?:[A-Z]{2}|[A-Z][A-Za-z ]{3,20}))\b',
+        r'\b([A-Z][A-Za-z.\'-]+(?:\s+[A-Z][A-Za-z.\'-]+){0,3},\s*(?:Michigan|Pennsylvania|Ohio|Indiana|Illinois|Florida|California|North Carolina|South Carolina|Georgia|Texas|Tennessee|Virginia|Wisconsin|Minnesota|Iowa|New York))\b',
+    )
+    for raw, authority, item in texts:
+        for pat in place_patterns:
+            m = re.search(pat, raw)
+            if m:
+                value = m.group(1).strip(" .,-")
+                neighborhood = raw[max(0, m.start()-90):m.end()+90].lower()
+                if any(k in neighborhood for k in ('hometown','native','born',' from ','driver')):
+                    out['hometown_region'] = value
+                    break
+        if out.get('hometown_region'):
+            break
+
+    team_candidates = []
+    for raw, authority, item in texts:
+        for m in re.finditer(r"\b([A-Z][A-Za-z0-9&.\'-]*(?:\s+[A-Z][A-Za-z0-9&.\'-]*){0,4}\s+(?:Motorsports|Racing|Autosport))\b", raw):
+            team = m.group(1).strip()
+            if team.lower().startswith(('nascar ', 'indycar ', 'imsa ')):
+                continue
+            neighborhood = raw[max(0, m.start()-120):m.end()+120].lower()
+            score = authority * 10
+            if name.lower() in neighborhood:
+                score += 20
+            if any(x in neighborhood for x in ('driver','drives','signed','pilot','team')):
+                score += 15
+            team_candidates.append((score, team))
+    if team_candidates:
+        team_candidates.sort(reverse=True)
+        out['team'] = team_candidates[0][1]
+
+    if out.get('team') and out.get('series'):
+        out['home_track_series'] = f"{out['team']} / {out['series']}"
+    elif out.get('series'):
+        out['home_track_series'] = out['series']
+    elif out.get('team'):
+        out['home_track_series'] = out['team']
+
+    for raw, authority, item in texts:
+        m = re.search(r'((?:20\d{2}\s+)?(?:NASCAR\s+Cup\s+Series\s+)?Rookie\s+of\s+the\s+Year)', raw, re.I)
+        if m:
+            out['rookie_status'] = re.sub(r'\s+', ' ', m.group(1)).strip()
+            break
+        if authority >= 2 and re.search(r'\b(?:rookie|first[- ]year|first season)\b', raw, re.I):
+            out['rookie_status'] = 'Public racing evidence identifies a rookie/first-season campaign.'
+            break
+
+    for raw, authority, item in texts:
+        title = _clean(item.get('title',''))
+        low = title.lower()
+        if title and name.lower() in low and any(k in low for k in ('childhood','journey','rookie','wins','winner','victory','first','story','through the years','signs','champion','championship')):
+            out['notable_results_story'] = title
+            out['feature_hooks'] = [title]
+            break
+
+    if ranked:
+        out['public_presence'] = f"{len(ranked)} strong/relevant public racing source(s) reviewed"
+    return out
 
 
 def _ai_rookie_scout(name: str, evidence: list[dict]) -> dict:
@@ -465,15 +566,22 @@ def process_job(job_id: int) -> dict:
     if not entity_snapshot.get('region'): gaps.append('hometown / racing region')
     if not entity_snapshot.get('platform') and entity_snapshot.get('community_lane') in ('sim','crossover'): gaps.append('sim platform / iRacing identity')
     if job.research_type == 'rookie_deep_dive':
-        gaps.extend(['class / division', 'car number', 'home track / series', 'rookie-status confirmation'])
+        gaps.extend(['class / division', 'car number', 'team / series', 'rookie-status confirmation'])
         # Intake and media permission are post-scouting workflow steps, not public-research gaps.
 
     scout = _ai_rookie_scout(entity_snapshot['name'], scored) if job.research_type == 'rookie_deep_dive' else {}
     verified_profile = _profile_from_scout(scout) if scout else {}
+    rescue_profile = _structured_rookie_rescue(entity_snapshot['name'], scored) if job.research_type == 'rookie_deep_dive' else {}
     if job.research_type == 'rookie_deep_dive':
         fallback_profile = _extract_rookie_fields(entity_snapshot['name'], strong + plausible, corroborated or bool(strong))
         for key, value in fallback_profile.items():
             verified_profile.setdefault(key, value)
+        for key in ('hometown_region','class_division','car_number','home_track_series','rookie_status','notable_results_story','public_presence'):
+            value = rescue_profile.get(key)
+            if value:
+                verified_profile.setdefault(key, value)
+        if scout is not None and not (scout.get('why_feature') or []):
+            scout['why_feature'] = rescue_profile.get('feature_hooks') or []
         # Even when detailed fields are sparse, relevant public evidence is itself useful context.
         if scored and not verified_profile.get('public_presence'):
             verified_profile['public_presence'] = f"{len(scored)} relevant public racing source(s) found"
@@ -497,7 +605,7 @@ def process_job(job_id: int) -> dict:
             'hometown_region': 'hometown / racing region',
             'class_division': 'class / division',
             'car_number': 'car number',
-            'home_track_series': 'home track / series',
+            'home_track_series': 'team / series',
             'rookie_status': 'rookie-status confirmation',
         }
         gaps = [g for g in gaps if not any(verified_profile.get(k) and g == v for k, v in resolved.items())]
@@ -554,6 +662,10 @@ def process_job(job_id: int) -> dict:
     outreach_score = int(min(100, round(identity_conf * .35 + verification * .20 + min(profile_fields, 6) * 5 + fit_points)))
     if identity_conf < 50:
         outreach_score = min(outreach_score, 49)
+    if profile_fields < 2:
+        outreach_score = min(outreach_score, 49)
+    elif profile_fields < 3 and fit != 'strong':
+        outreach_score = min(outreach_score, 54)
     if fit == 'not_a_fit':
         outreach_score = min(outreach_score, 35)
     if outreach_score >= 75:
