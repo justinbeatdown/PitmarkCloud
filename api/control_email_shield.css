@@ -185,3 +185,63 @@
   letter-spacing:.04em;
   text-transform:uppercase;
 }
+
+
+/* v0.16.20 — force branded Pitmark confirmation controls over browser/default button rules */
+#pitmarkConfirmOverlay{
+  background:rgba(0,0,0,.78)!important;
+  backdrop-filter:blur(8px)!important;
+}
+#pitmarkConfirmOverlay [role="dialog"]{
+  width:min(460px,calc(100vw - 36px))!important;
+  border:1px solid rgba(255,85,0,.72)!important;
+  border-radius:14px!important;
+  background:linear-gradient(155deg,#17191a 0%,#0d0f10 100%)!important;
+  box-shadow:0 28px 90px rgba(0,0,0,.72),0 0 0 1px rgba(255,85,0,.08)!important;
+  color:#f5f5f5!important;
+}
+#pitmarkConfirmOverlay [role="dialog"]>div:nth-child(2){
+  padding:24px 24px 10px!important;
+}
+#pitmarkConfirmOverlay [role="dialog"]>div:last-child{
+  gap:10px!important;
+  padding:18px 24px 24px!important;
+}
+#pitmarkConfirmOverlay button{
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  min-width:94px!important;
+  min-height:40px!important;
+  padding:10px 18px!important;
+  border-radius:8px!important;
+  font-family:inherit!important;
+  font-size:12px!important;
+  font-weight:900!important;
+  line-height:1!important;
+  text-transform:uppercase!important;
+  letter-spacing:.035em!important;
+  cursor:pointer!important;
+  box-shadow:none!important;
+}
+#pitmarkConfirmOverlay [data-pm-confirm="cancel"]{
+  border:1px solid #555c60!important;
+  background:#181b1d!important;
+  color:#e9ecee!important;
+}
+#pitmarkConfirmOverlay [data-pm-confirm="cancel"]:hover{
+  border-color:#8a9297!important;
+  background:#222629!important;
+}
+#pitmarkConfirmOverlay [data-pm-confirm="delete"]{
+  border:1px solid #ff5500!important;
+  background:linear-gradient(180deg,#ff6818,#df4900)!important;
+  color:#fff!important;
+  box-shadow:0 8px 24px rgba(255,85,0,.16)!important;
+}
+#pitmarkConfirmOverlay [data-pm-confirm="delete"]:hover{
+  filter:brightness(1.08)!important;
+}
+#pitmarkConfirmOverlay button:focus-visible{
+  outline:2px solid #ff7a33!important;
+  outline-offset:2px!important;
+}

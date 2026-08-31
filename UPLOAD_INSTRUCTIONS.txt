@@ -1,18 +1,3 @@
-Pitmark Cloud v0.16.19
+Extract over the PitmarkCloud repository root, commit/push, and let Render deploy.
 
-Extract over the repository root and push.
-
-Expected files:
-- api/control_center_ui.py
-- api/control_email_shield.css
-- api/control_email_shield.js
-- utils/config.py
-- RELEASE_v0.16.19.md
-- UPLOAD_INSTRUCTIONS.txt
-
-After Render deploy:
-1. Desktop Email: inbox should use full width until a conversation is opened.
-2. Every inbound inbox row should show its Shield classification and confidence.
-3. Open the suspicious test email: the message should show Shield reasons and action inline.
-4. Mobile Email: verify the same badge/detail behavior.
-5. Confirm compose, identities, replies, delete, Sent and Drafts still work.
+Verify Delete Conversation on desktop and mobile. The modal should retain the Pitmark dark/orange design and the Cancel/Delete buttons should no longer render as native white browser buttons.
