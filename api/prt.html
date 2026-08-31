@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>Pitmark Racing Tools</title>
+  <link rel="icon" href="/control-favicon.png">
+  <link rel="stylesheet" href="/prt.css?v=01700">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/prt" aria-label="Pitmark Racing Tools home">
+      <img src="/prt-logo.png" alt="Pitmark Racing Co.">
+      <span><b>PITMARK RACING TOOLS</b><small>BUILT FOR RACERS.</small></span>
+    </a>
+    <div class="top-actions">
+      <span class="early">EARLY ACCESS</span>
+      <a href="mailto:prt@mail.pitmarkracing.com" class="ghost-link">SUPPORT</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">YOUR RACING COMMAND CENTER</p>
+        <h1>Race smarter.<br><em>Leave your mark.</em></h1>
+        <p class="lead">Pitmark Racing Tools brings drivers, leagues and teams into one racing-first workspace for race prep, live tools, league operations and Discord integration.</p>
+        <div class="hero-actions">
+          <button id="installBot" class="primary">ADD PITMARK BOT TO DISCORD</button>
+          <button class="secondary" disabled>WINDOWS APP — COMING SOON</button>
+        </div>
+        <p id="botStatus" class="status-line">Checking Pitmark Bot availability…</p>
+      </div>
+      <aside class="hero-panel">
+        <div class="panel-title"><span></span>PRT SYSTEM STATUS</div>
+        <div class="status-grid">
+          <div><small>PITMARK CLOUD</small><strong id="cloudState">ONLINE</strong></div>
+          <div><small>DISCORD BOT</small><strong id="discordState">CHECKING</strong></div>
+          <div><small>ACCESS</small><strong>EARLY ACCESS</strong></div>
+          <div><small>VERSION</small><strong>v{{PITMARK_VERSION}}</strong></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <p class="eyebrow">THE TOOLBOX</p>
+        <h2>Everything around the race.</h2>
+        <p>PRT is being built as the layer between the driver, the league and the race weekend.</p>
+      </div>
+      <div class="tool-grid">
+        <article><span>01</span><h3>Driver Hub</h3><p>Race cards, logbook, session planning, setups and driver-focused race prep.</p><b>FOUNDATION</b></article>
+        <article><span>02</span><h3>League Command</h3><p>League dashboards, race operations, results workflows and shareable assets.</p><b>IN DEVELOPMENT</b></article>
+        <article class="active"><span>03</span><h3>Discord Integration</h3><p>Install Pitmark Bot directly into your server and connect league workflows to Discord.</p><b>READY TO INSTALL</b></article>
+        <article><span>04</span><h3>Pitmark Cloud</h3><p>Secure syncing, licensing, entitlements and the services behind the PRT ecosystem.</p><b>ONLINE</b></article>
+      </div>
+    </section>
+
+    <section class="discord-block">
+      <div>
+        <p class="eyebrow">PITMARK BOT</p>
+        <h2>Bring PRT into your Discord server.</h2>
+        <p>The first PRT onboarding action is already wired to Pitmark Cloud. Choose your server in Discord, approve the requested permissions, and the bot is installed.</p>
+      </div>
+      <button id="installBot2" class="primary">ADD TO DISCORD</button>
+    </section>
+  </main>
+
+  <footer>
+    <span>PITMARK RACING CO. · LEAVE YOUR MARK.</span>
+    <span>PRT v{{PITMARK_VERSION}}</span>
+  </footer>
+  <script src="/prt.js?v=01700" defer></script>
+</body>
+</html>

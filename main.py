@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from utils.security import SecurityHeadersMiddleware, security_summary
 
-from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_ui, social_publish, email_center, content_tools
+from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_ui, social_publish, email_center, content_tools, prt_ui
 from utils.config import settings
 from utils.logger import configure_logging
 from services import discord_gateway_service
@@ -70,6 +70,7 @@ app.include_router(email_center.router, prefix="/api/control/email", tags=["emai
 app.include_router(email_center.public_router, tags=["email-webhooks"])
 app.include_router(content_tools.router, prefix="/api/control/content", tags=["content-tools"])
 app.include_router(control_center_ui.router)
+app.include_router(prt_ui.router)
 
 
 def _dashboard_root_target(request: Request) -> str | None:
@@ -89,11 +90,20 @@ def _dashboard_root_target(request: Request) -> str | None:
     return "/control/mobile" if any(token in user_agent for token in mobile_tokens) else "/control"
 
 
+def _prt_root_target(request: Request) -> str | None:
+    host = (request.url.hostname or "").lower().rstrip(".")
+    return "/prt" if host == "prt.pitmarkracing.com" else None
+
+
 @app.get("/")
 async def root(request: Request):
     dashboard_target = _dashboard_root_target(request)
     if dashboard_target:
         return RedirectResponse(url=dashboard_target, status_code=302)
+
+    prt_target = _prt_root_target(request)
+    if prt_target:
+        return RedirectResponse(url=prt_target, status_code=302)
 
     return {
         "service": "Pitmark Cloud",

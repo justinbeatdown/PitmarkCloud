@@ -1,12 +1,21 @@
-Pitmark Cloud v0.16.26
+Pitmark Cloud v0.17.0
 
-Extract over the repository root.
+Extract over repository root.
 
-GitHub Desktop should show:
-- api/control_shield_mail_status.js
-- api/control_center_ui.py
+Expected changed/new files:
+- main.py
 - utils/config.py
-- RELEASE_v0.16.26.md
+- api/prt_ui.py
+- api/prt.html
+- api/prt.css
+- api/prt.js
+- RELEASE_v0.17.0.md
 - UPLOAD_INSTRUCTIONS.txt
 
-Commit and push. No script to run.
+Commit and push. Render will deploy automatically.
+
+After live:
+1. Visit the Render hostname /prt first.
+2. Verify desktop and mobile.
+3. Click Add Pitmark Bot to Discord and confirm Discord opens the server-selection authorization page.
+4. Then add/verify the Render custom domain prt.pitmarkracing.com and create the matching DNS CNAME.
