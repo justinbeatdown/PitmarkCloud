@@ -6,12 +6,12 @@
   <meta name="theme-color" content="#0a0a0a">
   <title>Pitmark Racing Tools</title>
   <link rel="icon" href="/control-favicon.png">
-  <link rel="stylesheet" href="/prt.css?v=01702">
+  <link rel="stylesheet" href="/prt.css?v=01703">
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="/prt" aria-label="Pitmark Racing Tools home">
-      <img src="/prt-current-logo.png" alt="Pitmark Racing Co.">
+      <span class="brand-mark"><img src="/prt-current-logo.png" alt="Pitmark Racing Co."></span>
       <span><b>PITMARK RACING TOOLS</b><small>BUILT FOR RACERS.</small></span>
     </a>
     <div class="top-actions">
@@ -27,13 +27,27 @@
         <h1>Race smarter.<br><em>Leave your mark.</em></h1>
         <p class="lead">Pitmark Racing Tools brings drivers, leagues and teams into one racing-first workspace for race prep, live tools, league operations and Discord integration.</p>
         <div class="hero-actions">
-          <a id="installBot" class="primary action-link" href="/api/discord/install/launch">ADD PITMARK BOT TO DISCORD</a>
+          <a id="installBot" class="primary action-link" href="/api/discord/install/launch" target="_blank" rel="noopener noreferrer">ADD PITMARK BOT TO DISCORD</a>
           <button class="secondary" disabled>WINDOWS APP — COMING SOON</button>
         </div>
         <p id="botStatus" class="status-line">Checking Pitmark Bot availability…</p>
       </div>
       <aside class="product-showcase">
-        <div class="app-shot"><img src="/prt-app-preview.png" alt="Pitmark Racing Tools desktop app interface"></div>
+        <div class="source-preview">
+          <div class="source-preview-top"><span></span><b>PRT WINDOWS BUILD</b><em>v0.16.5 SOURCE</em></div>
+          <div class="source-preview-body">
+            <div class="source-side">
+              <strong>DRIVE</strong><span>ANALYZE</span><span>LOGBOOK</span><span>SETUP VAULT</span><span>RACE CARD</span><span>OVERLAYS</span><span>SETTINGS</span>
+            </div>
+            <div class="source-main">
+              <div class="source-brand">PITMARK <small>RACING TOOLS</small></div>
+              <div class="source-status">● iRACING CONNECTED</div>
+              <div class="source-cards"><i></i><i></i><i></i><i></i></div>
+              <div class="source-panels"><div></div><div></div><div></div></div>
+            </div>
+          </div>
+          <p class="source-note">Interface preview is built from the actual v0.16.5 app structure. A real runtime screenshot will replace this once captured from Windows.</p>
+        </div>
         <div class="compact-status">
           <span><i></i>PITMARK CLOUD <b id="cloudState">ONLINE</b></span>
           <span><i></i>DISCORD <b id="discordState">CHECKING</b></span>
@@ -63,7 +77,7 @@
         <h2>Bring PRT into your Discord server.</h2>
         <p>The first PRT onboarding action is already wired to Pitmark Cloud. Choose your server in Discord, approve the requested permissions, and the bot is installed.</p>
       </div>
-      <a id="installBot2" class="primary action-link" href="/api/discord/install/launch">ADD TO DISCORD</a>
+      <a id="installBot2" class="primary action-link" href="/api/discord/install/launch" target="_blank" rel="noopener noreferrer">ADD TO DISCORD</a>
     </section>
   </main>
 

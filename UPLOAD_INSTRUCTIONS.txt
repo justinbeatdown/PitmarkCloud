@@ -1,10 +1,9 @@
-Pitmark Cloud v0.17.2
+Pitmark Cloud v0.17.3
 
-Extract over the PitmarkCloud repository root, commit, push, deploy.
+Extract over repo root, commit, push, deploy.
 
-Verify:
-1. Desktop Control Center: Email is back.
-2. Mobile Control Center: Email is back.
-3. Open inbound mail: Mark as Spam appears.
-4. PRT: Add Pitmark Bot opens Discord authorization/server selection.
-5. PRT: product preview matches the actual PRT build reference.
+Verify PRT only:
+1. Discord opens in a new tab/window.
+2. Generated screenshot is gone.
+3. Header logo is larger, crisp, and properly proportioned.
+4. Control Center Email remains untouched.
