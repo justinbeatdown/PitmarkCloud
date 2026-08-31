@@ -25,9 +25,6 @@ AUTOFILL_GUARD = r"""
     el.setAttribute('data-lpignore', 'true');
     el.setAttribute('data-1p-ignore', 'true');
     el.setAttribute('data-form-type', 'other');
-    // Browser/password-manager autofill often emits input/change events. Those
-    // are NOT proof of user intent. Only trusted typing/paste marks a value as
-    // intentional, so a real manually typed "Justin" is preserved.
     el.addEventListener('keydown', ev => { if (ev.isTrusted) trustedIntent.add(el); }, true);
     el.addEventListener('paste', ev => { if (ev.isTrusted) trustedIntent.add(el); }, true);
     el.addEventListener('drop', ev => { if (ev.isTrusted) trustedIntent.add(el); }, true);
@@ -99,6 +96,14 @@ def control_mobile_css(): return Response((ASSET_DIR / 'control_mobile.css').rea
 
 @router.get('/control-mobile.js', include_in_schema=False)
 def control_mobile_js(): return Response((ASSET_DIR / 'control_mobile.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-store'})
+
+@router.get('/control-mobile-blog.js', include_in_schema=False)
+def control_mobile_blog_js():
+    return Response(
+        (ASSET_DIR / 'control_mobile_blog.js').read_text(encoding='utf-8'),
+        media_type='application/javascript',
+        headers={'Cache-Control': 'no-store'},
+    )
 
 @router.get('/control-mobile-login.js', include_in_schema=False)
 def control_mobile_login_js(): return Response((ASSET_DIR / 'control_mobile_login.js').read_text(encoding='utf-8'), media_type='application/javascript')

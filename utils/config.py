@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PITMARK_RELEASE_VERSION = "0.16.8"
+PITMARK_RELEASE_VERSION = "0.16.9"
 
 
 class Settings(BaseSettings):
@@ -40,7 +40,6 @@ class Settings(BaseSettings):
     opportunity_discovery_max_age_hours: int = 72
     autopilot_scan_query: str = "grassroots racing OR dirt track racing OR short track racing OR sim racing OR motorsports"
 
-    # Social publishing credentials stay server-side.
     meta_app_id: str = ""
     meta_app_secret: str = ""
     meta_page_id: str = ""

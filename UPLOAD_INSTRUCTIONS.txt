@@ -1,14 +1,14 @@
-Pitmark Cloud v0.16.8 — CLEAN Mobile Blog Parity
+Pitmark Cloud v0.16.9 — Mobile Blog Boot Fix
 
-1. Make sure the previous bad v0.16.8 local changes were discarded.
-2. Extract this ZIP into the PitmarkCloud repository root.
-3. GitHub Desktop should show:
-   - api/control_mobile.html
-   - api/control_mobile.css
-   - api/control_mobile_blog.js (NEW)
-   - utils/config.py
-   - RELEASE_v0.16.8.md
-   - UPLOAD_INSTRUCTIONS.txt
-4. IMPORTANT: api/control_mobile.js should NOT be changed.
-5. Commit/push and let Render deploy.
-6. Refresh/relaunch Control Mobile and test Blog.
+Extract into repo root.
+
+GitHub Desktop should show exactly:
+- api/control_center_ui.py
+- utils/config.py
+- RELEASE_v0.16.9.md
+- UPLOAD_INSTRUCTIONS.txt
+
+No mobile HTML/CSS/JS files should change in this hotfix.
+
+Commit/push, let Render deploy, then fully close/reopen Control Mobile.
+Tap Generate Article. The button should immediately change to "Reading source…".
