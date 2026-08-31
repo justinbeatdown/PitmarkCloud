@@ -1,14 +1,5 @@
-Pitmark Cloud v0.16.9 — Mobile Blog Boot Fix
-
-Extract into repo root.
-
-GitHub Desktop should show exactly:
-- api/control_center_ui.py
+Extract into repo root. Expected 4 changed files:
+- api/control_mobile_blog.js
 - utils/config.py
-- RELEASE_v0.16.9.md
+- RELEASE_v0.16.10.md
 - UPLOAD_INSTRUCTIONS.txt
-
-No mobile HTML/CSS/JS files should change in this hotfix.
-
-Commit/push, let Render deploy, then fully close/reopen Control Mobile.
-Tap Generate Article. The button should immediately change to "Reading source…".
