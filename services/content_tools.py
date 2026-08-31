@@ -5,7 +5,7 @@ import re
 
 import httpx
 
-from services.research_page_reader import fetch_page_excerpt
+from services.research_page_reader import read_page_excerpt
 from utils.config import settings
 
 
@@ -37,9 +37,13 @@ def generate_article_from_source(source_url: str, prompt: str) -> dict:
     if not settings.openai_api_key.strip():
         raise RuntimeError("OPENAI_API_KEY is not configured in Pitmark Cloud.")
     with httpx.Client(timeout=15.0) as client:
-        excerpt = fetch_page_excerpt(client, source_url)
-    if not excerpt:
-        raise ValueError("Pitmark Cloud could not safely read that source page.")
+        page = read_page_excerpt(client, source_url)
+    if not page.ok:
+        if page.category == "shield":
+            raise ValueError(f"Pitmark Shield blocked that source URL: {page.reason}.")
+        status = f" (HTTP {page.status_code})" if page.status_code else ""
+        raise ValueError(f"Pitmark Cloud could not read that public source page{status}: {page.reason}.")
+    excerpt = page.excerpt
 
     instructions = """You are the editorial writer inside Pitmark Control Center for Pitmark Racing Co.
 Write an ORIGINAL motorsports article grounded only in the supplied source excerpt and the user's request.
@@ -68,4 +72,5 @@ image_prompt must be editorial-safe: if the exact discipline/car/person is not s
     result = _parse_json(text)
     result["source_url"] = source_url
     result["source_excerpt_used"] = True
+    result["source_read_via"] = page.final_url
     return result

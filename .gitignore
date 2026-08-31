@@ -1,0 +1,11 @@
+# Python generated files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local environment / tooling
+.env
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/

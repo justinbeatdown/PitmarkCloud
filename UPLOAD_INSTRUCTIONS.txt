@@ -1,0 +1,10 @@
+Pitmark Cloud v0.16.2 coordinated patch
+
+1. Extract this ZIP into the ROOT of your local PitmarkCloud repo and allow merge/replace.
+2. Delete these two tracked accidental files if they are still present:
+   services/__pycache__/research_agent.cpython-311.pyc
+   utils/__pycache__/config.cpython-311.pyc
+3. In GitHub Desktop, confirm the intended changes, commit, then Push origin.
+4. Render: wait for the automatic deploy, then test Create Article from Source with the Inside Track News URL on desktop and mobile.
+
+Do not change Resend/DNS/webhook/API secrets for this build.

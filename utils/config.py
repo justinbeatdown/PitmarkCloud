@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PITMARK_RELEASE_VERSION = "0.16.1"
+PITMARK_RELEASE_VERSION = "0.16.2"
 
 
 class Settings(BaseSettings):
@@ -83,7 +83,6 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     configured = Settings()
-    # Release display/API version is owned by the deployed code, not a stale host env var.
     configured.app_version = PITMARK_RELEASE_VERSION
     return configured
 
