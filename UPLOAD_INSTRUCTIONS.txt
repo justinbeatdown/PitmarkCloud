@@ -1,9 +1,3 @@
-Pitmark Cloud v0.16.3 — Source Reader HTTP 202 Hotfix
-
-1. Extract this ZIP into the PitmarkCloud repository root and merge/replace.
-2. GitHub Desktop: review changes, commit, and Push origin.
-3. Let Render auto-deploy.
-4. Retest the exact Inside Track News article in desktop Control Center.
-5. Retest Create Article from Source on mobile before marking v0.16.3 complete.
-
-Do not change Resend, DNS, webhook, or API secrets.
+Extract into repo root, merge/replace, commit, push, and let Render deploy.
+Retest the Inside Track URL on desktop. The error must now include the fallback failure reason.
+Do not change DNS, Resend, webhook, or API secrets.
