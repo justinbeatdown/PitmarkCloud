@@ -203,6 +203,15 @@ def read_page_excerpt(client: httpx.Client, url: str) -> PageReadResult:
         if fallback.ok:
             log.info("Research page used WordPress fallback for %s after %s", url, primary.reason)
             return fallback
+        combined = PageReadResult(
+            ok=False,
+            reason=f"{primary.reason}; fallback failed: {fallback.reason}",
+            category=fallback.category,
+            status_code=fallback.status_code or primary.status_code,
+            final_url=fallback.final_url or primary.final_url,
+        )
+        log.info("Research page read failed for %s [%s]: %s", url, combined.category, combined.reason)
+        return combined
 
     log.info("Research page read failed for %s [%s]: %s", url, primary.category, primary.reason)
     return primary

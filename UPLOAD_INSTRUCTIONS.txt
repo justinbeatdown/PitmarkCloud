@@ -1,3 +1,4 @@
-Extract into repo root, merge/replace, commit, push, and let Render deploy.
-Retest the Inside Track URL on desktop. The error must now include the fallback failure reason.
-Do not change DNS, Resend, webhook, or API secrets.
+v0.16.5 verified reader patch
+Extract into PitmarkCloud repo root and replace files.
+BEFORE COMMIT: GitHub Desktop MUST show services/research_page_reader.py and utils/config.py changed.
+Commit and push. Render deploy. Retest Inside Track.
