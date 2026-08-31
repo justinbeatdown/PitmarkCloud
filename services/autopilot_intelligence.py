@@ -91,29 +91,9 @@ def scan_now():
       ai=compose_with_ai(platform='facebook',goal='community',prompt=f'Create a Pitmark Racing Co. community-first post inspired by this current racing headline: {title}. Do not invent facts or imply Pitmark involvement. Focus on grassroots racers, leagues, tracks, rookie journeys, or racing community value.',tone='pitmark')
       db.add(SocialPost(platform='facebook',body=ai.body,content_type='community',source=f'intelligence:{op.id}',risk='low',status='pending')); op.status='drafted'; queued+=1
      except Exception as e: log.warning('AI candidate failed: %s',e)
-   # X is the fastest lane: pull current posts directly from X and prioritize the newest useful signals.
-   x_query='(racing OR motorsports OR speedway OR NASCAR OR IndyCar OR IMSA OR iRacing) -is:retweet lang:en'
-   for tweet in x_search_recent(x_query, max_results=25):
-    text=str(tweet.get('text') or '').strip(); tid=str(tweet.get('id') or '')
-    created=str(tweet.get('created_at') or '')
-    if not text or not tid or not created: continue
-    try:
-     published=datetime.fromisoformat(created.replace('Z','+00:00')); age_minutes=max(0,int((datetime.now(timezone.utc)-published.astimezone(timezone.utc)).total_seconds()//60))
-    except Exception: continue
-    if age_minutes > settings.x_realtime_max_age_minutes: continue
-    story=_story_key(text[:180]); fp=hashlib.sha256((story+'|x|'+tid).encode()).hexdigest()
-    if db.scalar(select(AutopilotOpportunity).where(AutopilotOpportunity.fingerprint==fp)): continue
-    score,reason=_quality(text,''); score += 45 if age_minutes<=15 else 32 if age_minutes<=30 else 20
-    if score < 35: continue
-    url=f'https://x.com/i/web/status/{tid}'
-    op=AutopilotOpportunity(headline=text[:240],source_name='X',source_url=url,relevance='high' if score>=55 else 'medium',reason=f'{reason}; X realtime ({age_minutes}m old)',fingerprint=fp); db.add(op); db.flush()
-    db.add(OpportunitySourceMeta(opportunity_id=op.id,published_at=published,age_hours=age_minutes/60.0,freshness='realtime')); found+=1
-    if score>=55 and queued<5:
-     try:
-      ai=compose_with_ai(platform='x',goal='community',prompt=f'Create a fast Pitmark Racing Co. X post reacting to this current X signal: {text}. Treat the source as an early signal, do not invent or overstate unverified facts, and stay under 280 characters.',tone='pitmark')
-      db.add(SocialPost(platform='x',body=ai.body,content_type='community',source=f'intelligence:{op.id}',risk='low',status='pending')); op.status='drafted'; queued+=1
-     except Exception as e: log.warning('X AI candidate failed: %s',e)
-   db.commit(); rr=db.get(AutopilotRun,rid); rr.status='completed'; rr.found_count=found; rr.queued_count=queued; rr.note=f'Pitmark Intelligence V3 X-realtime: filtered={filtered}; story_duplicates={duplicates}; rss_queries={len(queries)}'; db.commit()
+   # Paid X intelligence reads are intentionally disabled from scheduled scans.
+   # X publishing remains enabled; paid X reads will be exposed only through an explicit on-demand action.
+   db.commit(); rr=db.get(AutopilotRun,rid); rr.status='completed'; rr.found_count=found; rr.queued_count=queued; rr.note=f'Pitmark Intelligence V3.1 free-auto: filtered={filtered}; story_duplicates={duplicates}; rss_queries={len(queries)}; paid_x_reads=disabled'; db.commit()
   return {'ok':True,'found':found,'queued':queued,'filtered':filtered,'duplicates':duplicates}
  except Exception as e:
   with SessionLocal() as db: rr=db.get(AutopilotRun,rid); rr.status='failed'; rr.note=str(e)[:400]; db.commit()
@@ -121,7 +101,7 @@ def scan_now():
 
 def status():
  with SessionLocal() as db:
-  r=db.scalar(select(AutopilotRun).order_by(AutopilotRun.id.desc()).limit(1)); return {'enabled':settings.autopilot_intelligence_enabled,'interval_hours':settings.autopilot_scan_hours,'interval_minutes':settings.autopilot_scan_minutes,'version':'v3.0-x-realtime','last_run':None if not r else {'status':r.status,'found':r.found_count,'queued':r.queued_count,'note':r.note,'created_at':r.created_at.isoformat()}}
+  r=db.scalar(select(AutopilotRun).order_by(AutopilotRun.id.desc()).limit(1)); return {'enabled':settings.autopilot_intelligence_enabled,'interval_hours':settings.autopilot_scan_hours,'interval_minutes':settings.autopilot_scan_minutes,'version':'v3.1-free-auto','last_run':None if not r else {'status':r.status,'found':r.found_count,'queued':r.queued_count,'note':r.note,'created_at':r.created_at.isoformat()}}
 async def scheduler_loop():
  await asyncio.sleep(30)
  while True:
