@@ -62,9 +62,9 @@
     const rows = await getJson('/api/control/email/threads?folder=inbox');
     const map = new Map(rows.map(x => [String(x.thread_id), x]));
     qa('[data-mail-thread]', list).forEach(el => {
-      if (el.querySelector('.pm-shield-badge')) return;
       const item = map.get(String(el.dataset.mailThread));
       if (!item) return;
+      el.querySelector('.pm-shield-badge')?.remove();
       el.insertAdjacentHTML('beforeend', shieldBadge(item.shield));
     });
   }
@@ -77,9 +77,9 @@
     const rows = await getJson('/api/control/email/threads?folder=inbox');
     const map = new Map(rows.map(x => [String(x.thread_id), x]));
     qa('[data-mmail-thread]', list).forEach(el => {
-      if (el.querySelector('.pm-shield-badge')) return;
       const item = map.get(String(el.dataset.mmailThread));
       if (!item) return;
+      el.querySelector('.pm-shield-badge')?.remove();
       el.insertAdjacentHTML('beforeend', shieldBadge(item.shield));
     });
   }
@@ -91,7 +91,8 @@
     const data = await getJson(`/api/control/email/threads/${desktopThread}`);
     const articles = qa('.mail-thread-message', box);
     (data.messages || []).forEach((m, i) => {
-      if (m.direction !== 'inbound' || !m.shield || !articles[i] || articles[i].querySelector('.pm-shield-detail')) return;
+      if (m.direction !== 'inbound' || !m.shield || !articles[i]) return;
+      articles[i].querySelector('.pm-shield-detail')?.remove();
       const body = q('.mail-body', articles[i]);
       if (body) body.insertAdjacentHTML('beforebegin', shieldDetail(m.shield));
     });
@@ -104,7 +105,8 @@
     const data = await getJson(`/api/control/email/threads/${mobileThread}`);
     const articles = qa('.m-item', box);
     (data.messages || []).forEach((m, i) => {
-      if (m.direction !== 'inbound' || !m.shield || !articles[i] || articles[i].querySelector('.pm-shield-detail')) return;
+      if (m.direction !== 'inbound' || !m.shield || !articles[i]) return;
+      articles[i].querySelector('.pm-shield-detail')?.remove();
       const body = q('.body', articles[i]);
       if (body) body.insertAdjacentHTML('beforebegin', shieldDetail(m.shield));
     });
@@ -120,9 +122,16 @@
     const text = s.connected
       ? `Shield active · ${Number(s.protected_events || 0)} scanned · ${Number(counts.review || 0)} review · ${Number(counts.unverified || 0)} unverified`
       : 'Shield unavailable';
-    if (d && !q('.pm-shield-status', d)) d.insertAdjacentHTML('beforeend', `<span class="status-pill status-approved pm-shield-status">🛡 ${esc(text)}</span>`);
-    if (m && !q('.pm-shield-status', m.parentElement || document)) {
-      m.insertAdjacentHTML('afterend', `<div class="pm-shield-status mobile">🛡 ${esc(text)}</div>`);
+    if (d) {
+      const existing = q('.pm-shield-status', d);
+      if (existing) existing.textContent = `🛡 ${text}`;
+      else d.insertAdjacentHTML('beforeend', `<span class="status-pill status-approved pm-shield-status">🛡 ${esc(text)}</span>`);
+    }
+    if (m) {
+      const parent = m.parentElement || document;
+      const existing = q('.pm-shield-status', parent);
+      if (existing) existing.textContent = `🛡 ${text}`;
+      else m.insertAdjacentHTML('afterend', `<div class="pm-shield-status mobile">🛡 ${esc(text)}</div>`);
     }
   }
 

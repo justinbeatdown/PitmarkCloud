@@ -64,8 +64,8 @@ def control(request: Request):
     if filename == 'control_center.html':
         import re
         html = re.sub(r'PITMARK CLOUD v[0-9]+(?:\.[0-9]+)*', f'PITMARK CLOUD v{settings.app_version}', html, flags=re.IGNORECASE)
-        html = html.replace('</head>', '<link rel="stylesheet" href="/control-email.css">\n<link rel="stylesheet" href="/control-email-shield.css?v=01621">\n</head>')
-        html = html.replace('</body>', AUTOFILL_GUARD + '\n<script src="/control-email.js" defer></script>\n<script src="/control-email-identity.js?v=01612" defer></script>\n<script src="/control-email-shield.js?v=01621" defer></script>\n</body>')
+        html = html.replace('</head>', '<link rel="stylesheet" href="/control-email.css">\n<link rel="stylesheet" href="/control-email-shield.css?v=01622">\n</head>')
+        html = html.replace('</body>', AUTOFILL_GUARD + '\n<script src="/control-email.js" defer></script>\n<script src="/control-email-identity.js?v=01612" defer></script>\n<script src="/control-email-shield.js?v=01622" defer></script>\n</body>')
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
 
 
@@ -98,8 +98,8 @@ def control_mobile(request: Request):
     filename = 'control_mobile.html' if user_from_request(request) else 'control_mobile_login.html'
     html = (ASSET_DIR / filename).read_text(encoding='utf-8')
     if filename == 'control_mobile.html':
-        html = html.replace('</head>', '<link rel="stylesheet" href="/control-email-shield.css?v=01621">\n</head>')
-        html = html.replace('</body>', AUTOFILL_GUARD + '\n<script src="/control-mobile-mail-identity.js?v=01612" defer></script>\n<script src="/control-email-shield.js?v=01621" defer></script>\n</body>')
+        html = html.replace('</head>', '<link rel="stylesheet" href="/control-email-shield.css?v=01622">\n</head>')
+        html = html.replace('</body>', AUTOFILL_GUARD + '\n<script src="/control-mobile-mail-identity.js?v=01612" defer></script>\n<script src="/control-email-shield.js?v=01622" defer></script>\n</body>')
     return HTMLResponse(html, headers={'Cache-Control':'no-store'})
 
 @router.get('/control-mobile.css', include_in_schema=False)

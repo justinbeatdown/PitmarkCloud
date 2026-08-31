@@ -1,9 +1,9 @@
-Pitmark Cloud v0.16.21
+Pitmark Cloud v0.16.22
 
 Extract over the repository root, commit/push, and let Render deploy.
 
-Verify:
-- Open Email once; existing neutral test mail should rescan from Review 40% to Unverified 40%.
-- The phishing test remains Review 94%.
-- Normal customer-intent/system messages remain Legit/System where applicable.
-- Desktop and mobile show neutral gray for Unverified and yellow only for real Review events.
+Expected result:
+- Open Email and click Refresh.
+- The neutral Test message should update to Unverified 40%.
+- Existing phishing/review messages remain Review.
+- Desktop and mobile refresh existing Shield markup instead of leaving stale badges/details.
