@@ -120,6 +120,16 @@ def list_assets(*, active_only: bool = True, limit: int = 200) -> list[dict]:
         return [serialize_asset(x) for x in db.scalars(q).all()]
 
 
+
+def get_asset(asset_id: int) -> dict | None:
+    """Return one active approved social asset by id for Control Center previewing."""
+    with SessionLocal() as db:
+        row = db.get(SocialAsset, asset_id)
+        if not row or not row.active:
+            return None
+        return serialize_asset(row)
+
+
 def _words(text: str) -> set[str]:
     return {x for x in re.findall(r"[a-z0-9]+", (text or "").lower()) if len(x) >= 3}
 

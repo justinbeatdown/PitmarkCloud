@@ -4,6 +4,7 @@ from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+import httpx
 
 from services.control_auth import require_control_user
 from services.control_center import SocialPost, serialize, utcnow
@@ -16,7 +17,7 @@ from services.meta_publish_service import (
     publish_instagram_post,
 )
 from services.x_publish_service import XPublishError, connection_status as x_connection_status, publish_x_post
-from services.social_asset_pool import add_asset, choose_asset, get_uploaded_image, list_assets, mark_used, store_uploaded_image, sync_shopify_images
+from services.social_asset_pool import add_asset, choose_asset, get_asset, get_uploaded_image, list_assets, mark_used, store_uploaded_image, sync_shopify_images
 
 router = APIRouter()
 public_router = APIRouter()
@@ -83,6 +84,51 @@ def suggest_social_asset(payload: dict, request: Request, x_pitmark_admin_key: s
             pass
         asset = choose_asset(body=body, content_type=content_type, platform="instagram")
     return {"asset": asset}
+
+
+@router.get("/assets/{asset_id}/preview")
+def preview_social_asset(asset_id: int, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    """Authenticated UI-only preview proxy for approved Pitmark social assets."""
+    auth(request, x_pitmark_admin_key)
+    asset = get_asset(asset_id)
+    if not asset:
+        raise HTTPException(404, "Asset not found.")
+    url = str(asset.get("url") or "").strip()
+    if not url:
+        raise HTTPException(404, "Asset has no image URL.")
+
+    marker = "/social-assets/"
+    if marker in url:
+        token = url.split(marker, 1)[1].split("?", 1)[0].split("#", 1)[0]
+        item = get_uploaded_image(token)
+        if item:
+            return Response(
+                item["data"],
+                media_type=item["mime_type"],
+                headers={"Cache-Control": "private, max-age=300"},
+            )
+
+    try:
+        with httpx.Client(
+            timeout=20.0,
+            follow_redirects=True,
+            headers={"User-Agent": "PitmarkCloud/0.15.2"},
+        ) as client:
+            upstream = client.get(url)
+            upstream.raise_for_status()
+    except Exception as exc:
+        raise HTTPException(502, f"Could not load the selected image preview: {exc}")
+
+    content_type = (upstream.headers.get("content-type") or "").split(";", 1)[0].strip().lower()
+    if not content_type.startswith("image/"):
+        raise HTTPException(502, "Selected asset did not return an image.")
+    if len(upstream.content) > 12 * 1024 * 1024:
+        raise HTTPException(413, "Selected image is too large to preview.")
+    return Response(
+        upstream.content,
+        media_type=content_type,
+        headers={"Cache-Control": "private, max-age=300"},
+    )
 
 
 @router.post("/assets/upload")
