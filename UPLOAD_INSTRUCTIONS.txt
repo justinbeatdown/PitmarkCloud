@@ -1,5 +1,17 @@
-Extract into repo root. Expected 4 changed files:
-- api/control_mobile_blog.js
-- utils/config.py
-- RELEASE_v0.16.10.md
-- UPLOAD_INSTRUCTIONS.txt
+Pitmark Cloud v0.16.11 — Dashboard Root Routing
+
+1. Extract this ZIP into the root of your local PitmarkCloud repository.
+2. Allow the included files to overwrite the existing copies.
+3. In GitHub Desktop verify only these files changed:
+   - main.py
+   - utils/config.py
+   - RELEASE_v0.16.11.md
+   - UPLOAD_INSTRUCTIONS.txt
+4. Commit and push.
+5. Wait for Render to deploy.
+6. Test https://dashboard.pitmarkracing.com/ on desktop and mobile.
+
+Expected:
+- Desktop root -> /control
+- Mobile root -> /control/mobile
+- pitmarkcloud.onrender.com/ still returns the normal Pitmark Cloud JSON status.
