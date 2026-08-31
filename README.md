@@ -1,10 +1,10 @@
 ## Current release
 
-**v0.14.2 — Facebook Autopilot Publishing**
+**v0.14.3 — Facebook Publish UI Fix**
 
 Pitmark Autopilot now includes the first live social publishing path for Facebook: approved or scheduled Facebook posts can publish through Pitmark Cloud, scheduled posts are checked by a background worker, and Control Center only enables Publish when server-side Meta Page credentials are configured. This release also carries forward the verified Racing Culture Shopify routing fix and Control Center autofill guard.
 
-# Pitmark Cloud v0.14.2
+# Pitmark Cloud v0.14.3
 
 ## v0.14.0 — Shared Intelligence Ledger
 

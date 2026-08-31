@@ -1,5 +1,12 @@
 # Pitmark Cloud Changelog
 
+## v0.14.3 — Facebook Publish UI Fix
+- Fixed Control Center Facebook Publish buttons remaining disabled after Meta credentials were configured.
+- Added live `/api/control/social/status` readiness detection to the authenticated Control Center.
+- Approved and scheduled Facebook posts now enable Publish only when Meta Page publishing is configured.
+- Publish clicks call the existing server-side Facebook publishing endpoint and refresh queue/status after success.
+- Preserved the v0.14.2 Meta publisher, scheduled worker, Shopify routing fix, and autofill protection.
+
 ## v0.14.2 — Facebook Autopilot Publishing
 - Added server-side Facebook Page publishing through the Meta Graph API.
 - Added `/api/control/social/status` and approval-gated live publish endpoint.

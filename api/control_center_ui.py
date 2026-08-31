@@ -70,12 +70,128 @@ AUTOFILL_GUARD = r"""
 """
 
 
+
+SOCIAL_PUBLISH_GUARD = r"""
+<script>
+(() => {
+  let facebookReady = false;
+
+  function publishButtons() {
+    return Array.from(document.querySelectorAll('.queue-card')).map(card => {
+      const button = Array.from(card.querySelectorAll('button')).find(
+        b => b.textContent.trim().toLowerCase() === 'publish'
+      );
+      return { card, button };
+    }).filter(x => x.button);
+  }
+
+  function updatePublishButtons() {
+    for (const {card, button} of publishButtons()) {
+      const header = (card.querySelector('.queue-card-top')?.textContent || '').toLowerCase();
+      const status = (card.querySelector('.status-pill')?.textContent || '').trim().toLowerCase();
+      const isFacebook = header.includes('facebook');
+      const allowedState = status === 'approved' || status === 'scheduled';
+
+      if (facebookReady && isFacebook && allowedState) {
+        button.disabled = false;
+        button.dataset.socialPublish = '1';
+        button.title = 'Publish to Facebook';
+      } else {
+        button.disabled = true;
+        delete button.dataset.socialPublish;
+        if (isFacebook && !facebookReady) {
+          button.title = 'Facebook publishing is not configured';
+        }
+      }
+    }
+  }
+
+  async function refreshSocialStatus() {
+    try {
+      const response = await fetch('/api/control/social/status', {
+        credentials: 'same-origin',
+        cache: 'no-store'
+      });
+      if (!response.ok) {
+        facebookReady = false;
+      } else {
+        const data = await response.json();
+        facebookReady = Boolean(data?.facebook?.configured);
+      }
+    } catch (_) {
+      facebookReady = false;
+    }
+    updatePublishButtons();
+  }
+
+  async function publishPost(button) {
+    const card = button.closest('.queue-card');
+    const postId = card?.dataset?.id;
+    if (!postId) return;
+
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = 'PUBLISHING…';
+
+    try {
+      const response = await fetch(`/api/control/social/posts/${postId}/publish`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'}
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.detail || `HTTP ${response.status}`);
+
+      if (typeof showToast === 'function') {
+        showToast('Published ✓', 'Facebook post is live.');
+      }
+
+      // Use the app's own queue renderer if present.
+      if (typeof loadQueue === 'function') await loadQueue();
+      if (typeof loadStatus === 'function') await loadStatus();
+      await refreshSocialStatus();
+    } catch (error) {
+      button.textContent = original;
+      button.disabled = false;
+      if (typeof showToast === 'function') {
+        showToast('Publish Failed', error.message, 'error');
+      } else {
+        alert(`Publish failed: ${error.message}`);
+      }
+    }
+  }
+
+  document.addEventListener('click', event => {
+    const button = event.target.closest('button[data-social-publish="1"]');
+    if (!button) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    publishPost(button);
+  }, true);
+
+  document.addEventListener('DOMContentLoaded', () => {
+    refreshSocialStatus();
+
+    const queue = document.getElementById('queueList');
+    if (queue) {
+      new MutationObserver(() => {
+        updatePublishButtons();
+      }).observe(queue, {childList: true, subtree: true});
+    }
+
+    window.setInterval(refreshSocialStatus, 30000);
+  });
+})();
+</script>
+"""
+
+
 @router.get('/control', response_class=HTMLResponse, include_in_schema=False)
 def control(request: Request):
     filename = 'control_center.html' if user_from_request(request) else 'control_login.html'
     html = (ASSET_DIR / filename).read_text(encoding='utf-8')
     if filename == 'control_center.html':
-        html = html.replace('</body>', AUTOFILL_GUARD + '\n</body>')
+        html = html.replace('</body>', AUTOFILL_GUARD + SOCIAL_PUBLISH_GUARD + '\n</body>')
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
 
 
