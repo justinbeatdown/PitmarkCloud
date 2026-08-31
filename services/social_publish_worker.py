@@ -61,6 +61,22 @@ def publish_due_posts() -> int:
             due = _scheduled_time(post.scheduled_for)
             if due is None or due > now:
                 continue
+            if (post.source or "").startswith("intelligence:"):
+                try:
+                    from services.control_center import OpportunitySourceMeta
+                    opportunity_id = int((post.source or "").split(":", 1)[1])
+                    meta = db.scalar(select(OpportunitySourceMeta).where(OpportunitySourceMeta.opportunity_id == opportunity_id))
+                    if meta and meta.published_at:
+                        published_at = meta.published_at if meta.published_at.tzinfo else meta.published_at.replace(tzinfo=timezone.utc)
+                        age_hours = (now - published_at.astimezone(timezone.utc)).total_seconds() / 3600
+                        if age_hours > settings.social_realtime_max_age_hours:
+                            log.warning("Skipping expired reactive social post %s (%.1fh old)", post.id, age_hours)
+                            post.status = "archived"
+                            post.updated_at = utcnow()
+                            db.commit()
+                            continue
+                except (ValueError, TypeError):
+                    pass
             try:
                 if platform == "facebook":
                     publish_facebook_post(post.body)

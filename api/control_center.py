@@ -365,11 +365,54 @@ def save_post(req: SavePost, request: Request, x_pitmark_admin_key: str | None =
 @router.get('/autopilot/posts')
 def posts(request: Request, status: str | None = None, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
+    from datetime import datetime, timezone
     with SessionLocal() as db:
-        q = select(SocialPost).order_by(SocialPost.id.desc())
+        q = select(SocialPost).order_by(SocialPost.created_at.desc())
         if status:
             q = q.where(SocialPost.status == status)
-        return [serialize(x) for x in db.scalars(q).all()]
+        rows = list(db.scalars(q).all())
+        out = []
+        for row in rows:
+            item = serialize(row)
+            event_time = row.created_at
+            age_minutes = None
+            source_published_at = None
+            stale_for_social = False
+            source = row.source or ''
+            if source.startswith('intelligence:'):
+                try:
+                    oid = int(source.split(':',1)[1])
+                    meta = db.scalar(select(OpportunitySourceMeta).where(OpportunitySourceMeta.opportunity_id == oid))
+                    if meta and meta.published_at:
+                        published = meta.published_at if meta.published_at.tzinfo else meta.published_at.replace(tzinfo=timezone.utc)
+                        event_time = published
+                        source_published_at = published.isoformat()
+                        age_minutes = max(0, int((datetime.now(timezone.utc)-published.astimezone(timezone.utc)).total_seconds()//60))
+                        stale_for_social = age_minutes > settings.social_realtime_max_age_hours * 60
+                except (ValueError, TypeError):
+                    pass
+            if age_minutes is None:
+                created = row.created_at if row.created_at.tzinfo else row.created_at.replace(tzinfo=timezone.utc)
+                age_minutes = max(0, int((datetime.now(timezone.utc)-created.astimezone(timezone.utc)).total_seconds()//60))
+            if row.status == 'scheduled': bucket = 'scheduled'
+            elif row.status == 'published': bucket = 'published'
+            elif stale_for_social: bucket = 'expired'
+            elif age_minutes <= 30: bucket = 'now'
+            elif age_minutes <= settings.social_realtime_max_age_hours * 60: bucket = 'recent'
+            else: bucket = 'older'
+            item.update({
+                'source_published_at': source_published_at,
+                'source_age_minutes': age_minutes,
+                'stale_for_social': stale_for_social,
+                'timeline_bucket': bucket,
+                'timeline_at': event_time.isoformat() if event_time else item.get('created_at'),
+            })
+            out.append(item)
+        def sort_key(item):
+            raw = item.get('timeline_at') or item.get('created_at') or ''
+            return raw
+        out.sort(key=sort_key, reverse=True)
+        return out
 
 
 @router.patch('/autopilot/posts/{post_id}')

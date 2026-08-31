@@ -64,6 +64,7 @@ app.include_router(results.router, prefix="/api/discord", tags=["discord-results
 app.include_router(shopify.router, prefix="/api/shopify", tags=["shopify"])
 app.include_router(control_center.router, prefix="/api/control", tags=["control-center"])
 app.include_router(social_publish.router, prefix="/api/control/social", tags=["social-publishing"])
+app.include_router(social_publish.public_router, tags=["public-social-assets"])
 app.include_router(control_center_ui.router)
 
 

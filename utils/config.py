@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PITMARK_RELEASE_VERSION = "0.14.5"
+PITMARK_RELEASE_VERSION = "0.14.6"
 
 
 class Settings(BaseSettings):
@@ -32,7 +32,10 @@ class Settings(BaseSettings):
     pitmark_ai_timeout_seconds: float = 30.0
     openai_api_key: str = ""
     autopilot_intelligence_enabled: bool = True
-    autopilot_scan_hours: int = 6
+    autopilot_scan_hours: int = 1
+    autopilot_scan_minutes: int = 15
+    social_realtime_max_age_hours: int = 4
+    opportunity_discovery_max_age_hours: int = 72
     autopilot_scan_query: str = "grassroots racing OR dirt track racing OR short track racing OR sim racing OR motorsports"
 
     # Social publishing credentials stay server-side.

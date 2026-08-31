@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 
 from services.control_auth import require_control_user
 from services.control_center import SocialPost, serialize, utcnow
@@ -13,9 +15,10 @@ from services.meta_publish_service import (
     publish_facebook_post,
     publish_instagram_post,
 )
-from services.social_asset_pool import add_asset, choose_asset, list_assets, mark_used, sync_shopify_images
+from services.social_asset_pool import add_asset, choose_asset, get_uploaded_image, list_assets, mark_used, store_uploaded_image, sync_shopify_images
 
 router = APIRouter()
+public_router = APIRouter()
 
 
 class AssetCreate(BaseModel):
@@ -64,6 +67,47 @@ def sync_social_assets_from_shopify(request: Request, x_pitmark_admin_key: str |
         raise HTTPException(502, f"Shopify asset sync failed: {exc}")
 
 
+@router.post("/assets/suggest")
+def suggest_social_asset(payload: dict, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    body = str(payload.get("body") or "")
+    content_type = str(payload.get("content_type") or "community")
+    asset = choose_asset(body=body, content_type=content_type, platform="instagram")
+    if not asset:
+        try:
+            sync_shopify_images()
+        except Exception:
+            pass
+        asset = choose_asset(body=body, content_type=content_type, platform="instagram")
+    return {"asset": asset}
+
+
+@router.post("/assets/upload")
+async def upload_social_asset(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    raw = await request.body()
+    filename = request.headers.get("x-pitmark-filename", "pitmark-upload")
+    add_to_library = request.headers.get("x-pitmark-add-to-library", "false").lower() == "true"
+    try:
+        stored = store_uploaded_image(data=raw, filename=filename, mime_type=request.headers.get("content-type", ""))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    base = str(request.base_url).rstrip("/")
+    public_url = f"{base}/social-assets/{stored['public_token']}"
+    asset = None
+    if add_to_library:
+        asset = add_asset(url=public_url, title=filename, source="upload", source_ref=f"upload:{stored['id']}", tags=["upload", "social", "instagram"])
+    return {"ok": True, "url": public_url, "stored": {k:v for k,v in stored.items() if k != "public_token"}, "asset": asset}
+
+
+@public_router.get("/social-assets/{public_token}")
+def public_social_asset(public_token: str):
+    item = get_uploaded_image(public_token)
+    if not item:
+        raise HTTPException(404, "Asset not found")
+    return Response(item["data"], media_type=item["mime_type"], headers={"Cache-Control":"public, max-age=31536000, immutable","Content-Disposition":f'inline; filename="{item["filename"]}"'})
+
+
 def _auto_asset(post: SocialPost) -> dict | None:
     asset = choose_asset(body=post.body, content_type=post.content_type, platform=post.platform)
     if asset:
@@ -99,6 +143,22 @@ def publish_post(post_id: int, request: Request, x_pitmark_admin_key: str | None
         if not post:
             raise HTTPException(404, "Post not found.")
         platform = (post.platform or "").strip().lower()
+
+        # Reactive social posts sourced from intelligence expire quickly. Manual/evergreen posts do not.
+        if (post.source or "").startswith("intelligence:") and platform in {"facebook", "instagram"}:
+            try:
+                opportunity_id = int((post.source or "").split(":", 1)[1])
+                from services.control_center import OpportunitySourceMeta
+                meta = db.scalar(select(OpportunitySourceMeta).where(OpportunitySourceMeta.opportunity_id == opportunity_id))
+                if meta and meta.published_at:
+                    from datetime import datetime, timezone
+                    published = meta.published_at if meta.published_at.tzinfo else meta.published_at.replace(tzinfo=timezone.utc)
+                    age_hours = (datetime.now(timezone.utc) - published.astimezone(timezone.utc)).total_seconds() / 3600
+                    from utils.config import settings
+                    if age_hours > settings.social_realtime_max_age_hours:
+                        raise HTTPException(409, f"This reactive social opportunity is {age_hours:.1f} hours old and has expired from the real-time social lane. Use it for long-form/blog context instead.")
+            except ValueError:
+                pass
         if platform not in {"facebook", "instagram"}:
             raise HTTPException(400, f"Live publishing is not connected for {platform or 'this platform'} yet.")
         if post.status not in {"approved", "scheduled"}:

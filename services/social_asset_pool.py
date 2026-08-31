@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import random
 import re
+import secrets
 from datetime import datetime, timezone
 
 import httpx
-from sqlalchemy import Boolean, DateTime, Integer, String, Text, select
+from sqlalchemy import Boolean, DateTime, Integer, LargeBinary, String, Text, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from services.database import Base, SessionLocal
@@ -31,6 +32,42 @@ class SocialAsset(Base):
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class SocialAssetUpload(Base):
+    __tablename__ = "autopilot_social_asset_uploads"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_token: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    filename: Mapped[str] = mapped_column(String(240))
+    mime_type: Mapped[str] = mapped_column(String(80))
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+def store_uploaded_image(*, data: bytes, filename: str, mime_type: str) -> dict:
+    allowed = {"image/jpeg", "image/png", "image/webp"}
+    clean_type = (mime_type or "").split(";", 1)[0].strip().lower()
+    if clean_type not in allowed:
+        raise ValueError("Upload must be a JPEG, PNG, or WebP image.")
+    if not data:
+        raise ValueError("Uploaded image is empty.")
+    if len(data) > 6 * 1024 * 1024:
+        raise ValueError("Uploaded image must be 6 MB or smaller.")
+    token = secrets.token_urlsafe(32)
+    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "-", (filename or "pitmark-upload").strip())[:220] or "pitmark-upload"
+    with SessionLocal() as db:
+        row = SocialAssetUpload(public_token=token, filename=safe_name, mime_type=clean_type, data=data)
+        db.add(row); db.commit(); db.refresh(row)
+        return {"id": row.id, "public_token": row.public_token, "filename": row.filename, "mime_type": row.mime_type, "size": len(data)}
+
+
+def get_uploaded_image(public_token: str) -> dict | None:
+    with SessionLocal() as db:
+        row = db.scalar(select(SocialAssetUpload).where(SocialAssetUpload.public_token == public_token))
+        if not row:
+            return None
+        return {"filename": row.filename, "mime_type": row.mime_type, "data": row.data}
 
 
 def serialize_asset(a: SocialAsset) -> dict:

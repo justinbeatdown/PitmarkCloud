@@ -1,3 +1,10 @@
+
+## 0.14.6
+- Rebuilt social queue as a source-time chronological real-time timeline.
+- Added backend social freshness enforcement and hourly intelligence scans.
+- Added native Instagram composer asset selection and image upload workflow.
+- Added durable public uploaded-image serving backed by Pitmark Cloud database.
+- Kept blog content on a separate long-form lane.
 # v0.14.5 — Instagram Autopilot + Asset Pool + Mobile Publish
 
 - Adds Instagram Graph API publishing using the linked Pitmark professional account.

@@ -15,6 +15,7 @@ from starlette.responses import JSONResponse
 DEVICE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
 DISCORD_ID_RE = re.compile(r"^[0-9]{5,32}$")
 MAX_REQUEST_BODY = 1024 * 1024
+SOCIAL_UPLOAD_MAX_REQUEST_BODY = 7 * 1024 * 1024
 
 
 def validate_device_id(value: str) -> str:
@@ -40,7 +41,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         content_length = request.headers.get("content-length")
         if content_length:
             try:
-                if int(content_length) > MAX_REQUEST_BODY:
+                limit = SOCIAL_UPLOAD_MAX_REQUEST_BODY if request.url.path == "/api/control/social/assets/upload" else MAX_REQUEST_BODY
+                if int(content_length) > limit:
                     return JSONResponse({"detail": "Request body too large."}, status_code=413)
             except ValueError:
                 return JSONResponse({"detail": "Invalid Content-Length header."}, status_code=400)
@@ -50,7 +52,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+        response.headers["Cross-Origin-Resource-Policy"] = "cross-origin" if request.url.path.startswith("/social-assets/") else "same-origin"
         response.headers["Cache-Control"] = "no-store"
         if request.url.path == "/api/discord/oauth/callback":
             # OAuth completion is a tiny server-rendered page. Permit only inline CSS on this

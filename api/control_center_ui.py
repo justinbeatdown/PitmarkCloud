@@ -54,8 +54,6 @@ AUTOFILL_GUARD = r"""
 </script>
 """
 
-SOCIAL_PATCH = '<script src="/control-social-v0145.js?v=0145" defer></script>'
-
 
 @router.get('/control', response_class=HTMLResponse, include_in_schema=False)
 def control(request: Request):
@@ -64,7 +62,7 @@ def control(request: Request):
     if filename == 'control_center.html':
         import re
         html = re.sub(r'PITMARK CLOUD v[0-9]+(?:\.[0-9]+)*', f'PITMARK CLOUD v{settings.app_version}', html, flags=re.IGNORECASE)
-        html = html.replace('</body>', AUTOFILL_GUARD + '\n' + SOCIAL_PATCH + '\n</body>')
+        html = html.replace('</body>', AUTOFILL_GUARD + '\n</body>')
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
 
 
@@ -73,9 +71,6 @@ def control_css(): return Response((ASSET_DIR / 'control_center.css').read_text(
 
 @router.get('/control.js', include_in_schema=False)
 def control_js(): return Response((ASSET_DIR / 'control_center.js').read_text(encoding='utf-8'), media_type='application/javascript')
-
-@router.get('/control-social-v0145.js', include_in_schema=False)
-def control_social_v0145_js(): return Response((ASSET_DIR / 'control_social_v0145.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-store'})
 
 @router.get('/control-login.js', include_in_schema=False)
 def control_login_js(): return Response((ASSET_DIR / 'control_login.js').read_text(encoding='utf-8'), media_type='application/javascript')

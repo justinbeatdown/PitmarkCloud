@@ -35,7 +35,7 @@ def scan_now():
  with SessionLocal() as db: db.add(run); db.commit(); db.refresh(run); rid=run.id
  found=queued=filtered=duplicates=0
  try:
-  queries=[f'{settings.autopilot_scan_query} when:3d','(rookie racer OR first season racing OR local speedway OR short track racing) when:3d','(iRacing league OR sim racing league OR grassroots motorsports) when:3d']
+  queries=[f'{settings.autopilot_scan_query} when:1d','(rookie racer OR first season racing OR local speedway OR short track racing) when:1d','(iRacing league OR sim racing league OR grassroots motorsports) when:1d']
   raws=[]
   with httpx.Client(timeout=20,follow_redirects=True,headers={'User-Agent':'PitmarkAutopilot/0.12.9'}) as c:
    for q in queries:
@@ -47,7 +47,7 @@ def scan_now():
    metas={m.opportunity_id:m for m in db.scalars(select(OpportunitySourceMeta)).all()}
    for old in db.scalars(select(AutopilotOpportunity).where(AutopilotOpportunity.status=='new')).all():
     meta=metas.get(old.id)
-    if not meta or meta.age_hours is None or meta.age_hours > 96:
+    if not meta or meta.age_hours is None or meta.age_hours > settings.opportunity_discovery_max_age_hours:
      old.status='archived_stale'
    db.flush()
    for raw in raws:
@@ -60,7 +60,7 @@ def scan_now():
       age_hours=max(0,int((datetime.now(timezone.utc)-published.astimezone(timezone.utc)).total_seconds()//3600))
      except Exception: pass
     # Current opportunity feed is deliberately strict. Missing dates and anything older than 96h are background, never current opportunities.
-    if age_hours is None or age_hours > 96: filtered+=1; continue
+    if age_hours is None or age_hours > settings.opportunity_discovery_max_age_hours: filtered+=1; continue
     if not title or not url or not any(x in text for x in TERMS): continue
     story=_story_key(title)
     if story in seen_story: duplicates+=1; continue
@@ -71,19 +71,21 @@ def scan_now():
     recent=list(db.scalars(select(AutopilotOpportunity).order_by(AutopilotOpportunity.id.desc()).limit(80)).all())
     if any(_story_key(x.headline)==story for x in recent): duplicates+=1; continue
     score,reason=_quality(title,desc)
-    if age_hours<=48:
-     score+=22; reason += f'; fresh ({age_hours}h old)'
-    elif age_hours<=72:
-     score+=10; reason += f'; fresh ({age_hours}h old)'
+    if age_hours <= 2:
+     score += 34; reason += f'; realtime ({age_hours}h old)'
+    elif age_hours <= settings.social_realtime_max_age_hours:
+     score += 22; reason += f'; recent ({age_hours}h old)'
+    elif age_hours <= 24:
+     score += 6; reason += f'; background ({age_hours}h old)'
     else:
-     score-=12; reason += f'; aging ({age_hours}h old)'
+     score -= 10; reason += f'; long-form only ({age_hours}h old)'
     if score<20: filtered+=1; continue
     rel='high' if score>=45 else 'medium'
     op=AutopilotOpportunity(headline=title,source_name='Google News',source_url=url,relevance=rel,reason=reason,fingerprint=fp); db.add(op); db.flush();
-    freshness='fresh' if age_hours<=72 else 'aging'
+    freshness='realtime' if age_hours<=2 else ('recent' if age_hours<=settings.social_realtime_max_age_hours else ('background' if age_hours<=24 else 'longform'))
     db.add(OpportunitySourceMeta(opportunity_id=op.id,published_at=published,age_hours=age_hours,freshness=freshness)); found+=1
     # Approval queue is intentionally stricter than discovery.
-    if score>=45 and queued<3:
+    if score>=45 and age_hours <= settings.social_realtime_max_age_hours and queued<3:
      try:
       ai=compose_with_ai(platform='facebook',goal='community',prompt=f'Create a Pitmark Racing Co. community-first post inspired by this current racing headline: {title}. Do not invent facts or imply Pitmark involvement. Focus on grassroots racers, leagues, tracks, rookie journeys, or racing community value.',tone='pitmark')
       db.add(SocialPost(platform='facebook',body=ai.body,content_type='community',source=f'intelligence:{op.id}',risk='low',status='pending')); op.status='drafted'; queued+=1
@@ -96,11 +98,11 @@ def scan_now():
 
 def status():
  with SessionLocal() as db:
-  r=db.scalar(select(AutopilotRun).order_by(AutopilotRun.id.desc()).limit(1)); return {'enabled':settings.autopilot_intelligence_enabled,'interval_hours':settings.autopilot_scan_hours,'version':'v2.2-strict-freshness','last_run':None if not r else {'status':r.status,'found':r.found_count,'queued':r.queued_count,'note':r.note,'created_at':r.created_at.isoformat()}}
+  r=db.scalar(select(AutopilotRun).order_by(AutopilotRun.id.desc()).limit(1)); return {'enabled':settings.autopilot_intelligence_enabled,'interval_hours':settings.autopilot_scan_hours,'interval_minutes':settings.autopilot_scan_minutes,'version':'v2.3-realtime-social','last_run':None if not r else {'status':r.status,'found':r.found_count,'queued':r.queued_count,'note':r.note,'created_at':r.created_at.isoformat()}}
 async def scheduler_loop():
  await asyncio.sleep(30)
  while True:
   if settings.autopilot_intelligence_enabled:
    try: await asyncio.to_thread(scan_now)
    except Exception: log.exception('Autopilot scan failed')
-  await asyncio.sleep(max(1,settings.autopilot_scan_hours)*3600)
+  await asyncio.sleep(max(5, settings.autopilot_scan_minutes) * 60)
