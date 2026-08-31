@@ -24,7 +24,7 @@ async function loadPrt(){
   }
 }
 function install(){
-  if(installUrl) location.href=installUrl;
+  window.location.assign("/api/discord/install/launch");
 }
 document.addEventListener("DOMContentLoaded",()=>{
   $("installBot")?.addEventListener("click",install);

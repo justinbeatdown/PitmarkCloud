@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi import APIRouter
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response, RedirectResponse
 
 from services import discord_service
 from utils.config import settings
@@ -53,3 +53,21 @@ def prt_status():
 @router.get("/prt-logo.png", include_in_schema=False)
 def prt_logo():
     return FileResponse(ASSET_DIR / "pitmark_logo_wide.png", media_type="image/png")
+
+
+@router.get("/prt-current-logo.png", include_in_schema=False)
+def prt_current_logo():
+    return FileResponse(ASSET_DIR / "prt-current-logo.png", media_type="image/png")
+
+
+@router.get("/prt-app-preview.png", include_in_schema=False)
+def prt_app_preview():
+    return FileResponse(ASSET_DIR / "prt-app-preview.png", media_type="image/png")
+
+
+@router.get("/api/discord/install/launch", include_in_schema=False)
+def prt_discord_install_launch():
+    value = discord_service.install_url()
+    if not value:
+        return RedirectResponse(url="/prt?discord=unavailable", status_code=302)
+    return RedirectResponse(url=value, status_code=302)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from email.utils import parseaddr
 from html import unescape
 
 from sqlalchemy import select
@@ -40,8 +41,55 @@ def _plain_text(message: MailMessage) -> str:
     return ""
 
 
+
+def _sender_email(value: str) -> str:
+    return parseaddr(value or "")[1].strip().lower()
+
+
+def _trained_spam(sender: str) -> bool:
+    email = _sender_email(sender)
+    if not email:
+        return False
+    domain = email.rsplit("@", 1)[-1] if "@" in email else ""
+    with SessionLocal() as db:
+        exact = db.scalar(select(SecurityAuditEvent.id).where(
+            SecurityAuditEvent.event_type == "pitmark_mail_spam_training",
+            SecurityAuditEvent.actor == email,
+        ))
+        domain_hit = db.scalar(select(SecurityAuditEvent.id).where(
+            SecurityAuditEvent.event_type == "pitmark_mail_spam_domain_training",
+            SecurityAuditEvent.actor == domain,
+        )) if domain else None
+    return bool(exact or domain_hit)
+
+
+def mark_thread_spam(thread_id: int) -> dict:
+    with SessionLocal() as db:
+        messages = list(db.scalars(select(MailMessage).where(
+            MailMessage.thread_id == thread_id, MailMessage.direction == "inbound"
+        ).order_by(MailMessage.id.desc())).all())
+        if not messages:
+            raise ValueError("No inbound message found in this conversation.")
+        sender = _sender_email(messages[0].from_address)
+        if not sender:
+            raise ValueError("The sender address could not be identified.")
+        domain = sender.rsplit("@", 1)[-1] if "@" in sender else ""
+        now = utcnow()
+        if not db.scalar(select(SecurityAuditEvent.id).where(SecurityAuditEvent.event_type=="pitmark_mail_spam_training", SecurityAuditEvent.actor==sender)):
+            db.add(SecurityAuditEvent(event_type="pitmark_mail_spam_training", severity="info", actor=sender, source="shield_mail", detail=f"User marked Pitmark Mail thread {thread_id} as spam; future mail from this sender will be classified as Spam.", created_at=now))
+        # Train domain only for obvious bulk/marketing-style domains, not consumer mailbox providers.
+        consumer={"gmail.com","outlook.com","hotmail.com","yahoo.com","icloud.com","aol.com","proton.me","protonmail.com"}
+        if domain and domain not in consumer and not db.scalar(select(SecurityAuditEvent.id).where(SecurityAuditEvent.event_type=="pitmark_mail_spam_domain_training", SecurityAuditEvent.actor==domain)):
+            db.add(SecurityAuditEvent(event_type="pitmark_mail_spam_domain_training", severity="info", actor=domain, source="shield_mail", detail=f"Spam training learned sender domain from Pitmark Mail thread {thread_id}.", created_at=now))
+        db.commit()
+    rescan_pitmark_mail()
+    return {"ok": True, "thread_id": thread_id, "sender": sender, "domain_trained": bool(domain and domain not in consumer)}
+
+
 def _shield_result(message: MailMessage) -> dict:
     body = _plain_text(message)
+    if _trained_spam(message.from_address or ""):
+        return {"classification":"Spam","confidence":0.99,"protected":False,"reasons":["user-trained-spam-sender"]}
     result = dict(classify(message.from_address or "", message.subject or "", body))
     reasons = list(result.get("reasons") or [])
     text = f"{message.subject or ''} {body}".lower()

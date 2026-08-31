@@ -6,12 +6,12 @@
   <meta name="theme-color" content="#0a0a0a">
   <title>Pitmark Racing Tools</title>
   <link rel="icon" href="/control-favicon.png">
-  <link rel="stylesheet" href="/prt.css?v=01700">
+  <link rel="stylesheet" href="/prt.css?v=01701">
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="/prt" aria-label="Pitmark Racing Tools home">
-      <img src="/prt-logo.png" alt="Pitmark Racing Co.">
+      <img src="/prt-current-logo.png" alt="Pitmark Racing Co.">
       <span><b>PITMARK RACING TOOLS</b><small>BUILT FOR RACERS.</small></span>
     </a>
     <div class="top-actions">
@@ -32,13 +32,13 @@
         </div>
         <p id="botStatus" class="status-line">Checking Pitmark Bot availability…</p>
       </div>
-      <aside class="hero-panel">
-        <div class="panel-title"><span></span>PRT SYSTEM STATUS</div>
-        <div class="status-grid">
-          <div><small>PITMARK CLOUD</small><strong id="cloudState">ONLINE</strong></div>
-          <div><small>DISCORD BOT</small><strong id="discordState">CHECKING</strong></div>
-          <div><small>ACCESS</small><strong>EARLY ACCESS</strong></div>
-          <div><small>VERSION</small><strong>v{{PITMARK_VERSION}}</strong></div>
+      <aside class="product-showcase">
+        <div class="app-shot"><img src="/prt-app-preview.png" alt="Pitmark Racing Tools desktop app interface"></div>
+        <div class="compact-status">
+          <span><i></i>PITMARK CLOUD <b id="cloudState">ONLINE</b></span>
+          <span><i></i>DISCORD <b id="discordState">CHECKING</b></span>
+          <span><i></i>PITMARK SHIELD <b id="shieldState">ACTIVE</b></span>
+          <span>v{{PITMARK_VERSION}}</span>
         </div>
       </aside>
     </section>
@@ -71,6 +71,6 @@
     <span>PITMARK RACING CO. · LEAVE YOUR MARK.</span>
     <span>PRT v{{PITMARK_VERSION}}</span>
   </footer>
-  <script src="/prt.js?v=01700" defer></script>
+  <script src="/prt.js?v=01701" defer></script>
 </body>
 </html>

@@ -20,6 +20,7 @@ from services.shield_mail import (
     decorate_thread,
     decorate_threads,
     ingest_resend_event_protected,
+    mark_thread_spam,
     rescan_pitmark_mail,
     sync_unprotected_mail,
 )
@@ -92,6 +93,16 @@ def mail_thread(thread_id: int, request: Request):
     if not result:
         raise HTTPException(404, "Mail thread not found.")
     return result
+
+
+@router.post("/threads/{thread_id}/spam")
+def mail_mark_thread_spam(thread_id: int, request: Request):
+    auth(request)
+    enforce_rate_limit(request, "mail-spam-training", 30, 300)
+    try:
+        return mark_thread_spam(thread_id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 @router.delete("/threads/{thread_id}")
