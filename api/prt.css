@@ -38,3 +38,45 @@
   .top-actions{gap:8px}
   .top-actions .ghost-link{font-size:10px;letter-spacing:.5px}
 }
+
+/* v0.17.7 — cleaner runtime status rail */
+.compact-status{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:0;
+  margin-top:12px;
+  padding:9px 12px;
+  border-top:1px solid #25292a;
+  border-bottom:1px solid #25292a;
+}
+.compact-status span{
+  background:transparent;
+  border:0;
+  padding:2px 14px;
+  min-height:20px;
+  color:#8c9393;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.7px;
+}
+.compact-status span+span{border-left:1px solid #2b3031}
+.compact-status b{color:var(--green);margin-left:5px}
+.compact-status i{width:6px;height:6px}
+.discord-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.community-link{white-space:nowrap}
+@media(max-width:700px){
+  .compact-status{display:grid;grid-template-columns:1fr 1fr;padding:8px 0}
+  .compact-status span{padding:7px 8px}
+  .compact-status span+span{border-left:0}
+  .compact-status span:nth-child(even){border-left:1px solid #2b3031}
+  .compact-status span:nth-child(n+3){border-top:1px solid #202425}
+  .discord-actions{width:100%;justify-content:stretch}
+  .discord-actions a{flex:1 1 210px}
+}
+@media(max-width:420px){
+  .compact-status{grid-template-columns:1fr}
+  .compact-status span:nth-child(even){border-left:0}
+  .compact-status span+span{border-top:1px solid #202425}
+}
