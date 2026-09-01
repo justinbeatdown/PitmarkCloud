@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from services import device_auth_service
+from services.prt_analytics import record_install
 from utils.security import enforce_rate_limit
 
 router = APIRouter()
@@ -18,7 +19,9 @@ class DeviceRegistration(BaseModel):
 async def register_device(request: Request, payload: DeviceRegistration) -> dict:
     enforce_rate_limit(request, "device-register", 20, 300)
     try:
-        return device_auth_service.register(payload.device_id, payload.device_secret)
+        result = device_auth_service.register(payload.device_id, payload.device_secret)
+        record_install(payload.device_id)
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except PermissionError as exc:

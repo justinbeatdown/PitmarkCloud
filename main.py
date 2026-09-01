@@ -1,11 +1,12 @@
 from contextlib import asynccontextmanager
 import asyncio
+import hmac
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from utils.security import SecurityHeadersMiddleware, security_summary
 
-from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_v19, control_center_ui, social_publish, email_center, email_center_v19, content_tools, prt_ui
+from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_v19, control_access_v191, control_center_ui, social_publish, social_context_v191, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui
 from utils.config import settings
 from utils.logger import configure_logging
 from services import discord_gateway_service
@@ -15,6 +16,7 @@ from services.autopilot_multiplatform import scheduler_loop as multiplatform_sch
 from services.research_agent import research_worker_loop
 from services.social_publish_worker import social_publish_worker_loop
 from services.shield_mail_cleanup import purge_orphaned_mail_events
+from services.control_access import access_from_request, permission_for_path
 
 configure_logging()
 
@@ -56,6 +58,29 @@ app = FastAPI(
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+
+@app.middleware("http")
+async def control_center_role_guard(request: Request, call_next):
+    path = request.url.path
+    permission = permission_for_path(path)
+    if permission:
+        supplied_admin = request.headers.get("X-Pitmark-Admin-Key", "")
+        service_admin = bool(
+            supplied_admin
+            and settings.pitmark_admin_key
+            and hmac.compare_digest(supplied_admin, settings.pitmark_admin_key)
+        )
+        if not service_admin:
+            access = access_from_request(request)
+            if not access or not access.active:
+                return JSONResponse({"detail": "Control Center authentication required."}, status_code=401)
+            if access.role not in {"owner", "admin"} and permission not in access.permissions:
+                return JSONResponse(
+                    {"detail": f"Your Control Center role does not include {permission} access."},
+                    status_code=403,
+                )
+    return await call_next(request)
+
 if settings.cors_origin_list:
     app.add_middleware(
         CORSMiddleware,
@@ -73,13 +98,16 @@ app.include_router(discord_bot.router, prefix="/api/discord", tags=["discord-bot
 app.include_router(live_session.router, prefix="/api/discord/session", tags=["discord-session"])
 app.include_router(results.router, prefix="/api/discord", tags=["discord-results"])
 app.include_router(shopify.router, prefix="/api/shopify", tags=["shopify"])
+app.include_router(control_access_v191.router, prefix="/api/control", tags=["control-access-v191"])
 app.include_router(control_center_v19.router, prefix="/api/control", tags=["control-center-v19"])
 app.include_router(control_center.router, prefix="/api/control", tags=["control-center"])
+app.include_router(social_context_v191.router, prefix="/api/control/social", tags=["social-context-v191"])
 app.include_router(social_publish.router, prefix="/api/control/social", tags=["social-publishing"])
 app.include_router(social_publish.public_router, tags=["public-social-assets"])
 app.include_router(email_center_v19.router, prefix="/api/control/email", tags=["email-v19"])
 app.include_router(email_center.router, prefix="/api/control/email", tags=["email"])
 app.include_router(email_center.public_router, tags=["email-webhooks"])
+app.include_router(prt_analytics_v191.router, prefix="/api/prt/analytics", tags=["prt-analytics-v191"])
 app.include_router(content_tools.router, prefix="/api/control/content", tags=["content-tools"])
 app.include_router(control_center_ui.router)
 app.include_router(prt_ui.router)

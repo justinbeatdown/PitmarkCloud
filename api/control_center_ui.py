@@ -74,12 +74,14 @@ def control(request: Request):
         html = html.replace(
             '</head>',
             '<link rel="stylesheet" href="/control-center-v19.css?v=01900">\n'
+            '<link rel="stylesheet" href="/control-center-v191.css?v=01901">\n'
             '</head>'
         )
         html = html.replace(
             '</body>',
             AUTOFILL_GUARD
             + '\n<script src="/control-center-v19.js?v=01900" defer></script>'
+            + '\n<script src="/control-center-v191.js?v=01901" defer></script>'
             + '</body>'
         )
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
@@ -179,6 +181,24 @@ def control_center_v19_css():
     )
 
 
+@router.get('/control-center-v191.js', include_in_schema=False)
+def control_center_v191_js():
+    return Response(
+        (ASSET_DIR / 'control_center_v191.js').read_text(encoding='utf-8'),
+        media_type='application/javascript',
+        headers={'Cache-Control':'no-store'},
+    )
+
+
+@router.get('/control-center-v191.css', include_in_schema=False)
+def control_center_v191_css():
+    return Response(
+        (ASSET_DIR / 'control_center_v191.css').read_text(encoding='utf-8'),
+        media_type='text/css',
+        headers={'Cache-Control':'no-store'},
+    )
+
+
 @router.get('/control-login.js', include_in_schema=False)
 def control_login_js(): return Response((ASSET_DIR / 'control_login.js').read_text(encoding='utf-8'), media_type='application/javascript')
 
@@ -190,12 +210,14 @@ def control_mobile(request: Request):
         html = html.replace(
             '</head>',
             '<link rel="stylesheet" href="/control-center-v19.css?v=01900">\n'
+            '<link rel="stylesheet" href="/control-center-v191.css?v=01901">\n'
             '</head>'
         )
         html = html.replace(
             '</body>',
             AUTOFILL_GUARD
             + '\n<script src="/control-center-v19.js?v=01900" defer></script>'
+            + '\n<script src="/control-center-v191.js?v=01901" defer></script>'
             + '</body>'
         )
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})

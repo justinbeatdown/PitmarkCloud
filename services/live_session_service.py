@@ -6,6 +6,7 @@ from threading import Lock
 from typing import Any
 
 from services import discord_service
+from services.prt_analytics import close_live_session, record_live_update
 
 
 @dataclass
@@ -88,6 +89,13 @@ def update_session(device_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     with _lock:
         _sessions[discord_user_id] = session
 
+    # Durable usage analytics are separate from the ephemeral Discord live-session
+    # cache, so Control Center can show real usage over time.
+    try:
+        record_live_update(device_id, discord_user_id, session.to_dict())
+    except Exception:
+        pass
+
     return session.to_dict()
 
 
@@ -97,7 +105,13 @@ def clear_session(device_id: str) -> bool:
     if not discord_user_id:
         return False
     with _lock:
-        return _sessions.pop(discord_user_id, None) is not None
+        cleared = _sessions.pop(discord_user_id, None) is not None
+    if cleared:
+        try:
+            close_live_session(device_id)
+        except Exception:
+            pass
+    return cleared
 
 
 def get_for_device(device_id: str) -> dict[str, Any] | None:

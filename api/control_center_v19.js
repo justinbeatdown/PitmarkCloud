@@ -10,6 +10,7 @@
     activeThreadId: null,
     activeDraftId: null,
     replyToMessageId: null,
+    quote: null,
     attachments: [],
     composerDirty: false,
     autosaveTimer: null,
@@ -105,10 +106,12 @@
         .replace(/@import[^;]+;?/gi, '')
         .replace(/url\s*\([^)]*\)/gi, '');
     });
+    doc.documentElement.removeAttribute('style');
+    doc.body.removeAttribute('style');
     const css = `<style>
-      html,body{margin:0;padding:0;background:#fff;color:#171717;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55}
-      body{padding:18px;overflow-wrap:anywhere}a{color:#0b57d0}img{max-width:100%;height:auto}table{max-width:100%!important}
-      pre{white-space:pre-wrap}
+      html{margin:0;padding:0;background:#f2f2ef;color-scheme:light}
+      body{margin:0;padding:16px 18px;background:#f2f2ef;color:#202124;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;overflow-wrap:anywhere}
+      a{color:#0b57d0}img{max-width:100%;height:auto}table{max-width:100%!important}pre{white-space:pre-wrap}
     </style>`;
     return `<!doctype html><html><head><meta charset="utf-8">${css}</head><body>${doc.body.innerHTML}</body></html>`;
   }
@@ -126,6 +129,68 @@
       } catch {}
     });
     return frame;
+  }
+
+  function messagePlainText(message) {
+    const raw = String(message?.text || '').trim();
+    const htmlish = /<\/?[a-z][\s\S]*>/i.test(raw);
+    if (raw && !htmlish) return raw;
+    const source = String(message?.html || raw || '');
+    if (!source) return '';
+    const doc = new DOMParser().parseFromString(source, 'text/html');
+    return String(doc.body?.innerText || doc.body?.textContent || '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  function quoteFromMessage(message, kind='reply') {
+    return {
+      kind,
+      from: message?.from || '',
+      date: fullDate(message?.created_at),
+      subject: message?.subject || '',
+      text: messagePlainText(message),
+    };
+  }
+
+  function quoteHtmlForPayload(quote) {
+    if (!quote) return '';
+    const title = quote.kind === 'forward' ? 'Forwarded message' : 'Quoted message';
+    return `<div class="pm19-sent-quote" style="margin-top:18px;padding-left:12px;border-left:2px solid #d0d0d0;color:#666">
+      <div><strong>${esc(title)}</strong></div>
+      ${quote.from ? `<div>From: ${esc(quote.from)}</div>` : ''}
+      ${quote.date ? `<div>Date: ${esc(quote.date)}</div>` : ''}
+      ${quote.subject ? `<div>Subject: ${esc(quote.subject)}</div>` : ''}
+      <br><div style="white-space:pre-wrap">${esc(quote.text || '')}</div>
+    </div>`;
+  }
+
+  function quoteTextForPayload(quote) {
+    if (!quote) return '';
+    const title = quote.kind === 'forward' ? '---------- Forwarded message ----------' : '---------- Quoted message ----------';
+    return `\n\n${title}\n${quote.from ? `From: ${quote.from}\n` : ''}${quote.date ? `Date: ${quote.date}\n` : ''}${quote.subject ? `Subject: ${quote.subject}\n` : ''}\n${quote.text || ''}`;
+  }
+
+  function renderQuoteTray() {
+    const tray = $('pm19QuoteTray');
+    if (!tray) return;
+    if (!state.quote) {
+      tray.innerHTML = '';
+      tray.hidden = true;
+      return;
+    }
+    tray.hidden = false;
+    tray.innerHTML = `<details>
+      <summary><span>•••</span> ${state.quote.kind === 'forward' ? 'Forwarded message' : 'Quoted message'} <button type="button" id="pm19RemoveQuote">Remove</button></summary>
+      <div class="pm19-quote-preview">${esc(state.quote.text || '(empty quoted message)')}</div>
+    </details>`;
+    $('pm19RemoveQuote')?.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      state.quote = null;
+      renderQuoteTray();
+      markDirty();
+    });
   }
 
   function installDesktopNav() {
@@ -361,16 +426,18 @@
       $('pm19ThreadDelete')?.addEventListener('click', () => deleteThread(id));
       $('pm19ThreadSpam')?.addEventListener('click', () => markSpam(id));
       const messagesBox = $('pm19ThreadMessages');
-      for (const m of messages) messagesBox.appendChild(await renderMessage(m, messages));
+      for (let i = 0; i < messages.length; i++) {
+        messagesBox.appendChild(await renderMessage(messages[i], messages, i === messages.length - 1));
+      }
       await loadMailbox();
     } catch (err) {
       box.innerHTML = `<div class="pm19-error">${esc(err.message)}</div>`;
     }
   }
 
-  async function renderMessage(m, allMessages) {
+  async function renderMessage(m, allMessages, expanded=true) {
     const article = document.createElement('article');
-    article.className = `pm19-message ${m.direction === 'outbound' ? 'outbound' : 'inbound'}`;
+    article.className = `pm19-message ${m.direction === 'outbound' ? 'outbound' : 'inbound'} ${expanded ? 'expanded' : 'collapsed'}`;
 
     const top = document.createElement('div');
     top.className = 'pm19-message-head';
@@ -379,6 +446,12 @@
       <span>${esc(m.direction === 'inbound' ? `to ${(m.to || []).join(', ')}` : `from ${m.from || ''}`)}</span></div>
       <time>${esc(fullDate(m.created_at))}</time>`;
     article.appendChild(top);
+    top.title = expanded ? '' : 'Click to expand message';
+    top.addEventListener('click', () => {
+      const isCollapsed = article.classList.toggle('collapsed');
+      article.classList.toggle('expanded', !isCollapsed);
+      top.title = isCollapsed ? 'Click to expand message' : '';
+    });
 
     if (m.shield) {
       const shield = document.createElement('div');
@@ -469,14 +542,14 @@
       subject:/^re:/i.test(m.subject || '') ? m.subject : `Re: ${m.subject || ''}`,
       replyToMessageId:m.id,
       inheritedIdentity:'',
-      quote:m.text || ''
+      quoteObj:quoteFromMessage(m, 'reply')
     });
   }
 
   function openForward(m) {
     openComposer({
       subject:`Fwd: ${String(m.subject || '').replace(/^fwd?:\s*/i, '')}`,
-      quote:`---------- Forwarded message ----------\nFrom: ${m.from || ''}\nDate: ${fullDate(m.created_at)}\nSubject: ${m.subject || ''}\n\n${m.text || ''}`
+      quoteObj:quoteFromMessage(m, 'forward')
     });
   }
 
@@ -508,6 +581,7 @@
           <button id="pm19SignatureBtn">Signature</button>
         </div>
         <div id="pm19Editor" class="pm19-rich-editor" contenteditable="true" spellcheck="true" data-placeholder="Write your message…"></div>
+        <div id="pm19QuoteTray" class="pm19-quote-tray" hidden></div>
         <div class="pm19-attach-row">
           <label class="pm19-attach-button">📎 Attach files<input id="pm19Files" type="file" multiple hidden></label>
           <span>Up to 8 files / 12 MB total</span>
@@ -529,6 +603,7 @@
     state.attachments = [];
     state.activeDraftId = prefill.draft?.id || null;
     state.replyToMessageId = prefill.replyToMessageId || null;
+    state.quote = prefill.quoteObj || null;
     state.composerDirty = false;
 
     $('pm19To').value = (prefill.draft?.to || prefill.to || []).join(', ');
@@ -545,15 +620,10 @@
     if (prefill.draft?.html) editor.innerHTML = prefill.draft.html;
     else if (prefill.draft?.text) editor.textContent = prefill.draft.text;
     else {
-      editor.innerHTML = '';
+      editor.innerHTML = '<div><br></div>';
       await applySignature();
-      if (prefill.quote) {
-        const q = document.createElement('blockquote');
-        q.className = 'pm19-quote';
-        q.textContent = prefill.quote;
-        editor.appendChild(q);
-      }
     }
+    renderQuoteTray();
 
     if (prefill.draft?.id) {
       try {
@@ -567,6 +637,14 @@
 
     wireComposer();
     editor.focus();
+    try {
+      const range = document.createRange();
+      const sel = window.getSelection();
+      range.selectNodeContents(editor);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch {}
     scheduleAutosave();
   }
 
@@ -703,14 +781,16 @@
   }
 
   function composePayload() {
+    const editorText = plainTextFromEditor();
+    const editorHtml = $('pm19Editor').innerHTML;
     return {
       to:parseList($('pm19To').value),
       cc:parseList($('pm19Cc').value),
       bcc:parseList($('pm19Bcc').value),
       from_identity:$('pm19From').value || '',
       subject:$('pm19Subject').value.trim(),
-      text:plainTextFromEditor(),
-      html:$('pm19Editor').innerHTML,
+      text:editorText + quoteTextForPayload(state.quote),
+      html:editorHtml + quoteHtmlForPayload(state.quote),
       reply_to_message_id:state.replyToMessageId,
       attachments:state.attachments.map(x => ({
         filename:x.filename,
