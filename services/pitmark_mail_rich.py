@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import json
 
-import httpx
-
+from services import google_gmail
 from services import pitmark_mail as base
 from services.pitmark_mail_attachments import normalize_attachments, stored_attachments
-from services.pitmark_mail_identities import resolve_identity, _from_value
+from services.pitmark_mail_identities import _from_value, resolve_identity
 
 
 def send_rich_message(
@@ -22,9 +21,8 @@ def send_rich_message(
     from_identity: str | None = None,
     attachments: list[dict] | None = None,
 ) -> dict:
-    key = base.send_api_key()
-    if not key:
-        raise RuntimeError("RESEND_API_KEY is not configured in Pitmark Cloud.")
+    if not google_gmail.credentials_configured():
+        raise RuntimeError("Google Workspace Gmail credentials are not configured in Pitmark Cloud.")
 
     to = [x.strip() for x in to if str(x).strip()]
     if not to:
@@ -34,7 +32,7 @@ def send_rich_message(
     cc = [x.strip() for x in (cc or []) if str(x).strip()]
     bcc = [x.strip() for x in (bcc or []) if str(x).strip()]
     reply_to = [x.strip() for x in (reply_to or []) if str(x).strip()]
-    resend_attachments, stored = normalize_attachments(attachments)
+    gmail_attachments, stored = normalize_attachments(attachments)
     headers: dict[str, str] = {}
     parent = None
 
@@ -52,38 +50,24 @@ def send_rich_message(
         identity = resolve_identity(from_identity, parent=parent)
         sender = _from_value(identity)
 
-        payload: dict = {
-            "from": sender,
-            "to": to,
-            "subject": subject,
-        }
-        if text:
-            payload["text"] = text
-        if html:
-            payload["html"] = html
-        if cc:
-            payload["cc"] = cc
-        if bcc:
-            payload["bcc"] = bcc
-        if resend_attachments:
-            payload["attachments"] = resend_attachments
-
         configured_reply_to = reply_to or [identity["address"]]
-        if configured_reply_to:
-            payload["reply_to"] = configured_reply_to
-        if headers:
-            payload["headers"] = headers
-
-        with httpx.Client(timeout=30.0) as client:
-            response = client.post(
-                f"{base.RESEND_API}/emails",
-                headers=base._resend_headers(key),
-                json=payload,
-            )
-            if response.status_code >= 400:
-                detail = response.text[:1000]
-                raise RuntimeError(f"Resend send failed ({response.status_code}): {detail}")
-            result = response.json()
+        parent_payload = base._loads(parent.provider_payload_json, {}) if parent else {}
+        raw = google_gmail.build_raw_message(
+            sender=sender,
+            to=to,
+            cc=cc,
+            bcc=bcc,
+            reply_to=configured_reply_to,
+            subject=subject,
+            text=text,
+            html=html,
+            headers=headers,
+            attachments=gmail_attachments,
+        )
+        result = google_gmail.send_message(
+            raw=raw,
+            thread_id=parent_payload.get("gmail_thread_id") if isinstance(parent_payload, dict) else None,
+        )
 
         participants = base._participants(sender, to, cc, bcc)
         thread = db.get(base.MailThread, parent.thread_id) if parent else None
@@ -93,7 +77,12 @@ def send_rich_message(
             thread.last_message_at = base.utcnow()
             thread.updated_at = base.utcnow()
 
-        provider_record = dict(result)
+        provider_record = {
+            "provider": "google_workspace",
+            "gmail_message_id": result.get("id"),
+            "gmail_thread_id": result.get("threadId"),
+            "label_ids": result.get("labelIds") or [],
+        }
         if stored:
             provider_record["attachments"] = [
                 {

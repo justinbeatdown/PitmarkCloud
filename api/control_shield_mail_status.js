@@ -16,7 +16,7 @@
     const shield = x.shield_protection || {};
     const scanned = Number(shield.protected_events || 0);
     const review = Number(shield.review_count || 0);
-    return `Communications Protection: Pitmark Mail is connected and Shield-aware. ${scanned} inbound message${scanned===1?'':'s'} scanned · ${review} requiring review.`;
+    return `Communications Protection: Google Workspace / Gmail is connected to Pitmark Shield. ${scanned} inbound message${scanned===1?'':'s'} scanned · ${review} requiring review.`;
   }
 
   function mobileCard(x) {
@@ -24,7 +24,7 @@
     const scanned = Number(shield.protected_events || 0);
     const review = Number(shield.review_count || 0);
     return `<div id="mShieldMailStatus" class="m-card">
-      <div class="top"><b>Pitmark Mail Protection</b><span class="pill good">ACTIVE</span></div>
+      <div class="top"><b>Google Workspace Protection</b><span class="pill good">ACTIVE</span></div>
       <div class="body">${esc(`${scanned} scanned · ${review} requiring review`)}</div>
     </div>`;
   }

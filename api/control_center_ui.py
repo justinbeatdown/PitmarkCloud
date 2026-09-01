@@ -81,7 +81,7 @@ def control(request: Request):
         html = html.replace(
             '</body>',
             AUTOFILL_GUARD
-            + '\n<script src="/control-center-v19.js?v=01905" defer></script>'
+            + '\n<script src="/control-center-v19.js?v=02000" defer></script>'
             + '\n<script src="/control-center-v191.js?v=01902" defer></script>'
             + '\n<script src="/control-runtime-v194.js?v=01905" defer></script>'
             + '\n<script src="/control-center-v195.js?v=01906" defer></script>'
@@ -239,7 +239,7 @@ def control_mobile(request: Request):
         html = html.replace(
             '</body>',
             AUTOFILL_GUARD
-            + '\n<script src="/control-center-v19.js?v=01905" defer></script>'
+            + '\n<script src="/control-center-v19.js?v=02000" defer></script>'
             + '\n<script src="/control-center-v191.js?v=01902" defer></script>'
             + '\n<script src="/control-mobile-v2.js?v=01904" defer></script>'
             + '\n<script src="/control-runtime-v194.js?v=01905" defer></script>'

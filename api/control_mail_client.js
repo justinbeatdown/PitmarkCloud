@@ -89,7 +89,7 @@
   function pitmarkAddress(value) {
     const raw = String(value || '').toLowerCase();
     return identities.some(x => raw.includes(String(x.address || '').toLowerCase())) ||
-      raw.includes('@mail.pitmarkracing.com');
+      raw.includes('@pitmarkracing.com');
   }
 
   function replyPayload(message, all=false) {

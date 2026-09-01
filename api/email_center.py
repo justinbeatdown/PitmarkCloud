@@ -7,7 +7,6 @@ from services.control_auth import require_control_user
 from services.pitmark_mail import (
     get_thread,
     list_threads,
-    verify_svix_signature,
 )
 from services.pitmark_mail_delete import delete_draft, delete_thread
 from services.pitmark_mail_identities import (
@@ -19,7 +18,6 @@ from services.pitmark_mail_identities import (
 from services.shield_mail import (
     decorate_thread,
     decorate_threads,
-    ingest_resend_event_protected,
     mark_thread_spam,
     rescan_pitmark_mail,
     sync_unprotected_mail,
@@ -27,7 +25,6 @@ from services.shield_mail import (
 from utils.security import enforce_rate_limit
 
 router = APIRouter()
-public_router = APIRouter()
 
 
 def auth(request: Request):
@@ -61,9 +58,9 @@ class MailDraft(BaseModel):
 def mail_status(request: Request):
     auth(request)
     result = status()
-    sync_unprotected_mail()
+    protection = sync_unprotected_mail()
     result["shield_rescan"] = rescan_pitmark_mail()
-    result["shield_protection"] = sync_unprotected_mail()
+    result["shield_protection"] = protection
     return result
 
 
@@ -108,8 +105,11 @@ def mail_mark_thread_spam(thread_id: int, request: Request):
 @router.delete("/threads/{thread_id}")
 def mail_delete_thread(thread_id: int, request: Request):
     auth(request)
-    if not delete_thread(thread_id):
-        raise HTTPException(404, "Mail thread not found.")
+    try:
+        if not delete_thread(thread_id):
+            raise HTTPException(404, "Mail thread not found.")
+    except RuntimeError as exc:
+        raise HTTPException(502, str(exc)) from exc
     return {"ok": True, "deleted_thread_id": thread_id}
 
 
@@ -160,17 +160,5 @@ def mail_save_draft(req: MailDraft, request: Request):
             html=req.html,
             draft_id=req.id,
         )
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
-
-
-@public_router.post("/api/webhooks/resend")
-async def resend_webhook(request: Request):
-    raw = await request.body()
-    if not verify_svix_signature(raw, request.headers):
-        raise HTTPException(401, "Invalid Resend webhook signature.")
-    try:
-        event = await request.json()
-        return ingest_resend_event_protected(event)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc

@@ -2,18 +2,15 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Any
 
-import httpx
-
-from services import pitmark_mail as base
+from services import google_gmail
 
 MAX_ATTACHMENTS = 8
 MAX_TOTAL_ATTACHMENT_BYTES = 12 * 1024 * 1024
 
 
 def normalize_attachments(items: list[dict] | None) -> tuple[list[dict], list[dict]]:
-    """Return (Resend payload attachments, serializable stored metadata/content)."""
+    """Return Gmail MIME attachments plus serializable stored metadata/content."""
     outbound: list[dict] = []
     stored: list[dict] = []
     total = 0
@@ -57,7 +54,7 @@ def normalize_attachments(items: list[dict] | None) -> tuple[list[dict], list[di
 def stored_attachments(message) -> list[dict]:
     try:
         payload = json.loads(message.provider_payload_json or "{}")
-    except Exception:
+    except (json.JSONDecodeError, TypeError):
         return []
     rows = payload.get("draft_attachments") or payload.get("attachments") or []
     return rows if isinstance(rows, list) else []
@@ -77,21 +74,36 @@ def decorate_message_attachments(message_dict: dict, message_obj=None) -> dict:
     return row
 
 
-def list_resend_attachments(provider_message_id: str, *, inbound: bool) -> list[dict]:
-    key = base.inbound_api_key() if inbound else base.send_api_key()
-    if not key or not provider_message_id:
-        return []
+def list_google_attachments(message) -> list[dict]:
+    rows = []
+    for item in stored_attachments(message):
+        row = {
+            "filename": item.get("filename"),
+            "content_type": item.get("content_type"),
+            "size": item.get("size"),
+        }
+        attachment_id = str(item.get("gmail_attachment_id") or "")
+        if attachment_id and message.provider_message_id:
+            row["download_url"] = (
+                f"/api/control/email/messages/{message.id}/attachments/{attachment_id}"
+            )
+        rows.append(row)
+    return rows
 
-    path = (
-        f"{base.RESEND_API}/emails/receiving/{provider_message_id}/attachments"
-        if inbound
-        else f"{base.RESEND_API}/emails/{provider_message_id}/attachments"
+
+def download_google_attachment(message, attachment_id: str) -> tuple[bytes, dict]:
+    match = next(
+        (
+            item for item in stored_attachments(message)
+            if str(item.get("gmail_attachment_id") or "") == str(attachment_id)
+        ),
+        None,
     )
-    with httpx.Client(timeout=20.0) as client:
-        response = client.get(path, headers=base._resend_headers(key))
-        if response.status_code >= 400:
-            return []
-        payload = response.json()
-
-    rows = payload.get("data") if isinstance(payload, dict) else []
-    return rows if isinstance(rows, list) else []
+    if not match or not message.provider_message_id:
+        raise ValueError("Gmail attachment not found.")
+    payload = google_gmail.get_attachment(message.provider_message_id, attachment_id)
+    encoded = str(payload.get("data") or "")
+    if not encoded:
+        raise ValueError("Gmail attachment has no downloadable content.")
+    padded = encoded + "=" * (-len(encoded) % 4)
+    return base64.urlsafe_b64decode(padded), match

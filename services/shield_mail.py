@@ -9,7 +9,8 @@ from sqlalchemy import select
 
 from services.control_center import SecurityAuditEvent, ShieldEvent, classify, fingerprint, utcnow
 from services.database import SessionLocal
-from services.pitmark_mail import MailMessage, ingest_resend_event as base_ingest_resend_event
+from services import google_gmail
+from services.pitmark_mail import MailMessage, sync_gmail_inbox
 from services.shield_ecosystem import inspect_external_url
 
 URL_RE = re.compile(r'https?://[^\s<>"\']+', re.I)
@@ -64,6 +65,7 @@ def _trained_spam(sender: str) -> bool:
 
 
 def mark_thread_spam(thread_id: int) -> dict:
+    provider_message_id = ""
     with SessionLocal() as db:
         messages = list(db.scalars(select(MailMessage).where(
             MailMessage.thread_id == thread_id, MailMessage.direction == "inbound"
@@ -71,6 +73,12 @@ def mark_thread_spam(thread_id: int) -> dict:
         if not messages:
             raise ValueError("No inbound message found in this conversation.")
         sender = _sender_email(messages[0].from_address)
+        try:
+            provider = json.loads(messages[0].provider_payload_json or "{}").get("provider")
+        except Exception:
+            provider = None
+        if provider == "google_workspace":
+            provider_message_id = str(messages[0].provider_message_id or "")
         if not sender:
             raise ValueError("The sender address could not be identified.")
         domain = sender.rsplit("@", 1)[-1] if "@" in sender else ""
@@ -82,6 +90,11 @@ def mark_thread_spam(thread_id: int) -> dict:
         if domain and domain not in consumer and not db.scalar(select(SecurityAuditEvent.id).where(SecurityAuditEvent.event_type=="pitmark_mail_spam_domain_training", SecurityAuditEvent.actor==domain)):
             db.add(SecurityAuditEvent(event_type="pitmark_mail_spam_domain_training", severity="info", actor=domain, source="shield_mail", detail=f"Spam training learned sender domain from Pitmark Mail thread {thread_id}.", created_at=now))
         db.commit()
+    if provider_message_id:
+        try:
+            google_gmail.mark_spam(provider_message_id)
+        except RuntimeError:
+            pass
     rescan_pitmark_mail()
     return {"ok": True, "thread_id": thread_id, "sender": sender, "domain_trained": bool(domain and domain not in consumer)}
 
@@ -176,7 +189,7 @@ def protect_message(message_id: int) -> dict | None:
         )
         db.add(event)
 
-        # Persist the Shield verdict alongside the original Resend payload without
+        # Persist the Shield verdict alongside the Google Workspace metadata without
         # changing the mail schema or delivery behavior.
         try:
             payload = json.loads(message.provider_payload_json or "{}")
@@ -214,12 +227,13 @@ def protect_message(message_id: int) -> dict | None:
         }
 
 
-def ingest_resend_event_protected(event: dict) -> dict:
-    result = base_ingest_resend_event(event)
-    message_id = result.get("message_id") if isinstance(result, dict) else None
-    if message_id:
-        shield = protect_message(int(message_id))
-        result["shield"] = shield
+def sync_gmail_mail_protected(limit: int | None = None) -> dict:
+    result = sync_gmail_inbox(limit=limit)
+    protected = 0
+    for message_id in result.get("new_message_ids") or []:
+        if protect_message(int(message_id)):
+            protected += 1
+    result["shield_protected"] = protected
     return result
 
 
@@ -280,6 +294,7 @@ def rescan_pitmark_mail(limit: int = 500) -> dict:
 
 
 def sync_unprotected_mail(limit: int = 250) -> dict:
+    sync_result = sync_gmail_mail_protected(limit=min(limit, 500))
     with SessionLocal() as db:
         rows = list(db.scalars(
             select(MailMessage)
@@ -313,7 +328,9 @@ def sync_unprotected_mail(limit: int = 250) -> dict:
             "spam": count("Spam"),
         }
     return {
-        "connected": True,
+        "connected": bool(sync_result.get("connected")),
+        "provider": "google_workspace",
+        "gmail_sync": sync_result,
         "scanned_now": scanned,
         "protected_events": total,
         "review_count": summary["review"],
@@ -324,7 +341,7 @@ def sync_unprotected_mail(limit: int = 250) -> dict:
 def shield_for_message(message: MailMessage) -> dict | None:
     """Return the authoritative ShieldEvent verdict for mail UI/API decoration.
 
-    ShieldEvent is the source of truth. The Resend payload copy is retained for
+    ShieldEvent is the source of truth. The Gmail metadata copy is retained for
     audit/debugging only and must never override a rescanned event.
     """
     source_id = f"pitmark-mail:{message.provider_message_id or message.id}"

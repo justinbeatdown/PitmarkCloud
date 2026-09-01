@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.20.0
+- Replaced the legacy Resend/subdomain mail transport with Google Workspace Gmail API OAuth.
+- Added background Gmail inbox synchronization and Shield protection for newly synchronized messages.
+- Restricted default sync to approved `@pitmarkracing.com` delivery identities so personal Gmail traffic is excluded.
+- Loaded approved Gmail send-as identities for Pitmark department routing.
+- Reflected read, spam and trash actions back to Gmail so Cloud and Gmail remain in sync.
+- Added authenticated Gmail attachment downloads in desktop and mobile Control Center.
+- Replaced `@mail.pitmarkracing.com` support references with root-domain Google Workspace addresses.
+- Removed the obsolete public Resend webhook route and provider-specific UI copy.
+- Preserved the v0.19.10 Race Card upload dependency fix and all Discord/Autopilot/PRT behavior.
+
 ## 0.14.7
 - Root-cause fix for Social Timeline 500 (`OpportunitySourceMeta` import).
 - Dynamic source freshness calculation for Timeline and Intelligence UI.

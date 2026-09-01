@@ -99,8 +99,11 @@ def build_command_brief() -> dict:
     if not dbs.get('durable_for_render'):
         critical.append(_item('critical', 'Pitmark Cloud', 'Persistent database is not production-ready', dbs.get('warning') or 'Configure a durable PostgreSQL database.', action_view='settings'))
 
-    # Mailbox integration is deliberately informational until a provider is connected.
-    info.append(_item('info', 'Shield', 'Communications protection is staged', 'Shield classification is active, but the production mailbox connector is not connected yet.', action_view='shield'))
+    from services.google_gmail import credentials_configured
+    if credentials_configured():
+        info.append(_item('info', 'Shield', 'Google Workspace protection active', 'Pitmark Mail is connected to Gmail and inbound messages are protected by Shield.', action_view='shield'))
+    else:
+        action.append(_item('action', 'Shield', 'Connect Google Workspace', 'Add the Gmail OAuth credentials in Pitmark Cloud to activate sending, mailbox sync, and Shield scanning.', action_view='shield'))
     if active_research:
         info.append(_item('info', 'Autopilot', f'{active_research} research job' + ('s' if active_research != 1 else '') + ' running', 'Autopilot Research Agent is working in the background.', action_view='campaigns'))
     if draft_count:

@@ -1,21 +1,17 @@
 from __future__ import annotations
 
 import base64
-import hashlib
-import hmac
+import binascii
 import json
 import os
-import time
 from datetime import datetime, timezone
-from email.utils import parseaddr
+from email.utils import formataddr, getaddresses, parseaddr, parsedate_to_datetime
 
-import httpx
 from sqlalchemy import Boolean, DateTime, Integer, String, Text, select
 from sqlalchemy.orm import Mapped, mapped_column
 
+from services import google_gmail
 from services.database import Base, SessionLocal
-
-RESEND_API = "https://api.resend.com"
 
 
 def utcnow() -> datetime:
@@ -29,7 +25,7 @@ def _json(value) -> str:
 def _loads(value: str | None, fallback):
     try:
         return json.loads(value or "")
-    except Exception:
+    except (json.JSONDecodeError, TypeError):
         return fallback
 
 
@@ -37,20 +33,11 @@ def _env(name: str, default: str = "") -> str:
     return (os.getenv(name) or default).strip()
 
 
-def send_api_key() -> str:
-    return _env("RESEND_API_KEY")
-
-
-def inbound_api_key() -> str:
-    return _env("RESEND_INBOUND_API_KEY") or send_api_key()
-
-
-def webhook_secret() -> str:
-    return _env("RESEND_WEBHOOK_SECRET")
-
-
 def default_sender() -> str:
-    return _env("PITMARK_EMAIL_FROM", "Pitmark Racing Co. <mail@mail.pitmarkracing.com>")
+    account = google_gmail.gmail_user()
+    if account == "me":
+        account = "justin@pitmarkracing.com"
+    return _env("PITMARK_EMAIL_FROM", f"Pitmark Racing Co. <{account}>")
 
 
 def default_reply_to() -> str | None:
@@ -58,7 +45,7 @@ def default_reply_to() -> str | None:
 
 
 def mailbox_domain() -> str:
-    return _env("PITMARK_EMAIL_DOMAIN", "mail.pitmarkracing.com")
+    return _env("PITMARK_EMAIL_DOMAIN", "pitmarkracing.com")
 
 
 class MailThread(Base):
@@ -103,7 +90,7 @@ def _normalize_subject(subject: str) -> str:
     s = (subject or "(no subject)").strip()
     while True:
         lowered = s.lower()
-        if lowered.startswith("re:") or lowered.startswith("fw:") or lowered.startswith("fwd:"):
+        if lowered.startswith(("re:", "fw:", "fwd:")):
             s = s.split(":", 1)[1].strip()
         else:
             break
@@ -186,15 +173,21 @@ def serialize_thread(thread: MailThread) -> dict:
 
 def status() -> dict:
     sender_name, sender_address = parseaddr(default_sender())
+    connection = google_gmail.connection_status()
     return {
-        "sending_configured": bool(send_api_key()),
-        "inbound_fetch_configured": bool(inbound_api_key()),
-        "webhook_verification_configured": bool(webhook_secret()),
+        "provider": "google_workspace",
+        "provider_label": "Google Workspace / Gmail",
+        "sending_configured": bool(connection.get("connected")),
+        "inbound_fetch_configured": bool(connection.get("connected")),
+        "mailbox_connected": bool(connection.get("connected")),
+        "sync_mode": "gmail_api_poll",
+        "sync_interval_seconds": max(30, int(_env("PITMARK_GMAIL_SYNC_SECONDS", "60"))),
         "mailbox_domain": mailbox_domain(),
         "default_sender": default_sender(),
-        "default_sender_address": sender_address,
+        "default_sender_address": connection.get("email_address") or sender_address,
         "default_sender_name": sender_name,
         "reply_to": default_reply_to(),
+        "google_workspace": connection,
     }
 
 
@@ -230,6 +223,7 @@ def list_threads(folder: str = "inbox", limit: int = 100) -> list[dict]:
 
 
 def get_thread(thread_id: int, mark_read: bool = True) -> dict | None:
+    provider_ids: list[str] = []
     with SessionLocal() as db:
         thread = db.get(MailThread, thread_id)
         if not thread:
@@ -242,21 +236,29 @@ def get_thread(thread_id: int, mark_read: bool = True) -> dict | None:
                 if msg.direction == "inbound":
                     msg.is_read = True
                     msg.updated_at = utcnow()
+                    provider = _loads(msg.provider_payload_json, {})
+                    if (
+                        msg.provider_message_id
+                        and isinstance(provider, dict)
+                        and provider.get("provider") == "google_workspace"
+                    ):
+                        provider_ids.append(msg.provider_message_id)
             thread.unread_count = 0
             thread.updated_at = utcnow()
             db.commit()
-        return {"thread": serialize_thread(thread), "messages": [serialize_message(x) for x in messages]}
-
-
-def _resend_headers(key: str) -> dict:
-    return {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+        result = {"thread": serialize_thread(thread), "messages": [serialize_message(x) for x in messages]}
+    for provider_id in provider_ids:
+        try:
+            google_gmail.mark_read(provider_id)
+        except RuntimeError:
+            pass
+    return result
 
 
 def send_message(*, to: list[str], subject: str, text: str = "", html: str = "", cc: list[str] | None = None,
                  bcc: list[str] | None = None, reply_to: list[str] | None = None, reply_to_message_id: int | None = None) -> dict:
-    key = send_api_key()
-    if not key:
-        raise RuntimeError("RESEND_API_KEY is not configured in Pitmark Cloud.")
+    if not google_gmail.credentials_configured():
+        raise RuntimeError("Google Workspace Gmail credentials are not configured in Pitmark Cloud.")
     to = [x.strip() for x in to if str(x).strip()]
     if not to:
         raise ValueError("At least one recipient is required.")
@@ -276,30 +278,23 @@ def send_message(*, to: list[str], subject: str, text: str = "", html: str = "",
                     headers["References"] = (refs + " " + parent.rfc_message_id).strip()
                 if not subject.lower().startswith("re:"):
                     subject = f"Re: {subject}"
-        payload: dict = {
-            "from": default_sender(),
-            "to": to,
-            "subject": subject,
-        }
-        if text:
-            payload["text"] = text
-        if html:
-            payload["html"] = html
-        if cc:
-            payload["cc"] = cc
-        if bcc:
-            payload["bcc"] = bcc
         configured_reply_to = reply_to or ([default_reply_to()] if default_reply_to() else [])
-        if configured_reply_to:
-            payload["reply_to"] = configured_reply_to
-        if headers:
-            payload["headers"] = headers
-        with httpx.Client(timeout=20.0) as client:
-            response = client.post(f"{RESEND_API}/emails", headers=_resend_headers(key), json=payload)
-            if response.status_code >= 400:
-                detail = response.text[:1000]
-                raise RuntimeError(f"Resend send failed ({response.status_code}): {detail}")
-            result = response.json()
+        parent_payload = _loads(parent.provider_payload_json, {}) if parent else {}
+        raw = google_gmail.build_raw_message(
+            sender=default_sender(),
+            to=to,
+            cc=cc,
+            bcc=bcc,
+            reply_to=configured_reply_to,
+            subject=subject,
+            text=text,
+            html=html,
+            headers=headers,
+        )
+        result = google_gmail.send_message(
+            raw=raw,
+            thread_id=parent_payload.get("gmail_thread_id") if isinstance(parent_payload, dict) else None,
+        )
         participants = _participants(default_sender(), to, cc, bcc)
         thread = db.get(MailThread, parent.thread_id) if parent else None
         if thread is None:
@@ -323,7 +318,12 @@ def send_message(*, to: list[str], subject: str, text: str = "", html: str = "",
             in_reply_to=parent.rfc_message_id if parent else None,
             references_header=headers.get("References"),
             is_read=True,
-            provider_payload_json=json.dumps(result),
+            provider_payload_json=json.dumps({
+                "provider": "google_workspace",
+                "gmail_message_id": result.get("id"),
+                "gmail_thread_id": result.get("threadId"),
+                "label_ids": result.get("labelIds") or [],
+            }),
             created_at=utcnow(),
             updated_at=utcnow(),
         )
@@ -357,91 +357,115 @@ def save_draft(*, to: list[str], subject: str, text: str = "", html: str = "", c
         return serialize_message(msg)
 
 
-def verify_svix_signature(raw_body: bytes, headers) -> bool:
-    secret = webhook_secret()
-    if not secret:
-        return False
-    message_id = headers.get("svix-id") or headers.get("webhook-id")
-    timestamp = headers.get("svix-timestamp") or headers.get("webhook-timestamp")
-    signatures = headers.get("svix-signature") or headers.get("webhook-signature") or ""
-    if not message_id or not timestamp or not signatures:
-        return False
+def _decode_gmail_data(value: str | None) -> str:
+    if not value:
+        return ""
+    padded = value + "=" * (-len(value) % 4)
     try:
-        ts = int(timestamp)
-    except Exception:
-        return False
-    if abs(int(time.time()) - ts) > 300:
-        return False
-    encoded = secret.split("_", 1)[1] if secret.startswith("whsec_") else secret
+        return base64.urlsafe_b64decode(padded).decode("utf-8", errors="replace")
+    except (binascii.Error, UnicodeError, ValueError):
+        return ""
+
+
+def _gmail_addresses(value: str | None) -> list[str]:
+    rows = []
+    for name, address in getaddresses([value or ""]):
+        if address:
+            rows.append(formataddr((name, address)) if name else address)
+    return rows
+
+
+def _gmail_parts(part: dict, text_parts: list[str], html_parts: list[str], attachments: list[dict]) -> None:
+    body = part.get("body") or {}
+    mime = str(part.get("mimeType") or "").lower()
+    filename = str(part.get("filename") or "").strip()
+    if filename and body.get("attachmentId"):
+        attachments.append({
+            "filename": filename[:255],
+            "content_type": mime or "application/octet-stream",
+            "size": int(body.get("size") or 0),
+            "gmail_attachment_id": str(body.get("attachmentId")),
+        })
+    elif mime == "text/plain" and body.get("data"):
+        text_parts.append(_decode_gmail_data(str(body.get("data"))))
+    elif mime == "text/html" and body.get("data"):
+        html_parts.append(_decode_gmail_data(str(body.get("data"))))
+    for child in part.get("parts") or []:
+        if isinstance(child, dict):
+            _gmail_parts(child, text_parts, html_parts, attachments)
+
+
+def _gmail_received_at(payload: dict, headers: dict[str, str]) -> datetime:
     try:
-        key = base64.b64decode(encoded)
-    except Exception:
-        return False
-    signed = f"{message_id}.{timestamp}.".encode() + raw_body
-    digest = base64.b64encode(hmac.new(key, signed, hashlib.sha256).digest()).decode()
-    for token in signatures.split():
-        if "," in token:
-            version, value = token.split(",", 1)
-            if version == "v1" and hmac.compare_digest(value, digest):
-                return True
-    return False
+        internal_date = int(payload.get("internalDate") or 0)
+    except (TypeError, ValueError):
+        internal_date = 0
+    if internal_date > 0:
+        try:
+            return datetime.fromtimestamp(internal_date / 1000, tz=timezone.utc)
+        except (OSError, OverflowError, ValueError):
+            return utcnow()
+    try:
+        parsed = parsedate_to_datetime(headers.get("date") or "")
+        return parsed.astimezone(timezone.utc) if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    except (AttributeError, TypeError, ValueError):
+        return utcnow()
 
 
-def _fetch_received_email(email_id: str) -> dict:
-    key = inbound_api_key()
-    if not key:
-        return {}
-    with httpx.Client(timeout=20.0) as client:
-        response = client.get(f"{RESEND_API}/emails/receiving/{email_id}", headers=_resend_headers(key))
-        if response.status_code >= 400:
-            return {"_fetch_error": f"{response.status_code}: {response.text[:500]}"}
-        return response.json()
-
-
-def ingest_resend_event(event: dict) -> dict:
-    if str(event.get("type") or "") != "email.received":
-        return {"ignored": True, "type": event.get("type")}
-    data = event.get("data") or {}
-    provider_id = str(data.get("email_id") or data.get("id") or "").strip()
+def ingest_gmail_message(payload: dict) -> dict:
+    provider_id = str(payload.get("id") or "").strip()
     if not provider_id:
-        raise ValueError("Resend webhook did not include an email id.")
+        raise ValueError("Gmail did not include a message id.")
     with SessionLocal() as db:
-        existing = db.scalars(select(MailMessage).where(MailMessage.provider_message_id == provider_id)).first()
+        existing = db.scalar(select(MailMessage).where(MailMessage.provider_message_id == provider_id))
         if existing:
             return {"duplicate": True, "message_id": existing.id, "thread_id": existing.thread_id}
-    full = _fetch_received_email(provider_id)
-    source = {**data, **({k: v for k, v in full.items() if k != "_fetch_error"} if full else {})}
-    sender = str(source.get("from") or data.get("from") or "")
-    to = source.get("to") or data.get("to") or []
-    cc = source.get("cc") or data.get("cc") or []
-    bcc = source.get("bcc") or data.get("bcc") or []
-    reply_to = source.get("reply_to") or source.get("reply-to") or []
-    subject = str(source.get("subject") or data.get("subject") or "(no subject)")[:500]
-    text = source.get("text") or source.get("text_body") or ""
-    html = source.get("html") or source.get("html_body") or ""
-    headers_map = source.get("headers") or {}
-    if isinstance(headers_map, list):
-        headers_map = {str(x.get("name") or "").lower(): str(x.get("value") or "") for x in headers_map if isinstance(x, dict)}
-    rfc_message_id = str(source.get("message_id") or data.get("message_id") or headers_map.get("message-id") or "") or None
-    in_reply_to = headers_map.get("in-reply-to") if isinstance(headers_map, dict) else None
-    references = headers_map.get("references") if isinstance(headers_map, dict) else None
-    now = utcnow()
+
+    root = payload.get("payload") or {}
+    headers = {
+        str(row.get("name") or "").lower(): str(row.get("value") or "")
+        for row in (root.get("headers") or [])
+        if isinstance(row, dict)
+    }
+    text_parts: list[str] = []
+    html_parts: list[str] = []
+    attachments: list[dict] = []
+    _gmail_parts(root, text_parts, html_parts, attachments)
+    sender = headers.get("from") or ""
+    to = _gmail_addresses(headers.get("to"))
+    cc = _gmail_addresses(headers.get("cc"))
+    bcc = _gmail_addresses(headers.get("bcc"))
+    reply_to = _gmail_addresses(headers.get("reply-to"))
+    subject = (headers.get("subject") or "(no subject)")[:500]
+    in_reply_to = headers.get("in-reply-to") or None
+    references = headers.get("references") or None
+    labels = [str(x) for x in (payload.get("labelIds") or [])]
+    now = _gmail_received_at(payload, headers)
+    provider_record = {
+        "provider": "google_workspace",
+        "gmail_message_id": provider_id,
+        "gmail_thread_id": payload.get("threadId"),
+        "label_ids": labels,
+        "snippet": payload.get("snippet") or "",
+        "attachments": attachments,
+    }
     with SessionLocal() as db:
         thread = None
         if in_reply_to:
-            parent = db.scalars(select(MailMessage).where(MailMessage.rfc_message_id == in_reply_to)).first()
+            parent = db.scalar(select(MailMessage).where(MailMessage.rfc_message_id == in_reply_to))
             if parent:
                 thread = db.get(MailThread, parent.thread_id)
         if thread is None:
-            thread = _find_or_create_thread(db, subject, _participants(sender, to, cc), bump_unread=True)
+            thread = _find_or_create_thread(db, subject, _participants(sender, to, cc), bump_unread="UNREAD" in labels)
         else:
-            thread.unread_count = int(thread.unread_count or 0) + 1
+            if "UNREAD" in labels:
+                thread.unread_count = int(thread.unread_count or 0) + 1
             thread.last_message_at = now
-            thread.updated_at = now
+            thread.updated_at = utcnow()
         msg = MailMessage(
             thread_id=thread.id,
             provider_message_id=provider_id,
-            rfc_message_id=rfc_message_id,
+            rfc_message_id=headers.get("message-id") or None,
             direction="inbound",
             status="received",
             from_address=sender,
@@ -450,22 +474,55 @@ def ingest_resend_event(event: dict) -> dict:
             bcc_json=_json(bcc),
             reply_to_json=_json(reply_to),
             subject=subject,
-            text_body=str(text or "") or None,
-            html_body=str(html or "") or None,
+            text_body="\n".join(x for x in text_parts if x).strip() or None,
+            html_body="\n".join(x for x in html_parts if x).strip() or None,
             in_reply_to=in_reply_to,
             references_header=references,
-            is_read=False,
-            provider_payload_json=json.dumps({"event": event, "received": full}, ensure_ascii=False)[:200000],
+            is_read="UNREAD" not in labels,
+            provider_payload_json=json.dumps(provider_record, ensure_ascii=False),
             created_at=now,
-            updated_at=now,
+            updated_at=utcnow(),
         )
         db.add(msg)
         db.commit()
         db.refresh(msg)
+        return {"ok": True, "message_id": msg.id, "thread_id": msg.thread_id, "provider_message_id": provider_id}
+
+
+def sync_gmail_inbox(limit: int | None = None) -> dict:
+    if not google_gmail.credentials_configured():
+        return {"connected": False, "synced": 0, "new_message_ids": [], "reason": "gmail-not-configured"}
+    resolved_limit = limit or int(_env("PITMARK_GMAIL_SYNC_LIMIT", "100"))
+    try:
+        provider_ids = google_gmail.list_inbox_message_ids(resolved_limit)
+    except RuntimeError as exc:
         return {
-            "ok": True,
-            "message_id": msg.id,
-            "thread_id": msg.thread_id,
-            "body_fetched": bool(text or html),
-            "fetch_error": full.get("_fetch_error") if isinstance(full, dict) else None,
+            "connected": False,
+            "provider": "google_workspace",
+            "synced": 0,
+            "new_message_ids": [],
+            "errors": [str(exc)[:500]],
         }
+    with SessionLocal() as db:
+        known = set(db.scalars(select(MailMessage.provider_message_id).where(
+            MailMessage.provider_message_id.in_(provider_ids)
+        )).all()) if provider_ids else set()
+    new_message_ids: list[int] = []
+    errors: list[str] = []
+    for provider_id in reversed(provider_ids):
+        if provider_id in known:
+            continue
+        try:
+            result = ingest_gmail_message(google_gmail.get_message(provider_id))
+            if result.get("message_id"):
+                new_message_ids.append(int(result["message_id"]))
+        except (RuntimeError, ValueError) as exc:
+            errors.append(str(exc)[:300])
+    return {
+        "connected": True,
+        "provider": "google_workspace",
+        "checked": len(provider_ids),
+        "synced": len(new_message_ids),
+        "new_message_ids": new_message_ids,
+        "errors": errors[:5],
+    }

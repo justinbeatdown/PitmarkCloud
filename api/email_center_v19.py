@@ -1,15 +1,26 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 
+from services import pitmark_mail as base
 from services.control_auth import require_control_user
 from services.database import SessionLocal
-from services import pitmark_mail as base
-from services.pitmark_mail_attachments import list_resend_attachments, stored_attachments
-from services.pitmark_mail_preferences import get_preference, list_preferences, save_preference
-from services.pitmark_mail_rich import draft_attachments, save_rich_draft, send_rich_message
+from services.pitmark_mail_attachments import (
+    download_google_attachment,
+    list_google_attachments,
+    stored_attachments,
+)
+from services.pitmark_mail_preferences import (
+    get_preference,
+    list_preferences,
+    save_preference,
+)
+from services.pitmark_mail_rich import (
+    draft_attachments,
+    save_rich_draft,
+    send_rich_message,
+)
 from utils.security import enforce_rate_limit
 
 router = APIRouter()
@@ -145,18 +156,25 @@ def message_attachments(message_id: int, request: Request):
                 for x in stored_attachments(message)
             ]
 
-        local = stored_attachments(message)
-        if local:
-            return [
-                {
-                    "filename": x.get("filename"),
-                    "content_type": x.get("content_type"),
-                    "size": x.get("size"),
-                }
-                for x in local
-            ]
+        return list_google_attachments(message)
 
-        return list_resend_attachments(
-            message.provider_message_id or "",
-            inbound=message.direction == "inbound",
-        )
+
+@router.get("/messages/{message_id}/attachments/{attachment_id}")
+def message_attachment_download(message_id: int, attachment_id: str, request: Request):
+    auth(request)
+    with SessionLocal() as db:
+        message = db.get(base.MailMessage, message_id)
+        if not message:
+            raise HTTPException(404, "Mail message not found.")
+        try:
+            content, metadata = download_google_attachment(message, attachment_id)
+        except ValueError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(502, str(exc)) from exc
+    filename = str(metadata.get("filename") or "attachment").replace('"', "")[:255]
+    return Response(
+        content,
+        media_type=str(metadata.get("content_type") or "application/octet-stream"),
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

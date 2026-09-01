@@ -1,5 +1,17 @@
 ## Current release
 
+**v0.20.0 — Google Workspace / Gmail Migration**
+
+Pitmark Mail now uses the Pitmark Racing Co. Google Workspace mailbox as its production source of truth. Gmail API OAuth replaces the legacy subdomain/Resend mail transport, Google send-as identities populate the composer, inbound Gmail is synchronized into Shield, and read/spam/trash actions are reflected back to Gmail. Desktop and mobile Control Center use the same Cloud-owned mail service.
+
+- Root-domain `@pitmarkracing.com` department identities replace `@mail.pitmarkracing.com` addresses.
+- Gmail OAuth refresh credentials stay server-side in Render.
+- Gmail inbox sync runs in the background and on mail/Shield refresh.
+- Attachments, rich compose, drafts, reply/reply-all/forward, signatures, and Shield history are preserved.
+- The obsolete public Resend inbound webhook is removed.
+
+## Previous release
+
 **v0.14.7 — Timeline + Freshness Root-Cause Repair**
 
 Pitmark Autopilot now includes the first live social publishing path for Facebook: approved or scheduled Facebook posts can publish through Pitmark Cloud, scheduled posts are checked by a background worker, and Control Center only enables Publish when server-side Meta Page credentials are configured. This release also carries forward the verified Racing Culture Shopify routing fix and Control Center autofill guard.

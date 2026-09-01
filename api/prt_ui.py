@@ -24,7 +24,7 @@ def prt_support_js(): return Response((ASSET_DIR/"prt-support.js").read_text(enc
 @router.get("/api/prt/status")
 def prt_status():
     discord=discord_service.status()
-    return {"service":"Pitmark Racing Tools","version":settings.app_version,"early_access":True,"discord":{"configured":bool(discord.get("configured")),"bot_install_available":bool(discord.get("install_url"))},"support_email":"prt@mail.pitmarkracing.com"}
+    return {"service":"Pitmark Racing Tools","version":settings.app_version,"early_access":True,"discord":{"configured":bool(discord.get("configured")),"bot_install_available":bool(discord.get("install_url"))},"support_email":"prt@pitmarkracing.com"}
 @router.get("/prt-logo.png",include_in_schema=False)
 def prt_logo(): return FileResponse(ASSET_DIR/"pitmark_logo_wide.png",media_type="image/png")
 @router.get("/prt-current-logo.png",include_in_schema=False)

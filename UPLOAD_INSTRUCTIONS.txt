@@ -1,30 +1,24 @@
-PITMARK CLOUD v0.18.8
+PITMARK CLOUD v0.20.0
 
 1. Extract this ZIP directly into the CURRENT PitmarkCloud repository root.
 2. Allow it to replace matching files.
-3. Open GitHub Desktop and review the changes.
-4. Commit/push. Render can auto-deploy normally.
+3. Open GitHub Desktop and review the coordinated changes.
+4. Commit with the summary below and push. Render can auto-deploy normally.
+5. Add the Google Workspace environment variables listed in GOOGLE_WORKSPACE_DEPLOY.md.
 
-This patch was built from the live GitHub main branch at Pitmark Cloud v0.18.7.
-It intentionally does NOT include or replace your Discord bot/gateway setup files.
-
-Expected repo changes:
-- main.py
-- utils/config.py
-- api/prt.html
-- api/control_center_ui.py
-- api/control_center_overhaul.js
-- api/control_center_overhaul.css
-- api/control_mail_client.js
-- api/control_mail_client.css
-- services/pitmark_mail_delete.py
-- services/shield_mail_cleanup.py
-- services/autopilot_multiplatform.py
-- RELEASE_v0.18.8.md
-- UPLOAD_INSTRUCTIONS.txt
+This patch was built from live GitHub main at v0.19.10 (commit 0d7919b).
+It preserves the v0.19.10 Race Card upload fix, Discord setup, Autopilot, PRT,
+Control Center access, database history, and desktop/mobile parity.
 
 GitHub Desktop Summary:
-v0.18.8 — Control Center and mail cleanup
+v0.20.0 — Google Workspace / Gmail Migration
 
 Description:
-Upgrade Pitmark Mail toward a real mail client on desktop and mobile, remove orphaned Shield review items when mail is deleted, make Outreach highlight only when a follow-up is actually due, prepare Instagram and X variants alongside Autopilot intelligence posts, simplify redundant dashboard sections, and update the PRT community Discord invite. Built from the current v0.18.7 GitHub source without replacing the completed Discord setup.
+Replace the legacy Pitmark Mail transport and mail subdomain identities with the
+Pitmark Racing Co. Google Workspace/Gmail infrastructure. Add Gmail OAuth sending,
+background inbox sync, Gmail send-as department identities, Shield scanning, Gmail
+read/spam/trash synchronization, authenticated attachment downloads, root-domain
+support addresses, updated status UI, and coordinated desktop/mobile behavior.
+
+The included scripts/google_gmail_oauth_setup.py helper creates the one-time Gmail
+refresh token without writing it into the repository.

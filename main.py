@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
 import asyncio
 import hmac
+import logging
+import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse
@@ -16,9 +18,21 @@ from services.autopilot_multiplatform import scheduler_loop as multiplatform_sch
 from services.research_agent import research_worker_loop
 from services.social_publish_worker import social_publish_worker_loop
 from services.shield_mail_cleanup import purge_orphaned_mail_events
+from services.shield_mail import sync_gmail_mail_protected
 from services.control_access import access_from_request, permission_for_path
 
 configure_logging()
+log = logging.getLogger("pitmark.gmail_sync")
+
+
+async def gmail_sync_loop():
+    interval = max(30, int(os.getenv("PITMARK_GMAIL_SYNC_SECONDS") or "60"))
+    while True:
+        try:
+            await asyncio.to_thread(sync_gmail_mail_protected)
+        except Exception as exc:  # noqa: BLE001 - keep the background worker alive
+            log.warning("Google Workspace Gmail sync failed: %s", exc)
+        await asyncio.sleep(interval)
 
 
 @asynccontextmanager
@@ -35,6 +49,7 @@ async def lifespan(app: FastAPI):
     multiplatform_task = asyncio.create_task(multiplatform_scheduler_loop())
     research_task = asyncio.create_task(research_worker_loop())
     social_publish_task = asyncio.create_task(social_publish_worker_loop())
+    gmail_task = asyncio.create_task(gmail_sync_loop())
     try:
         yield
     finally:
@@ -42,6 +57,7 @@ async def lifespan(app: FastAPI):
         multiplatform_task.cancel()
         research_task.cancel()
         social_publish_task.cancel()
+        gmail_task.cancel()
         await discord_gateway_service.stop()
 
 
@@ -107,7 +123,6 @@ app.include_router(social_publish.router, prefix="/api/control/social", tags=["s
 app.include_router(social_publish.public_router, tags=["public-social-assets"])
 app.include_router(email_center_v19.router, prefix="/api/control/email", tags=["email-v19"])
 app.include_router(email_center.router, prefix="/api/control/email", tags=["email"])
-app.include_router(email_center.public_router, tags=["email-webhooks"])
 app.include_router(prt_analytics_v191.router, prefix="/api/prt/analytics", tags=["prt-analytics-v191"])
 app.include_router(content_tools.router, prefix="/api/control/content", tags=["content-tools"])
 app.include_router(control_center_ui.router)

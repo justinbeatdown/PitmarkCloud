@@ -324,6 +324,7 @@ def shield_status(request: Request, x_pitmark_admin_key: str | None = Header(def
     auth(request, x_pitmark_admin_key)
     from utils.security import security_summary
     from services.database import database_status
+    from services.google_gmail import credentials_configured
     sec = security_summary(environment=settings.environment, signing_secret=settings.pitmark_signing_secret, admin_key=settings.pitmark_admin_key, cors_origins=settings.cors_origin_list)
     with SessionLocal() as db:
         real_review = len(db.scalars(select(ShieldEvent).where(ShieldEvent.classification == 'Review', ~ShieldEvent.source_message_id.like('shield-test:%'))).all())
@@ -331,7 +332,7 @@ def shield_status(request: Request, x_pitmark_admin_key: str | None = Header(def
         'name': 'Pitmark Shield',
         'purpose': 'ecosystem_security',
         'overall': 'healthy' if sec.get('ready') else 'attention',
-        'communications': {'mailbox_connected': False, 'review_count': real_review, 'synthetic_hidden': True},
+        'communications': {'mailbox_connected': credentials_configured(), 'provider': 'google_workspace', 'review_count': real_review, 'synthetic_hidden': True},
         'controls': {
             'signed_control_sessions': True,
             'security_headers': bool(sec.get('security_headers')),
