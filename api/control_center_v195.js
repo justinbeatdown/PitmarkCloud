@@ -21,11 +21,42 @@
   }
 
   function normalizeBlogHtml(value) {
-    let text = String(value || '');
-    text = text.replace(/^\s*#{1,4}\s*(sources?|references?)\s*:?\s*$/gim, '<h3>Sources</h3>');
-    text = text.replace(/<p>\s*(?:#{1,4}\s*)?(sources?|references?)\s*:?\s*<\/p>/gi, '<h3>Sources</h3>');
+    let text = String(value || '').trim();
+    if (!text) return '';
+
+    const hadBlockHtml = /<(p|h[1-6]|ul|ol|li|blockquote|section|div|figure|table)\b/i.test(text);
+
+    // Convert Markdown headings before paragraph wrapping.
+    text = text.replace(/^####\s+(.+)$/gim, '<h3>$1</h3>');
+    text = text.replace(/^###\s+(.+)$/gim, '<h3>$1</h3>');
+    text = text.replace(/^##\s+(.+)$/gim, '<h2>$1</h2>');
+    text = text.replace(/^#\s+(.+)$/gim, '<h2>$1</h2>');
+
+    // Markdown inline formatting should become HTML in a blog, unlike social.
     text = text.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
-    text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+    if (!hadBlockHtml) {
+      const blocks = text.split(/\n\s*\n+/).map(x => x.trim()).filter(Boolean);
+      text = blocks.map(block => {
+        if (/^<h[1-6]\b/i.test(block)) return block;
+
+        const lines = block.split(/\n+/).map(x => x.trim()).filter(Boolean);
+        if (lines.length && lines.every(line => /^[-*]\s+/.test(line))) {
+          return `<ul>${lines.map(line => `<li>${line.replace(/^[-*]\s+/, '')}</li>`).join('')}</ul>`;
+        }
+        if (lines.length && lines.every(line => /^\d+[.)]\s+/.test(line))) {
+          return `<ol>${lines.map(line => `<li>${line.replace(/^\d+[.)]\s+/, '')}</li>`).join('')}</ol>`;
+        }
+
+        return `<p>${lines.join('<br>')}</p>`;
+      }).join('\n');
+    }
+
+    // Ensure Pitmark's source heading is semantic and consistent.
+    text = text.replace(/<p>\s*(sources?|references?)\s*:?\s*<\/p>/gi, '<h3>Sources</h3>');
+    text = text.replace(/<h[1-6]>\s*(sources?|references?)\s*:?\s*<\/h[1-6]>/gi, '<h3>Sources</h3>');
     return text;
   }
 
@@ -120,29 +151,58 @@
     if (!view || view.dataset.pm195) return;
     view.dataset.pm195 = '1';
 
+    const heading = q(':scope > .view-heading', view);
     const overview = q('.autopilot-overview', view);
     const panels = qa(':scope > .panel', view);
     const composer = q('.social-composer-panel', view);
     const queue = panels.find(p => /Content Queue/i.test(p.textContent));
     const intelligence = panels.find(p => /What's Happening Now/i.test(p.textContent));
 
-    if (overview && queue) overview.after(queue);
+    // The two things you actually DO in Autopilot belong at the top.
+    const actionBar = document.createElement('div');
+    actionBar.className = 'pm196-autopilot-actions';
+    actionBar.innerHTML = `
+      <button type="button" class="pm196-action-card primary" data-pm196-tool="create">
+        <span class="pm196-action-icon">＋</span>
+        <span><strong>Create a new post</strong><small>Manual composer · generate copy · choose media</small></span>
+      </button>
+      <button type="button" class="pm196-action-card" data-pm196-tool="radar">
+        <span class="pm196-action-icon">⌕</span>
+        <span><strong>Run Story Radar</strong><small>Find fresh racing stories and opportunities</small></span>
+      </button>`;
+    heading?.after(actionBar);
 
-    function drawer(panel, title, subtitle, open=false) {
-      if (!panel || panel.closest('.pm195-drawer')) return null;
-      const d = document.createElement('details');
-      d.className = 'pm195-drawer';
-      d.open = open;
-      const summary = document.createElement('summary');
-      summary.innerHTML = `<div><strong>${title}</strong><span>${subtitle}</span></div><b>${open ? '−' : '+'}</b>`;
-      d.addEventListener('toggle', () => { summary.querySelector('b').textContent = d.open ? '−' : '+'; });
-      panel.before(d);
-      d.append(summary, panel);
-      return d;
+    function makeTool(panel, key) {
+      if (!panel) return;
+      panel.classList.add('pm196-tool-panel');
+      panel.dataset.pm196ToolPanel = key;
+      panel.hidden = true;
+      actionBar.after(panel);
     }
 
-    drawer(composer, 'Create a new post', 'Manual composer, images and copy generation');
-    drawer(intelligence, 'Story radar', 'Fresh racing opportunities Autopilot found');
+    // Insert in reverse order because both are placed directly after actionBar.
+    makeTool(intelligence, 'radar');
+    makeTool(composer, 'create');
+
+    actionBar.addEventListener('click', e => {
+      const button = e.target.closest('[data-pm196-tool]');
+      if (!button) return;
+      const key = button.dataset.pm196Tool;
+      const target = q(`[data-pm196-tool-panel="${key}"]`, view);
+      const wasOpen = target && !target.hidden;
+
+      qa('[data-pm196-tool-panel]', view).forEach(panel => panel.hidden = true);
+      qa('[data-pm196-tool]', actionBar).forEach(x => x.classList.remove('active'));
+
+      if (!wasOpen && target) {
+        target.hidden = false;
+        button.classList.add('active');
+        target.scrollIntoView({behavior:'smooth', block:'nearest'});
+      }
+    });
+
+    // Queue is the main working surface immediately after the top tools.
+    if (overview && queue) overview.after(queue);
 
     if (queue) {
       const title = q('.panel-head h2', queue);
@@ -256,6 +316,8 @@
         const sources = selectedBlogSources.map(x => `${x.headline}: ${x.url}`).join(' | ');
         notes = `${notes}${notes ? ' | ' : ''}Use these verified sources and link them cleanly in the article: ${sources}`;
       }
+      const formatInstruction = 'FORMAT REQUIREMENT: Write a polished Shopify article with a short opening, 2–4 useful sections using Markdown ## section headings, normal paragraphs separated by blank lines, and a concise closing. Do not return one giant paragraph. Do not use Markdown bold for headings. Do not invent facts.';
+      notes = `${notes}${notes ? ' | ' : ''}${formatInstruction}`;
       const result = await apiCall('/api/control/blog/generate',{
         method:'POST',
         body:JSON.stringify({
@@ -288,7 +350,12 @@
 
       if (e.target.closest('#addBlogBtn')) {
         const body = $('bbody');
-        if (body) body.value = normalizeBlogHtml(body.value);
+        if (body) {
+          let formatted = normalizeBlogHtml(body.value);
+          const links = sourceBlock();
+          if (links && !selectedBlogSources.some(x => formatted.includes(x.url))) formatted += links;
+          body.value = formatted;
+        }
         return; // original Save Draft handler still runs
       }
 

@@ -75,7 +75,7 @@ def control(request: Request):
             '</head>',
             '<link rel="stylesheet" href="/control-center-v19.css?v=01905">\n'
             '<link rel="stylesheet" href="/control-center-v191.css?v=01902">\n'
-            '<link rel="stylesheet" href="/control-center-v195.css?v=01905">\n'
+            '<link rel="stylesheet" href="/control-center-v195.css?v=01906">\n'
             '</head>'
         )
         html = html.replace(
@@ -84,7 +84,7 @@ def control(request: Request):
             + '\n<script src="/control-center-v19.js?v=01905" defer></script>'
             + '\n<script src="/control-center-v191.js?v=01902" defer></script>'
             + '\n<script src="/control-runtime-v194.js?v=01905" defer></script>'
-            + '\n<script src="/control-center-v195.js?v=01905" defer></script>'
+            + '\n<script src="/control-center-v195.js?v=01906" defer></script>'
             + '</body>'
         )
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
@@ -232,7 +232,7 @@ def control_mobile(request: Request):
             '</head>',
             '<link rel="stylesheet" href="/control-center-v19.css?v=01905">\n'
             '<link rel="stylesheet" href="/control-center-v191.css?v=01902">\n'
-            '<link rel="stylesheet" href="/control-center-v195.css?v=01905">\n'
+            '<link rel="stylesheet" href="/control-center-v195.css?v=01906">\n'
             '<link rel="stylesheet" href="/control-mobile-v2.css?v=01903">\n'
             '</head>'
         )
@@ -243,7 +243,7 @@ def control_mobile(request: Request):
             + '\n<script src="/control-center-v191.js?v=01902" defer></script>'
             + '\n<script src="/control-mobile-v2.js?v=01904" defer></script>'
             + '\n<script src="/control-runtime-v194.js?v=01905" defer></script>'
-            + '\n<script src="/control-center-v195.js?v=01905" defer></script>'
+            + '\n<script src="/control-center-v195.js?v=01906" defer></script>'
             + '</body>'
         )
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})

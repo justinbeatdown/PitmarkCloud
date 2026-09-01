@@ -176,3 +176,100 @@ html,body,.shell,.main{max-width:100%;overflow-x:hidden!important}
   .pm195-confirm-card{padding:19px}
   .pm195-workflow-grid{grid-template-columns:1fr}
 }
+
+
+/* v0.19.6 — sidebar follows the viewport instead of ending mid-page. */
+.sidebar.pm19-sidebar{
+  position:sticky!important;
+  top:0!important;
+  align-self:start!important;
+  height:100vh!important;
+  height:100dvh!important;
+  min-height:100vh!important;
+  min-height:100dvh!important;
+  box-sizing:border-box!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+}
+.pm19-sidebar .side-bottom{margin-top:auto!important}
+
+/* v0.19.6 — Autopilot's primary actions are actual buttons at the TOP. */
+.pm196-autopilot-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin:0 0 14px;
+}
+.pm196-action-card{
+  appearance:none;
+  min-height:82px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:14px 16px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:15px;
+  background:linear-gradient(145deg,#14181e,#0e1115);
+  color:#eef1f5;
+  text-align:left;
+  cursor:pointer;
+  transition:.15s ease;
+}
+.pm196-action-card:hover{
+  transform:translateY(-1px);
+  border-color:rgba(255,90,0,.28);
+  background:#171b21;
+}
+.pm196-action-card.primary{
+  border-color:rgba(255,90,0,.32);
+  background:linear-gradient(145deg,rgba(255,90,0,.18),#111419 72%);
+}
+.pm196-action-card.active{
+  box-shadow:inset 0 0 0 1px rgba(255,90,0,.48);
+  border-color:rgba(255,90,0,.6);
+}
+.pm196-action-icon{
+  flex:0 0 auto;
+  width:38px;height:38px;
+  display:grid;place-items:center;
+  border-radius:11px;
+  background:#1f242c;
+  color:#ff6b20;
+  font-size:20px;
+  font-weight:900;
+}
+.pm196-action-card.primary .pm196-action-icon{
+  background:#ff5a00;
+  color:#fff;
+}
+.pm196-action-card strong{
+  display:block;
+  font-size:12px;
+  line-height:1.2;
+}
+.pm196-action-card small{
+  display:block;
+  margin-top:4px;
+  color:#747d88;
+  font-size:9px;
+  font-weight:500;
+}
+.pm196-tool-panel{
+  margin:0 0 14px!important;
+  border-color:rgba(255,90,0,.14)!important;
+}
+.pm196-tool-panel[hidden]{display:none!important}
+
+/* Let the final Published lane use the width instead of leaving a dead column. */
+.pm195-lane.published{grid-column:1 / -1}
+.pm195-lane.published .pm195-lane-list{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.pm195-lane.published .pm195-post-card{margin:0!important}
+
+@media(max-width:900px){
+  .pm196-autopilot-actions{grid-template-columns:1fr}
+  .pm195-lane.published .pm195-lane-list{grid-template-columns:1fr}
+}

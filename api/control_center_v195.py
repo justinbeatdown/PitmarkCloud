@@ -20,20 +20,49 @@ def normalize_blog_html(value: str | None) -> str:
     if not text:
         return text
 
-    # Common AI/Markdown artifacts that should never reach Shopify literally.
-    text = re.sub(
-        r'(?im)^\s*#{1,4}\s*(sources?|references?)\s*:?\s*$',
-        r'<h3>Sources</h3>',
+    had_block_html = bool(re.search(
+        r'<(?:p|h[1-6]|ul|ol|li|blockquote|section|div|figure|table)\b',
         text,
-    )
-    text = re.sub(
-        r'(?is)<p>\s*(?:#{1,4}\s*)?(sources?|references?)\s*:?\s*</p>',
-        r'<h3>Sources</h3>',
-        text,
-    )
+        flags=re.I,
+    ))
+
+    # Markdown headings -> actual semantic article headings.
+    text = re.sub(r'(?im)^\s*####\s+(.+?)\s*$', r'<h3>\1</h3>', text)
+    text = re.sub(r'(?im)^\s*###\s+(.+?)\s*$', r'<h3>\1</h3>', text)
+    text = re.sub(r'(?im)^\s*##\s+(.+?)\s*$', r'<h2>\1</h2>', text)
+    text = re.sub(r'(?im)^\s*#\s+(.+?)\s*$', r'<h2>\1</h2>', text)
     text = re.sub(r'\*\*([^*\n]+)\*\*', r'<strong>\1</strong>', text)
 
-    # Process only text segments outside existing anchors.
+    # If the generator returned plain/Markdown text, build real paragraphs/lists.
+    if not had_block_html:
+        blocks = [x.strip() for x in re.split(r'\n\s*\n+', text) if x.strip()]
+        formatted: list[str] = []
+        for block in blocks:
+            if re.match(r'^<h[1-6]\b', block, flags=re.I):
+                formatted.append(block)
+                continue
+
+            lines = [x.strip() for x in block.splitlines() if x.strip()]
+            if lines and all(re.match(r'^[-*]\s+', line) for line in lines):
+                items = ''.join(
+                    f'<li>{re.sub(r"^[-*]\s+", "", line)}</li>'
+                    for line in lines
+                )
+                formatted.append(f'<ul>{items}</ul>')
+                continue
+
+            if lines and all(re.match(r'^\d+[.)]\s+', line) for line in lines):
+                items = ''.join(
+                    f'<li>{re.sub(r"^\d+[.)]\s+", "", line)}</li>'
+                    for line in lines
+                )
+                formatted.append(f'<ol>{items}</ol>')
+                continue
+
+            formatted.append(f'<p>{"<br>".join(lines)}</p>')
+        text = '\n'.join(formatted)
+
+    # Process URLs only in text outside existing <a> tags.
     pieces = re.split(r'(<[^>]+>)', text)
     out: list[str] = []
     anchor_depth = 0
@@ -73,7 +102,10 @@ def normalize_blog_html(value: str | None) -> str:
             raw = match.group(1)
             trimmed = raw.rstrip('.,;)')
             suffix = raw[len(trimmed):]
-            return f'<a href="{trimmed}" target="_blank" rel="noopener noreferrer">{trimmed}</a>{suffix}'
+            return (
+                f'<a href="{trimmed}" target="_blank" '
+                f'rel="noopener noreferrer">{trimmed}</a>{suffix}'
+            )
 
         segment = url_pattern.sub(url_replace, segment)
         for i, replacement in enumerate(placeholders):
@@ -81,9 +113,16 @@ def normalize_blog_html(value: str | None) -> str:
         out.append(segment)
 
     text = "".join(out)
+
+    # Keep sources consistent and clean.
     text = re.sub(
-        r'(?i)<h3>\s*(sources?|references?)\s*</h3>',
-        r'<h3 style="margin:28px 0 10px;font-size:1.15em">Sources</h3>',
+        r'(?i)<p>\s*(sources?|references?)\s*:?\s*</p>',
+        r'<h3>Sources</h3>',
+        text,
+    )
+    text = re.sub(
+        r'(?i)<h[1-6]>\s*(sources?|references?)\s*:?\s*</h[1-6]>',
+        r'<h3>Sources</h3>',
         text,
     )
     return text
