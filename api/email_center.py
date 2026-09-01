@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from services import google_gmail
 from services.control_auth import require_control_user
 from services.pitmark_mail import (
     get_thread,
@@ -14,6 +15,11 @@ from services.pitmark_mail_identities import (
     save_draft,
     send_message,
     status,
+)
+from services.pitmark_mail_auto_reply import (
+    list_auto_reply_settings,
+    process_auto_replies,
+    save_auto_reply_setting,
 )
 from services.shield_mail import (
     decorate_thread,
@@ -54,6 +60,11 @@ class MailDraft(BaseModel):
     html: str = ""
 
 
+class MailAutoReplyUpdate(BaseModel):
+    enabled: bool = True
+    body: str = ""
+
+
 @router.get("/status")
 def mail_status(request: Request):
     auth(request)
@@ -61,7 +72,37 @@ def mail_status(request: Request):
     protection = sync_unprotected_mail()
     result["shield_rescan"] = rescan_pitmark_mail()
     result["shield_protection"] = protection
+    result["workspace_setup"] = google_gmail.workspace_setup_status()
     return result
+
+
+@router.post("/workspace/setup")
+def mail_workspace_setup(request: Request):
+    auth(request)
+    enforce_rate_limit(request, "mail-workspace-setup", 5, 300)
+    return google_gmail.ensure_workspace_setup(force=True)
+
+
+@router.get("/auto-replies")
+def mail_auto_replies(request: Request):
+    auth(request)
+    return list_auto_reply_settings()
+
+
+@router.put("/auto-replies/{department}")
+def mail_auto_reply_update(department: str, req: MailAutoReplyUpdate, request: Request):
+    auth(request)
+    try:
+        return save_auto_reply_setting(department, enabled=req.enabled, body=req.body)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.post("/auto-replies/run")
+def mail_auto_reply_run(request: Request):
+    auth(request)
+    enforce_rate_limit(request, "mail-auto-reply-run", 10, 300)
+    return process_auto_replies()
 
 
 @router.get("/identities")

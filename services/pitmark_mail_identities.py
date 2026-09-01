@@ -55,6 +55,12 @@ IDENTITIES = {
         "name": "Pitmark Racing Co. Marketing",
         "address": "marketing@pitmarkracing.com",
     },
+    "outreach": {
+        "key": "outreach",
+        "label": "Outreach",
+        "name": "Pitmark Racing Co. Outreach",
+        "address": "outreach@pitmarkracing.com",
+    },
 }
 
 
@@ -67,6 +73,7 @@ def _identity_label(address: str) -> str:
         "partnerships": "Partnerships / Sponsorships",
         "prt": "PRT / Ecosystem Support",
         "marketing": "Marketing",
+        "outreach": "Outreach",
         "orders": "Orders",
         "hello": "Hello / General",
     }.get(local, local.replace(".", " ").replace("-", " ").title())
@@ -91,9 +98,13 @@ def _available_identities() -> dict[str, dict]:
             }
         return IDENTITIES
     rows: dict[str, dict] = {}
+    domain = google_gmail.business_domain()
     for value in send_as:
         address = str(value.get("sendAsEmail") or "").strip().lower()
-        if not address:
+        verification = str(value.get("verificationStatus") or "").strip().lower()
+        if not address.endswith(f"@{domain}"):
+            continue
+        if verification and verification != "accepted" and not value.get("isPrimary"):
             continue
         key = address.split("@", 1)[0]
         rows[key] = {
@@ -190,6 +201,7 @@ def send_message(
     reply_to: list[str] | None = None,
     reply_to_message_id: int | None = None,
     from_identity: str | None = None,
+    message_headers: dict[str, str] | None = None,
 ) -> dict:
     if not google_gmail.credentials_configured():
         raise RuntimeError("Google Workspace Gmail credentials are not configured in Pitmark Cloud.")
@@ -202,7 +214,11 @@ def send_message(
     cc = [x.strip() for x in (cc or []) if str(x).strip()]
     bcc = [x.strip() for x in (bcc or []) if str(x).strip()]
     reply_to = [x.strip() for x in (reply_to or []) if str(x).strip()]
-    headers: dict[str, str] = {}
+    headers: dict[str, str] = {
+        str(name): str(value)
+        for name, value in (message_headers or {}).items()
+        if name and value
+    }
     parent = None
 
     with base.SessionLocal() as db:

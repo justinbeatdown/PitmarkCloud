@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.20.1
+- Added idempotent Google Workspace provisioning for eight department labels, four Shield verdict labels, and eight alias-routing Gmail filters.
+- Expanded the default business-only Gmail sync to include provider Spam for Shield auditing while excluding personal-only mail, sent mail, drafts, and trash.
+- Mirrored Shield Review, Protected, Unverified, and Spam verdicts into Gmail labels and synchronized user spam actions back to Gmail.
+- Added 24/7 Shield-gated per-alias acknowledgments with no-reply, automated-mail, mailing-list, own-domain, activation-time, 24-hour, retry-limit, and one-per-Gmail-conversation safeguards.
+- Added Auto Reply template controls, Gmail setup status, and a Spam folder to desktop and mobile Control Center mail.
+- Added the `outreach@pitmarkracing.com` send identity to complete parity with the configured Workspace aliases.
+- Restored the desktop Control Center sidebar with one final layout owner and fresh asset cache keys; mobile navigation remains unchanged.
+- Added exact Google Cloud OAuth, Render environment, provisioning, and smoke-test steps.
+
 ## 0.20.0
 - Replaced the legacy Resend/subdomain mail transport with Google Workspace Gmail API OAuth.
 - Added background Gmail inbox synchronization and Shield protection for newly synchronized messages.

@@ -1,14 +1,14 @@
 ## Current release
 
-**v0.20.0 — Google Workspace / Gmail Migration**
+**v0.20.1 — Gmail Routing, Shield Automation & Sidebar Repair**
 
-Pitmark Mail now uses the Pitmark Racing Co. Google Workspace mailbox as its production source of truth. Gmail API OAuth replaces the legacy subdomain/Resend mail transport, Google send-as identities populate the composer, inbound Gmail is synchronized into Shield, and read/spam/trash actions are reflected back to Gmail. Desktop and mobile Control Center use the same Cloud-owned mail service.
+Pitmark Mail now provisions the Google Workspace labels and alias filters that organize the shared inbox, mirrors Shield verdicts back into Gmail, and can send Shield-gated per-alias acknowledgments around the clock. The desktop Control Center sidebar is restored with one authoritative, cache-busted rail layout; mobile keeps its existing navigation.
 
-- Root-domain `@pitmarkracing.com` department identities replace `@mail.pitmarkracing.com` addresses.
-- Gmail OAuth refresh credentials stay server-side in Render.
-- Gmail inbox sync runs in the background and on mail/Shield refresh.
-- Attachments, rich compose, drafts, reply/reply-all/forward, signatures, and Shield history are preserved.
-- The obsolete public Resend inbound webhook is removed.
+- Eight root-domain department aliases route into matching Gmail labels.
+- Shield Review, Protected, Unverified, and Spam labels remain synchronized with Gmail.
+- Auto acknowledgments are deduplicated per department/conversation and block risky or automated mail.
+- Control Center exposes setup, reply-template controls, Spam, and routing status on desktop and mobile.
+- OAuth secrets remain server-side in Render; the old Zoho/Resend path stays removed.
 
 ## Previous release
 

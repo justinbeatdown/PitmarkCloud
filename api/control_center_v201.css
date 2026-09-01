@@ -1,0 +1,131 @@
+/* v0.20.1 — one authoritative desktop sidebar layout.
+   Older releases layered sticky, flex, fixed, and absolute rail rules across
+   several bundles. Keep those bundles for the rest of the UI, but make this
+   final cache-busted sheet the sole owner of sidebar geometry and visibility. */
+@media (min-width:981px){
+  .shell{
+    display:block!important;
+    width:100%!important;
+    min-height:100vh!important;
+    min-height:100dvh!important;
+  }
+
+  .sidebar,
+  .sidebar.pm19-sidebar{
+    display:block!important;
+    visibility:visible!important;
+    opacity:1!important;
+    position:fixed!important;
+    inset:0 auto 0 0!important;
+    width:245px!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:hidden!important;
+    box-sizing:border-box!important;
+    transform:none!important;
+    border-right:1px solid #24282d!important;
+    background:linear-gradient(180deg,#0b0d10 0%,#090b0e 58%,#080a0d 100%)!important;
+    z-index:1000!important;
+  }
+
+  .sidebar .brand,
+  .sidebar.pm19-sidebar .brand{
+    display:block!important;
+    visibility:visible!important;
+    opacity:1!important;
+    position:absolute!important;
+    top:16px!important;
+    right:12px!important;
+    left:12px!important;
+    width:auto!important;
+    height:98px!important;
+    margin:0!important;
+    padding:6px 8px 12px!important;
+    overflow:hidden!important;
+    transform:none!important;
+    z-index:2!important;
+  }
+
+  .sidebar .brand img,
+  .sidebar.pm19-sidebar .brand img{
+    display:block!important;
+    visibility:visible!important;
+    opacity:1!important;
+    width:100%!important;
+    max-width:172px!important;
+    height:auto!important;
+  }
+
+  .sidebar .nav,
+  .sidebar.pm19-sidebar .nav{
+    display:flex!important;
+    visibility:visible!important;
+    opacity:1!important;
+    position:absolute!important;
+    top:120px!important;
+    right:8px!important;
+    bottom:154px!important;
+    left:10px!important;
+    width:auto!important;
+    height:auto!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:0 4px 8px!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    flex-direction:column!important;
+    gap:5px!important;
+    transform:none!important;
+    z-index:2!important;
+  }
+
+  .sidebar .nav button:not([hidden]),
+  .sidebar.pm19-sidebar .nav button:not([hidden]){
+    display:flex!important;
+    visibility:visible!important;
+    opacity:1!important;
+  }
+
+  .sidebar .side-bottom,
+  .sidebar.pm19-sidebar .side-bottom{
+    display:block!important;
+    visibility:visible!important;
+    opacity:1!important;
+    position:absolute!important;
+    right:12px!important;
+    bottom:12px!important;
+    left:12px!important;
+    top:auto!important;
+    width:auto!important;
+    height:132px!important;
+    margin:0!important;
+    padding:10px 8px 0!important;
+    overflow:hidden!important;
+    transform:none!important;
+    background:#090b0e!important;
+    z-index:2!important;
+  }
+
+  .main{
+    display:block!important;
+    width:calc(100% - 245px)!important;
+    min-width:0!important;
+    min-height:100vh!important;
+    min-height:100dvh!important;
+    margin-left:245px!important;
+  }
+}
+
+@media (max-width:980px){
+  .sidebar,
+  .sidebar.pm19-sidebar{
+    display:none!important;
+  }
+  .main{
+    width:100%!important;
+    margin-left:0!important;
+  }
+}

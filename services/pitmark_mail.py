@@ -48,6 +48,23 @@ def mailbox_domain() -> str:
     return _env("PITMARK_EMAIL_DOMAIN", "pitmarkracing.com")
 
 
+def department_for_addresses(*values) -> str:
+    domain = mailbox_domain().lower().lstrip("@")
+    addresses: list[str] = []
+    for value in values:
+        if isinstance(value, str):
+            value = [value]
+        addresses.extend(
+            address.strip().lower()
+            for _, address in getaddresses([str(item) for item in (value or [])])
+            if address.strip()
+        )
+    for local in google_gmail.DEPARTMENT_LABELS:
+        if f"{local}@{domain}" in addresses:
+            return local
+    return "general"
+
+
 class MailThread(Base):
     __tablename__ = "pitmark_mail_threads"
 
@@ -138,6 +155,12 @@ def _find_or_create_thread(db, subject: str, participants: list[str], *, bump_un
 
 
 def serialize_message(message: MailMessage) -> dict:
+    provider = _loads(message.provider_payload_json, {})
+    if not isinstance(provider, dict):
+        provider = {}
+    to = _loads(message.to_json, [])
+    cc = _loads(message.cc_json, [])
+    bcc = _loads(message.bcc_json, [])
     return {
         "id": message.id,
         "thread_id": message.thread_id,
@@ -146,9 +169,9 @@ def serialize_message(message: MailMessage) -> dict:
         "direction": message.direction,
         "status": message.status,
         "from": message.from_address,
-        "to": _loads(message.to_json, []),
-        "cc": _loads(message.cc_json, []),
-        "bcc": _loads(message.bcc_json, []),
+        "to": to,
+        "cc": cc,
+        "bcc": bcc,
         "reply_to": _loads(message.reply_to_json, []),
         "subject": message.subject,
         "text": message.text_body or "",
@@ -156,6 +179,9 @@ def serialize_message(message: MailMessage) -> dict:
         "in_reply_to": message.in_reply_to,
         "references": message.references_header,
         "is_read": bool(message.is_read),
+        "department": provider.get("department") or department_for_addresses(to, cc, bcc),
+        "delivered_to": provider.get("delivered_to") or [],
+        "gmail_labels": provider.get("label_ids") or [],
         "created_at": message.created_at.isoformat() if message.created_at else None,
         "updated_at": message.updated_at.isoformat() if message.updated_at else None,
     }
@@ -201,6 +227,10 @@ def list_threads(folder: str = "inbox", limit: int = 100) -> list[dict]:
             stmt = stmt.where(MailMessage.status == status_filter)
         elif folder == "sent":
             stmt = stmt.where(MailMessage.status != "draft")
+        elif folder == "spam":
+            stmt = stmt.where(MailMessage.status == "spam")
+        else:
+            stmt = stmt.where(MailMessage.status != "spam")
         stmt = stmt.order_by(MailMessage.created_at.desc()).limit(max(1, min(limit, 250)))
         messages = list(db.scalars(stmt).all())
         thread_ids = []
@@ -440,14 +470,39 @@ def ingest_gmail_message(payload: dict) -> dict:
     in_reply_to = headers.get("in-reply-to") or None
     references = headers.get("references") or None
     labels = [str(x) for x in (payload.get("labelIds") or [])]
+    delivered_to = [
+        address
+        for address in _gmail_addresses(headers.get("delivered-to"))
+        if address.lower().endswith(f"@{mailbox_domain().lower().lstrip('@')}")
+    ]
+    department = department_for_addresses(delivered_to, to, cc, bcc)
+    try:
+        routed = google_gmail.apply_department_labels(provider_id, delivered_to + to + cc + bcc)
+        if routed.get("labelIds"):
+            labels = [str(value) for value in routed.get("labelIds") or []]
+    except RuntimeError:
+        pass
     now = _gmail_received_at(payload, headers)
     provider_record = {
         "provider": "google_workspace",
         "gmail_message_id": provider_id,
         "gmail_thread_id": payload.get("threadId"),
         "label_ids": labels,
+        "department": department,
+        "delivered_to": delivered_to,
         "snippet": payload.get("snippet") or "",
         "attachments": attachments,
+        "automation_headers": {
+            key: headers.get(key) or ""
+            for key in (
+                "auto-submitted",
+                "precedence",
+                "list-id",
+                "list-unsubscribe",
+                "x-auto-response-suppress",
+            )
+            if headers.get(key)
+        },
     }
     with SessionLocal() as db:
         thread = None
@@ -467,7 +522,7 @@ def ingest_gmail_message(payload: dict) -> dict:
             provider_message_id=provider_id,
             rfc_message_id=headers.get("message-id") or None,
             direction="inbound",
-            status="received",
+            status="spam" if "SPAM" in labels else "received",
             from_address=sender,
             to_json=_json(to),
             cc_json=_json(cc),
@@ -493,6 +548,7 @@ def sync_gmail_inbox(limit: int | None = None) -> dict:
     if not google_gmail.credentials_configured():
         return {"connected": False, "synced": 0, "new_message_ids": [], "reason": "gmail-not-configured"}
     resolved_limit = limit or int(_env("PITMARK_GMAIL_SYNC_LIMIT", "100"))
+    workspace_setup = google_gmail.ensure_workspace_setup()
     try:
         provider_ids = google_gmail.list_inbox_message_ids(resolved_limit)
     except RuntimeError as exc:
@@ -502,6 +558,7 @@ def sync_gmail_inbox(limit: int | None = None) -> dict:
             "synced": 0,
             "new_message_ids": [],
             "errors": [str(exc)[:500]],
+            "workspace_setup": workspace_setup,
         }
     with SessionLocal() as db:
         known = set(db.scalars(select(MailMessage.provider_message_id).where(
@@ -525,4 +582,5 @@ def sync_gmail_inbox(limit: int | None = None) -> dict:
         "synced": len(new_message_ids),
         "new_message_ids": new_message_ids,
         "errors": errors[:5],
+        "workspace_setup": workspace_setup,
     }

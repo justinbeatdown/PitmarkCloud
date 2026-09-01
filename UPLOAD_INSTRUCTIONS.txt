@@ -1,24 +1,25 @@
-PITMARK CLOUD v0.20.0
+PITMARK CLOUD v0.20.1
 
 1. Extract this ZIP directly into the CURRENT PitmarkCloud repository root.
 2. Allow it to replace matching files.
 3. Open GitHub Desktop and review the coordinated changes.
 4. Commit with the summary below and push. Render can auto-deploy normally.
-5. Add the Google Workspace environment variables listed in GOOGLE_WORKSPACE_DEPLOY.md.
+5. Complete the Google Cloud OAuth and Render environment steps in GOOGLE_WORKSPACE_DEPLOY.md.
+6. After deploy, open Mail > Auto Replies and run Provision Gmail Labels & Filters.
 
-This patch was built from live GitHub main at v0.19.10 (commit 0d7919b).
-It preserves the v0.19.10 Race Card upload fix, Discord setup, Autopilot, PRT,
-Control Center access, database history, and desktop/mobile parity.
+This patch was built from live GitHub main at v0.20.0 (commit 91aa877).
+It preserves the live Gmail migration, Discord setup, Autopilot, PRT, Control Center
+access, database history, and desktop/mobile parity.
 
 GitHub Desktop Summary:
-v0.20.0 — Google Workspace / Gmail Migration
+v0.20.1 — Gmail Routing, Shield Automation & Sidebar Repair
 
 Description:
-Replace the legacy Pitmark Mail transport and mail subdomain identities with the
-Pitmark Racing Co. Google Workspace/Gmail infrastructure. Add Gmail OAuth sending,
-background inbox sync, Gmail send-as department identities, Shield scanning, Gmail
-read/spam/trash synchronization, authenticated attachment downloads, root-domain
-support addresses, updated status UI, and coordinated desktop/mobile behavior.
+Connect the live Google Workspace aliases to Control Center with Gmail labels and
+alias-routing filters, Gmail-visible Shield verdicts, provider Spam auditing, and
+Shield-gated per-alias automatic acknowledgments. Add template/setup controls and a
+Spam folder on desktop/mobile, restore the missing desktop sidebar with fresh asset
+cache keys, and include exact Google OAuth/Render deployment steps.
 
-The included scripts/google_gmail_oauth_setup.py helper creates the one-time Gmail
+The existing scripts/google_gmail_oauth_setup.py helper creates the one-time Gmail
 refresh token without writing it into the repository.

@@ -42,6 +42,7 @@ def init_database() -> None:
     from services import racing_community  # noqa: F401
     from services import social_asset_pool  # noqa: F401
     from services import pitmark_mail_preferences  # noqa: F401
+    from services import pitmark_mail_auto_reply  # noqa: F401
     from services import control_access  # noqa: F401
     from services import prt_analytics  # noqa: F401
 

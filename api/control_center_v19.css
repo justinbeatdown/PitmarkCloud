@@ -185,6 +185,7 @@ body{background:radial-gradient(circle at 70% -10%,rgba(255,90,0,.10),transparen
 .pm19-row-subject{font-size:13px;color:#d9dde3;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pm19-row-preview{font-size:11px;color:#777f8a;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pm19-shield{display:inline-block;margin-top:7px;font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.07em;color:var(--pm-warn)}
+.pm19-department{display:inline-block;margin-top:7px;margin-right:8px;border:1px solid rgba(255,90,0,.34);border-radius:999px;padding:2px 6px;color:#ff8a4d;font-size:8px;font-weight:850;text-transform:uppercase;letter-spacing:.07em}
 .pm19-shield.system,.pm19-shield.legit{color:var(--pm-success)}
 .pm19-shield.spam{color:var(--pm-danger)}
 .pm19-mail-thread-pane{min-width:0;background:#0c0e12;overflow:auto;height:680px}
@@ -307,10 +308,19 @@ body{background:radial-gradient(circle at 70% -10%,rgba(255,90,0,.10),transparen
 .pm19-check{display:flex;gap:8px;padding:13px 16px;color:#aab0b9;font-size:12px}
 .pm19-signature-editor{min-height:170px;margin:0 16px 16px;padding:14px;background:#fff;color:#171717;border-radius:10px;outline:0}
 
+.pm19-auto-modal{width:min(820px,calc(100vw - 36px));max-height:calc(100vh - 36px);display:flex;flex-direction:column;background:#101318;border:1px solid var(--pm-line-strong);border-radius:18px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.55)}
+.pm19-auto-modal>header,.pm19-auto-modal>footer{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#15181e;border-bottom:1px solid var(--pm-line)}
+.pm19-auto-modal>header strong{display:block;margin-top:3px}.pm19-auto-modal>header button{border:0;background:transparent;color:#9da4ae;font-size:24px;cursor:pointer}
+.pm19-auto-modal>footer{border-bottom:0;border-top:1px solid var(--pm-line);justify-content:flex-end;flex-wrap:wrap}
+.pm19-auto-modal button{border:1px solid var(--pm-line);border-radius:9px;background:#191c23;color:#e4e7eb;padding:9px 11px;font-weight:750;cursor:pointer}.pm19-auto-modal button.primary{background:var(--pm-orange);border-color:var(--pm-orange);color:#fff}
+.pm19-auto-status{padding:10px 16px;border-bottom:1px solid var(--pm-line);color:#9ca4ae;font-size:11px}
+.pm19-auto-list{padding:14px;overflow:auto;display:grid;gap:10px}
+.pm19-auto-card{border:1px solid var(--pm-line);border-radius:13px;background:#0d1014;padding:13px}.pm19-auto-card>div,.pm19-auto-card>footer{display:flex;justify-content:space-between;align-items:center;gap:12px}.pm19-auto-card strong,.pm19-auto-card span{display:block}.pm19-auto-card span{color:#737b86;font-size:10px;margin-top:3px}.pm19-auto-card label{display:flex;align-items:center;gap:7px;color:#b9bfc7;font-size:11px}.pm19-auto-card textarea{width:100%;margin-top:11px;padding:11px;border:1px solid var(--pm-line);border-radius:9px;background:#15181e;color:#e8ebee;resize:vertical;font:12px/1.5 inherit}.pm19-auto-card>footer{margin-top:9px}.pm19-auto-card>footer span{margin:0}.pm19-auto-mobile{width:100%;margin-bottom:10px;border:1px solid rgba(255,90,0,.34);border-radius:10px;background:rgba(255,90,0,.08);color:#ff9a64;padding:10px;font-weight:800}
+
 /* mobile parity */
 .pm19-mobile-mail-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .pm19-mobile-mail-head h1{margin:2px 0 0;font-size:28px}
-.pm19-mobile-folders{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px}
+.pm19-mobile-folders{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:10px}
 .pm19-mobile-folders button{
   border:1px solid var(--pm-line);background:#13161c;color:#959ca7;border-radius:10px;padding:10px;font-weight:750
 }
@@ -349,6 +359,7 @@ body{background:radial-gradient(circle at 70% -10%,rgba(255,90,0,.10),transparen
   .content{padding:15px!important}
   .pm19-compose-overlay{padding:0;align-items:stretch}
   .pm19-compose-window{width:100vw;height:100vh;max-height:none;border-radius:0;border:0}
+  .pm19-auto-modal{width:100vw;max-height:100vh;height:100vh;border:0;border-radius:0}
   .pm19-ccrow{grid-template-columns:1fr}
   .pm19-ccrow label:first-child{border-right:0}
   .pm19-compose-window>footer{grid-template-columns:1fr auto}

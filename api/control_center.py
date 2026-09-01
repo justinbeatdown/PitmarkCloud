@@ -324,15 +324,26 @@ def shield_status(request: Request, x_pitmark_admin_key: str | None = Header(def
     auth(request, x_pitmark_admin_key)
     from utils.security import security_summary
     from services.database import database_status
-    from services.google_gmail import credentials_configured
+    from services.google_gmail import connection_status, workspace_setup_status
+    from services.pitmark_mail_auto_reply import list_auto_reply_settings
     sec = security_summary(environment=settings.environment, signing_secret=settings.pitmark_signing_secret, admin_key=settings.pitmark_admin_key, cors_origins=settings.cors_origin_list)
+    gmail = connection_status()
+    gmail_setup = workspace_setup_status()
+    auto_reply = list_auto_reply_settings()
     with SessionLocal() as db:
         real_review = len(db.scalars(select(ShieldEvent).where(ShieldEvent.classification == 'Review', ~ShieldEvent.source_message_id.like('shield-test:%'))).all())
     return {
         'name': 'Pitmark Shield',
         'purpose': 'ecosystem_security',
         'overall': 'healthy' if sec.get('ready') else 'attention',
-        'communications': {'mailbox_connected': credentials_configured(), 'provider': 'google_workspace', 'review_count': real_review, 'synthetic_hidden': True},
+        'communications': {
+            'mailbox_connected': bool(gmail.get('connected')),
+            'provider': 'google_workspace',
+            'review_count': real_review,
+            'synthetic_hidden': True,
+            'gmail_setup': gmail_setup,
+            'auto_replies_enabled': len([x for x in auto_reply.get('settings', []) if x.get('enabled')]),
+        },
         'controls': {
             'signed_control_sessions': True,
             'security_headers': bool(sec.get('security_headers')),
@@ -343,6 +354,9 @@ def shield_status(request: Request, x_pitmark_admin_key: str | None = Header(def
             'oauth_tokens_encrypted_at_rest': bool(sec.get('oauth_tokens_encrypted_at_rest')),
             'persistent_database': bool(database_status().get('durable_for_render')),
             'security_audit_log': True,
+            'gmail_alias_routing': bool(gmail_setup.get('filters_ready')),
+            'shield_gmail_labels': bool(gmail_setup.get('labels_ready')),
+            'shield_gated_auto_replies': True,
         },
         'next_layers': ['account protection','device security','API authorization','integration/webhook validation','security audit events'],
     }

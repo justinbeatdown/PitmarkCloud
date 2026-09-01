@@ -71,30 +71,33 @@ def control(request: Request):
     if filename == 'control_center.html':
         import re
         html = re.sub(r'PITMARK CLOUD v[0-9]+(?:\.[0-9]+)*', f'PITMARK CLOUD v{settings.app_version}', html, flags=re.IGNORECASE)
+        html = html.replace('href="/control.css"', 'href="/control.css?v=02001"')
+        html = html.replace('src="/control.js"', 'src="/control.js?v=02001"')
         html = html.replace(
             '</head>',
-            '<link rel="stylesheet" href="/control-center-v19.css?v=01905">\n'
-            '<link rel="stylesheet" href="/control-center-v191.css?v=01902">\n'
-            '<link rel="stylesheet" href="/control-center-v195.css?v=01909">\n'
+            '<link rel="stylesheet" href="/control-center-v19.css?v=02001">\n'
+            '<link rel="stylesheet" href="/control-center-v191.css?v=02001">\n'
+            '<link rel="stylesheet" href="/control-center-v195.css?v=02001">\n'
+            '<link rel="stylesheet" href="/control-center-v201.css?v=02001">\n'
             '</head>'
         )
         html = html.replace(
             '</body>',
             AUTOFILL_GUARD
-            + '\n<script src="/control-center-v19.js?v=02000" defer></script>'
-            + '\n<script src="/control-center-v191.js?v=01902" defer></script>'
-            + '\n<script src="/control-runtime-v194.js?v=01905" defer></script>'
-            + '\n<script src="/control-center-v195.js?v=01906" defer></script>'
+            + '\n<script src="/control-center-v19.js?v=02001" defer></script>'
+            + '\n<script src="/control-center-v191.js?v=02001" defer></script>'
+            + '\n<script src="/control-runtime-v194.js?v=02001" defer></script>'
+            + '\n<script src="/control-center-v195.js?v=02001" defer></script>'
             + '</body>'
         )
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
 
 
 @router.get('/control.css', include_in_schema=False)
-def control_css(): return Response((ASSET_DIR / 'control_center.css').read_text(encoding='utf-8'), media_type='text/css')
+def control_css(): return Response((ASSET_DIR / 'control_center.css').read_text(encoding='utf-8'), media_type='text/css', headers={'Cache-Control':'no-store'})
 
 @router.get('/control.js', include_in_schema=False)
-def control_js(): return Response((ASSET_DIR / 'control_center.js').read_text(encoding='utf-8'), media_type='application/javascript')
+def control_js(): return Response((ASSET_DIR / 'control_center.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-store'})
 
 @router.get('/control-email.css', include_in_schema=False)
 def control_email_css(): return Response((ASSET_DIR / 'control_email.css').read_text(encoding='utf-8'), media_type='text/css', headers={'Cache-Control':'no-store'})
@@ -220,6 +223,15 @@ def control_center_v195_css():
     )
 
 
+@router.get('/control-center-v201.css', include_in_schema=False)
+def control_center_v201_css():
+    return Response(
+        (ASSET_DIR / 'control_center_v201.css').read_text(encoding='utf-8'),
+        media_type='text/css',
+        headers={'Cache-Control':'no-store'},
+    )
+
+
 @router.get('/control-login.js', include_in_schema=False)
 def control_login_js(): return Response((ASSET_DIR / 'control_login.js').read_text(encoding='utf-8'), media_type='application/javascript')
 
@@ -230,20 +242,21 @@ def control_mobile(request: Request):
     if filename == 'control_mobile.html':
         html = html.replace(
             '</head>',
-            '<link rel="stylesheet" href="/control-center-v19.css?v=01905">\n'
-            '<link rel="stylesheet" href="/control-center-v191.css?v=01902">\n'
-            '<link rel="stylesheet" href="/control-center-v195.css?v=01909">\n'
-            '<link rel="stylesheet" href="/control-mobile-v2.css?v=01903">\n'
+            '<link rel="stylesheet" href="/control-center-v19.css?v=02001">\n'
+            '<link rel="stylesheet" href="/control-center-v191.css?v=02001">\n'
+            '<link rel="stylesheet" href="/control-center-v195.css?v=02001">\n'
+            '<link rel="stylesheet" href="/control-center-v201.css?v=02001">\n'
+            '<link rel="stylesheet" href="/control-mobile-v2.css?v=02001">\n'
             '</head>'
         )
         html = html.replace(
             '</body>',
             AUTOFILL_GUARD
-            + '\n<script src="/control-center-v19.js?v=02000" defer></script>'
-            + '\n<script src="/control-center-v191.js?v=01902" defer></script>'
-            + '\n<script src="/control-mobile-v2.js?v=01904" defer></script>'
-            + '\n<script src="/control-runtime-v194.js?v=01905" defer></script>'
-            + '\n<script src="/control-center-v195.js?v=01906" defer></script>'
+            + '\n<script src="/control-center-v19.js?v=02001" defer></script>'
+            + '\n<script src="/control-center-v191.js?v=02001" defer></script>'
+            + '\n<script src="/control-mobile-v2.js?v=02001" defer></script>'
+            + '\n<script src="/control-runtime-v194.js?v=02001" defer></script>'
+            + '\n<script src="/control-center-v195.js?v=02001" defer></script>'
             + '</body>'
         )
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})

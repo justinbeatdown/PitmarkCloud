@@ -47,6 +47,35 @@ def _sender_email(value: str) -> str:
     return parseaddr(value or "")[1].strip().lower()
 
 
+def _provider_payload(message: MailMessage) -> dict:
+    try:
+        value = json.loads(message.provider_payload_json or "{}")
+        return value if isinstance(value, dict) else {}
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
+def _sync_gmail_verdict(message_id: int, provider_message_id: str, classification: str) -> bool:
+    if not provider_message_id:
+        return False
+    try:
+        response = google_gmail.apply_shield_verdict(provider_message_id, classification)
+    except RuntimeError:
+        return False
+    with SessionLocal() as db:
+        message = db.get(MailMessage, message_id)
+        if not message:
+            return False
+        payload = _provider_payload(message)
+        payload["gmail_shield_classification"] = classification
+        if response.get("labelIds"):
+            payload["label_ids"] = [str(value) for value in response.get("labelIds") or []]
+        message.provider_payload_json = json.dumps(payload, ensure_ascii=False)[:200000]
+        message.updated_at = utcnow()
+        db.commit()
+    return True
+
+
 def _trained_spam(sender: str) -> bool:
     email = _sender_email(sender)
     if not email:
@@ -65,7 +94,7 @@ def _trained_spam(sender: str) -> bool:
 
 
 def mark_thread_spam(thread_id: int) -> dict:
-    provider_message_id = ""
+    provider_message_ids: list[str] = []
     with SessionLocal() as db:
         messages = list(db.scalars(select(MailMessage).where(
             MailMessage.thread_id == thread_id, MailMessage.direction == "inbound"
@@ -73,12 +102,12 @@ def mark_thread_spam(thread_id: int) -> dict:
         if not messages:
             raise ValueError("No inbound message found in this conversation.")
         sender = _sender_email(messages[0].from_address)
-        try:
-            provider = json.loads(messages[0].provider_payload_json or "{}").get("provider")
-        except Exception:
-            provider = None
-        if provider == "google_workspace":
-            provider_message_id = str(messages[0].provider_message_id or "")
+        for message in messages:
+            provider = _provider_payload(message).get("provider")
+            if provider == "google_workspace" and message.provider_message_id:
+                provider_message_ids.append(str(message.provider_message_id))
+            message.status = "spam"
+            message.updated_at = utcnow()
         if not sender:
             raise ValueError("The sender address could not be identified.")
         domain = sender.rsplit("@", 1)[-1] if "@" in sender else ""
@@ -90,7 +119,7 @@ def mark_thread_spam(thread_id: int) -> dict:
         if domain and domain not in consumer and not db.scalar(select(SecurityAuditEvent.id).where(SecurityAuditEvent.event_type=="pitmark_mail_spam_domain_training", SecurityAuditEvent.actor==domain)):
             db.add(SecurityAuditEvent(event_type="pitmark_mail_spam_domain_training", severity="info", actor=domain, source="shield_mail", detail=f"Spam training learned sender domain from Pitmark Mail thread {thread_id}.", created_at=now))
         db.commit()
-    if provider_message_id:
+    for provider_message_id in provider_message_ids:
         try:
             google_gmail.mark_spam(provider_message_id)
         except RuntimeError:
@@ -103,6 +132,8 @@ def _shield_result(message: MailMessage) -> dict:
     body = _plain_text(message)
     if _trained_spam(message.from_address or ""):
         return {"classification":"Spam","confidence":0.99,"protected":False,"reasons":["user-trained-spam-sender"]}
+    if "SPAM" in [str(value) for value in (_provider_payload(message).get("label_ids") or [])]:
+        return {"classification":"Spam","confidence":0.98,"protected":False,"reasons":["gmail-spam-filter"]}
     result = dict(classify(message.from_address or "", message.subject or "", body))
     reasons = list(result.get("reasons") or [])
     text = f"{message.subject or ''} {body}".lower()
@@ -148,15 +179,18 @@ def _shield_result(message: MailMessage) -> dict:
 def _action_for(result: dict) -> str:
     classification = str(result.get("classification") or "Review")
     if classification == "Spam" and not result.get("protected"):
-        return "archive-recommended"
+        return "move-spam"
     if classification == "Review":
-        return "flag-review"
+        return "label-review"
     if classification == "Unverified":
-        return "allow-unverified"
-    return "allow"
+        return "label-unverified"
+    return "label-protected"
 
 
 def protect_message(message_id: int) -> dict | None:
+    provider_message_id = ""
+    needs_gmail_sync = False
+    output: dict | None = None
     with SessionLocal() as db:
         message = db.get(MailMessage, message_id)
         if not message or message.direction != "inbound":
@@ -165,66 +199,68 @@ def protect_message(message_id: int) -> dict | None:
         source_id = f"pitmark-mail:{message.provider_message_id or message.id}"
         existing = db.scalar(select(ShieldEvent).where(ShieldEvent.source_message_id == source_id))
         if existing:
-            return {
+            payload = _provider_payload(message)
+            provider_message_id = str(message.provider_message_id or "")
+            needs_gmail_sync = payload.get("gmail_shield_classification") != existing.classification
+            output = {
                 "event_id": existing.id,
                 "classification": existing.classification,
                 "confidence": existing.confidence,
                 "protected": existing.protected,
                 "action_taken": existing.action_taken,
             }
+        else:
+            result = _shield_result(message)
+            event = ShieldEvent(
+                source_message_id=source_id,
+                sender=message.from_address or "",
+                subject=message.subject or "",
+                fingerprint=fingerprint(message.subject or "", _plain_text(message)),
+                classification=result["classification"],
+                confidence=float(result["confidence"]),
+                protected=bool(result["protected"]),
+                reasons_json=json.dumps(result["reasons"], ensure_ascii=False),
+                action_taken=_action_for(result),
+                acknowledged=False,
+                created_at=utcnow(),
+            )
+            db.add(event)
 
-        result = _shield_result(message)
-        event = ShieldEvent(
-            source_message_id=source_id,
-            sender=message.from_address or "",
-            subject=message.subject or "",
-            fingerprint=fingerprint(message.subject or "", _plain_text(message)),
-            classification=result["classification"],
-            confidence=float(result["confidence"]),
-            protected=bool(result["protected"]),
-            reasons_json=json.dumps(result["reasons"], ensure_ascii=False),
-            action_taken=_action_for(result),
-            acknowledged=False,
-            created_at=utcnow(),
-        )
-        db.add(event)
+            payload = _provider_payload(message)
+            payload["shield"] = {
+                "classification": result["classification"],
+                "confidence": float(result["confidence"]),
+                "protected": bool(result["protected"]),
+                "reasons": result["reasons"],
+                "action": event.action_taken,
+            }
+            message.provider_payload_json = json.dumps(payload, ensure_ascii=False)[:200000]
+            message.status = "spam" if result["classification"] == "Spam" else message.status
+            message.updated_at = utcnow()
 
-        # Persist the Shield verdict alongside the Google Workspace metadata without
-        # changing the mail schema or delivery behavior.
-        try:
-            payload = json.loads(message.provider_payload_json or "{}")
-            if not isinstance(payload, dict):
-                payload = {}
-        except Exception:
-            payload = {}
-        payload["shield"] = {
-            "classification": result["classification"],
-            "confidence": float(result["confidence"]),
-            "protected": bool(result["protected"]),
-            "reasons": result["reasons"],
-            "action": event.action_taken,
-        }
-        message.provider_payload_json = json.dumps(payload, ensure_ascii=False)[:200000]
-        message.updated_at = utcnow()
-
-        severity = "warning" if result["classification"] in {"Review", "Spam"} else "info"
-        db.add(SecurityAuditEvent(
-            event_type="pitmark_mail_scanned",
-            severity=severity,
-            actor=message.from_address or None,
-            source="shield_mail",
-            detail=f"Pitmark Mail #{message.id} classified {result['classification']} ({round(float(result['confidence']) * 100)}%).",
-            created_at=utcnow(),
-        ))
-        db.commit()
-        db.refresh(event)
-        return {
-            "event_id": event.id,
-            "classification": event.classification,
-            "confidence": event.confidence,
-            "protected": event.protected,
-            "action_taken": event.action_taken,
-        }
+            severity = "warning" if result["classification"] in {"Review", "Spam"} else "info"
+            db.add(SecurityAuditEvent(
+                event_type="pitmark_mail_scanned",
+                severity=severity,
+                actor=message.from_address or None,
+                source="shield_mail",
+                detail=f"Pitmark Mail #{message.id} classified {result['classification']} ({round(float(result['confidence']) * 100)}%).",
+                created_at=utcnow(),
+            ))
+            db.commit()
+            db.refresh(event)
+            provider_message_id = str(message.provider_message_id or "")
+            needs_gmail_sync = True
+            output = {
+                "event_id": event.id,
+                "classification": event.classification,
+                "confidence": event.confidence,
+                "protected": event.protected,
+                "action_taken": event.action_taken,
+            }
+    if output and needs_gmail_sync:
+        _sync_gmail_verdict(message_id, provider_message_id, str(output["classification"]))
+    return output
 
 
 def sync_gmail_mail_protected(limit: int | None = None) -> dict:
@@ -234,6 +270,9 @@ def sync_gmail_mail_protected(limit: int | None = None) -> dict:
         if protect_message(int(message_id)):
             protected += 1
     result["shield_protected"] = protected
+    from services.pitmark_mail_auto_reply import process_auto_replies
+
+    result["auto_replies"] = process_auto_replies()
     return result
 
 
@@ -249,14 +288,20 @@ def rescan_pitmark_mail(limit: int = 500) -> dict:
         ).all())
 
     updated = 0
+    gmail_labeled = 0
     counts: dict[str, int] = {}
     for message in messages:
         source_id = f"pitmark-mail:{message.provider_message_id or message.id}"
         result = _shield_result(message)
         action = _action_for(result)
+        provider_message_id = ""
+        needs_gmail_sync = False
         with SessionLocal() as db:
             event = db.scalar(select(ShieldEvent).where(ShieldEvent.source_message_id == source_id))
             if not event:
+                continue
+            current = db.get(MailMessage, message.id)
+            if not current:
                 continue
             changed = (
                 event.classification != result["classification"]
@@ -270,13 +315,7 @@ def rescan_pitmark_mail(limit: int = 500) -> dict:
             event.reasons_json = json.dumps(result["reasons"], ensure_ascii=False)
             event.action_taken = action
 
-            payload = {}
-            try:
-                payload = json.loads(message.provider_payload_json or "{}")
-                if not isinstance(payload, dict):
-                    payload = {}
-            except Exception:
-                payload = {}
+            payload = _provider_payload(current)
             payload["shield"] = {
                 "classification": result["classification"],
                 "confidence": float(result["confidence"]),
@@ -284,13 +323,23 @@ def rescan_pitmark_mail(limit: int = 500) -> dict:
                 "reasons": result["reasons"],
                 "action": action,
             }
-            message.provider_payload_json = json.dumps(payload, ensure_ascii=False)[:200000]
-            message.updated_at = utcnow()
+            provider_message_id = str(current.provider_message_id or "")
+            needs_gmail_sync = payload.get("gmail_shield_classification") != result["classification"]
+            current.provider_payload_json = json.dumps(payload, ensure_ascii=False)[:200000]
+            current.status = "spam" if result["classification"] == "Spam" else current.status
+            current.updated_at = utcnow()
             if changed:
                 updated += 1
             counts[result["classification"]] = counts.get(result["classification"], 0) + 1
             db.commit()
-    return {"rescanned": len(messages), "updated": updated, "counts": counts}
+        if needs_gmail_sync and _sync_gmail_verdict(message.id, provider_message_id, result["classification"]):
+            gmail_labeled += 1
+    return {
+        "rescanned": len(messages),
+        "updated": updated,
+        "gmail_labeled": gmail_labeled,
+        "counts": counts,
+    }
 
 
 def sync_unprotected_mail(limit: int = 250) -> dict:

@@ -246,6 +246,8 @@
             <button class="active" data-pm19-folder="inbox"><span>Inbox</span><b id="pm19InboxCount"></b></button>
             <button data-pm19-folder="sent"><span>Sent</span></button>
             <button data-pm19-folder="drafts"><span>Drafts</span></button>
+            <button data-pm19-folder="spam"><span>Spam</span></button>
+            <button data-pm19-auto-replies><span>Auto Replies</span><b>⚙</b></button>
             <div class="pm19-mail-identities" id="pm19IdentitySummary"></div>
           </aside>
           <section class="pm19-mail-list-pane">
@@ -277,7 +279,9 @@
         <button class="active" data-pm19-folder="inbox">Inbox</button>
         <button data-pm19-folder="sent">Sent</button>
         <button data-pm19-folder="drafts">Drafts</button>
+        <button data-pm19-folder="spam">Spam</button>
       </div>
+      <button class="pm19-auto-mobile" data-pm19-auto-replies>⚙ Automatic Replies</button>
       <div class="pm19-mail-searchbar mobile">
         <span>⌕</span>
         <input id="pm19MailSearch" name="pm19_mobile_search_${Date.now()}" type="search"
@@ -327,6 +331,7 @@
   function wireMailUI() {
     unlockSearch();
     document.querySelectorAll('[data-pm19-compose]').forEach(b => b.addEventListener('click', () => openComposer()));
+    document.querySelectorAll('[data-pm19-auto-replies]').forEach(b => b.addEventListener('click', openAutoReplySettings));
     document.querySelectorAll('[data-pm19-folder]').forEach(b => b.addEventListener('click', () => {
       state.folder = b.dataset.pm19Folder;
       document.querySelectorAll('[data-pm19-folder]').forEach(x => x.classList.toggle('active', x === b));
@@ -402,7 +407,8 @@
     list.innerHTML = state.threads.map(x => {
       const t = x.thread || {};
       const draft = state.folder === 'drafts';
-      const who = state.folder === 'inbox' ? x.from : (x.to || []).join(', ');
+      const incoming = state.folder === 'inbox' || state.folder === 'spam';
+      const who = incoming ? x.from : (x.to || []).join(', ');
       const unread = state.folder === 'inbox' && Number(t.unread_count || 0) > 0;
       const attr = draft
         ? `data-pm19-draft="${encodeURIComponent(JSON.stringify(x))}"`
@@ -411,6 +417,7 @@
         <div class="pm19-row-top"><strong>${esc(who || 'Unknown')}</strong><time>${esc(dateLabel(x.created_at))}</time></div>
         <div class="pm19-row-subject">${esc(x.subject || '(no subject)')}</div>
         <div class="pm19-row-preview">${esc(rowPreview(x))}</div>
+        ${x.department && x.department !== 'general' ? `<span class="pm19-department">${esc(x.department)}</span>` : ''}
         ${x.shield ? `<span class="pm19-shield ${esc(String(x.shield.classification || '').toLowerCase())}">Shield ${esc(x.shield.classification || '')}</span>` : ''}
       </button>`;
     }).join('');
@@ -437,7 +444,7 @@
       box.innerHTML = `
         <div class="pm19-thread-head">
           <button class="pm19-back ${state.mobile ? '' : 'desktop-hide'}" id="pm19ThreadBack">←</button>
-          <div><span>${messages.length} message${messages.length === 1 ? '' : 's'}</span><h2>${esc(data.thread?.subject || 'Conversation')}</h2></div>
+          <div><span>${messages.length} message${messages.length === 1 ? '' : 's'}${messages[0]?.department && messages[0].department !== 'general' ? ` · ${esc(messages[0].department)}` : ''}</span><h2>${esc(data.thread?.subject || 'Conversation')}</h2></div>
           <div class="pm19-thread-tools">
             <button id="pm19ThreadSpam">Mark spam</button>
             <button id="pm19ThreadDelete">Delete</button>
@@ -581,7 +588,73 @@
 
   async function markSpam(id) {
     await api(`/api/control/email/threads/${id}/spam`, {method:'POST'});
-    await openThread(id);
+    state.activeThreadId = null;
+    const box = $('pm19MailThread');
+    if (box) box.innerHTML = '<div class="pm19-thread-empty"><strong>Moved to Spam.</strong></div>';
+    await loadMailbox();
+  }
+
+  async function openAutoReplySettings() {
+    document.getElementById('pm19AutoReplyOverlay')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'pm19AutoReplyOverlay';
+    overlay.className = 'pm19-mini-overlay';
+    overlay.innerHTML = `<section class="pm19-auto-modal">
+      <header><div><span class="pm19-kicker">PITMARK MAIL</span><strong>Automatic Replies</strong></div><button data-auto-close>×</button></header>
+      <div class="pm19-auto-status" id="pm19AutoStatus">Loading Gmail and Shield automation…</div>
+      <div class="pm19-auto-list" id="pm19AutoList"><div class="pm19-loading">Loading…</div></div>
+      <footer><button data-auto-provision>Provision Gmail Labels & Filters</button><button class="primary" data-auto-run>Run Safe Reply Check</button></footer>
+    </section>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', e => { if (e.target === overlay || e.target.closest('[data-auto-close]')) close(); });
+    overlay.querySelector('[data-auto-provision]').addEventListener('click', async e => {
+      const b = e.currentTarget; b.disabled = true; b.textContent = 'Provisioning…';
+      try {
+        const x = await api('/api/control/email/workspace/setup', {method:'POST'});
+        $('pm19AutoStatus').textContent = x.ready
+          ? `Gmail ready · ${x.managed_label_count} labels · ${x.managed_filter_count} filters`
+          : `Gmail setup needs attention · ${(x.errors || []).join(' · ')}`;
+      } catch (err) { $('pm19AutoStatus').textContent = err.message; }
+      finally { b.disabled = false; b.textContent = 'Provision Gmail Labels & Filters'; }
+    });
+    overlay.querySelector('[data-auto-run]').addEventListener('click', async e => {
+      const b = e.currentTarget; b.disabled = true; b.textContent = 'Checking…';
+      try {
+        const x = await api('/api/control/email/auto-replies/run', {method:'POST'});
+        $('pm19AutoStatus').textContent = `Safe reply check complete · ${x.sent} sent · ${x.skipped} safely skipped · ${x.errors} errors`;
+      } catch (err) { $('pm19AutoStatus').textContent = err.message; }
+      finally { b.disabled = false; b.textContent = 'Run Safe Reply Check'; }
+    });
+    try {
+      const [data, status] = await Promise.all([
+        api('/api/control/email/auto-replies'),
+        api('/api/control/email/status')
+      ]);
+      const setup = status.workspace_setup || status.shield_protection?.gmail_sync?.workspace_setup || {};
+      $('pm19AutoStatus').textContent = setup.ready
+        ? `Gmail ready · ${setup.managed_label_count} labels · ${setup.managed_filter_count} filters · Shield gated`
+        : 'Gmail connection or automatic label provisioning still needs backend setup.';
+      $('pm19AutoList').innerHTML = (data.settings || []).map(x => `<article class="pm19-auto-card" data-auto-department="${esc(x.department)}">
+        <div><div><strong>${esc(x.label)}</strong><span>${esc(x.address)}</span></div><label><input type="checkbox" data-auto-enabled ${x.enabled ? 'checked' : ''}> Enabled</label></div>
+        <textarea data-auto-body rows="5">${esc(x.body)}</textarea>
+        <footer><span>Shield checks every message before this sends.</span><button data-auto-save>Save</button></footer>
+      </article>`).join('');
+      overlay.querySelectorAll('[data-auto-save]').forEach(button => button.addEventListener('click', async () => {
+        const card = button.closest('[data-auto-department]');
+        button.disabled = true; button.textContent = 'Saving…';
+        try {
+          await api(`/api/control/email/auto-replies/${encodeURIComponent(card.dataset.autoDepartment)}`, {
+            method:'PUT',
+            body:JSON.stringify({enabled:card.querySelector('[data-auto-enabled]').checked, body:card.querySelector('[data-auto-body]').value})
+          });
+          button.textContent = 'Saved ✓';
+        } catch (err) { button.textContent = err.message; }
+        finally { setTimeout(() => { button.disabled = false; button.textContent = 'Save'; }, 1200); }
+      }));
+    } catch (err) {
+      $('pm19AutoList').innerHTML = `<div class="pm19-error">${esc(err.message)}</div>`;
+    }
   }
 
   function identityKeyFromAddress(value) {
