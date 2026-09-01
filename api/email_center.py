@@ -25,8 +25,6 @@ from services.shield_mail import (
     decorate_thread,
     decorate_threads,
     mark_thread_spam,
-    rescan_pitmark_mail,
-    sync_unprotected_mail,
 )
 from utils.security import enforce_rate_limit
 
@@ -69,9 +67,9 @@ class MailAutoReplyUpdate(BaseModel):
 def mail_status(request: Request):
     auth(request)
     result = status()
-    protection = sync_unprotected_mail()
-    result["shield_rescan"] = rescan_pitmark_mail()
-    result["shield_protection"] = protection
+    # IMPORTANT: normal UI reads must stay fast. Gmail synchronization and
+    # Shield scanning are handled by Pitmark Cloud's background sync worker;
+    # they must not block the Control Center status request.
     result["workspace_setup"] = google_gmail.workspace_setup_status()
     return result
 
@@ -114,19 +112,16 @@ def mail_identities(request: Request):
 @router.get("/threads")
 def mail_threads(request: Request, folder: str = "inbox", limit: int = 100):
     auth(request)
-    # Backfill older inbound messages once so Shield covers the mailbox that
-    # existed before this integration release.
-    if (folder or "inbox").lower().strip() == "inbox":
-        sync_unprotected_mail()
-        rescan_pitmark_mail()
+    # Read the already-synchronized Cloud mailbox only. Previous builds forced
+    # a Gmail sync + Shield rescan here, making every inbox refresh wait on
+    # remote API work and a mailbox-wide security pass.
     return decorate_threads(list_threads(folder=folder, limit=limit))
 
 
 @router.get("/threads/{thread_id}")
 def mail_thread(thread_id: int, request: Request):
     auth(request)
-    sync_unprotected_mail()
-    rescan_pitmark_mail()
+    # Opening a conversation must never trigger a mailbox-wide sync/rescan.
     result = decorate_thread(get_thread(thread_id, mark_read=True))
     if not result:
         raise HTTPException(404, "Mail thread not found.")

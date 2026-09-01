@@ -1,21 +1,34 @@
-PITMARK CLOUD v0.20.2
+PITMARK CLOUD v0.20.3 — FULL REPLACEMENT PACKAGE
 
-1. Extract this ZIP directly into the CURRENT PitmarkCloud repository root.
-2. Allow it to replace matching files.
-3. Open GitHub Desktop and review the coordinated changes.
-4. Commit with the summary below and push. Render can auto-deploy normally.
-5. In Render, set APP_VERSION to 0.20.2 and redeploy if the push did not already
-   trigger a deploy.
-6. After Render reports Live, open Control Center and press Ctrl+F5 once.
+THIS IS THE DROP-IN PACKAGE.
 
-This patch was built from live GitHub main at v0.20.1 (commit d83ea99).
-It preserves the current Gmail migration, labels, filters, Shield automation,
-Discord, Autopilot, PRT, database history, and mobile behavior.
+Replace these exact files in the PitmarkCloud repository:
 
-GitHub Desktop Summary:
-v0.20.2 — Restore Control Center Sidebar
+1) api/control_center_v202.js
+2) api/email_center.py
 
-Description:
-Restore the missing desktop Control Center sidebar with a post-initialization
-recovery layer, authoritative rail styling, permission-aware navigation, and fresh
-asset cache keys. Preserve all v0.20.1 Gmail and Shield functionality.
+Keep the folder structure exactly as shown in this ZIP.
+
+DO NOT upload the old .patch file from the previous package.
+DO NOT delete unrelated files.
+
+After replacing the two files:
+- Commit/push to main.
+- In Render, set APP_VERSION=0.20.3 if it is not already set.
+- Redeploy.
+- Hard-refresh Control Center (Ctrl+Shift+R).
+
+VERIFY:
+1) Desktop sidebar order is:
+   Dashboard > Autopilot > Mail > Shield > Campaigns > Outreach >
+   Blog > PRT Analytics > Directory > Settings
+2) Settings is the bottom workspace.
+3) Mail opens materially faster.
+4) Inbox/Sent/Drafts switching does not sit waiting on a Shield rescan.
+5) Opening a conversation is responsive.
+6) Gmail background sync still brings in new mail.
+7) Shield labels/classifications continue to appear.
+
+NOTE:
+This package intentionally contains only the source files changed by this fix.
+It is not a full repository backup.

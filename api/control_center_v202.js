@@ -91,13 +91,18 @@
         button = document.createElement('button');
         button.dataset.view = view;
         button.innerHTML = buttonMarkup(icon, label, help);
-        nav.appendChild(button);
       }
+
       button.hidden = !permitted(view);
       if (!button.dataset.pm202Bound) {
         button.dataset.pm202Bound = '1';
         button.addEventListener('click', () => activate(view));
       }
+
+      // ITEMS is the authoritative desktop sidebar order. appendChild also
+      // moves an existing node, repairing buttons injected by older bundles.
+      // Settings is intentionally the final workspace item.
+      nav.appendChild(button);
     });
 
     let footer = sidebar.querySelector(':scope > .side-bottom');
