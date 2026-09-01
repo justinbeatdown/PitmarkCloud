@@ -75,7 +75,7 @@ def control(request: Request):
             '</head>',
             '<link rel="stylesheet" href="/control-center-v19.css?v=01905">\n'
             '<link rel="stylesheet" href="/control-center-v191.css?v=01902">\n'
-            '<link rel="stylesheet" href="/control-center-v195.css?v=01906">\n'
+            '<link rel="stylesheet" href="/control-center-v195.css?v=01907">\n'
             '</head>'
         )
         html = html.replace(
@@ -232,7 +232,7 @@ def control_mobile(request: Request):
             '</head>',
             '<link rel="stylesheet" href="/control-center-v19.css?v=01905">\n'
             '<link rel="stylesheet" href="/control-center-v191.css?v=01902">\n'
-            '<link rel="stylesheet" href="/control-center-v195.css?v=01906">\n'
+            '<link rel="stylesheet" href="/control-center-v195.css?v=01907">\n'
             '<link rel="stylesheet" href="/control-mobile-v2.css?v=01903">\n'
             '</head>'
         )

@@ -273,3 +273,88 @@ html,body,.shell,.main{max-width:100%;overflow-x:hidden!important}
   .pm196-autopilot-actions{grid-template-columns:1fr}
   .pm195-lane.published .pm195-lane-list{grid-template-columns:1fr}
 }
+
+
+/* v0.19.7 — FIX THE ACTUAL SIDEBAR INTERNAL LAYOUT
+   Base Control Center CSS still made .side-bottom position:absolute.
+   The v0.19.6 sidebar itself became scrollable, so navigation could scroll
+   underneath the absolute footer and make the bottom look chopped off.
+   Sidebar is now a fixed-height flex column:
+   logo = fixed, nav = ONLY scroll region, footer = fixed at bottom. */
+.sidebar.pm19-sidebar{
+  display:flex!important;
+  flex-direction:column!important;
+  position:sticky!important;
+  top:0!important;
+  height:100vh!important;
+  height:100dvh!important;
+  min-height:0!important;
+  overflow:hidden!important;
+  padding:18px 10px 14px!important;
+}
+
+.pm19-sidebar .brand{
+  flex:0 0 auto!important;
+  margin:0 4px 8px!important;
+  padding:7px 8px 13px!important;
+}
+
+.pm19-sidebar .nav{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  width:100%!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding:0 4px 10px!important;
+  margin:0!important;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+
+.pm19-sidebar .nav::-webkit-scrollbar{width:6px!important}
+.pm19-sidebar .nav::-webkit-scrollbar-track{background:transparent!important}
+.pm19-sidebar .nav::-webkit-scrollbar-thumb{
+  background:#555d66!important;
+  border-radius:999px!important;
+}
+.pm19-sidebar .nav::-webkit-scrollbar-thumb:hover{background:#737d88!important}
+
+.pm19-sidebar .side-bottom{
+  position:static!important;
+  inset:auto!important;
+  flex:0 0 auto!important;
+  width:auto!important;
+  margin:0 4px!important;
+  padding:12px 8px 2px!important;
+  border-top:1px solid var(--pm-line)!important;
+  background:linear-gradient(180deg,rgba(9,10,13,.94),#090a0d 22%)!important;
+  color:#69717d!important;
+  z-index:3!important;
+}
+
+.pm19-sidebar .side-bottom .badge-logo{
+  width:42px!important;
+  height:42px!important;
+  margin:0 0 7px!important;
+}
+.pm19-sidebar .side-bottom .motto{
+  margin:4px 0 9px!important;
+  font-size:15px!important;
+  line-height:1!important;
+}
+.pm19-sidebar .side-bottom .motto:after{
+  width:112px!important;
+  height:3px!important;
+  margin-top:5px!important;
+}
+.pm19-sidebar .side-bottom>div:not(.motto){
+  font-size:8px!important;
+  line-height:1.35!important;
+}
+
+/* Keep every nav item inside its own scroll column. */
+.pm19-sidebar .nav button{
+  flex:0 0 auto!important;
+  min-width:0!important;
+  width:100%!important;
+}
