@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PITMARK_RELEASE_VERSION = "0.17.7"
+PITMARK_RELEASE_VERSION = "0.18.0"
 
 
 class Settings(BaseSettings):
@@ -24,7 +24,14 @@ class Settings(BaseSettings):
     discord_presence_text: str = "Pitmark Racing Tools"
     discord_presence_type: str = "watching"
     discord_command_scope: str = "global"
+    # Public/community install stays intentionally lightweight so league servers
+    # are not asked for Pitmark HQ moderation/infrastructure permissions.
     discord_install_permissions: int = 117760
+    # HQ-only trust boundary. These values must point at the official Pitmark server
+    # and Justin's Discord account; HQ commands are registered only to this guild.
+    discord_hq_guild_id: str = ""
+    discord_owner_user_id: str = ""
+    discord_hq_install_permissions: int = 1497097301174
     pitmark_admin_key: str = ""
 
     pitmark_ai_provider: str = "openai"

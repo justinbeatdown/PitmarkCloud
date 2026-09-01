@@ -5,11 +5,12 @@ from json import JSONDecodeError
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
-from services import discord_bot_service, discord_gateway_service, discord_service, guild_config_service
+from services import discord_bot_service, discord_gateway_service, discord_hq_service, discord_service, guild_config_service
 from services.database import database_status
 from utils.security import MAX_REQUEST_BODY, enforce_rate_limit
 
 router = APIRouter()
+HQ_COMMANDS = {"hq", "ticket", "mod"}
 
 
 @router.get("/bot/status")
@@ -20,6 +21,11 @@ async def bot_status() -> dict:
         "command_scope": "global",
         "gateway_presence": discord_gateway_service.state(),
         "configured_guilds": len(guild_config_service.all_enabled()),
+        "hq": {
+            "configured": discord_hq_service.configured(),
+            "guild_locked": bool(discord_hq_service.configured()),
+            "owner_locked": bool(discord_hq_service.configured()),
+        },
         "database": database_status(),
         "install_url": discord_service.install_url(),
     }
@@ -31,7 +37,9 @@ async def register_bot_commands(request: Request, x_pitmark_admin_key: str | Non
     if not discord_bot_service.validate_admin_key(x_pitmark_admin_key):
         raise HTTPException(status_code=401, detail="Invalid Pitmark admin key.")
     try:
-        return await discord_bot_service.register_commands()
+        public_commands = await discord_bot_service.register_commands()
+        hq_commands = await discord_hq_service.register_commands()
+        return {"public": public_commands, "hq": hq_commands}
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
 
@@ -60,10 +68,18 @@ async def interactions(request: Request) -> dict:
     if interaction_type == 1:
         return {"type": 1}
 
-    # Application command.
+    # Application command. Public racing commands remain global; HQ commands are
+    # guild-registered and independently enforce the Pitmark guild/owner boundary.
     if interaction_type == 2:
+        command_name = str((payload.get("data") or {}).get("name") or "")
+        if command_name in HQ_COMMANDS:
+            return await discord_hq_service.handle_command(payload)
         return await discord_bot_service.handle_command(
             payload, discord_service.find_link_by_discord_user_id
         )
+
+    # Buttons/selects and modal submissions used by Pitmark Support Desk/self-roles.
+    if interaction_type in {3, 5}:
+        return await discord_hq_service.handle_interaction(payload)
 
     return {"type": 4, "data": {"content": "Unsupported interaction.", "flags": 64}}

@@ -36,6 +36,7 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False
 
 def init_database() -> None:
     from services import persistent_store  # noqa: F401
+    from services import discord_hq_store  # noqa: F401
     from services import control_center  # noqa: F401
     from services import control_auth  # noqa: F401
     from services import racing_community  # noqa: F401
@@ -58,6 +59,6 @@ def database_status() -> dict:
         "warning": (
             None
             if configured and not is_sqlite
-            else "Pitmark Cloud is using local SQLite. Configure DATABASE_URL before public multi-server use so guild settings, Discord links, and race results survive deploys/restarts."
+            else "Pitmark Cloud is using local SQLite. Configure DATABASE_URL before public multi-server use so guild settings, Discord links, race results, HQ tickets, and moderation records survive deploys/restarts."
         ),
     }
