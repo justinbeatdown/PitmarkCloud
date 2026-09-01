@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from services import (
+    discord_hq_content,
     discord_hq_maintenance,
     discord_hq_moderation,
     discord_hq_store,
@@ -30,7 +31,6 @@ from utils.config import settings
 
 HQ_COMMANDS = {"hq", "ticket", "mod"}
 
-
 from services.discord_hq_commands import command_definitions
 
 
@@ -47,9 +47,7 @@ async def register_commands() -> dict[str, Any]:
     )
     async with httpx.AsyncClient(timeout=20.0) as client:
         response = await client.put(
-            url,
-            headers=headers(),
-            json=command_definitions(),
+            url, headers=headers(), json=command_definitions()
         )
         response.raise_for_status()
         payload = response.json()
@@ -204,8 +202,7 @@ async def handle_command(payload: dict[str, Any]) -> dict[str, Any]:
     if name == "ticket":
         if sub == "open":
             existing = discord_hq_store.open_ticket_for_user(
-                _guild_id(payload),
-                _user_id(payload),
+                _guild_id(payload), _user_id(payload)
             )
             if existing:
                 return _content(
@@ -218,8 +215,7 @@ async def handle_command(payload: dict[str, Any]) -> dict[str, Any]:
         if sub == "claim":
             if not _is_staff(payload):
                 return _content(
-                    "Only Pitmark staff can claim tickets.",
-                    True,
+                    "Only Pitmark staff can claim tickets.", True
                 )
             claimed = await discord_hq_support.claim_ticket(
                 _guild_id(payload),
@@ -259,8 +255,7 @@ async def handle_command(payload: dict[str, Any]) -> dict[str, Any]:
             )
             if not ticket or ticket.get("status") == "closed":
                 return _content(
-                    "This channel is not an open Pitmark ticket.",
-                    True,
+                    "This channel is not an open Pitmark ticket.", True
                 )
             target = str(_option(options, "user") or "")
             await discord_hq_support.update_participant(
@@ -275,8 +270,7 @@ async def handle_command(payload: dict[str, Any]) -> dict[str, Any]:
         if not _is_moderator(payload):
             await _log_denied(payload, f"/mod {sub}")
             return _content(
-                "You do not have Pitmark moderation access.",
-                True,
+                "You do not have Pitmark moderation access.", True
             )
         try:
             target = str(
@@ -305,8 +299,7 @@ async def handle_command(payload: dict[str, Any]) -> dict[str, Any]:
             return _content(str(exc), True)
         except Exception as exc:
             return _content(
-                f"Moderation action failed: `{str(exc)[:1000]}`",
-                True,
+                f"Moderation action failed: `{str(exc)[:1000]}`", True
             )
 
     return _content("Unknown Pitmark HQ command.", True)
@@ -329,6 +322,7 @@ async def handle_interaction(payload: dict[str, Any]) -> dict[str, Any]:
             "pitmark_hq_legacy_preview",
             "pitmark_hq_legacy_apply",
             "pitmark_hq_legacy_cancel",
+            "pitmark_hq_content_refresh",
         }:
             if not _is_owner(payload):
                 await _log_denied(payload, custom)
@@ -341,6 +335,13 @@ async def handle_interaction(payload: dict[str, Any]) -> dict[str, Any]:
                 asyncio.create_task(
                     _maintenance_job(payload, "selftest"),
                     name="pitmark-hq-selftest",
+                )
+                return _defer()
+
+            if custom == "pitmark_hq_content_refresh":
+                asyncio.create_task(
+                    _maintenance_job(payload, "content"),
+                    name="pitmark-hq-content-refresh",
                 )
                 return _defer()
 
@@ -399,8 +400,7 @@ async def handle_interaction(payload: dict[str, Any]) -> dict[str, Any]:
 
         if custom.startswith("pitmark_ticket_open:"):
             existing = discord_hq_store.open_ticket_for_user(
-                _guild_id(payload),
-                _user_id(payload),
+                _guild_id(payload), _user_id(payload)
             )
             if existing:
                 return _content(
@@ -413,8 +413,7 @@ async def handle_interaction(payload: dict[str, Any]) -> dict[str, Any]:
         if custom == "pitmark_ticket_claim":
             if not _is_staff(payload):
                 return _content(
-                    "Only Pitmark staff can claim tickets.",
-                    True,
+                    "Only Pitmark staff can claim tickets.", True
                 )
             claimed = await discord_hq_support.claim_ticket(
                 _guild_id(payload),
@@ -455,8 +454,7 @@ async def handle_interaction(payload: dict[str, Any]) -> dict[str, Any]:
                 [str(x) for x in data.get("values") or []],
             )
             return _content(
-                "✅ Your Pitmark racing roles were updated.",
-                True,
+                "✅ Your Pitmark racing roles were updated.", True
             )
 
     if typ == 5 and custom.startswith("pitmark_ticket_modal:"):
@@ -482,8 +480,7 @@ async def handle_interaction(payload: dict[str, Any]) -> dict[str, Any]:
 async def _status(payload: dict[str, Any]) -> dict[str, Any]:
     if not configured():
         return _content(
-            "Pitmark HQ is not fully configured in Render yet.",
-            True,
+            "Pitmark HQ is not fully configured in Render yet.", True
         )
     try:
         pf = await preflight(_guild_id(payload), False)
@@ -506,12 +503,20 @@ async def _status(payload: dict[str, Any]) -> dict[str, Any]:
             f"{'Yes' if state and state.get('bootstrapped') else 'No'}\n"
             f"Community mode: {'Yes' if pf['community'] else 'No'}"
         )
+
         return _content_with_components(
             text,
             [
                 {
                     "type": 1,
                     "components": [
+                        {
+                            "type": 2,
+                            "style": 3,
+                            "label": "Refresh Server Content",
+                            "custom_id": "pitmark_hq_content_refresh",
+                            "emoji": {"name": "✨"},
+                        },
                         {
                             "type": 2,
                             "style": 1,
@@ -532,8 +537,7 @@ async def _status(payload: dict[str, Any]) -> dict[str, Any]:
         )
     except Exception as exc:
         return _content(
-            f"HQ status check failed: `{str(exc)[:1000]}`",
-            True,
+            f"HQ status check failed: `{str(exc)[:1000]}`", True
         )
 
 
@@ -570,14 +574,16 @@ async def _owner_job(payload: dict[str, Any], action: str) -> None:
                 await discord_hq_support.post_interest_role_panel(
                     _guild_id(payload)
                 )
+                content_result = await discord_hq_content.sync_server_content(
+                    _guild_id(payload)
+                )
                 automod = await discord_hq_moderation.sync_automod(
                     _guild_id(payload),
                     structure["role_map"],
                     structure["channel_map"],
                 )
                 discord_hq_store.mark_bootstrapped(
-                    _guild_id(payload),
-                    _user_id(payload),
+                    _guild_id(payload), _user_id(payload)
                 )
                 await log_named(
                     _guild_id(payload),
@@ -592,12 +598,15 @@ async def _owner_job(payload: dict[str, Any], action: str) -> None:
                     f"Categories created: {structure['categories_created']} • "
                     f"Channels created: {structure['channels_created']} • "
                     f"AutoMod rules synced: {automod}\n"
+                    f"✨ Content panels synced: "
+                    f"{content_result['panels_synced']} • "
+                    f"Forum channels styled: "
+                    f"{content_result['forum_channels_styled']}\n"
                     "No unrelated channels or roles were deleted."
                 )
     except Exception as exc:
         text = (
-            f"❌ Pitmark HQ {action} failed: "
-            f"`{str(exc)[:1200]}`"
+            f"❌ Pitmark HQ {action} failed: `{str(exc)[:1200]}`"
         )
     await edit_original(payload, text)
 
@@ -609,20 +618,43 @@ async def _maintenance_job(
     try:
         if action == "selftest":
             text = await discord_hq_maintenance.run_self_test(
-                _guild_id(payload),
-                _user_id(payload),
+                _guild_id(payload), _user_id(payload)
             )
         elif action == "legacy":
             text = await discord_hq_maintenance.quarantine_legacy(
+                _guild_id(payload), _user_id(payload)
+            )
+        elif action == "content":
+            await discord_hq_support.post_support_panel(
+                _guild_id(payload)
+            )
+            await discord_hq_support.post_interest_role_panel(
+                _guild_id(payload)
+            )
+            result = await discord_hq_content.sync_server_content(
+                _guild_id(payload)
+            )
+            text = (
+                "✨ **Pitmark server content refreshed.**\n"
+                f"Branded panels: {result['panels_synced']}\n"
+                f"Forum channels styled: "
+                f"{result['forum_channels_styled']}\n"
+                f"Old bootstrap seed messages removed: "
+                f"{result['legacy_seed_messages_removed']}\n"
+                f"Community welcome screen: "
+                f"{'Synced' if result['welcome_screen_synced'] else 'Skipped by Discord'}"
+            )
+            await log_named(
                 _guild_id(payload),
-                _user_id(payload),
+                "bot-logs",
+                f"✨ Pitmark server content refreshed by "
+                f"<@{_user_id(payload)}>.",
             )
         else:
             text = "Unknown HQ maintenance action."
     except Exception as exc:
         text = (
-            f"❌ Pitmark HQ maintenance failed: "
-            f"`{str(exc)[:1200]}`"
+            f"❌ Pitmark HQ maintenance failed: `{str(exc)[:1200]}`"
         )
     await edit_original(payload, text)
 
