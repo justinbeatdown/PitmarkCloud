@@ -45,6 +45,7 @@ def init_database() -> None:
     from services import pitmark_mail_auto_reply  # noqa: F401
     from services import control_access  # noqa: F401
     from services import prt_analytics  # noqa: F401
+    from services import prt_licensing_store  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     if not settings.database_url:
@@ -63,6 +64,6 @@ def database_status() -> dict:
         "warning": (
             None
             if configured and not is_sqlite
-            else "Pitmark Cloud is using local SQLite. Configure DATABASE_URL before public multi-server use so guild settings, Discord links, race results, HQ tickets, and moderation records survive deploys/restarts."
+            else "Pitmark Cloud is using local SQLite. Configure DATABASE_URL before public multi-server use so guild settings, Discord links, race results, HQ tickets, moderation records, and PRT licenses survive deploys/restarts."
         ),
     }

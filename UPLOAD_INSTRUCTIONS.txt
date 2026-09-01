@@ -1,17 +1,16 @@
-Pitmark Cloud v0.20.4 — FULL REPLACEMENT
+Pitmark Cloud v0.21.0 — FULL REPLACEMENT / ADDITIVE PACKAGE
 
-Replace:
-  api/control_center_v202.js
-  api/email_center.py
+REPLACE:
+  api/entitlements.py
+  services/licensing.py
+  services/database.py
+  models/schemas.py
 
-You may also add RELEASE_v0.20.4.md.
+ADD:
+  services/prt_licensing_store.py
+  RELEASE_v0.21.0.md
 
 Then commit/push and redeploy.
+Set APP_VERSION=0.21.0 in Render.
 
-Verify:
-- Checkboxes appear beside Inbox/Sent/Spam conversation rows.
-- Selecting one message does NOT open it.
-- Select all / Clear all works.
-- Delete (N) removes all selected conversations.
-- Mail remains responsive.
-- Same workflow appears on mobile.
+No database migration command is required: init_database() creates the new tables through SQLAlchemy metadata.

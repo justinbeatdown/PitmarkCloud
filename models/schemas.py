@@ -33,8 +33,28 @@ class EntitlementResponse(BaseModel):
     display_name: str = "Development User"
     plan: PitmarkPlan = PitmarkPlan.pro
     status: str = "active"
+    source: str = "pitmark_cloud"
+    device_id: str = ""
     offline_grace_until: datetime
     features: FeatureEntitlements
+
+
+class ManualEntitlementUpdate(BaseModel):
+    device_id: str = Field(min_length=16, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    customer_id: str = Field(default="", max_length=180)
+    display_name: str = Field(default="", max_length=180)
+    plan: PitmarkPlan = PitmarkPlan.pro
+    status: str = Field(default="active", max_length=32)
+    source: str = Field(default="manual", max_length=64)
+    offline_grace_days: int = Field(default=14, ge=0, le=90)
+
+
+class ShopifyPlanMappingUpdate(BaseModel):
+    variant_id: str = Field(min_length=1, max_length=80)
+    product_id: str = Field(default="", max_length=80)
+    plan: PitmarkPlan
+    billing_interval: str = Field(default="monthly", max_length=32)
+    active: bool = True
 
 
 class DiscordStatusResponse(BaseModel):
