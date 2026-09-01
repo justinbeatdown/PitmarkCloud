@@ -440,3 +440,60 @@ html,body,.shell,.main{max-width:100%;overflow-x:hidden!important}
     margin-left:0!important;
   }
 }
+
+
+/* v0.19.9 — FINAL SIDEBAR ZONES
+   With the rail itself fixed, stop relying on flex sizing for the footer.
+   Brand, nav and footer now have explicit viewport zones so the footer is
+   physically anchored to the bottom at every desktop window height. */
+@media (min-width:981px){
+  .sidebar.pm19-sidebar{
+    display:block!important;
+    position:fixed!important;
+    inset:0 auto 0 0!important;
+    width:245px!important;
+    height:auto!important;
+    padding:0!important;
+    overflow:hidden!important;
+  }
+
+  .sidebar.pm19-sidebar .brand{
+    position:absolute!important;
+    top:16px!important;
+    left:12px!important;
+    right:12px!important;
+    height:98px!important;
+    margin:0!important;
+    padding:6px 8px 12px!important;
+    overflow:hidden!important;
+  }
+
+  .sidebar.pm19-sidebar .nav{
+    position:absolute!important;
+    top:120px!important;
+    bottom:154px!important;
+    left:10px!important;
+    right:8px!important;
+    width:auto!important;
+    height:auto!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:0 4px 8px!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+  }
+
+  .sidebar.pm19-sidebar .side-bottom{
+    position:absolute!important;
+    left:12px!important;
+    right:12px!important;
+    bottom:12px!important;
+    top:auto!important;
+    width:auto!important;
+    height:132px!important;
+    margin:0!important;
+    padding:10px 8px 0!important;
+    overflow:hidden!important;
+    background:#090b0e!important;
+  }
+}

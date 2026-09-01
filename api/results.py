@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Header, HTTPException, Query, Request
+from fastapi import APIRouter, File, Header, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 
 from services import device_auth_service, discord_service, guild_config_service, result_service
@@ -18,6 +19,7 @@ class RaceResultPayload(BaseModel):
     date: str = Field(default="", max_length=180)
     track_name: str = Field(default="Unknown Track", max_length=180)
     car_name: str = Field(default="Unknown Car", max_length=180)
+    driver_name: str = Field(default="", max_length=180)
     session_type: str = Field(default="iRacing Session", max_length=180)
     laps: int = Field(default=0, ge=0, le=100000)
     best_lap_time: float = Field(default=0.0, ge=0, le=100000)
@@ -105,9 +107,10 @@ def racecard_embed(result: dict[str, Any], display_name: str = "Pitmark Driver")
     finish_text = f"P{finish}" if finish > 0 else "—"
     gain = start - finish if start > 0 and finish > 0 else 0
     gain_text = f"{gain:+d}" if start > 0 and finish > 0 else "—"
+    display = str(result.get("driver_name") or display_name or "Pitmark Driver")
     return {
         "title": "🏁 PITMARK POST-RACE",
-        "description": f"**{display_name}** • {result.get('track_name') or 'Unknown Track'}\n{result.get('car_name') or 'Unknown Car'}",
+        "description": f"**{display}** • {result.get('track_name') or 'Unknown Track'}\n{result.get('car_name') or 'Unknown Car'}",
         "color": 16733440,
         "fields": [
             {"name": "Start", "value": start_text, "inline": True},
@@ -121,27 +124,10 @@ def racecard_embed(result: dict[str, Any], display_name: str = "Pitmark Driver")
     }
 
 
-@router.post("/share/racecard")
-async def share_racecard(
-    request: Request,
-    device_id: str = Query(..., min_length=16, max_length=64),
-    guild_id: str | None = Query(default=None, min_length=5, max_length=32),
-    x_pitmark_device_token: str | None = Header(default=None),
-) -> dict:
-    enforce_rate_limit(request, "share-racecard", 30)
-    device_id = validate_device_id(device_id)
-    if not device_auth_service.authenticate(device_id, x_pitmark_device_token):
-        raise HTTPException(status_code=401, detail="Invalid device credential.")
-    if guild_id is not None:
-        guild_id = validate_discord_id(guild_id, "guild id")
+async def _resolve_share_destination(device_id: str, guild_id: str | None) -> tuple[dict[str, Any], dict[str, Any]]:
     link = discord_service.link_status(device_id)
     if not link.get("connected"):
         raise HTTPException(status_code=403, detail="Connect Discord in Pitmark Racing Tools first.")
-
-    discord_user_id = str(link.get("discord_user_id") or "")
-    result = result_service.get_latest_for_discord_user(discord_user_id)
-    if not result:
-        raise HTTPException(status_code=404, detail="No completed race result has been published yet.")
 
     destinations = await _configured_destinations(device_id)
     if not destinations:
@@ -162,6 +148,28 @@ async def share_racecard(
 
     if not settings.discord_bot_token:
         raise HTTPException(status_code=503, detail="DISCORD_BOT_TOKEN is not configured.")
+    return link, destination
+
+
+@router.post("/share/racecard")
+async def share_racecard(
+    request: Request,
+    device_id: str = Query(..., min_length=16, max_length=64),
+    guild_id: str | None = Query(default=None, min_length=5, max_length=32),
+    x_pitmark_device_token: str | None = Header(default=None),
+) -> dict:
+    enforce_rate_limit(request, "share-racecard", 30)
+    device_id = validate_device_id(device_id)
+    if not device_auth_service.authenticate(device_id, x_pitmark_device_token):
+        raise HTTPException(status_code=401, detail="Invalid device credential.")
+    if guild_id is not None:
+        guild_id = validate_discord_id(guild_id, "guild id")
+
+    link, destination = await _resolve_share_destination(device_id, guild_id)
+    discord_user_id = str(link.get("discord_user_id") or "")
+    result = result_service.get_latest_for_discord_user(discord_user_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="No completed race result has been published yet.")
 
     channel_id = destination["channel_id"]
     display = link.get("global_name") or link.get("username") or "Pitmark Driver"
@@ -182,6 +190,69 @@ async def share_racecard(
     body = response.json()
     return {
         "shared": True,
+        "guild_id": destination["guild_id"],
+        "guild_name": destination["guild_name"],
+        "channel_id": channel_id,
+        "channel_name": destination["channel_name"],
+        "message_id": body.get("id"),
+    }
+
+
+@router.post("/share/racecard-image")
+async def share_racecard_image(
+    request: Request,
+    file: UploadFile = File(...),
+    device_id: str = Query(..., min_length=16, max_length=64),
+    guild_id: str | None = Query(default=None, min_length=5, max_length=32),
+    x_pitmark_device_token: str | None = Header(default=None),
+) -> dict:
+    """Upload the exact PNG rendered by PRT and post that same file to Discord."""
+    enforce_rate_limit(request, "share-racecard-image", 30)
+    device_id = validate_device_id(device_id)
+    if not device_auth_service.authenticate(device_id, x_pitmark_device_token):
+        raise HTTPException(status_code=401, detail="Invalid device credential.")
+    if guild_id is not None:
+        guild_id = validate_discord_id(guild_id, "guild id")
+
+    if file.content_type not in {"image/png", "application/octet-stream"}:
+        raise HTTPException(status_code=415, detail="Race Card upload must be a PNG image.")
+    png = await file.read(8 * 1024 * 1024 + 1)
+    if not png:
+        raise HTTPException(status_code=400, detail="Race Card PNG was empty.")
+    if len(png) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Race Card PNG is too large for Discord upload.")
+    if not png.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise HTTPException(status_code=415, detail="Uploaded Race Card is not a valid PNG file.")
+
+    _, destination = await _resolve_share_destination(device_id, guild_id)
+    channel_id = destination["channel_id"]
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+    headers = {"Authorization": f"Bot {settings.discord_bot_token}"}
+    payload = {
+        "content": "🏁 **PITMARK POST-RACE**\nOfficial Race Card generated by Pitmark Racing Tools.",
+        "attachments": [{"id": 0, "filename": "pitmark-race-card.png", "description": "Official Pitmark post-race card"}],
+    }
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(
+            url,
+            headers=headers,
+            data={"payload_json": json.dumps(payload)},
+            files={"files[0]": ("pitmark-race-card.png", png, "image/png")},
+        )
+
+    if not response.is_success:
+        if response.status_code == 403:
+            raise HTTPException(
+                status_code=502,
+                detail="Pitmark cannot upload Race Cards in that Discord channel. Check View Channel, Send Messages and Attach Files permissions.",
+            )
+        raise HTTPException(status_code=502, detail=f"Discord rejected the Race Card image ({response.status_code}).")
+
+    body = response.json()
+    return {
+        "shared": True,
+        "image_uploaded": True,
         "guild_id": destination["guild_id"],
         "guild_name": destination["guild_name"],
         "channel_id": channel_id,
