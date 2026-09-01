@@ -11,12 +11,35 @@ CONNECT=1<<20; SPEAK=1<<21; MUTE_MEMBERS=1<<22; DEAFEN_MEMBERS=1<<23; MOVE_MEMBE
 MANAGE_THREADS=1<<34; CREATE_PUBLIC_THREADS=1<<35; CREATE_PRIVATE_THREADS=1<<36; SEND_MESSAGES_IN_THREADS=1<<38; MODERATE_MEMBERS=1<<40
 HQ_REQUIRED_BOT_PERMISSIONS=(KICK_MEMBERS|BAN_MEMBERS|MANAGE_CHANNELS|MANAGE_GUILD|VIEW_AUDIT_LOG|VIEW_CHANNEL|SEND_MESSAGES|MANAGE_MESSAGES|EMBED_LINKS|ATTACH_FILES|READ_MESSAGE_HISTORY|MENTION_EVERYONE|CONNECT|SPEAK|MUTE_MEMBERS|DEAFEN_MEMBERS|MOVE_MEMBERS|MANAGE_ROLES|USE_APPLICATION_COMMANDS|MANAGE_THREADS|CREATE_PUBLIC_THREADS|CREATE_PRIVATE_THREADS|SEND_MESSAGES_IN_THREADS|MODERATE_MEMBERS)
 
+# Server-level role permissions.
+# Roles that only exist for identity/access intentionally have 0 dangerous guild
+# permissions; their private access comes from category/channel overwrites.
 ROLE_SPECS=[
-("Pitmark Owner",PITMARK_ORANGE,0),("Pitmark Administrator",0xE67E22,MANAGE_GUILD|MANAGE_CHANNELS|MANAGE_ROLES|MANAGE_MESSAGES|KICK_MEMBERS|BAN_MEMBERS|MODERATE_MEMBERS|MOVE_MEMBERS|VIEW_AUDIT_LOG),
-("Pitmark Developer",0x3498DB,0),("Pitmark Moderator",0x9B59B6,MANAGE_MESSAGES|KICK_MEMBERS|MODERATE_MEMBERS|MANAGE_THREADS|MOVE_MEMBERS),("Pitmark Support",0x2ECC71,MANAGE_MESSAGES|MANAGE_THREADS|MOVE_MEMBERS),
-("Partnerships Team",0xF1C40F,0),("Marketing Team",0xE91E63,0),("Official Partner",PITMARK_ORANGE,0),("League Organizer",0x95A5A6,0),("Content Creator",0x1ABC9C,0),("Verified Driver",0xECF0F1,0),
-("PRT Pro",PITMARK_ORANGE,0),("PRT League",0xF39C12,0),("Verified Customer",0x27AE60,0),("Beta Tester",0x8E44AD,0),
-("Oval Racer",0,0),("Dirt Racer",0,0),("Road Racer",0,0),("Formula Racer",0,0),("Off-Road Racer",0,0),("iRacing",0,0),("League Racer",0,0),("Setup Nerd",0,0),("Telemetry Nerd",0,0)]
+("Pitmark Owner",PITMARK_ORANGE,ADMINISTRATOR),
+("Pitmark Administrator",0xE67E22,ADMINISTRATOR),
+("Pitmark Developer",0x3498DB,VIEW_AUDIT_LOG),
+("Pitmark Moderator",0x9B59B6,MANAGE_MESSAGES|KICK_MEMBERS|MODERATE_MEMBERS|MANAGE_THREADS|MOVE_MEMBERS|MUTE_MEMBERS|DEAFEN_MEMBERS|VIEW_AUDIT_LOG),
+("Pitmark Support",0x2ECC71,MANAGE_MESSAGES|MANAGE_THREADS|MOVE_MEMBERS|MUTE_MEMBERS),
+("Partnerships Team",0xF1C40F,0),
+("Marketing Team",0xE91E63,0),
+("Official Partner",PITMARK_ORANGE,0),
+("League Organizer",0x95A5A6,0),
+("Content Creator",0x1ABC9C,0),
+("Verified Driver",0xECF0F1,0),
+("PRT Pro",PITMARK_ORANGE,0),
+("PRT League",0xF39C12,0),
+("Verified Customer",0x27AE60,0),
+("Beta Tester",0x8E44AD,0),
+("Oval Racer",0,0),
+("Dirt Racer",0,0),
+("Road Racer",0,0),
+("Formula Racer",0,0),
+("Off-Road Racer",0,0),
+("iRacing",0,0),
+("League Racer",0,0),
+("Setup Nerd",0,0),
+("Telemetry Nerd",0,0),
+]
 INTEREST_ROLES=["Oval Racer","Dirt Racer","Road Racer","Formula Racer","Off-Road Racer","iRacing","League Racer","Setup Nerd","Telemetry Nerd"]
 
 PUBLIC_CATEGORY_SPECS=[
