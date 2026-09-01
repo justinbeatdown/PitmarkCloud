@@ -290,7 +290,8 @@
       const stage=card.querySelector('.ostage')?.value || card.querySelector('.status-pill')?.textContent?.trim().toLowerCase();
       if (stage in counts) counts[stage]++;
     });
-    board.innerHTML=Object.entries(counts).map(([k,v])=>`<div><strong>${v}</strong><span>${k}</span></div>`).join('');
+    const nextHtml=Object.entries(counts).map(([k,v])=>`<div><strong>${v}</strong><span>${k}</span></div>`).join('');
+    if (board.innerHTML !== nextHtml) board.innerHTML=nextHtml;
   }
 
 
@@ -402,7 +403,9 @@
       const text=card.textContent.toLowerCase();
       if (!text.includes('instagram')) return;
       const asset=card.querySelector('[data-action="asset"]');
-      if (asset) asset.textContent='Generate Story Image';
+      if (asset && asset.textContent !== 'Generate Story Image') {
+        asset.textContent='Generate Story Image';
+      }
     });
   }
 
@@ -452,10 +455,17 @@
     upgradeBlogPreviews();
     upgradeQueueButtons();
 
-    const observer=new MutationObserver(()=>{
-      upgradeOperationalPages();
-      upgradeBlogPreviews();
-      upgradeQueueButtons();
+    let enhancementPassScheduled=false;
+    const observer=new MutationObserver(mutations=>{
+      if (!mutations.some(m => m.addedNodes.length || m.removedNodes.length)) return;
+      if (enhancementPassScheduled) return;
+      enhancementPassScheduled=true;
+      requestAnimationFrame(()=>{
+        enhancementPassScheduled=false;
+        upgradeOperationalPages();
+        upgradeBlogPreviews();
+        upgradeQueueButtons();
+      });
     });
     observer.observe(document.body,{childList:true,subtree:true});
   }

@@ -74,14 +74,14 @@ def control(request: Request):
         html = html.replace(
             '</head>',
             '<link rel="stylesheet" href="/control-center-v19.css?v=01900">\n'
-            '<link rel="stylesheet" href="/control-center-v191.css?v=01901">\n'
+            '<link rel="stylesheet" href="/control-center-v191.css?v=01902">\n'
             '</head>'
         )
         html = html.replace(
             '</body>',
             AUTOFILL_GUARD
             + '\n<script src="/control-center-v19.js?v=01900" defer></script>'
-            + '\n<script src="/control-center-v191.js?v=01901" defer></script>'
+            + '\n<script src="/control-center-v191.js?v=01902" defer></script>'
             + '</body>'
         )
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
@@ -210,14 +210,14 @@ def control_mobile(request: Request):
         html = html.replace(
             '</head>',
             '<link rel="stylesheet" href="/control-center-v19.css?v=01900">\n'
-            '<link rel="stylesheet" href="/control-center-v191.css?v=01901">\n'
+            '<link rel="stylesheet" href="/control-center-v191.css?v=01902">\n'
             '</head>'
         )
         html = html.replace(
             '</body>',
             AUTOFILL_GUARD
             + '\n<script src="/control-center-v19.js?v=01900" defer></script>'
-            + '\n<script src="/control-center-v191.js?v=01901" defer></script>'
+            + '\n<script src="/control-center-v191.js?v=01902" defer></script>'
             + '</body>'
         )
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
