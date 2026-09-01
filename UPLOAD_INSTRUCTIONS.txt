@@ -5,6 +5,7 @@ REPLACE:
   services/licensing.py
   services/database.py
   models/schemas.py
+  utils/config.py
 
 ADD:
   services/prt_licensing_store.py
@@ -14,3 +15,5 @@ Then commit/push and redeploy.
 Set APP_VERSION=0.21.0 in Render.
 
 No database migration command is required: init_database() creates the new tables through SQLAlchemy metadata.
+
+IMPORTANT: utils/config.py is the authoritative Cloud release version source.
