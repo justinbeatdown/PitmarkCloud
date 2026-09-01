@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PITMARK_RELEASE_VERSION = "0.18.3"
+PITMARK_RELEASE_VERSION = "0.18.4"
 
 
 class Settings(BaseSettings):
@@ -24,10 +24,13 @@ class Settings(BaseSettings):
     discord_presence_text: str = "Pitmark Racing Tools"
     discord_presence_type: str = "watching"
     discord_command_scope: str = "global"
+    # Public/community install stays intentionally lightweight.
     discord_install_permissions: int = 117760
+    # Official Pitmark HQ is guild-locked and owner-locked. Administrator here
+    # avoids stale hand-maintained bitmasks as Discord adds granular permissions.
     discord_hq_guild_id: str = ""
     discord_owner_user_id: str = ""
-    discord_hq_install_permissions: int = 1497097301174
+    discord_hq_install_permissions: int = 8
     pitmark_admin_key: str = ""
 
     pitmark_ai_provider: str = "openai"
