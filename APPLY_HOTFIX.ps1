@@ -5,11 +5,9 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 $files = @(
     "services\discord_hq_maintenance.py",
-    "services\discord_hq_moderation.py",
-    "services\discord_hq_service.py",
     "utils\config.py",
     ".env.example",
-    "RELEASE_v0.18.5.md"
+    "RELEASE_v0.18.6.md"
 )
 
 foreach ($rel in $files) {
@@ -24,6 +22,5 @@ foreach ($rel in $files) {
 }
 
 Write-Host ""
-Write-Host "Pitmark Discord HQ QA/cleanup release applied."
-Write-Host "Commit/push and wait for Render. No command re-registration is required."
-Write-Host "Then run /hq status and use the new buttons."
+Write-Host "Pitmark Discord HQ QA type fix applied."
+Write-Host "Commit/push, wait for Render, then rerun the HQ self-test."

@@ -38,6 +38,15 @@ LEGACY_NAMES = {
 LEGACY_CATEGORY_NAME = "🧹 LEGACY REVIEW"
 
 
+def _channel_type(channel: dict[str, Any]) -> int:
+    """Return Discord channel type without treating valid type 0 as falsy."""
+    value = channel.get("type")
+    try:
+        return int(value) if value is not None else -1
+    except (TypeError, ValueError):
+        return -1
+
+
 def _managed_category_names() -> set[str]:
     return {
         *[name for name, _children in PUBLIC_CATEGORY_SPECS],
@@ -53,7 +62,10 @@ def _actual_role_permissions(role: dict[str, Any]) -> int:
 
 
 async def audit_roles(guild_id: str) -> tuple[bool, list[str]]:
-    roles = {str(role.get("name") or ""): role for role in await list_roles(guild_id)}
+    roles = {
+        str(role.get("name") or ""): role
+        for role in await list_roles(guild_id)
+    }
     problems: list[str] = []
     for name, _color, expected in ROLE_SPECS:
         actual_role = roles.get(name)
@@ -76,42 +88,50 @@ async def audit_roles(guild_id: str) -> tuple[bool, list[str]]:
     return not problems, problems
 
 
-async def _managed_structure_audit(guild_id: str) -> tuple[bool, list[str]]:
+async def _managed_structure_audit(
+    guild_id: str,
+) -> tuple[bool, list[str]]:
     channels = await list_channels(guild_id)
     missing: list[str] = []
+
     categories = {
         str(ch.get("name") or ""): ch
         for ch in channels
-        if int(ch.get("type") or -1) == 4
+        if _channel_type(ch) == 4
     }
+
     for cat_name, children in PUBLIC_CATEGORY_SPECS:
         cat = categories.get(cat_name)
         if not cat:
             missing.append(f"category {cat_name}")
             continue
+
         parent_id = str(cat.get("id") or "")
         for name, typ, _topic, _access, _tags in children:
             if not any(
                 str(ch.get("name") or "") == name
-                and int(ch.get("type") or -1) == typ
+                and _channel_type(ch) == typ
                 and str(ch.get("parent_id") or "") == parent_id
                 for ch in channels
             ):
                 missing.append(f"{cat_name}/{name}")
+
     for cat_name, _audience, children in PRIVATE_CATEGORY_SPECS:
         cat = categories.get(cat_name)
         if not cat:
             missing.append(f"category {cat_name}")
             continue
+
         parent_id = str(cat.get("id") or "")
         for name, typ, _topic in children:
             if not any(
                 str(ch.get("name") or "") == name
-                and int(ch.get("type") or -1) == typ
+                and _channel_type(ch) == typ
                 and str(ch.get("parent_id") or "") == parent_id
                 for ch in channels
             ):
                 missing.append(f"{cat_name}/{name}")
+
     return not missing, missing
 
 
@@ -169,7 +189,7 @@ async def run_self_test(guild_id: str, owner_user_id: str) -> str:
         staff_category = next(
             (
                 ch for ch in channels
-                if int(ch.get("type") or -1) == 4
+                if _channel_type(ch) == 4
                 and ch.get("name") == "🔐 PITMARK STAFF"
             ),
             None,
@@ -194,7 +214,11 @@ async def run_self_test(guild_id: str, owner_user_id: str) -> str:
             )
         ).json()
         temp_role_id = str(temp_role["id"])
-        results.append(("Role create/delete capability", True, "temporary role created"))
+        results.append((
+            "Role create/delete capability",
+            True,
+            "temporary role created",
+        ))
 
         test_overwrites = [
             overwrite(guild_id, 0, deny=VIEW_CHANNEL),
@@ -223,6 +247,7 @@ async def run_self_test(guild_id: str, owner_user_id: str) -> str:
                 ),
             ),
         ]
+
         temp_channel = (
             await discord_request(
                 "POST",
@@ -232,13 +257,19 @@ async def run_self_test(guild_id: str, owner_user_id: str) -> str:
                     "name": f"pitmark-qa-{suffix}",
                     "type": 0,
                     "parent_id": str(staff_category["id"]),
-                    "topic": "Temporary Pitmark HQ moderation self-test channel.",
+                    "topic": (
+                        "Temporary Pitmark HQ moderation self-test channel."
+                    ),
                     "permission_overwrites": test_overwrites,
                 },
             )
         ).json()
         temp_channel_id = str(temp_channel["id"])
-        results.append(("Channel create/delete capability", True, "temporary private channel created"))
+        results.append((
+            "Channel create/delete capability",
+            True,
+            "temporary private channel created",
+        ))
 
         messages: list[dict[str, Any]] = []
         for i in range(3):
@@ -246,30 +277,50 @@ async def run_self_test(guild_id: str, owner_user_id: str) -> str:
                 await discord_request(
                     "POST",
                     f"{DISCORD_API}/channels/{temp_channel_id}/messages",
-                    json={"content": f"Pitmark HQ QA test message {i + 1}/3"},
+                    json={
+                        "content": (
+                            f"Pitmark HQ QA test message {i + 1}/3"
+                        )
+                    },
                 )
             ).json()
             messages.append(message)
-        results.append(("Send messages", True, "3 temporary messages created"))
+        results.append((
+            "Send messages",
+            True,
+            "3 temporary messages created",
+        ))
 
-        # Discord's current paginated pin route. This explicitly verifies the
-        # post-2026 PIN_MESSAGES permission rather than only reading bitfields.
         try:
             await discord_request(
                 "PUT",
-                f"{DISCORD_API}/channels/{temp_channel_id}/messages/pins/{messages[0]['id']}",
+                (
+                    f"{DISCORD_API}/channels/{temp_channel_id}/messages/"
+                    f"pins/{messages[0]['id']}"
+                ),
                 reason="Pitmark HQ self-test pin",
                 expected={200, 204},
             )
             await discord_request(
                 "DELETE",
-                f"{DISCORD_API}/channels/{temp_channel_id}/messages/pins/{messages[0]['id']}",
+                (
+                    f"{DISCORD_API}/channels/{temp_channel_id}/messages/"
+                    f"pins/{messages[0]['id']}"
+                ),
                 reason="Pitmark HQ self-test unpin",
                 expected={200, 204},
             )
-            results.append(("Pin / unpin messages", True, "PIN_MESSAGES works"))
+            results.append((
+                "Pin / unpin messages",
+                True,
+                "PIN_MESSAGES works",
+            ))
         except Exception as exc:
-            results.append(("Pin / unpin messages", False, str(exc)[:180]))
+            results.append((
+                "Pin / unpin messages",
+                False,
+                str(exc)[:180],
+            ))
 
         try:
             await discord_request(
@@ -301,27 +352,43 @@ async def run_self_test(guild_id: str, owner_user_id: str) -> str:
                 owner_user_id,
                 locked=False,
             )
-            results.append(("Channel lock / unlock", True, "permission state restored"))
+            results.append((
+                "Channel lock / unlock",
+                True,
+                "permission state restored",
+            ))
         except Exception as exc:
-            results.append(("Channel lock / unlock", False, str(exc)[:180]))
+            results.append((
+                "Channel lock / unlock",
+                False,
+                str(exc)[:180],
+            ))
 
         try:
-            deleted = await discord_hq_moderation.purge_messages(temp_channel_id, 10)
-            results.append(("Message purge", deleted >= 3, f"{deleted} test messages removed"))
+            deleted = await discord_hq_moderation.purge_messages(
+                temp_channel_id, 10
+            )
+            results.append((
+                "Message purge",
+                deleted >= 3,
+                f"{deleted} test messages removed",
+            ))
         except Exception as exc:
             results.append(("Message purge", False, str(exc)[:180]))
 
-        # Kick/ban/timeout are intentionally not fired at a real account.
         bot_perms = int(pf.get("permissions") or 0)
         member_mod_bits = (
-            (1 << 1) |  # KICK_MEMBERS
-            (1 << 2) |  # BAN_MEMBERS
-            (1 << 40)   # MODERATE_MEMBERS
+            (1 << 1)
+            | (1 << 2)
+            | (1 << 40)
         )
         results.append((
             "Kick / ban / timeout capability",
             (bot_perms & member_mod_bits) == member_mod_bits,
-            "permission-capability verified; no real member was touched",
+            (
+                "permission-capability verified; "
+                "no real member was touched"
+            ),
         ))
 
     except Exception as exc:
@@ -354,7 +421,11 @@ async def run_self_test(guild_id: str, owner_user_id: str) -> str:
         for name, ok, detail in results
     ]
     summary = f"**Pitmark HQ QA: {passed}/{len(results)} checks passed**"
-    await log_named(guild_id, "bot-logs", "🧪 " + summary.replace("**", ""))
+    await log_named(
+        guild_id,
+        "bot-logs",
+        "🧪 " + summary.replace("**", ""),
+    )
     return summary + "\n" + "\n".join(lines)
 
 
@@ -367,7 +438,7 @@ async def preview_legacy(guild_id: str) -> dict[str, Any]:
     managed_category_ids = {
         str(ch.get("id") or "")
         for ch in channels
-        if int(ch.get("type") or -1) == 4
+        if _channel_type(ch) == 4
         and str(ch.get("name") or "") in managed_categories
     }
 
@@ -385,7 +456,7 @@ async def preview_legacy(guild_id: str) -> dict[str, Any]:
     candidates: list[dict[str, Any]] = []
     protected: list[dict[str, Any]] = []
     for ch in channels:
-        if int(ch.get("type") or -1) == 4:
+        if _channel_type(ch) == 4:
             continue
         if str(ch.get("parent_id") or "") in managed_category_ids:
             continue
@@ -412,7 +483,7 @@ def _find_managed_channel(
     cat = next(
         (
             ch for ch in channels
-            if int(ch.get("type") or -1) == 4
+            if _channel_type(ch) == 4
             and ch.get("name") == category_name
         ),
         None,
@@ -435,15 +506,23 @@ async def quarantine_legacy(guild_id: str, owner_user_id: str) -> str:
     preview = await preview_legacy(guild_id)
     channels = preview["channels"]
 
-    new_rules = _find_managed_channel(channels, "📌 START HERE", "rules")
-    new_updates = _find_managed_channel(channels, "📌 START HERE", "announcements")
-    new_system = _find_managed_channel(channels, "🟠 PITMARK CENTRAL", "pitmark-chat")
+    new_rules = _find_managed_channel(
+        channels, "📌 START HERE", "rules"
+    )
+    new_updates = _find_managed_channel(
+        channels, "📌 START HERE", "announcements"
+    )
+    new_system = _find_managed_channel(
+        channels, "🟠 PITMARK CENTRAL", "pitmark-chat"
+    )
 
     guild_patch: dict[str, Any] = {}
     if new_rules:
         guild_patch["rules_channel_id"] = str(new_rules["id"])
     if new_updates:
-        guild_patch["public_updates_channel_id"] = str(new_updates["id"])
+        guild_patch["public_updates_channel_id"] = str(
+            new_updates["id"]
+        )
     if new_system:
         guild_patch["system_channel_id"] = str(new_system["id"])
 
@@ -451,12 +530,12 @@ async def quarantine_legacy(guild_id: str, owner_user_id: str) -> str:
         await discord_request(
             "PATCH",
             f"{DISCORD_API}/guilds/{guild_id}",
-            reason="Pitmark HQ legacy cleanup: canonical channel remap",
+            reason=(
+                "Pitmark HQ legacy cleanup: canonical channel remap"
+            ),
             json=guild_patch,
         )
 
-    # Re-evaluate after canonical system/community channel remap so the former
-    # default general/rules channels can safely be quarantined.
     preview = await preview_legacy(guild_id)
     candidates = preview["candidates"]
     channels = preview["channels"]
@@ -464,7 +543,7 @@ async def quarantine_legacy(guild_id: str, owner_user_id: str) -> str:
     legacy_cat = next(
         (
             ch for ch in channels
-            if int(ch.get("type") or -1) == 4
+            if _channel_type(ch) == 4
             and ch.get("name") == LEGACY_CATEGORY_NAME
         ),
         None,
@@ -502,18 +581,26 @@ async def quarantine_legacy(guild_id: str, owner_user_id: str) -> str:
         await log_named(
             guild_id,
             "bot-logs",
-            "🧹 Pitmark HQ quarantined legacy channels: " + ", ".join(moved),
+            "🧹 Pitmark HQ quarantined legacy channels: "
+            + ", ".join(moved),
         )
 
     lines = [
-        "✅ New Pitmark `rules`, `announcements`, and `pitmark-chat` are now the canonical Community/system channels.",
         (
-            "✅ Moved to **🧹 LEGACY REVIEW**: " + ", ".join(f"`{x}`" for x in moved)
+            "✅ New Pitmark `rules`, `announcements`, and `pitmark-chat` "
+            "are now the canonical Community/system channels."
+        ),
+        (
+            "✅ Moved to **🧹 LEGACY REVIEW**: "
+            + ", ".join(f"`{x}`" for x in moved)
             if moved
             else "✅ No unprotected legacy channels needed moving."
         ),
         "Nothing was deleted; message history is preserved.",
     ]
     if protected:
-        lines.append("Left protected by Discord: " + ", ".join(f"`{x}`" for x in protected))
+        lines.append(
+            "Left protected by Discord: "
+            + ", ".join(f"`{x}`" for x in protected)
+        )
     return "\n".join(lines)
