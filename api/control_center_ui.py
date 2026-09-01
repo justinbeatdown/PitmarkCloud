@@ -21,6 +21,13 @@ AUTOFILL_GUARD = r"""
   function protect(el) {
     if (!el || el.dataset.pitmarkAutofillGuard) return;
     el.dataset.pitmarkAutofillGuard = '1';
+    const lockIds = new Set(['ryName','oname','oorg','ocontact']);
+    if (lockIds.has(el.id) && !el.dataset.userUnlocked) {
+      el.readOnly = true;
+      const unlock = () => { el.dataset.userUnlocked='1'; el.readOnly=false; };
+      el.addEventListener('pointerdown', unlock, {once:true, capture:true});
+      el.addEventListener('focus', unlock, {once:true, capture:true});
+    }
     el.setAttribute('autocomplete', 'off');
     el.setAttribute('data-lpignore', 'true');
     el.setAttribute('data-1p-ignore', 'true');
@@ -66,22 +73,13 @@ def control(request: Request):
         html = re.sub(r'PITMARK CLOUD v[0-9]+(?:\.[0-9]+)*', f'PITMARK CLOUD v{settings.app_version}', html, flags=re.IGNORECASE)
         html = html.replace(
             '</head>',
-            '<link rel="stylesheet" href="/control-email.css">\n'
-            '<link rel="stylesheet" href="/control-email-shield.css?v=01623">\n'
-            '<link rel="stylesheet" href="/control-mail-client.css?v=01808">\n'
-            '<link rel="stylesheet" href="/control-center-overhaul.css?v=01808">\n'
+            '<link rel="stylesheet" href="/control-center-v19.css?v=01900">\n'
             '</head>'
         )
         html = html.replace(
             '</body>',
             AUTOFILL_GUARD
-            + '\n<script src="/control-email.js" defer></script>'
-            + '\n<script src="/control-email-identity.js?v=01702" defer></script>'
-            + '\n<script src="/control-email-shield.js?v=01702" defer></script>'
-            + '\n<script src="/control-shield-mail-status.js?v=01702" defer></script>'
-            + '\n<script src="/control-email-spam-training.js?v=01702" defer></script>'
-            + '\n<script src="/control-mail-client.js?v=01808" defer></script>'
-            + '\n<script src="/control-center-overhaul.js?v=01808" defer></script>'
+            + '\n<script src="/control-center-v19.js?v=01900" defer></script>'
             + '</body>'
         )
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
@@ -163,6 +161,24 @@ def control_center_overhaul_css():
     )
 
 
+@router.get('/control-center-v19.js', include_in_schema=False)
+def control_center_v19_js():
+    return Response(
+        (ASSET_DIR / 'control_center_v19.js').read_text(encoding='utf-8'),
+        media_type='application/javascript',
+        headers={'Cache-Control':'no-store'},
+    )
+
+
+@router.get('/control-center-v19.css', include_in_schema=False)
+def control_center_v19_css():
+    return Response(
+        (ASSET_DIR / 'control_center_v19.css').read_text(encoding='utf-8'),
+        media_type='text/css',
+        headers={'Cache-Control':'no-store'},
+    )
+
+
 @router.get('/control-login.js', include_in_schema=False)
 def control_login_js(): return Response((ASSET_DIR / 'control_login.js').read_text(encoding='utf-8'), media_type='application/javascript')
 
@@ -173,20 +189,13 @@ def control_mobile(request: Request):
     if filename == 'control_mobile.html':
         html = html.replace(
             '</head>',
-            '<link rel="stylesheet" href="/control-email-shield.css?v=01623">\n'
-            '<link rel="stylesheet" href="/control-mail-client.css?v=01808">\n'
-            '<link rel="stylesheet" href="/control-center-overhaul.css?v=01808">\n'
+            '<link rel="stylesheet" href="/control-center-v19.css?v=01900">\n'
             '</head>'
         )
         html = html.replace(
             '</body>',
             AUTOFILL_GUARD
-            + '\n<script src="/control-mobile-mail-identity.js?v=01702" defer></script>'
-            + '\n<script src="/control-email-shield.js?v=01702" defer></script>'
-            + '\n<script src="/control-shield-mail-status.js?v=01702" defer></script>'
-            + '\n<script src="/control-email-spam-training.js?v=01702" defer></script>'
-            + '\n<script src="/control-mail-client.js?v=01808" defer></script>'
-            + '\n<script src="/control-center-overhaul.js?v=01808" defer></script>'
+            + '\n<script src="/control-center-v19.js?v=01900" defer></script>'
             + '</body>'
         )
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
