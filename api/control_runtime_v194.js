@@ -112,6 +112,29 @@
     }, 50);
   }
 
+  function cleanSocialCopy(value) {
+    let text = String(value || '');
+    text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1 $2');
+    text = text.replace(/\*\*([^*\n]+)\*\*/g, '$1');
+    text = text.replace(/__([^_\n]+)__/g, '$1');
+    text = text.replace(/(^|\s)\*([^*\n]+)\*(?=\s|$)/g, '$1$2');
+    text = text.replace(/(^|\s)_([^_\n]+)_(?=\s|$)/g, '$1$2');
+    return text.trim();
+  }
+
+  async function normalizeQueuedPost(id, card) {
+    const bodyNode = card?.querySelector('.queue-body,.body');
+    const raw = String(bodyNode?.textContent || '').trim();
+    if (!raw) return;
+    const cleaned = cleanSocialCopy(raw);
+    if (!cleaned || cleaned === raw) return;
+    await request(`/api/control/autopilot/posts/${id}`, {
+      method:'PATCH',
+      body:JSON.stringify({body:cleaned})
+    });
+    if (bodyNode) bodyNode.textContent = cleaned;
+  }
+
   async function handleDesktopAction(button, card, action) {
     if (button.dataset.pm194Busy) return;
     if (action === 'asset') return; // story-image handler remains owned by v191
@@ -130,6 +153,7 @@
 
     try {
       if (action === 'publish') {
+        await normalizeQueuedPost(id, card);
         const result = await request(`/api/control/social/posts/${id}/publish`, {method:'POST'});
         const platform = String(result?.post?.platform || card.textContent || 'social').toLowerCase();
         statusLine(card, 'Published ✓', 'success');
@@ -180,6 +204,7 @@
 
     try {
       if (action === 'publish') {
+        await normalizeQueuedPost(id, card);
         await request(`/api/control/social/posts/${id}/publish`, {method:'POST'});
         statusLine(card, 'Published ✓', 'success');
         restore('Published ✓');

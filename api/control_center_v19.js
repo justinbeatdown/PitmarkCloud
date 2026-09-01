@@ -107,13 +107,29 @@
         .replace(/url\s*\([^)]*\)/gi, '');
     });
     doc.documentElement.removeAttribute('style');
-    doc.body.removeAttribute('style');
     const css = `<style>
-      html{margin:0;padding:0;background:#f2f2ef;color-scheme:light}
-      body{margin:0;padding:16px 18px;background:#f2f2ef;color:#202124;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;overflow-wrap:anywhere}
-      a{color:#0b57d0}img{max-width:100%;height:auto}table{max-width:100%!important}pre{white-space:pre-wrap}
+      html{margin:0;padding:0;background:#fff;color-scheme:light;overflow-x:hidden}
+      body{margin:0;padding:18px;box-sizing:border-box;max-width:100%;overflow-wrap:anywhere;line-height:1.5}
+      body:not([style*="background"]){background:#fff}
+      body:not([style*="color"]){color:#202124}
+      body:not([style*="font-family"]){font-family:Arial,Helvetica,sans-serif}
+      a{color:#0b57d0}
+      img{max-width:100%!important;height:auto!important}
+      table{max-width:100%!important}
+      td,th{max-width:100%}
+      pre{white-space:pre-wrap}
     </style>`;
     return `<!doctype html><html><head><meta charset="utf-8">${css}</head><body>${doc.body.innerHTML}</body></html>`;
+  }
+
+  function emailHtmlHasContent(raw) {
+    const source = String(raw || '').trim();
+    if (!source) return false;
+    const doc = new DOMParser().parseFromString(source, 'text/html');
+    doc.querySelectorAll('style,script,meta,link,title').forEach(x => x.remove());
+    const text = String(doc.body?.innerText || doc.body?.textContent || '').replace(/\s+/g, ' ').trim();
+    if (text) return true;
+    return !!doc.body?.querySelector('img[src],svg,video,audio,hr,blockquote');
   }
 
   function makeEmailFrame(html) {
@@ -122,9 +138,15 @@
     frame.sandbox = 'allow-same-origin allow-popups allow-popups-to-escape-sandbox';
     frame.referrerPolicy = 'no-referrer';
     frame.srcdoc = sanitizedEmailHtml(html);
+    frame.scrolling = 'auto';
     frame.addEventListener('load', () => {
       try {
-        const h = Math.max(150, Math.min(1800, frame.contentDocument.documentElement.scrollHeight || 180));
+        const doc = frame.contentDocument;
+        if (doc?.documentElement) {
+          doc.documentElement.style.overflowX = 'hidden';
+          doc.documentElement.style.overflowY = 'auto';
+        }
+        const h = Math.max(130, Math.min(900, doc?.documentElement?.scrollHeight || 180));
         frame.style.height = `${h + 4}px`;
       } catch {}
     });
@@ -462,12 +484,20 @@
 
     const body = document.createElement('div');
     body.className = 'pm19-message-body';
-    if (m.html) body.appendChild(makeEmailFrame(m.html));
-    else {
+    const hasHtml = emailHtmlHasContent(m.html);
+    const plainText = String(m.text || '').trim();
+    if (hasHtml) {
+      body.appendChild(makeEmailFrame(m.html));
+    } else if (plainText) {
       const plain = document.createElement('div');
       plain.className = 'pm19-plain-email';
-      plain.textContent = m.text || '(no message body)';
+      plain.textContent = plainText;
       body.appendChild(plain);
+    } else {
+      const empty = document.createElement('div');
+      empty.className = 'pm195-empty-email';
+      empty.innerHTML = '<strong>No message body</strong><span>This email arrived without readable body content.</span>';
+      body.appendChild(empty);
     }
     article.appendChild(body);
 
@@ -508,8 +538,40 @@
     } catch {}
   }
 
+  function confirmDialog({title='Confirm action', message='', confirmLabel='Confirm', danger=false} = {}) {
+    return new Promise(resolve => {
+      document.getElementById('pm195ConfirmOverlay')?.remove();
+      const overlay = document.createElement('div');
+      overlay.id = 'pm195ConfirmOverlay';
+      overlay.className = 'pm195-confirm-overlay';
+      overlay.innerHTML = `<section class="pm195-confirm-card">
+        <div class="pm195-confirm-icon ${danger ? 'danger' : ''}">${danger ? '!' : '?'}</div>
+        <h2>${esc(title)}</h2>
+        <p>${esc(message)}</p>
+        <div><button type="button" data-confirm-cancel>Cancel</button><button type="button" class="${danger ? 'danger' : 'primary'}" data-confirm-ok>${esc(confirmLabel)}</button></div>
+      </section>`;
+      const finish = value => { overlay.remove(); resolve(value); };
+      overlay.querySelector('[data-confirm-cancel]').addEventListener('click', () => finish(false));
+      overlay.querySelector('[data-confirm-ok]').addEventListener('click', () => finish(true));
+      overlay.addEventListener('click', e => { if (e.target === overlay) finish(false); });
+      const key = e => {
+        if (e.key === 'Escape') { document.removeEventListener('keydown', key); finish(false); }
+        if (e.key === 'Enter') { document.removeEventListener('keydown', key); finish(true); }
+      };
+      document.addEventListener('keydown', key);
+      document.body.appendChild(overlay);
+      overlay.querySelector('[data-confirm-cancel]')?.focus();
+    });
+  }
+
   async function deleteThread(id) {
-    if (!confirm('Delete this entire conversation?')) return;
+    const approved = await confirmDialog({
+      title:'Delete conversation?',
+      message:'This removes the entire Pitmark Mail conversation from the live mailbox. Shield audit history is kept separately.',
+      confirmLabel:'Delete conversation',
+      danger:true
+    });
+    if (!approved) return;
     await api(`/api/control/email/threads/${id}`, {method:'DELETE'});
     state.activeThreadId = null;
     const box = $('pm19MailThread');
@@ -578,6 +640,16 @@
           <button data-cmd="insertOrderedList">1. List</button>
           <button data-cmd="createLink">Link</button>
           <span></span>
+          <select id="pm19MacroSelect" title="Insert a Pitmark quick reply">
+            <option value="">Quick reply…</option>
+            <option value="order_lookup">Order · Look up order</option>
+            <option value="order_delay">Order · Production / shipping</option>
+            <option value="return_exchange">Order · Return / exchange</option>
+            <option value="partnership_received">Partnership · Application received</option>
+            <option value="prt_support">PRT · Support information</option>
+            <option value="need_info">General · Need more information</option>
+            <option value="thanks_close">General · Thanks / resolved</option>
+          </select>
           <button id="pm19SignatureBtn">Signature</button>
         </div>
         <div id="pm19Editor" class="pm19-rich-editor" contenteditable="true" spellcheck="true" data-placeholder="Write your message…"></div>
@@ -648,6 +720,32 @@
     scheduleAutosave();
   }
 
+  const MAIL_MACROS = {
+    order_lookup: `<p>Hi there,</p><p>Thanks for reaching out to Pitmark Racing Co. I’d be happy to look into this for you. Please reply with your order number and the email address used at checkout.</p><p>Once we have that, we can check the order details for you.</p>`,
+    order_delay: `<p>Hi there,</p><p>Thanks for checking in. Pitmark products are produced through our fulfillment workflow, so production and carrier scans can take a little time to update.</p><p>If you send us your order number, we’ll check the current status and let you know what we can see.</p>`,
+    return_exchange: `<p>Hi there,</p><p>Thanks for reaching out. Please send us your order number, the item involved, and a quick description of what you need changed or resolved.</p><p>We’ll review the order and walk you through the best next step.</p>`,
+    partnership_received: `<p>Hi there,</p><p>Thanks for your interest in working with Pitmark Racing Co. We received your partnership message and appreciate you reaching out.</p><p>We’re reviewing the details and will follow up if we need anything else or when we’re ready for the next step.</p>`,
+    prt_support: `<p>Hi there,</p><p>Thanks for contacting Pitmark Racing Tools support. To help us narrow this down, please send the PRT version you’re running, what you were doing when the issue occurred, and a screenshot or diagnostic log if one is available.</p><p>We’ll take it from there.</p>`,
+    need_info: `<p>Hi there,</p><p>Thanks for reaching out. We can help — could you send us a little more information about what you’re trying to do or what happened?</p><p>The more detail you can provide, the faster we can point you in the right direction.</p>`,
+    thanks_close: `<p>Thanks for the update. We’re glad we could help.</p><p>If anything else comes up, just reply here and we’ll pick the conversation back up.</p>`
+  };
+
+  function insertMailMacro(key) {
+    const html = MAIL_MACROS[key];
+    const editor = $('pm19Editor');
+    if (!html || !editor) return;
+    const sig = editor.querySelector('[data-pm19-signature]');
+    const blank = editor.children.length === 1 && !String(editor.innerText || '').trim();
+    if (blank) editor.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'pm195-macro-body';
+    wrap.innerHTML = html;
+    if (sig && sig.parentNode === editor) editor.insertBefore(wrap, sig);
+    else editor.appendChild(wrap);
+    markDirty();
+    editor.focus();
+  }
+
   function wireComposer() {
     $('pm19ComposeClose').addEventListener('click', closeComposer);
     $('pm19ComposeOverlay').addEventListener('click', e => {
@@ -672,6 +770,11 @@
         document.execCommand(cmd, false, null);
       }
       markDirty();
+    });
+    $('pm19MacroSelect')?.addEventListener('change', e => {
+      const key = e.target.value;
+      if (key) insertMailMacro(key);
+      e.target.value = '';
     });
     $('pm19SignatureBtn').addEventListener('click', openSignatureEditor);
     $('pm19Files').addEventListener('change', addFiles);
