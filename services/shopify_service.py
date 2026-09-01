@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
+import json
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
 
+from services import prt_licensing_store
 from utils.config import settings
 
 _TOKEN: str | None = None
@@ -30,6 +36,8 @@ def configured() -> bool:
 def status() -> dict:
     return {
         "configured": configured(),
+        "webhook_configured": bool(settings.shopify_webhook_secret),
+        "prt_products_mapped": True,
         "message": (
             "Shopify credentials are configured; live authentication is available."
             if configured()
@@ -106,7 +114,132 @@ def connection_test() -> dict[str, Any]:
         "shop_name": shop.get("name"),
         "shop_domain": shop.get("myshopifyDomain"),
         "api_version": API_VERSION,
+        "webhook_configured": bool(settings.shopify_webhook_secret),
     }
+
+
+def verify_webhook(body: bytes, supplied_hmac: str) -> bool:
+    secret = (settings.shopify_webhook_secret or settings.shopify_client_secret or "").encode("utf-8")
+    if not secret or not supplied_hmac:
+        return False
+    digest = hmac.new(secret, body, hashlib.sha256).digest()
+    expected = base64.b64encode(digest).decode("ascii")
+    return hmac.compare_digest(expected, supplied_hmac.strip())
+
+
+def _as_id(value: Any) -> str:
+    if value is None:
+        return ""
+    text = str(value)
+    if text.startswith("gid://"):
+        return text.rsplit("/", 1)[-1]
+    return text
+
+
+def _selling_plan_name(line: dict[str, Any]) -> str:
+    allocation = line.get("selling_plan_allocation") or {}
+    selling_plan = allocation.get("selling_plan") or {}
+    candidates = [
+        selling_plan.get("name"),
+        allocation.get("selling_plan_name"),
+        line.get("selling_plan_name"),
+    ]
+    for candidate in candidates:
+        if candidate:
+            return str(candidate)
+    return ""
+
+
+def infer_billing_interval(line: dict[str, Any], order: dict[str, Any]) -> str:
+    text = " ".join([
+        _selling_plan_name(line),
+        str(line.get("title") or ""),
+        str(line.get("variant_title") or ""),
+        json.dumps(line.get("properties") or [], default=str),
+        str(order.get("note") or ""),
+    ]).lower()
+    if any(token in text for token in ("12 month", "12-month", "yearly", "annual", "1 year")):
+        return "yearly"
+    return "monthly"
+
+
+def process_paid_order(order: dict[str, Any]) -> list[dict[str, Any]]:
+    prt_licensing_store.ensure_default_shopify_mappings()
+    order_id = _as_id(order.get("id") or order.get("admin_graphql_api_id"))
+    if not order_id:
+        return []
+    customer = order.get("customer") or {}
+    customer_id = _as_id(customer.get("id") or order.get("customer_id"))
+    email = str(order.get("email") or order.get("contact_email") or customer.get("email") or "").strip().lower()
+    order_name = str(order.get("name") or order.get("order_number") or order_id)
+    paid_at = str(order.get("processed_at") or order.get("created_at") or "")
+    records: list[dict[str, Any]] = []
+    for line in order.get("line_items") or []:
+        variant_id = _as_id(line.get("variant_id") or line.get("variant", {}).get("id"))
+        product_id = _as_id(line.get("product_id") or line.get("product", {}).get("id"))
+        mapping = prt_licensing_store.get_shopify_mapping(variant_id)
+        if not mapping:
+            continue
+        billing_interval = infer_billing_interval(line, order)
+        record = prt_licensing_store.upsert_shopify_purchase({
+            "order_id": order_id,
+            "order_name": order_name,
+            "customer_id": customer_id,
+            "email": email,
+            "product_id": product_id or mapping.get("product_id", ""),
+            "variant_id": variant_id,
+            "plan": mapping["plan"],
+            "billing_interval": billing_interval,
+            "status": "active",
+            "selling_plan_name": _selling_plan_name(line),
+            "paid_at": paid_at,
+        })
+        records.append(record)
+        renewal_days = 380 if billing_interval == "yearly" else 40
+        prt_licensing_store.refresh_entitlements_for_shopify_customer(
+            customer_id,
+            plan=mapping["plan"],
+            order_id=order_id,
+            grace_until=(datetime.now(timezone.utc) + timedelta(days=renewal_days)).isoformat(),
+        )
+    return records
+
+
+def process_order_invalidation(order: dict[str, Any], status: str) -> int:
+    order_id = _as_id(order.get("order_id") or order.get("id") or order.get("admin_graphql_api_id"))
+    if not order_id:
+        return 0
+    prt_licensing_store.set_purchase_status(order_id, status)
+    return prt_licensing_store.deactivate_entitlements_for_order(order_id, status=status)
+
+
+
+def process_refund(refund: dict[str, Any]) -> int:
+    prt_licensing_store.ensure_default_shopify_mappings()
+    prt_refunded = False
+    for item in refund.get("refund_line_items") or []:
+        line = item.get("line_item") or {}
+        variant_id = _as_id(line.get("variant_id") or line.get("variant", {}).get("id"))
+        if variant_id and prt_licensing_store.get_shopify_mapping(variant_id):
+            prt_refunded = True
+            break
+    if not prt_refunded:
+        return 0
+    return process_order_invalidation(refund, "inactive")
+
+def process_subscription_status(payload: dict[str, Any], status_override: str = "") -> int:
+    customer_id = _as_id(payload.get("customer_id") or payload.get("admin_graphql_api_customer_id"))
+    if not customer_id:
+        return 0
+    raw = status_override or str(payload.get("status") or "inactive")
+    normalized = raw.strip().lower()
+    if normalized in {"active", "trialing"}:
+        entitlement_status = "active"
+    elif normalized in {"paused", "failed"}:
+        entitlement_status = "grace"
+    else:
+        entitlement_status = "inactive"
+    return prt_licensing_store.set_entitlements_status_for_shopify_customer(customer_id, entitlement_status)
 
 
 def list_blogs() -> list[dict[str, Any]]:

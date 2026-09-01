@@ -4,16 +4,14 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PITMARK_RELEASE_VERSION = "0.21.0"
+PITMARK_RELEASE_VERSION = "0.21.1"
 
 
 class Settings(BaseSettings):
     environment: str = "development"
     app_version: str = PITMARK_RELEASE_VERSION
     cors_origins: str = ""
-
     pitmark_signing_secret: str = "development-only"
-
     discord_client_id: str = ""
     discord_client_secret: str = ""
     discord_redirect_uri: str = ""
@@ -30,7 +28,6 @@ class Settings(BaseSettings):
     discord_owner_user_id: str = ""
     discord_hq_install_permissions: int = 8
     pitmark_admin_key: str = ""
-
     pitmark_ai_provider: str = "openai"
     pitmark_ai_model: str = "gpt-5.6-luna"
     pitmark_ai_timeout_seconds: float = 30.0
@@ -46,7 +43,6 @@ class Settings(BaseSettings):
         "grassroots racing OR dirt track racing OR short track racing "
         "OR sim racing OR motorsports"
     )
-
     meta_app_id: str = ""
     meta_app_secret: str = ""
     meta_page_id: str = ""
@@ -56,7 +52,6 @@ class Settings(BaseSettings):
     meta_graph_version: str = "v26.0"
     pitmark_timezone: str = "America/New_York"
     pitmark_public_store_url: str = "https://pitmarkracing.com"
-
     tiktok_client_key: str = ""
     tiktok_client_secret: str = ""
     x_client_id: str = ""
@@ -66,12 +61,10 @@ class Settings(BaseSettings):
     x_access_token: str = ""
     x_access_token_secret: str = ""
     x_realtime_max_age_minutes: int = 60
-
     shopify_shop_domain: str = ""
     shopify_client_id: str = ""
     shopify_client_secret: str = ""
     shopify_webhook_secret: str = ""
-
     database_url: str = ""
 
     model_config = SettingsConfigDict(
@@ -83,11 +76,7 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [
-            x.strip()
-            for x in self.cors_origins.split(",")
-            if x.strip()
-        ]
+        return [x.strip() for x in self.cors_origins.split(",") if x.strip()]
 
 
 @lru_cache

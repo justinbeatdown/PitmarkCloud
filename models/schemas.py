@@ -16,14 +16,12 @@ class FeatureEntitlements(BaseModel):
     basic_overlays: bool = True
     logbook: bool = True
     basic_race_card: bool = True
-
     advanced_overlays: bool = False
     analyze_pro: bool = False
     setup_vault_pro: bool = False
     race_card_pro: bool = False
     planner: bool = False
     crew_chief: bool = False
-
     league_tools: bool = False
 
 
@@ -55,6 +53,13 @@ class ShopifyPlanMappingUpdate(BaseModel):
     plan: PitmarkPlan
     billing_interval: str = Field(default="monthly", max_length=32)
     active: bool = True
+
+
+class ShopifyLicenseClaim(BaseModel):
+    device_id: str = Field(min_length=16, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    order_id: str = Field(min_length=1, max_length=80)
+    email: str = Field(min_length=3, max_length=254)
+    display_name: str = Field(default="Pitmark Racer", max_length=180)
 
 
 class DiscordStatusResponse(BaseModel):

@@ -29,6 +29,8 @@ def prt_status():
 def prt_logo(): return FileResponse(ASSET_DIR/"pitmark_logo_wide.png",media_type="image/png")
 @router.get("/prt-current-logo.png",include_in_schema=False)
 def prt_current_logo(): return FileResponse(ASSET_DIR/"prt-current-logo.png",media_type="image/png")
+@router.get("/prt-tools-logo.png",include_in_schema=False)
+def prt_tools_logo(): return FileResponse(ASSET_DIR/"prt-tools-logo.png",media_type="image/png")
 @router.get("/prt-app-preview.png",include_in_schema=False)
 def prt_app_preview(): return FileResponse(ASSET_DIR/"prt-app-preview.png",media_type="image/png")
 @router.get("/api/discord/install/launch",include_in_schema=False)

@@ -1,16 +1,34 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#0a0a0a"><title>Pitmark Racing Tools</title>
-<link rel="icon" href="/control-favicon.png"><link rel="stylesheet" href="/prt.css?v=01707"></head><body>
-<header class="topbar"><a class="brand" href="/prt"><span class="brand-mark"><img src="/prt-current-logo.png" alt="Pitmark Racing Co."></span><span><b>PITMARK RACING TOOLS</b><small>BUILT FOR RACERS.</small></span></a>
-<div class="top-actions"><span class="early">EARLY ACCESS</span><a href="/prt/support" class="ghost-link">SUPPORT</a></div></header>
-<main><section class="hero"><div class="hero-copy"><p class="eyebrow">YOUR RACING COMMAND CENTER</p><h1>Race smarter.<br><em>Leave your mark.</em></h1>
-<p class="lead">Pitmark Racing Tools brings drivers, leagues and teams into one racing-first workspace for race prep, live tools, league operations and Discord integration.</p>
-<div class="hero-actions"><a class="primary action-link" href="/api/discord/install/launch" target="_blank" rel="noopener noreferrer">ADD PITMARK BOT TO DISCORD</a><a class="secondary action-link community-link" href="https://discord.gg/jP6fQuW7dr" target="_blank" rel="noopener noreferrer">JOIN PRT DISCORD</a><button class="secondary" disabled>WINDOWS APP — COMING SOON</button></div>
+<link rel="icon" href="/control-favicon.png"><link rel="stylesheet" href="/prt.css?v=0211"></head><body>
+<header class="topbar">
+  <a class="brand" href="/prt">
+    <span class="brand-wide"><img src="/prt-tools-logo.png" alt="Pitmark Racing Tools"></span>
+  </a>
+  <div class="top-actions"><span class="early">EARLY ACCESS</span><a href="/prt/support" class="ghost-link">SUPPORT</a></div>
+</header>
+<main>
+<section class="hero"><div class="hero-copy"><p class="eyebrow">YOUR RACING COMMAND CENTER</p><h1>Race smarter.<br><em>Leave your mark.</em></h1>
+<p class="lead">Pitmark Racing Tools brings drivers, leagues and teams into one racing-first workspace for race prep, live tools, telemetry, league operations and Discord integration.</p>
+<div class="hero-actions"><a class="primary action-link" href="/api/discord/install/launch" target="_blank" rel="noopener noreferrer">ADD PITMARK BOT TO DISCORD</a><a class="secondary action-link community-link" href="https://discord.gg/jP6fQuW7dr" target="_blank" rel="noopener noreferrer">JOIN PRT DISCORD</a><button class="secondary" disabled>WINDOWS APP — EARLY ACCESS</button></div>
 <p id="botStatus" class="status-line">Checking Pitmark Bot availability…</p></div>
-<aside class="product-showcase"><div class="runtime-shot"><div class="source-preview-top"><span></span><b>PRT WINDOWS BUILD</b><em>v0.16.6</em></div><img src="/prt-app-preview.png" alt="Pitmark Racing Tools v0.16.6 Windows application"></div>
-<div class="compact-status"><span><i></i>PITMARK CLOUD <b id="cloudState">ONLINE</b></span><span><i></i>DISCORD <b id="discordState">CHECKING</b></span><span><i></i>PITMARK SHIELD <b id="shieldState">ACTIVE</b></span><span>v{{PITMARK_VERSION}}</span></div></aside></section>
+<aside class="product-showcase"><div class="runtime-shot"><div class="source-preview-top"><span></span><b>PRT WINDOWS BUILD</b><em>v0.16.44</em></div><img src="/prt-app-preview.png" alt="Pitmark Racing Tools Windows application"></div>
+<div class="compact-status"><span><i></i>PITMARK CLOUD <b id="cloudState">ONLINE</b></span><span><i></i>LICENSING <b>CONNECTED</b></span><span><i></i>DISCORD <b id="discordState">CHECKING</b></span><span>Cloud v{{PITMARK_VERSION}}</span></div></aside></section>
+
 <section class="section"><div class="section-head"><p class="eyebrow">THE TOOLBOX</p><h2>Everything around the race.</h2><p>PRT is being built as the layer between the driver, the league and the race weekend.</p></div>
 <div class="tool-grid"><article><span>01</span><h3>Driver Hub</h3><p>Race cards, logbook, session planning, setups and driver-focused race prep.</p><b>FOUNDATION</b></article><article><span>02</span><h3>League Command</h3><p>League dashboards, race operations, results workflows and shareable assets.</p><b>IN DEVELOPMENT</b></article><article class="active"><span>03</span><h3>Discord Integration</h3><p>Install Pitmark Bot directly into your server and connect league workflows to Discord.</p><b>READY TO INSTALL</b></article><article><span>04</span><h3>Pitmark Cloud</h3><p>Secure syncing, licensing, entitlements and the services behind the PRT ecosystem.</p><b>ONLINE</b></article></div></section>
-<section class="discord-block"><div><p class="eyebrow">PITMARK DISCORD</p><h2>Race support, updates and community.</h2><p>Join the Pitmark Discord for live PRT updates, service-status conversation, community support and other racers using the tools.</p></div><div class="discord-actions"><a class="secondary action-link community-link" href="https://discord.gg/jP6fQuW7dr" target="_blank" rel="noopener noreferrer">JOIN PRT COMMUNITY</a><a class="primary action-link" href="/api/discord/install/launch" target="_blank" rel="noopener noreferrer">ADD PITMARK BOT</a></div></section></main>
-<footer><span>PITMARK RACING CO. · LEAVE YOUR MARK.</span><span>PRT v{{PITMARK_VERSION}}</span></footer><script src="/prt.js?v=01702" defer></script></body></html>
+
+<section class="pricing-section" id="plans">
+  <div class="section-head"><p class="eyebrow">PRT PLANS</p><h2>Start free. Unlock what you need.</h2><p>Every racer gets the core PRT experience. Pro and League / Team subscriptions unlock the deeper tools as your racing grows.</p></div>
+  <div class="pricing-grid">
+    <article class="price-card"><span class="tier-kicker">FREE</span><h3>$0</h3><p class="price-sub">FOREVER</p><ul><li>Live telemetry foundation</li><li>Basic overlays</li><li>Driver logbook</li><li>Basic Race Cards</li></ul><span class="plan-state">INCLUDED WITH PRT</span></article>
+    <article class="price-card featured"><span class="popular">MOST RACERS</span><span class="tier-kicker">PRO</span><h3>$9.99<small>/mo</small></h3><p class="price-sub">OR $99.99 / YEAR</p><ul><li>Everything in Free</li><li>Advanced overlays + analysis</li><li>Pro setup and planning tools</li><li>Premium Race Cards</li><li>Discord sharing + integrations</li></ul><a class="primary action-link store-link" href="https://pitmarkracing.com" target="_blank" rel="noopener noreferrer">VIEW IN PITMARK STORE</a></article>
+    <article class="price-card"><span class="tier-kicker">LEAGUE / TEAM</span><h3>$24.99<small>/mo</small></h3><p class="price-sub">OR $249.99 / YEAR</p><ul><li>Everything in Pro</li><li>League + team tools</li><li>Expanded race analytics</li><li>Shared reporting + workflows</li><li>Advanced Discord integration</li></ul><a class="secondary action-link store-link" href="https://pitmarkracing.com" target="_blank" rel="noopener noreferrer">VIEW IN PITMARK STORE</a></article>
+  </div>
+  <p class="pricing-note">Subscriptions are securely verified through Pitmark Cloud. Paid plans are being connected to the PRT early-access license flow.</p>
+</section>
+
+<section class="discord-block"><div><p class="eyebrow">PITMARK DISCORD</p><h2>Race support, updates and community.</h2><p>Join the Pitmark Discord for live PRT updates, service-status conversation, community support and other racers using the tools.</p></div><div class="discord-actions"><a class="secondary action-link community-link" href="https://discord.gg/jP6fQuW7dr" target="_blank" rel="noopener noreferrer">JOIN PRT COMMUNITY</a><a class="primary action-link" href="/api/discord/install/launch" target="_blank" rel="noopener noreferrer">ADD PITMARK BOT</a></div></section>
+</main>
+<footer><span class="footer-brand"><img src="/prt-current-logo.png" alt="Pitmark Racing Co."><span>PITMARK RACING CO. · LEAVE YOUR MARK.</span></span><span>PRT Cloud v{{PITMARK_VERSION}}</span></footer><script src="/prt.js?v=0211" defer></script></body></html>
