@@ -1,0 +1,28 @@
+
+/* v0.18.8 Control Center clarity pass — preserves the Pitmark visual system. */
+[data-view-section="dashboard"].pm-dashboard-clean .pm-redundant-dashboard {
+  display: none;
+}
+[data-view-section="dashboard"].pm-dashboard-clean .notification-center.pm-clear {
+  padding-bottom: 14px;
+}
+[data-view-section="dashboard"].pm-dashboard-clean .notification-center.pm-clear > p,
+[data-view-section="dashboard"].pm-dashboard-clean .notification-center.pm-clear #notificationOutput {
+  display: none;
+}
+[data-view-section="dashboard"].pm-dashboard-clean .notification-center.pm-clear .panel-head {
+  margin-bottom: 0;
+}
+[data-view-section="dashboard"].pm-dashboard-clean .command-brief {
+  margin-top: 14px;
+}
+.pm-mail-search {
+  min-width: 190px;
+  flex: 1 1 240px;
+}
+@media (max-width: 760px) {
+  .pm-mail-search {
+    min-width: 0;
+    width: 100%;
+  }
+}

@@ -1,0 +1,68 @@
+
+/* Pitmark Mail client upgrade */
+.pm-mail-thread-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: rgba(12,13,14,.97);
+  backdrop-filter: blur(10px);
+}
+.pm-mail-message {
+  border: 1px solid rgba(126,130,134,.35);
+  border-radius: 12px;
+  background: rgba(10,11,12,.76);
+  margin: 0 0 12px;
+  overflow: hidden;
+}
+.pm-mail-meta {
+  padding: 12px 14px 7px;
+}
+.pm-mail-recipient-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 0 14px 10px;
+  color: #8f9499;
+  font-size: 12px;
+}
+.pm-mail-body {
+  padding: 0 14px 12px;
+}
+.pm-mail-plain {
+  white-space: pre-wrap;
+  line-height: 1.58;
+  color: #eeeeec;
+}
+.pm-mail-html-frame {
+  display: block;
+  width: 100%;
+  min-height: 120px;
+  border: 0;
+  background: transparent;
+}
+.pm-mail-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 0 14px 14px;
+}
+.mail-thread .pm-shield-detail {
+  margin: 0 14px 12px;
+}
+@media (max-width: 760px) {
+  .pm-mail-message {
+    border-radius: 10px;
+  }
+  .pm-mail-actions {
+    padding: 0 10px 12px;
+  }
+  .pm-mail-body {
+    padding: 0 10px 10px;
+  }
+  .pm-mail-recipient-meta {
+    padding: 0 10px 8px;
+  }
+  .pm-mail-html-frame {
+    min-height: 160px;
+  }
+}

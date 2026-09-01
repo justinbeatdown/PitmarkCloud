@@ -11,8 +11,10 @@ from utils.logger import configure_logging
 from services import discord_gateway_service
 from services.database import init_database, database_status
 from services.autopilot_intelligence import scheduler_loop
+from services.autopilot_multiplatform import scheduler_loop as multiplatform_scheduler_loop
 from services.research_agent import research_worker_loop
 from services.social_publish_worker import social_publish_worker_loop
+from services.shield_mail_cleanup import purge_orphaned_mail_events
 
 configure_logging()
 
@@ -20,14 +22,22 @@ configure_logging()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_database()
+    # One-time repair of old Shield live-queue rows whose Pitmark Mail messages
+    # were already deleted. Audit history remains intact.
+    try:
+        purge_orphaned_mail_events()
+    except Exception:
+        pass
     await discord_gateway_service.start()
     autopilot_task = asyncio.create_task(scheduler_loop())
+    multiplatform_task = asyncio.create_task(multiplatform_scheduler_loop())
     research_task = asyncio.create_task(research_worker_loop())
     social_publish_task = asyncio.create_task(social_publish_worker_loop())
     try:
         yield
     finally:
         autopilot_task.cancel()
+        multiplatform_task.cancel()
         research_task.cancel()
         social_publish_task.cancel()
         await discord_gateway_service.stop()

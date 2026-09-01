@@ -64,8 +64,26 @@ def control(request: Request):
     if filename == 'control_center.html':
         import re
         html = re.sub(r'PITMARK CLOUD v[0-9]+(?:\.[0-9]+)*', f'PITMARK CLOUD v{settings.app_version}', html, flags=re.IGNORECASE)
-        html = html.replace('</head>', '<link rel="stylesheet" href="/control-email.css">\n<link rel="stylesheet" href="/control-email-shield.css?v=01623">\n</head>')
-        html = html.replace('</body>', AUTOFILL_GUARD + '\n<script src="/control-email.js" defer></script>\n<script src="/control-email-identity.js?v=01702" defer></script>\n<script src="/control-email-shield.js?v=01702" defer></script>\n<script src="/control-shield-mail-status.js?v=01702" defer></script>\n<script src="/control-email-spam-training.js?v=01702" defer></script></body>')
+        html = html.replace(
+            '</head>',
+            '<link rel="stylesheet" href="/control-email.css">\n'
+            '<link rel="stylesheet" href="/control-email-shield.css?v=01623">\n'
+            '<link rel="stylesheet" href="/control-mail-client.css?v=01808">\n'
+            '<link rel="stylesheet" href="/control-center-overhaul.css?v=01808">\n'
+            '</head>'
+        )
+        html = html.replace(
+            '</body>',
+            AUTOFILL_GUARD
+            + '\n<script src="/control-email.js" defer></script>'
+            + '\n<script src="/control-email-identity.js?v=01702" defer></script>'
+            + '\n<script src="/control-email-shield.js?v=01702" defer></script>'
+            + '\n<script src="/control-shield-mail-status.js?v=01702" defer></script>'
+            + '\n<script src="/control-email-spam-training.js?v=01702" defer></script>'
+            + '\n<script src="/control-mail-client.js?v=01808" defer></script>'
+            + '\n<script src="/control-center-overhaul.js?v=01808" defer></script>'
+            + '</body>'
+        )
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
 
 
@@ -108,6 +126,43 @@ def control_email_spam_training_js():
         headers={'Cache-Control':'no-store'},
     )
 
+
+@router.get('/control-mail-client.js', include_in_schema=False)
+def control_mail_client_js():
+    return Response(
+        (ASSET_DIR / 'control_mail_client.js').read_text(encoding='utf-8'),
+        media_type='application/javascript',
+        headers={'Cache-Control':'no-store'},
+    )
+
+
+@router.get('/control-mail-client.css', include_in_schema=False)
+def control_mail_client_css():
+    return Response(
+        (ASSET_DIR / 'control_mail_client.css').read_text(encoding='utf-8'),
+        media_type='text/css',
+        headers={'Cache-Control':'no-store'},
+    )
+
+
+@router.get('/control-center-overhaul.js', include_in_schema=False)
+def control_center_overhaul_js():
+    return Response(
+        (ASSET_DIR / 'control_center_overhaul.js').read_text(encoding='utf-8'),
+        media_type='application/javascript',
+        headers={'Cache-Control':'no-store'},
+    )
+
+
+@router.get('/control-center-overhaul.css', include_in_schema=False)
+def control_center_overhaul_css():
+    return Response(
+        (ASSET_DIR / 'control_center_overhaul.css').read_text(encoding='utf-8'),
+        media_type='text/css',
+        headers={'Cache-Control':'no-store'},
+    )
+
+
 @router.get('/control-login.js', include_in_schema=False)
 def control_login_js(): return Response((ASSET_DIR / 'control_login.js').read_text(encoding='utf-8'), media_type='application/javascript')
 
@@ -116,9 +171,26 @@ def control_mobile(request: Request):
     filename = 'control_mobile.html' if user_from_request(request) else 'control_mobile_login.html'
     html = (ASSET_DIR / filename).read_text(encoding='utf-8')
     if filename == 'control_mobile.html':
-        html = html.replace('</head>', '<link rel="stylesheet" href="/control-email-shield.css?v=01623">\n</head>')
-        html = html.replace('</body>', AUTOFILL_GUARD + '\n<script src="/control-mobile-mail-identity.js?v=01702" defer></script>\n<script src="/control-email-shield.js?v=01702" defer></script>\n<script src="/control-shield-mail-status.js?v=01702" defer></script>\n<script src="/control-email-spam-training.js?v=01702" defer></script></body>')
-    return HTMLResponse(html, headers={'Cache-Control':'no-store'})
+        html = html.replace(
+            '</head>',
+            '<link rel="stylesheet" href="/control-email-shield.css?v=01623">\n'
+            '<link rel="stylesheet" href="/control-mail-client.css?v=01808">\n'
+            '<link rel="stylesheet" href="/control-center-overhaul.css?v=01808">\n'
+            '</head>'
+        )
+        html = html.replace(
+            '</body>',
+            AUTOFILL_GUARD
+            + '\n<script src="/control-mobile-mail-identity.js?v=01702" defer></script>'
+            + '\n<script src="/control-email-shield.js?v=01702" defer></script>'
+            + '\n<script src="/control-shield-mail-status.js?v=01702" defer></script>'
+            + '\n<script src="/control-email-spam-training.js?v=01702" defer></script>'
+            + '\n<script src="/control-mail-client.js?v=01808" defer></script>'
+            + '\n<script src="/control-center-overhaul.js?v=01808" defer></script>'
+            + '</body>'
+        )
+    return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
+
 
 @router.get('/control-mobile.css', include_in_schema=False)
 def control_mobile_css(): return Response((ASSET_DIR / 'control_mobile.css').read_text(encoding='utf-8'), media_type='text/css')

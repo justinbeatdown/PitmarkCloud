@@ -4,6 +4,7 @@ from sqlalchemy import select
 
 from services.database import SessionLocal
 from services.pitmark_mail import MailMessage, MailThread, utcnow
+from services.shield_mail_cleanup import purge_events_for_messages
 
 
 def _repair_thread(db, thread_id: int) -> None:
@@ -39,6 +40,9 @@ def delete_thread(thread_id: int) -> bool:
                 select(MailMessage).where(MailMessage.thread_id == thread_id)
             ).all()
         )
+        # Keep the live Shield queue in lockstep with Pitmark Mail. Historical
+        # SecurityAuditEvent rows remain untouched for audit/history.
+        purge_events_for_messages(db, messages)
         for msg in messages:
             db.delete(msg)
         db.delete(thread)
