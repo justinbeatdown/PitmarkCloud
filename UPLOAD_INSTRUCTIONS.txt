@@ -1,34 +1,17 @@
-PITMARK CLOUD v0.20.3 — FULL REPLACEMENT PACKAGE
+Pitmark Cloud v0.20.4 — FULL REPLACEMENT
 
-THIS IS THE DROP-IN PACKAGE.
+Replace:
+  api/control_center_v202.js
+  api/email_center.py
 
-Replace these exact files in the PitmarkCloud repository:
+You may also add RELEASE_v0.20.4.md.
 
-1) api/control_center_v202.js
-2) api/email_center.py
+Then commit/push and redeploy.
 
-Keep the folder structure exactly as shown in this ZIP.
-
-DO NOT upload the old .patch file from the previous package.
-DO NOT delete unrelated files.
-
-After replacing the two files:
-- Commit/push to main.
-- In Render, set APP_VERSION=0.20.3 if it is not already set.
-- Redeploy.
-- Hard-refresh Control Center (Ctrl+Shift+R).
-
-VERIFY:
-1) Desktop sidebar order is:
-   Dashboard > Autopilot > Mail > Shield > Campaigns > Outreach >
-   Blog > PRT Analytics > Directory > Settings
-2) Settings is the bottom workspace.
-3) Mail opens materially faster.
-4) Inbox/Sent/Drafts switching does not sit waiting on a Shield rescan.
-5) Opening a conversation is responsive.
-6) Gmail background sync still brings in new mail.
-7) Shield labels/classifications continue to appear.
-
-NOTE:
-This package intentionally contains only the source files changed by this fix.
-It is not a full repository backup.
+Verify:
+- Checkboxes appear beside Inbox/Sent/Spam conversation rows.
+- Selecting one message does NOT open it.
+- Select all / Clear all works.
+- Delete (N) removes all selected conversations.
+- Mail remains responsive.
+- Same workflow appears on mobile.

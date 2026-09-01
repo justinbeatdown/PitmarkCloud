@@ -63,6 +63,10 @@ class MailAutoReplyUpdate(BaseModel):
     body: str = ""
 
 
+class MailBulkDelete(BaseModel):
+    thread_ids: list[int] = Field(default_factory=list, min_length=1, max_length=200)
+
+
 @router.get("/status")
 def mail_status(request: Request):
     auth(request)
@@ -136,6 +140,38 @@ def mail_mark_thread_spam(thread_id: int, request: Request):
         return mark_thread_spam(thread_id)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+@router.post("/threads/bulk-delete")
+def mail_bulk_delete(req: MailBulkDelete, request: Request):
+    auth(request)
+    enforce_rate_limit(request, "mail-bulk-delete", 20, 300)
+    unique_ids = list(dict.fromkeys(int(value) for value in req.thread_ids if int(value) > 0))
+    if not unique_ids:
+        raise HTTPException(400, "No valid mail conversations were selected.")
+
+    deleted: list[int] = []
+    missing: list[int] = []
+    failed: list[dict] = []
+    for thread_id in unique_ids:
+        try:
+            if delete_thread(thread_id):
+                deleted.append(thread_id)
+            else:
+                missing.append(thread_id)
+        except RuntimeError as exc:
+            failed.append({"thread_id": thread_id, "error": str(exc)})
+
+    if failed and not deleted:
+        raise HTTPException(502, f"Bulk delete failed for {len(failed)} conversation(s).")
+    return {
+        "ok": not failed,
+        "requested": len(unique_ids),
+        "deleted": deleted,
+        "deleted_count": len(deleted),
+        "missing": missing,
+        "failed": failed,
+    }
 
 
 @router.delete("/threads/{thread_id}")
