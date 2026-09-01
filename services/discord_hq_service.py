@@ -201,7 +201,11 @@ async def _owner_job(payload: dict[str, Any], action: str) -> None:
             if action == "bootstrap" and state and state.get("bootstrapped"):
                 text = "Pitmark HQ has already been bootstrapped. Use `/hq sync` for safe repairs and updates."
             else:
-                structure = await ensure_structure(_guild_id(payload), _user_id(payload))
+                structure = await ensure_structure(
+                    _guild_id(payload),
+                    _user_id(payload),
+                    repair_existing=(action == "sync"),
+                )
                 await discord_hq_support.post_support_panel(_guild_id(payload)); await discord_hq_support.post_interest_role_panel(_guild_id(payload))
                 automod = await discord_hq_moderation.sync_automod(_guild_id(payload), structure["role_map"], structure["channel_map"])
                 discord_hq_store.mark_bootstrapped(_guild_id(payload), _user_id(payload))

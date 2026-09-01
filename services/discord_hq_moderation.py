@@ -10,6 +10,7 @@ from services.discord_hq_common import (
     DISCORD_API,
     SEND_MESSAGES,
     headers,
+    discord_request,
     list_channels,
     log_named,
 )
@@ -145,15 +146,24 @@ async def sync_automod(guild_id: str, role_map: dict[str, dict[str, Any]], chann
         {"name": "Pitmark • Safety Presets", "event_type": 1, "trigger_type": 4, "trigger_metadata": {"presets": [2, 3]}, "actions": [{"type": 1, "metadata": {"custom_message": "That content is blocked by Pitmark community safety rules."}}, {"type": 2, "metadata": {"channel_id": str(modlog["id"] )}}], "enabled": True, "exempt_roles": exempt},
         {"name": "Pitmark • Spam Filter", "event_type": 1, "trigger_type": 3, "actions": [{"type": 1, "metadata": {"custom_message": "Discord detected this as spam."}}, {"type": 2, "metadata": {"channel_id": str(modlog["id"] )}}], "enabled": True, "exempt_roles": exempt},
     ]
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        r = await client.get(f"{DISCORD_API}/guilds/{guild_id}/auto-moderation/rules", headers=headers()); r.raise_for_status(); existing = {str(x.get("name")): x for x in r.json()}
-        for rule in desired:
-            current = existing.get(rule["name"])
-            if current:
-                u = await client.patch(f"{DISCORD_API}/guilds/{guild_id}/auto-moderation/rules/{current['id']}", headers=headers("Pitmark AutoMod sync"), json=rule)
-            else:
-                u = await client.post(f"{DISCORD_API}/guilds/{guild_id}/auto-moderation/rules", headers=headers("Pitmark AutoMod bootstrap"), json=rule)
-            u.raise_for_status()
+    r = await discord_request("GET", f"{DISCORD_API}/guilds/{guild_id}/auto-moderation/rules")
+    existing = {str(x.get("name")): x for x in r.json()}
+    for rule in desired:
+        current = existing.get(rule["name"])
+        if current:
+            await discord_request(
+                "PATCH",
+                f"{DISCORD_API}/guilds/{guild_id}/auto-moderation/rules/{current['id']}",
+                reason="Pitmark AutoMod sync",
+                json=rule,
+            )
+        else:
+            await discord_request(
+                "POST",
+                f"{DISCORD_API}/guilds/{guild_id}/auto-moderation/rules",
+                reason="Pitmark AutoMod bootstrap",
+                json=rule,
+            )
     return len(desired)
 
 
