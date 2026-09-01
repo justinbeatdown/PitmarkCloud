@@ -6,6 +6,18 @@
   const qa = (s, root=document) => [...root.querySelectorAll(s)];
 
   function openView(name) {
+    // Pitmark Mail v19 replaces the original mobile email markup and owns the
+    // Email navigation button. Calling the legacy view('email') path tries to
+    // load removed mMail* elements and makes Mail appear unresponsive.
+    if (name === 'email') {
+      const mailNav = q('[data-mnav="email"]');
+      if (mailNav) {
+        mailNav.click();
+        window.scrollTo({top:0, behavior:'smooth'});
+        return;
+      }
+    }
+
     if (typeof window.view === 'function') {
       window.view(name);
       window.scrollTo({top:0, behavior:'smooth'});

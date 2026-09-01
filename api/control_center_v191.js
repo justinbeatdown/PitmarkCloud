@@ -455,19 +455,34 @@
     upgradeBlogPreviews();
     upgradeQueueButtons();
 
-    let enhancementPassScheduled=false;
-    const observer=new MutationObserver(mutations=>{
-      if (!mutations.some(m => m.addedNodes.length || m.removedNodes.length)) return;
-      if (enhancementPassScheduled) return;
-      enhancementPassScheduled=true;
-      requestAnimationFrame(()=>{
-        enhancementPassScheduled=false;
-        upgradeOperationalPages();
-        upgradeBlogPreviews();
-        upgradeQueueButtons();
+    // v0.19.4: observe only the workspaces that actually need enhancement.
+    // The previous body-wide observer woke up for Mail, queue counters, compose,
+    // analytics, navigation and nearly every other UI mutation.
+    const observeWorkspace=(selector,enhance)=>{
+      const target=document.querySelector(selector);
+      if(!target)return;
+      let pending=false;
+      const observer=new MutationObserver(mutations=>{
+        if(!mutations.some(m=>m.addedNodes.length||m.removedNodes.length))return;
+        if(pending)return;
+        pending=true;
+        requestAnimationFrame(()=>{
+          pending=false;
+          enhance();
+        });
       });
-    });
-    observer.observe(document.body,{childList:true,subtree:true});
+      observer.observe(target,{childList:true,subtree:true});
+    };
+
+    // Mobile does not use the desktop record-card decorators. Avoid keeping a
+    // global enhancement loop alive on the phone entirely.
+    const mobile=!!document.querySelector('[data-mview]');
+    if(!mobile){
+      observeWorkspace('#rookieOutput',upgradeOperationalPages);
+      observeWorkspace('#outreachOutput',upgradeOperationalPages);
+      observeWorkspace('#blogOutput',upgradeBlogPreviews);
+      observeWorkspace('#queueList',upgradeQueueButtons);
+    }
   }
 
   document.addEventListener('DOMContentLoaded',()=>setTimeout(boot,180));

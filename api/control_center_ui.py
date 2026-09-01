@@ -82,6 +82,7 @@ def control(request: Request):
             AUTOFILL_GUARD
             + '\n<script src="/control-center-v19.js?v=01900" defer></script>'
             + '\n<script src="/control-center-v191.js?v=01902" defer></script>'
+            + '\n<script src="/control-runtime-v194.js?v=01904" defer></script>'
             + '</body>'
         )
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
@@ -219,7 +220,8 @@ def control_mobile(request: Request):
             AUTOFILL_GUARD
             + '\n<script src="/control-center-v19.js?v=01900" defer></script>'
             + '\n<script src="/control-center-v191.js?v=01902" defer></script>'
-            + '\n<script src="/control-mobile-v2.js?v=01903" defer></script>'
+            + '\n<script src="/control-mobile-v2.js?v=01904" defer></script>'
+            + '\n<script src="/control-runtime-v194.js?v=01904" defer></script>'
             + '</body>'
         )
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
@@ -260,6 +262,15 @@ def control_mobile_v2_css():
 def control_mobile_v2_js():
     return Response(
         (ASSET_DIR / 'control_mobile_v2.js').read_text(encoding='utf-8'),
+        media_type='application/javascript',
+        headers={'Cache-Control':'no-store'},
+    )
+
+
+@router.get('/control-runtime-v194.js', include_in_schema=False)
+def control_runtime_v194_js():
+    return Response(
+        (ASSET_DIR / 'control_runtime_v194.js').read_text(encoding='utf-8'),
         media_type='application/javascript',
         headers={'Cache-Control':'no-store'},
     )
