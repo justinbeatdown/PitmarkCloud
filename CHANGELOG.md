@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.2
+
+- Restored the missing desktop Control Center sidebar with an authoritative,
+  post-initialization navigation recovery layer.
+- Preserved role-based navigation permissions and all v0.20.1 Gmail/Shield
+  automation behavior.
+- Cache-busted the full Control Center asset chain.
+
 ## 0.20.1
 - Added idempotent Google Workspace provisioning for eight department labels, four Shield verdict labels, and eight alias-routing Gmail filters.
 - Expanded the default business-only Gmail sync to include provider Spam for Shield auditing while excluding personal-only mail, sent mail, drafts, and trash.
