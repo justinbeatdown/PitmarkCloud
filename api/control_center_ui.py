@@ -211,6 +211,7 @@ def control_mobile(request: Request):
             '</head>',
             '<link rel="stylesheet" href="/control-center-v19.css?v=01900">\n'
             '<link rel="stylesheet" href="/control-center-v191.css?v=01902">\n'
+            '<link rel="stylesheet" href="/control-mobile-v2.css?v=01903">\n'
             '</head>'
         )
         html = html.replace(
@@ -218,6 +219,7 @@ def control_mobile(request: Request):
             AUTOFILL_GUARD
             + '\n<script src="/control-center-v19.js?v=01900" defer></script>'
             + '\n<script src="/control-center-v191.js?v=01902" defer></script>'
+            + '\n<script src="/control-mobile-v2.js?v=01903" defer></script>'
             + '</body>'
         )
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
@@ -244,6 +246,24 @@ def control_mobile_mail_identity_js():
         media_type='application/javascript',
         headers={'Cache-Control':'no-store'},
     )
+
+@router.get('/control-mobile-v2.css', include_in_schema=False)
+def control_mobile_v2_css():
+    return Response(
+        (ASSET_DIR / 'control_mobile_v2.css').read_text(encoding='utf-8'),
+        media_type='text/css',
+        headers={'Cache-Control':'no-store'},
+    )
+
+
+@router.get('/control-mobile-v2.js', include_in_schema=False)
+def control_mobile_v2_js():
+    return Response(
+        (ASSET_DIR / 'control_mobile_v2.js').read_text(encoding='utf-8'),
+        media_type='application/javascript',
+        headers={'Cache-Control':'no-store'},
+    )
+
 
 @router.get('/control-mobile-login.js', include_in_schema=False)
 def control_mobile_login_js(): return Response((ASSET_DIR / 'control_mobile_login.js').read_text(encoding='utf-8'), media_type='application/javascript')
