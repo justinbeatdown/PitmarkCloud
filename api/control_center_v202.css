@@ -133,3 +133,25 @@
   html body .shell>.sidebar{display:none!important}
   html body .shell>.main{width:100%!important;margin-left:0!important}
 }
+
+/* v0.21.6 — Mail is no longer a Control Center workspace.
+   These selectors intentionally outrank the authoritative navigation rule above.
+   Gmail remains connected server-side for Shield and automation. */
+html body .shell>.sidebar>.nav>button[data-view="email"],
+html body .shell>.sidebar>.nav>button[data-view="email"]:not([hidden]),
+html body .content>[data-view-section="email"],
+html body [data-pm19-go="email"],
+html body [data-go="email"],
+html body #pm19ComposeOverlay,
+html body #pm204BulkBar,
+html body [data-mview="email"],
+html body .m-nav>button[data-mnav="email"],
+html body [data-mgo="email"]{
+  display:none!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+
+@media (max-width:980px){
+  html body .m-nav{grid-template-columns:repeat(4,1fr)!important}
+}

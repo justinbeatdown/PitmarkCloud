@@ -1,9 +1,32 @@
 (() => {
   'use strict';
 
-  // v0.21.5 — safe Control Center mail removal.
-  // Mail UI remains dormant in the DOM so legacy bundles can initialize safely.
-  // Google Workspace / Gmail remains available server-side for Shield and automation.
+  // v0.21.6 — Control Center is not an email client.
+  // Gmail remains server-side for Shield and automation. The two legacy
+  // mail-client bootstrap reads are short-circuited so opening Control Center
+  // does not initialize identities/preferences for a UI that is no longer used.
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = function pitmarkControlFetch(input, init) {
+    try {
+      const raw = typeof input === 'string' ? input : input?.url || '';
+      const url = new URL(raw, location.origin);
+      if (url.origin === location.origin) {
+        if (url.pathname === '/api/control/email/identities') {
+          return Promise.resolve(new Response(JSON.stringify([]), {
+            status: 200,
+            headers: {'Content-Type':'application/json'}
+          }));
+        }
+        if (url.pathname === '/api/control/email/preferences') {
+          return Promise.resolve(new Response(JSON.stringify({}), {
+            status: 200,
+            headers: {'Content-Type':'application/json'}
+          }));
+        }
+      }
+    } catch (_) {}
+    return nativeFetch(input, init);
+  };
 
   const MAIL_HIDE_SELECTORS = [
     '[data-view="email"]',
@@ -12,18 +35,32 @@
     '[data-mnav="email"]',
     '[data-mgo="email"]',
     '[data-pm19-go="email"]',
+    '[data-go="email"]',
     '#pm19ComposeOverlay',
     '#pm204BulkBar'
   ];
 
   function installNoMailStyle() {
-    if (document.getElementById('pm215-no-mail-style')) return;
+    if (document.getElementById('pm216-no-mail-style')) return;
     const style = document.createElement('style');
-    style.id = 'pm215-no-mail-style';
+    style.id = 'pm216-no-mail-style';
     style.textContent = `
-      ${MAIL_HIDE_SELECTORS.join(',\n      ')} { display:none !important; }
+      html body .shell>.sidebar>.nav>button[data-view="email"],
+      html body .shell>.sidebar>.nav>button[data-view="email"]:not([hidden]),
+      html body .content>[data-view-section="email"],
+      html body [data-pm19-go="email"],
+      html body [data-go="email"],
+      html body #pm19ComposeOverlay,
+      html body #pm204BulkBar,
+      html body [data-mview="email"],
+      html body .m-nav>button[data-mnav="email"],
+      html body [data-mgo="email"] {
+        display:none !important;
+        visibility:hidden !important;
+        pointer-events:none !important;
+      }
       @media (max-width:980px) {
-        .m-nav { grid-template-columns:repeat(4,1fr) !important; }
+        html body .m-nav { grid-template-columns:repeat(4,1fr) !important; }
       }
     `;
     document.head.appendChild(style);
@@ -66,7 +103,7 @@
 
   async function applyAccessPermissions() {
     try {
-      const response = await fetch('/api/control/access/me', {credentials:'same-origin'});
+      const response = await nativeFetch('/api/control/access/me', {credentials:'same-origin'});
       if (!response.ok) return;
       const access = await response.json();
       if (access.role === 'owner' || access.role === 'admin') return;
@@ -100,9 +137,9 @@
     cleanMailCopy();
     applyAccessPermissions();
 
-    // Legacy bundles finish their own boot asynchronously. Re-apply only harmless,
-    // idempotent presentation work; never observe or delete live DOM nodes.
-    [120, 450, 1200, 3000].forEach(delay => {
+    // Legacy bundles finish asynchronously. Re-apply only harmless,
+    // idempotent presentation work — no MutationObserver and no DOM churn loop.
+    [80, 160, 450, 1200, 3000].forEach(delay => {
       setTimeout(() => {
         installNoMailStyle();
         addAnalyticsNav();
