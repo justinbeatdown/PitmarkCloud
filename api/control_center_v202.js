@@ -1,87 +1,89 @@
 (() => {
   'use strict';
 
-  // v0.21.4: Control Center no longer exposes a mail client.
-  // Google Workspace / Gmail remains connected server-side for Shield,
-  // communications review, automation, and other Pitmark workflows.
-  const ITEMS = [
-    ['dashboard', '◉', 'Dashboard', 'Overview & Status'],
-    ['autopilot', '➤', 'Autopilot', 'Posts & Queue'],
-    ['shield', '⬡', 'Shield', 'Ecosystem Security'],
-    ['campaigns', '🏁', 'Campaigns', 'Rookie Year'],
-    ['outreach', '🤝', 'Outreach', 'Tracks & Partners'],
-    ['blog', '▤', 'Blog', 'Track Spotlight'],
-    ['analytics', '⌁', 'PRT Analytics', 'Installs & Usage'],
-    ['directory', '⌘', 'Directory', 'Pitmark Links'],
-    ['settings', '⚙', 'Settings', 'Accounts & Security'],
+  // v0.21.5 — safe Control Center mail removal.
+  // Mail UI remains dormant in the DOM so legacy bundles can initialize safely.
+  // Google Workspace / Gmail remains available server-side for Shield and automation.
+
+  const MAIL_HIDE_SELECTORS = [
+    '[data-view="email"]',
+    '[data-view-section="email"]',
+    '[data-mview="email"]',
+    '[data-mnav="email"]',
+    '[data-mgo="email"]',
+    '[data-pm19-go="email"]',
+    '#pm19ComposeOverlay',
+    '#pm204BulkBar'
   ];
 
-  let access = null;
-  let mailObserver = null;
-
-  function permitted(view) {
-    if (!access) return true;
-    if (access.role === 'owner' || access.role === 'admin') return true;
-    return (access.permissions || []).includes(view);
-  }
-
-  function buttonMarkup(icon, label, help) {
-    return `<span class="ico">${icon}</span><span>${label}<small>${help}</small></span>`;
+  function installNoMailStyle() {
+    if (document.getElementById('pm215-no-mail-style')) return;
+    const style = document.createElement('style');
+    style.id = 'pm215-no-mail-style';
+    style.textContent = `
+      ${MAIL_HIDE_SELECTORS.join(',\n      ')} { display:none !important; }
+      @media (max-width:980px) {
+        .m-nav { grid-template-columns:repeat(4,1fr) !important; }
+      }
+    `;
+    document.head.appendChild(style);
   }
 
   function activate(view) {
-    if (typeof window.setView === 'function') window.setView(view);
-    else {
-      document.querySelectorAll('[data-view-section]').forEach(section => {
-        section.classList.toggle('active', section.dataset.viewSection === view);
-      });
+    if (view === 'email') view = 'dashboard';
+    if (typeof window.setView === 'function') {
+      window.setView(view);
+      return;
+    }
+    document.querySelectorAll('[data-view-section]').forEach(section => {
+      section.classList.toggle('active', section.dataset.viewSection === view);
+    });
+    document.querySelectorAll('#nav [data-view]').forEach(button => {
+      button.classList.toggle('active', button.dataset.view === view);
+    });
+    location.hash = `#${view}`;
+  }
+
+  function repairDirectMailRoute() {
+    if (String(location.hash || '').toLowerCase() !== '#email') return;
+    history.replaceState(null, '', `${location.pathname}${location.search}#dashboard`);
+    activate('dashboard');
+  }
+
+  function addAnalyticsNav() {
+    if (innerWidth <= 980) return;
+    const nav = document.getElementById('nav');
+    if (!nav || nav.querySelector('[data-view="analytics"]')) return;
+
+    const button = document.createElement('button');
+    button.dataset.view = 'analytics';
+    button.innerHTML = '<span class="ico">⌁</span><span>PRT Analytics<small>Installs & Usage</small></span>';
+    button.addEventListener('click', () => activate('analytics'));
+
+    const directory = nav.querySelector('[data-view="directory"]');
+    nav.insertBefore(button, directory || null);
+  }
+
+  async function applyAccessPermissions() {
+    try {
+      const response = await fetch('/api/control/access/me', {credentials:'same-origin'});
+      if (!response.ok) return;
+      const access = await response.json();
+      if (access.role === 'owner' || access.role === 'admin') return;
+
       document.querySelectorAll('#nav [data-view]').forEach(button => {
-        button.classList.toggle('active', button.dataset.view === view);
+        const view = button.dataset.view;
+        if (!view || view === 'dashboard' || view === 'email') return;
+        button.hidden = !(access.permissions || []).includes(view);
       });
-      location.hash = `#${view}`;
+    } catch (error) {
+      console.warn('Control Center access profile unavailable; keeping current navigation.', error);
     }
   }
 
-  function installNoMailGuard() {
-    if (!document.getElementById('pm214-no-mail-style')) {
-      const style = document.createElement('style');
-      style.id = 'pm214-no-mail-style';
-      style.textContent = `
-        [data-view="email"],
-        [data-view-section="email"],
-        [data-mview="email"],
-        [data-mnav="email"],
-        [data-mgo="email"],
-        [data-pm19-go="email"],
-        #pm19ComposeOverlay,
-        #pm204BulkBar { display:none !important; }
-        @media (max-width:980px) {
-          .m-nav { grid-template-columns:repeat(4,1fr) !important; }
-        }
-      `;
-      document.head.appendChild(style);
-    }
-
-    if (location.hash.toLowerCase() === '#email') {
-      history.replaceState(null, '', `${location.pathname}${location.search}#dashboard`);
-    }
-  }
-
-  function removeMailSurfaces() {
-    const selectors = [
-      '#nav [data-view="email"]',
-      '[data-view-section="email"]',
-      '[data-mview="email"]',
-      '[data-mnav="email"]',
-      '[data-mgo="email"]',
-      '[data-pm19-go="email"]',
-      '#pm19ComposeOverlay',
-      '#pm204BulkBar',
-    ];
-    document.querySelectorAll(selectors.join(',')).forEach(node => node.remove());
-
+  function cleanMailCopy() {
     const heroCopy = document.querySelector('.pm19-command-hero p');
-    if (heroCopy && /mail[,\s]/i.test(heroCopy.textContent || '')) {
+    if (heroCopy && /\bmail\b/i.test(heroCopy.textContent || '')) {
       heroCopy.textContent = 'Publishing, security, partnerships and content — each tool gets a focused workspace without turning Control Center into an inbox.';
     }
 
@@ -91,121 +93,29 @@
     }
   }
 
-  function ensureSidebar() {
-    if (innerWidth <= 980) return;
-    const shell = document.querySelector('.shell');
-    const main = shell?.querySelector(':scope > .main');
-    if (!shell || !main) return;
-
-    let sidebar = shell.querySelector(':scope > .sidebar');
-    if (!sidebar) {
-      sidebar = document.createElement('aside');
-      sidebar.className = 'sidebar';
-      shell.insertBefore(sidebar, main);
-    }
-    sidebar.classList.add('pm19-sidebar', 'pm202-sidebar');
-
-    let brand = sidebar.querySelector(':scope > .brand');
-    if (!brand) {
-      brand = document.createElement('a');
-      brand.className = 'brand brand-art brand-home';
-      brand.href = '#dashboard';
-      brand.id = 'brandDashboardLink';
-      brand.dataset.nav = 'dashboard';
-      brand.setAttribute('aria-label', 'Go to Pitmark dashboard');
-      brand.innerHTML = '<img src="/control-logo-wide.png" alt="Pitmark Racing Co.">';
-      sidebar.prepend(brand);
-    }
-
-    let nav = sidebar.querySelector(':scope > .nav');
-    if (!nav) {
-      nav = document.createElement('nav');
-      nav.className = 'nav';
-      nav.id = 'nav';
-      brand.after(nav);
-    }
-    if (!nav.id) nav.id = 'nav';
-
-    nav.querySelectorAll('[data-view="email"]').forEach(node => node.remove());
-
-    if (!nav.querySelector('.pm19-nav-label')) {
-      const heading = document.createElement('div');
-      heading.className = 'pm19-nav-label';
-      heading.textContent = 'WORKSPACES';
-      nav.prepend(heading);
-    }
-
-    ITEMS.forEach(([view, icon, label, help]) => {
-      let button = nav.querySelector(`[data-view="${view}"]`);
-      if (!button) {
-        button = document.createElement('button');
-        button.dataset.view = view;
-        button.innerHTML = buttonMarkup(icon, label, help);
-      }
-
-      button.hidden = !permitted(view);
-      if (!button.dataset.pm202Bound) {
-        button.dataset.pm202Bound = '1';
-        button.addEventListener('click', () => activate(view));
-      }
-
-      nav.appendChild(button);
-    });
-
-    let footer = sidebar.querySelector(':scope > .side-bottom');
-    if (!footer) {
-      footer = document.createElement('div');
-      footer.className = 'side-bottom';
-      footer.innerHTML = '<img class="badge-logo" src="/control-logo-badge.png" alt="Pitmark Racing Co. badge"><div class="motto">LEAVE YOUR MARK</div><div>PITMARK RACING CO.</div><div>BUILT BY RACERS, FOR RACERS.</div>';
-      sidebar.appendChild(footer);
-    }
-
-    if (!brand.dataset.pm202Bound) {
-      brand.dataset.pm202Bound = '1';
-      brand.addEventListener('click', event => {
-        event.preventDefault();
-        activate('dashboard');
-      });
-    }
-  }
-
-  async function loadAccess() {
-    try {
-      const response = await fetch('/api/control/access/me', {credentials:'same-origin'});
-      if (response.ok) access = await response.json();
-    } catch (error) {
-      console.warn('Sidebar access profile unavailable; preserving existing navigation.', error);
-    }
-    ensureSidebar();
-    removeMailSurfaces();
-  }
-
   function boot() {
-    installNoMailGuard();
-    removeMailSurfaces();
-    ensureSidebar();
-    loadAccess();
+    installNoMailStyle();
+    repairDirectMailRoute();
+    addAnalyticsNav();
+    cleanMailCopy();
+    applyAccessPermissions();
 
-    if (mailObserver) mailObserver.disconnect();
-    mailObserver = new MutationObserver(() => {
-      removeMailSurfaces();
-      ensureSidebar();
-    });
-    mailObserver.observe(document.documentElement, {childList:true, subtree:true});
-
-    [30, 80, 160, 320, 700, 1600, 3200].forEach(delay => {
+    // Legacy bundles finish their own boot asynchronously. Re-apply only harmless,
+    // idempotent presentation work; never observe or delete live DOM nodes.
+    [120, 450, 1200, 3000].forEach(delay => {
       setTimeout(() => {
-        removeMailSurfaces();
-        ensureSidebar();
+        installNoMailStyle();
+        addAnalyticsNav();
+        cleanMailCopy();
       }, delay);
     });
 
     window.addEventListener('pageshow', () => {
-      installNoMailGuard();
-      removeMailSurfaces();
-      ensureSidebar();
+      installNoMailStyle();
+      repairDirectMailRoute();
+      addAnalyticsNav();
+      cleanMailCopy();
     });
-    window.addEventListener('resize', ensureSidebar);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

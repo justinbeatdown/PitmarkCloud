@@ -1,19 +1,18 @@
-PITMARK CLOUD v0.21.4 — PLAIN PATCH ZIP
+PITMARK CLOUD v0.21.5 — CONTROL CENTER HANG FIX
 
-NO POWERSHELL. NO INSTALLER.
+PLAIN PATCH ZIP — NO POWERSHELL / NO INSTALLER
 
-1. Open your PitmarkCloud repository folder.
-2. Extract/copy the contents of this ZIP directly into the ROOT of PitmarkCloud.
-3. Allow Windows to replace matching files.
-4. Open GitHub Desktop and review the changes.
-5. Commit and push.
+1. Extract this ZIP directly into the ROOT of your PitmarkCloud repository.
+2. Choose Replace the files in the destination.
+3. Open GitHub Desktop and review the changes.
+4. Commit and push.
 
 REPLACE:
   api/control_center_v202.js
   utils/config.py
 
 ADD:
-  RELEASE_v0.21.4.md
+  RELEASE_v0.21.5.md
 
-This patch removes the user-facing Mail client from Control Center only.
-Google Workspace/Gmail backend sync and Pitmark Shield mail protection remain intact.
+This fixes the v0.21.4 Control Center UI hang while keeping the Mail client hidden.
+Gmail / Workspace backend services and Pitmark Shield mail protection are not removed.
