@@ -173,7 +173,7 @@
 
   function acceptanceMessage(name, code) {
     const first = String(name || '').trim().split(/\s+/)[0] || 'there';
-    return `Hey ${first},\n\nYou’re in — your Pitmark Racing Tools Early Access application has been accepted.\n\nEARLY ACCESS CODE: ${code}\n\nInstall/open PRT v0.16.49 or newer, go to Settings → Access & Licensing → PRT Early Access, paste the code, and choose ACTIVATE EARLY ACCESS. The code is personal and binds to your PRT device when activated.\n\nEarly Access builds may contain bugs or unfinished features. Please use PRT during normal racing, keep private builds/codes private, and send us honest feedback when something breaks or could be better.\n\nThanks for helping build PRT.\n\nLeave your mark.\nPitmark Racing Co.`;
+    return `Hey ${first},\n\nYou’re in — your Pitmark Racing Tools Early Access application has been accepted.\n\nEARLY ACCESS CODE: ${code}\n\nInstall/open PRT v0.16.50 or newer, go to Settings → Access & Licensing → PRT Early Access, paste the code, and choose ACTIVATE EARLY ACCESS. The code is personal and binds to your PRT device when activated.\n\nEarly Access builds may contain bugs or unfinished features. Please use PRT during normal racing, keep private builds/codes private, and use PRT → Support → Early Access Feedback when something breaks or could be better. Those reports arrive directly in our tester queue.\n\nThanks for helping build PRT.\n\nLeave your mark.\nPitmark Racing Co.`;
   }
 
   function inviteRows(items) {
@@ -190,7 +190,7 @@
   function feedbackRows(items) {
     if (!items.length) return '<div class="pm210-empty">No tester feedback yet.</div>';
     return `<div class="pm212-feedback-list">${items.map(x=>`<article class="pm212-feedback-row ${esc(x.severity)}">
-      <div class="pm212-feedback-title"><span>${esc(x.kind)}</span><strong>${esc(x.title)}</strong><small>${esc(x.tester_name || x.tester_email || 'Unassigned tester')} · ${esc(x.severity)}</small></div>
+      <div class="pm212-feedback-title"><span>${esc(x.kind)}</span><strong>${esc(x.title)}</strong><small>${esc(x.tester_name || x.tester_email || 'Unassigned tester')} · ${esc(x.severity)} · ${String(x.source||'control_center')==='prt_app'?'PRT APP':'MANUAL'}</small></div>
       <p>${esc(x.detail)}</p>
       <div class="pm212-feedback-actions"><span class="pm212-feedback-status ${esc(x.status)}">${esc(x.status)}</span>${x.status!=='resolved'?`<button data-prt-feedback-review="${x.id}">Reviewing</button><button data-prt-feedback-resolve="${x.id}">Resolve</button>`:''}</div>
     </article>`).join('')}</div>`;
@@ -236,7 +236,7 @@
         </div>
         <div class="pm212-feedback-grid">
           <section class="pm191-card pm212-feedback-create">
-            <div class="pm191-card-head"><div><strong>Tester Feedback</strong><small>Log bugs, feedback and feature requests.</small></div></div>
+            <div class="pm191-card-head"><div><strong>Add Manual Feedback</strong><small>PRT submissions arrive automatically. Use this for Discord, DMs, calls, or notes you want to add yourself.</small></div></div>
             <form data-prt-feedback-form>
               <div class="pm210-form-grid">
                 <label><span>Tester</span><select data-prt-feedback-invite><option value="">General / unassigned</option>${(invites.items||[]).filter(x=>x.status!=='revoked').map(x=>`<option value="${x.id}" data-name="${esc(x.applicant_name)}" data-email="${esc(x.email)}">${esc(x.applicant_name)} · ${esc(x.email)}</option>`).join('')}</select></label>
