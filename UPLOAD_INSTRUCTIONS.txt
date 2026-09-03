@@ -1,33 +1,19 @@
-PITMARK CLOUD v0.21.1 — FULL REPLACEMENT PACKAGE
+PITMARK CLOUD v0.21.4 — PLAIN PATCH ZIP
 
-Copy the files in this ZIP into the ROOT of the PitmarkCloud repository and allow the matching paths to replace the existing files.
+NO POWERSHELL. NO INSTALLER.
+
+1. Open your PitmarkCloud repository folder.
+2. Extract/copy the contents of this ZIP directly into the ROOT of PitmarkCloud.
+3. Allow Windows to replace matching files.
+4. Open GitHub Desktop and review the changes.
+5. Commit and push.
 
 REPLACE:
-  api/shopify.py
-  api/entitlements.py
-  api/prt.html
-  api/prt.css
-  api/prt-support.html
-  api/prt_ui.py
-  services/shopify_service.py
-  services/prt_licensing_store.py
-  models/schemas.py
+  api/control_center_v202.js
   utils/config.py
 
 ADD:
-  api/prt-tools-logo.png
-  RELEASE_v0.21.1.md
+  RELEASE_v0.21.4.md
 
-UPLOAD_INSTRUCTIONS.txt itself does not need to be committed.
-
-After deploy:
-1. Confirm Control Center/footer reports Pitmark Cloud v0.21.1.
-2. Open /prt and verify the new PRT horizontal logo + pricing cards on desktop and mobile.
-3. Configure Shopify webhook deliveries to:
-   https://pitmarkcloud.onrender.com/api/shopify/webhooks
-   Recommended topics: orders/paid, orders/cancelled, refunds/create.
-4. The endpoint rejects unsigned/invalid Shopify deliveries.
-5. Shopify subscription-contract topics are also understood if the installed Shopify app has access to send them.
-
-NOTE:
-The first paid purchase is recorded by Cloud. PRT v0.16.45 can then add the customer-facing claim/activation UI that consumes /api/entitlements/claim-shopify.
+This patch removes the user-facing Mail client from Control Center only.
+Google Workspace/Gmail backend sync and Pitmark Shield mail protection remain intact.
