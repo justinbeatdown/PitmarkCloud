@@ -4,7 +4,7 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PITMARK_RELEASE_VERSION = "0.21.11"
+PITMARK_RELEASE_VERSION = "0.21.12"
 
 
 class Settings(BaseSettings):
@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     meta_graph_version: str = "v26.0"
     pitmark_timezone: str = "America/New_York"
     pitmark_public_store_url: str = "https://pitmarkracing.com"
+    prt_early_access_form_url: str = ""
     tiktok_client_key: str = ""
     tiktok_client_secret: str = ""
     x_client_id: str = ""

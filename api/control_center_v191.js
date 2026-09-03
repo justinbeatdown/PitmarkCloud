@@ -180,29 +180,42 @@
     if (!items.length) return '<div class="pm210-empty">No tester invites yet.</div>';
     return `<div class="pm210-invite-list">${items.map(x=>`<article class="pm210-invite-row">
       <div><strong>${esc(x.applicant_name)}</strong><small>${esc(x.email)}</small></div>
-      <div><span class="pm210-status ${esc(x.status)}">${esc(x.status)}</span><small>${esc(x.tester_status || '')}</small></div>
-      <div><code>${esc(x.code_hint || '—')}</code><small>${x.bound_device_id ? 'Device …'+esc(String(x.bound_device_id).slice(-8)) : 'Not activated yet'}</small></div>
+      <div><span class="pm210-status ${esc(x.status)}">${esc(x.status)}</span><small>${x.bound_device_id ? 'Device …'+esc(String(x.bound_device_id).slice(-8)) : 'Not activated yet'}</small></div>
+      <div>${x.status !== 'revoked' ? `<select class="pm212-tester-status" data-prt-tester-status="${x.id}"><option value="invited" ${x.tester_status==='invited'?'selected':''}>Invited</option><option value="active" ${x.tester_status==='active'?'selected':''}>Active</option><option value="completed" ${x.tester_status==='completed'?'selected':''}>Completed</option></select>` : `<small>${esc(x.tester_status || 'removed')}</small>`}</div>
+      <div><code>${esc(x.code_hint || '—')}</code><small>${x.last_seen_at ? 'Seen '+esc(String(x.last_seen_at).slice(0,16).replace('T',' ')) : 'No tester heartbeat yet'}</small></div>
       <div>${x.status !== 'revoked' ? `<button class="pm210-revoke" data-prt-revoke="${x.id}">Revoke</button>` : ''}</div>
     </article>`).join('')}</div>`;
   }
+
+  function feedbackRows(items) {
+    if (!items.length) return '<div class="pm210-empty">No tester feedback yet.</div>';
+    return `<div class="pm212-feedback-list">${items.map(x=>`<article class="pm212-feedback-row ${esc(x.severity)}">
+      <div class="pm212-feedback-title"><span>${esc(x.kind)}</span><strong>${esc(x.title)}</strong><small>${esc(x.tester_name || x.tester_email || 'Unassigned tester')} · ${esc(x.severity)}</small></div>
+      <p>${esc(x.detail)}</p>
+      <div class="pm212-feedback-actions"><span class="pm212-feedback-status ${esc(x.status)}">${esc(x.status)}</span>${x.status!=='resolved'?`<button data-prt-feedback-review="${x.id}">Reviewing</button><button data-prt-feedback-resolve="${x.id}">Resolve</button>`:''}</div>
+    </article>`).join('')}</div>`;
+  }
+
 
   async function loadPrtAccess(root) {
     const target = root?.querySelector('[data-prt-access-body]');
     if (!target) return;
     target.innerHTML = '<div class="pm191-loading">Loading PRT access…</div>';
     try {
-      const [summary, invites] = await Promise.all([
+      const [summary, invites, feedback] = await Promise.all([
         api('/api/entitlements/admin/summary'),
-        api('/api/entitlements/admin/early-access')
+        api('/api/entitlements/admin/early-access'),
+        api('/api/entitlements/admin/feedback')
       ]);
       const result = inviteResults.get(root);
       target.innerHTML = `
         <div class="pm210-access-metrics">
-          ${metric('Free', summary.free_devices, 'Registered devices without a paid/test entitlement')}
+          ${metric('Free now', summary.free_devices, 'Recently active Free devices')}
           ${metric('Early Access', summary.early_access, `${summary.invites_issued} unused codes issued`)}
           ${metric('Pro', summary.pro)}
           ${metric('League / Team', summary.league_team)}
           ${metric('Active licenses', summary.active_entitlements)}
+          ${metric('Open feedback', summary.open_feedback)}
         </div>
         <div class="pm210-access-grid">
           <section class="pm191-card pm210-invite-create">
@@ -220,6 +233,22 @@
             ${result ? `<div class="pm210-code-result"><span>NEW TESTER CODE · SHOWN IN FULL ONLY NOW</span><code>${esc(result.code)}</code><div><button class="pm191-primary" data-prt-copy-code>Copy Code</button><button class="pm191-secondary" data-prt-copy-message>Copy Acceptance Message</button></div></div>` : ''}
           </section>
           <section class="pm191-card pm210-invites"><div class="pm191-card-head"><div><strong>Tester Invites</strong><small>Issued, activated and revoked codes.</small></div></div>${inviteRows(invites.items || [])}</section>
+        </div>
+        <div class="pm212-feedback-grid">
+          <section class="pm191-card pm212-feedback-create">
+            <div class="pm191-card-head"><div><strong>Tester Feedback</strong><small>Log bugs, feedback and feature requests.</small></div></div>
+            <form data-prt-feedback-form>
+              <div class="pm210-form-grid">
+                <label><span>Tester</span><select data-prt-feedback-invite><option value="">General / unassigned</option>${(invites.items||[]).filter(x=>x.status!=='revoked').map(x=>`<option value="${x.id}" data-name="${esc(x.applicant_name)}" data-email="${esc(x.email)}">${esc(x.applicant_name)} · ${esc(x.email)}</option>`).join('')}</select></label>
+                <label><span>Type</span><select data-prt-feedback-kind><option value="bug">Bug</option><option value="feedback" selected>Feedback</option><option value="feature">Feature request</option></select></label>
+                <label><span>Severity</span><select data-prt-feedback-severity><option value="low">Low</option><option value="normal" selected>Normal</option><option value="high">High</option><option value="blocker">Blocker</option></select></label>
+                <label><span>Title</span><input data-prt-feedback-title maxlength="220" required></label>
+              </div>
+              <label class="pm210-notes"><span>Details</span><textarea data-prt-feedback-detail maxlength="8000" required></textarea></label>
+              <div class="pm210-form-actions"><button class="pm191-primary" type="submit">Log Feedback</button><span data-prt-feedback-flash></span></div>
+            </form>
+          </section>
+          <section class="pm191-card pm212-feedback-feed"><div class="pm191-card-head"><div><strong>Feedback Queue</strong><small>${esc((feedback.summary||{}).open||0)} open · ${esc((feedback.summary||{}).blockers||0)} blockers</small></div></div>${feedbackRows(feedback.items||[])}</section>
         </div>`;
 
       const form = target.querySelector('[data-prt-invite-form]');
@@ -259,6 +288,42 @@
           await loadPrtAccess(root);
         } catch (err) { toast('PRT Early Access', err.message, 'error'); }
       }));
+
+      target.querySelectorAll('[data-prt-tester-status]').forEach(select => select.addEventListener('change', async () => {
+        try {
+          await api(`/api/entitlements/admin/early-access/${select.dataset.prtTesterStatus}/tester-status`, {method:'POST',body:JSON.stringify({tester_status:select.value})});
+          toast('PRT Tester','Tester status updated.');
+        } catch (err) { toast('PRT Tester', err.message, 'error'); await loadPrtAccess(root); }
+      }));
+
+      const feedbackForm = target.querySelector('[data-prt-feedback-form]');
+      feedbackForm?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const flash = feedbackForm.querySelector('[data-prt-feedback-flash]');
+        const inviteSelect = feedbackForm.querySelector('[data-prt-feedback-invite]');
+        const option = inviteSelect.selectedOptions[0];
+        flash.textContent = 'Saving…';
+        try {
+          await api('/api/entitlements/admin/feedback', {method:'POST',body:JSON.stringify({
+            invite_id: inviteSelect.value ? Number(inviteSelect.value) : null,
+            tester_name: option?.dataset?.name || '', tester_email: option?.dataset?.email || '',
+            kind: feedbackForm.querySelector('[data-prt-feedback-kind]').value,
+            severity: feedbackForm.querySelector('[data-prt-feedback-severity]').value,
+            title: feedbackForm.querySelector('[data-prt-feedback-title]').value.trim(),
+            detail: feedbackForm.querySelector('[data-prt-feedback-detail]').value.trim()
+          })});
+          await loadPrtAccess(root);
+        } catch (err) { flash.textContent = err.message; }
+      });
+
+      async function feedbackStatus(button, status) {
+        try {
+          await api(`/api/entitlements/admin/feedback/${button.dataset[status==='resolved'?'prtFeedbackResolve':'prtFeedbackReview']}/status`, {method:'POST',body:JSON.stringify({status})});
+          await loadPrtAccess(root);
+        } catch (err) { toast('PRT Feedback', err.message, 'error'); }
+      }
+      target.querySelectorAll('[data-prt-feedback-review]').forEach(button => button.addEventListener('click', () => feedbackStatus(button,'reviewing')));
+      target.querySelectorAll('[data-prt-feedback-resolve]').forEach(button => button.addEventListener('click', () => feedbackStatus(button,'resolved')));
     } catch (err) {
       target.innerHTML = `<div class="pm191-error">${esc(err.message)}</div>`;
     }

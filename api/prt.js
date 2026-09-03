@@ -26,3 +26,14 @@ async function loadPrt(){
 document.addEventListener("DOMContentLoaded",()=>{
   loadPrt();
 });
+
+
+(() => {
+  try {
+    const params = new URLSearchParams(location.search);
+    if (params.get('apply') === 'unavailable') {
+      const status = document.getElementById('botStatus');
+      if (status) status.textContent = 'Early Access application link is being connected. Check back shortly.';
+    }
+  } catch (_) {}
+})();

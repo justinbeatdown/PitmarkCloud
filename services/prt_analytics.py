@@ -136,6 +136,30 @@ def close_live_session(device_id: str) -> None:
             db.commit()
 
 
+
+def active_device_ids(minutes: int = 15) -> set[str]:
+    """Return device identities seen recently. Used for current-access counts.
+
+    This intentionally does not treat every historical credential as a current
+    racer. Security migrations and development builds can leave old device IDs
+    behind, so the Control Center should only count recently seen identities.
+    """
+    cutoff = utcnow() - timedelta(minutes=max(1, int(minutes)))
+    result: set[str] = set()
+    with SessionLocal() as db:
+        devices = list(db.scalars(select(DeviceCredentialRow)).all())
+    for device in devices:
+        try:
+            last = datetime.fromisoformat(str(device.last_seen_at).replace("Z", "+00:00"))
+            if last.tzinfo is None:
+                last = last.replace(tzinfo=timezone.utc)
+            if last >= cutoff and getattr(device, "device_id", None):
+                result.add(str(device.device_id))
+        except Exception:
+            continue
+    return result
+
+
 def summary() -> dict:
     now = utcnow()
     today = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)

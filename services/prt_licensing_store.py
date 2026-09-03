@@ -342,7 +342,7 @@ def _early_access_dict(row: PrtEarlyAccessInviteRow) -> dict:
 
 
 
-def licensing_summary(*, registered_devices: int = 0) -> dict:
+def licensing_summary(*, registered_devices: int = 0, recent_device_ids: set[str] | None = None, open_feedback: int = 0) -> dict:
     with SessionLocal() as db:
         entitlements = list(db.scalars(select(PrtEntitlementRow)).all())
         invites = list(db.scalars(select(PrtEarlyAccessInviteRow)).all())
@@ -350,8 +350,9 @@ def licensing_summary(*, registered_devices: int = 0) -> dict:
     active = [row for row in entitlements if str(row.status or "").lower() == "active"]
     early_access = [row for row in active if str(row.source or "").lower() == "early_access"]
     paid_or_manual = [row for row in active if str(row.source or "").lower() != "early_access"]
-    active_device_ids = {row.device_id for row in active if row.device_id}
-    free_devices = max(int(registered_devices or 0) - len(active_device_ids), 0)
+    entitled_device_ids = {row.device_id for row in active if row.device_id}
+    recent_device_ids = set(recent_device_ids or set())
+    free_devices = len(recent_device_ids - entitled_device_ids)
 
     return {
         "registered_devices": int(registered_devices or 0),
@@ -364,6 +365,7 @@ def licensing_summary(*, registered_devices: int = 0) -> dict:
         "invites_redeemed": sum(1 for row in invites if row.status == "redeemed"),
         "invites_revoked": sum(1 for row in invites if row.status == "revoked"),
         "invites_expired": sum(1 for row in invites if row.status == "expired"),
+        "open_feedback": int(open_feedback or 0),
     }
 
 def create_early_access_invite(
@@ -508,3 +510,34 @@ def revoke_early_access_invite(invite_id: int) -> dict | None:
         db.refresh(row)
         return _early_access_dict(row)
 
+
+
+def set_early_access_tester_status(invite_id: int, tester_status: str) -> dict | None:
+    allowed = {"invited", "active", "completed"}
+    clean = (tester_status or "").strip().lower()
+    if clean not in allowed:
+        raise ValueError("Tester status must be invited, active, or completed.")
+    with SessionLocal() as db:
+        row = db.get(PrtEarlyAccessInviteRow, int(invite_id))
+        if row is None:
+            return None
+        if row.status == "revoked":
+            raise PermissionError("Revoked tester invites cannot be updated.")
+        row.tester_status = clean
+        db.commit()
+        db.refresh(row)
+        return _early_access_dict(row)
+
+
+def get_early_access_for_device(device_id: str) -> dict | None:
+    clean = (device_id or "").strip()
+    if not clean:
+        return None
+    with SessionLocal() as db:
+        row = db.scalar(
+            select(PrtEarlyAccessInviteRow).where(
+                PrtEarlyAccessInviteRow.bound_device_id == clean,
+                PrtEarlyAccessInviteRow.status == "redeemed",
+            )
+        )
+        return _early_access_dict(row) if row else None

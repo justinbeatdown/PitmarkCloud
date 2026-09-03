@@ -13,6 +13,13 @@ def _html(name):
 def prt_home(): return _html("prt.html")
 @router.get("/prt/support",response_class=HTMLResponse,include_in_schema=False)
 def prt_support(): return _html("prt-support.html")
+
+@router.get("/prt/apply",include_in_schema=False)
+def prt_apply():
+    target=(settings.prt_early_access_form_url or "").strip()
+    if target.startswith("https://docs.google.com/forms/") or target.startswith("https://forms.gle/"):
+        return RedirectResponse(url=target,status_code=302)
+    return RedirectResponse(url="/prt?apply=unavailable",status_code=302)
 @router.get("/prt.css",include_in_schema=False)
 def prt_css(): return Response((ASSET_DIR/"prt.css").read_text(encoding="utf-8"),media_type="text/css",headers={"Cache-Control":"no-store"})
 @router.get("/prt.js",include_in_schema=False)
