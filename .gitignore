@@ -9,3 +9,13 @@ __pycache__/
 venv/
 .pytest_cache/
 .mypy_cache/
+data/
+
+# Local patch / cleanup artifacts
+PitmarkCloud_v*_patch/
+*.zip
+CLEAN_OLD_CLOUD_FILES.cmd
+
+# OS/editor junk
+.DS_Store
+Thumbs.db

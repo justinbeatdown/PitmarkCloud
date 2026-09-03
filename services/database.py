@@ -30,7 +30,24 @@ def _normalized_url() -> str:
 
 DATABASE_URL = _normalized_url()
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, pool_pre_ping=True, connect_args=_connect_args)
+_engine_options = {
+    "pool_pre_ping": True,
+    "connect_args": _connect_args,
+}
+
+# The default SQLAlchemy QueuePool can hold more idle/overflow connections than
+# Pitmark Cloud needs on a 512 MB single-instance service. Keep PostgreSQL's pool
+# deliberately compact while still allowing short bursts from background workers.
+if not DATABASE_URL.startswith("sqlite"):
+    _engine_options.update(
+        pool_size=3,
+        max_overflow=2,
+        pool_timeout=20,
+        pool_recycle=300,
+        pool_use_lifo=True,
+    )
+
+engine = create_engine(DATABASE_URL, **_engine_options)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 

@@ -1,5 +1,8 @@
 from contextlib import asynccontextmanager
+from concurrent.futures import ThreadPoolExecutor
 import asyncio
+import ctypes
+import gc
 import hmac
 import logging
 import os
@@ -18,18 +21,82 @@ from services.autopilot_multiplatform import scheduler_loop as multiplatform_sch
 from services.research_agent import research_worker_loop
 from services.social_publish_worker import social_publish_worker_loop
 from services.shield_mail_cleanup import purge_orphaned_mail_events
-from services.shield_mail import sync_gmail_mail_protected
+from services.shield_mail_worker import sync_gmail_shield_worker
 from services.control_access import access_from_request, permission_for_path
 
 configure_logging()
-log = logging.getLogger("pitmark.gmail_sync")
+log = logging.getLogger("pitmark.runtime")
 
 
-async def gmail_sync_loop():
-    interval = max(30, int(os.getenv("PITMARK_GMAIL_SYNC_SECONDS") or "60"))
+def _env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    try:
+        value = int(os.getenv(name) or str(default))
+    except (TypeError, ValueError):
+        value = default
+    return max(minimum, min(maximum, value))
+
+
+def _current_rss_mb() -> float | None:
+    """Return current resident memory on Linux/Render without adding psutil."""
+    try:
+        with open("/proc/self/statm", "r", encoding="utf-8") as handle:
+            resident_pages = int(handle.read().split()[1])
+        return (resident_pages * os.sysconf("SC_PAGE_SIZE")) / (1024 * 1024)
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def _trim_process_memory() -> tuple[int, bool]:
+    """Collect Python cycles and ask glibc to return free heap pages to Render."""
+    collected = gc.collect()
+    trimmed = False
+    try:
+        libc = ctypes.CDLL("libc.so.6")
+        malloc_trim = libc.malloc_trim
+        malloc_trim.argtypes = [ctypes.c_size_t]
+        malloc_trim.restype = ctypes.c_int
+        trimmed = bool(malloc_trim(0))
+    except (OSError, AttributeError):
+        pass
+    return collected, trimmed
+
+
+async def runtime_maintenance_loop() -> None:
+    interval = _env_int("PITMARK_MEMORY_TRIM_SECONDS", 600, 300, 3600)
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            collected, trimmed = await asyncio.to_thread(_trim_process_memory)
+            rss = _current_rss_mb()
+            if rss is None:
+                log.info("Runtime memory maintenance: gc=%s malloc_trim=%s", collected, trimmed)
+            else:
+                log.info(
+                    "Runtime memory maintenance: rss=%.1f MB gc=%s malloc_trim=%s",
+                    rss,
+                    collected,
+                    trimmed,
+                )
+        except Exception:  # noqa: BLE001 - maintenance must never stop Cloud
+            log.exception("Runtime memory maintenance failed")
+
+
+async def gmail_sync_loop() -> None:
+    # Shield does not need inbox-client-level polling. Bound both cadence and batch
+    # size so Google Workspace protection remains useful without recreating a full
+    # mail client workload inside the 512 MB Cloud service.
+    interval = _env_int("PITMARK_GMAIL_SYNC_SECONDS", 120, 120, 3600)
+    limit = _env_int("PITMARK_GMAIL_SYNC_LIMIT", 25, 5, 25)
     while True:
         try:
-            await asyncio.to_thread(sync_gmail_mail_protected)
+            result = await asyncio.to_thread(sync_gmail_shield_worker, limit)
+            if result.get("synced") or result.get("shield_protected"):
+                log.info(
+                    "Gmail/Shield sync: checked=%s synced=%s protected=%s",
+                    result.get("checked", 0),
+                    result.get("synced", 0),
+                    result.get("shield_protected", 0),
+                )
         except Exception as exc:  # noqa: BLE001 - keep the background worker alive
             log.warning("Google Workspace Gmail sync failed: %s", exc)
         await asyncio.sleep(interval)
@@ -37,6 +104,17 @@ async def gmail_sync_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # asyncio.to_thread() is used by several always-on workers. The default Python
+    # executor can grow much larger than a 0.5 CPU / 512 MB Render service needs,
+    # so keep the background thread pool deliberately small and predictable.
+    loop = asyncio.get_running_loop()
+    background_threads = _env_int("PITMARK_BACKGROUND_THREADS", 4, 2, 6)
+    executor = ThreadPoolExecutor(
+        max_workers=background_threads,
+        thread_name_prefix="pitmark-bg",
+    )
+    loop.set_default_executor(executor)
+
     init_database()
     # One-time repair of old Shield live-queue rows whose Pitmark Mail messages
     # were already deleted. Audit history remains intact.
@@ -44,21 +122,30 @@ async def lifespan(app: FastAPI):
         purge_orphaned_mail_events()
     except Exception:
         pass
+
     await discord_gateway_service.start()
-    autopilot_task = asyncio.create_task(scheduler_loop())
-    multiplatform_task = asyncio.create_task(multiplatform_scheduler_loop())
-    research_task = asyncio.create_task(research_worker_loop())
-    social_publish_task = asyncio.create_task(social_publish_worker_loop())
-    gmail_task = asyncio.create_task(gmail_sync_loop())
+    tasks = [
+        asyncio.create_task(scheduler_loop(), name="autopilot-intelligence"),
+        asyncio.create_task(multiplatform_scheduler_loop(), name="autopilot-multiplatform"),
+        asyncio.create_task(research_worker_loop(), name="autopilot-research"),
+        asyncio.create_task(social_publish_worker_loop(), name="social-publish"),
+        asyncio.create_task(gmail_sync_loop(), name="gmail-shield"),
+        asyncio.create_task(runtime_maintenance_loop(), name="runtime-memory-maintenance"),
+    ]
+    log.info(
+        "Pitmark Cloud runtime started: background_threads=%s gmail_sync_min=%ss gmail_batch<=%s",
+        background_threads,
+        _env_int("PITMARK_GMAIL_SYNC_SECONDS", 120, 120, 3600),
+        _env_int("PITMARK_GMAIL_SYNC_LIMIT", 25, 5, 25),
+    )
     try:
         yield
     finally:
-        autopilot_task.cancel()
-        multiplatform_task.cancel()
-        research_task.cancel()
-        social_publish_task.cancel()
-        gmail_task.cancel()
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
         await discord_gateway_service.stop()
+        executor.shutdown(wait=False, cancel_futures=True)
 
 
 _production = settings.environment.strip().lower() == "production"
