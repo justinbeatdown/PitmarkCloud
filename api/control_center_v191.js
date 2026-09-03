@@ -96,13 +96,25 @@
       btn.innerHTML = '<span class="ico">⌁</span><span>PRT<small>Access & Analytics</small></span>';
       const settings = nav.querySelector('[data-view="settings"]');
       nav.insertBefore(btn, settings || null);
-      btn.addEventListener('click', () => {
-        currentDesktopView('analytics');
-        loadAnalytics();
-      });
-    } else if (nav) {
-      const label = nav.querySelector('[data-view="analytics"] span:last-child');
+    }
+
+    // v0.21.11: v0.21.10 could inherit an Analytics/PRT nav button that was
+    // created by an earlier Control Center bundle. In that case the view was
+    // renamed and rendered, but this bundle never attached the data loader,
+    // leaving both PRT panels on "Loading..." forever. Always wire whichever
+    // analytics button exists, regardless of which bundle created it.
+    if (nav) {
+      const analyticsBtn = nav.querySelector('[data-view="analytics"]');
+      const label = analyticsBtn?.querySelector('span:last-child');
       if (label) label.innerHTML = 'PRT<small>Access & Analytics</small>';
+      if (analyticsBtn && analyticsBtn.dataset.pm211PrtLoader !== '1') {
+        analyticsBtn.dataset.pm211PrtLoader = '1';
+        analyticsBtn.addEventListener('click', () => {
+          // Let the normal Control Center navigation handler activate the view
+          // first, then load the PRT data into the mounted hub.
+          setTimeout(() => loadAnalytics(), 0);
+        });
+      }
     }
     if (content && !document.querySelector('[data-view-section="analytics"]')) {
       const wrap = document.createElement('div');
@@ -124,6 +136,18 @@
         target.innerHTML = analyticsMarkup(true);
         await loadAnalytics(target);
       });
+    }
+
+    const desktopRoot = document.querySelector('[data-view-section="analytics"][data-prt-hub]');
+    if (desktopRoot?.querySelector('[data-prt-refresh]') && desktopRoot.dataset.pm211Refresh !== '1') {
+      desktopRoot.dataset.pm211Refresh = '1';
+      desktopRoot.querySelector('[data-prt-refresh]').addEventListener('click', () => loadAnalytics(desktopRoot));
+    }
+
+    // Direct links / browser refreshes on #analytics need to hydrate without a
+    // fresh nav click.
+    if (desktopRoot && (desktopRoot.classList.contains('active') || String(location.hash).toLowerCase() === '#analytics')) {
+      setTimeout(() => loadAnalytics(desktopRoot), 0);
     }
   }
 
@@ -271,7 +295,6 @@
             <div><b>${v.max_lap ? `Lap ${v.max_lap}` : 'Session'}</b><small>${esc(v.device_id ? `Device …${v.device_id}` : '')}</small></div>
           </article>`).join('') : '<p class="pm191-empty">No PRT live-session history has been recorded yet.</p>'}</div>
         </section>`;
-      root.querySelector('[data-prt-refresh]')?.addEventListener('click', () => loadAnalytics(root), {once:true});
     } catch (err) {
       target.innerHTML = `<div class="pm191-error">${esc(err.message)}</div>`;
     }
