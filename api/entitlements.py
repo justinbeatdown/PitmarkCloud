@@ -15,6 +15,8 @@ from models.schemas import (
 )
 from services import device_auth_service, prt_licensing_store
 from services.control_auth import require_control_user
+from services.control_access import access_from_request
+from services.prt_analytics import summary as prt_analytics_summary
 from services.licensing import (
     current_entitlements,
     development_entitlements,
@@ -41,7 +43,15 @@ class EarlyAccessInviteCreate(BaseModel):
 
 
 def _require_early_access_admin(request: Request, admin_key: str | None = None):
-    return require_control_user(request, admin_key)
+    user = require_control_user(request, admin_key)
+    # Service-admin key remains available for automation/emergency use. Human UI
+    # code generation is limited to Control Center owners/admins.
+    if user is None:
+        return None
+    access = access_from_request(request)
+    if not access or access.role not in {"owner", "admin"}:
+        raise HTTPException(status_code=403, detail="PRT Early Access management requires Owner or Admin access.")
+    return access
 
 
 def _require_admin(request: Request) -> None:
@@ -136,6 +146,16 @@ async def claim_early_access(payload: EarlyAccessClaim, request: Request) -> Ent
             "offline_grace_until": grace.isoformat(),
         })
     return current_entitlements(payload.device_id)
+
+
+@router.get("/admin/summary")
+async def admin_prt_summary(
+    request: Request,
+    x_pitmark_admin_key: str | None = Header(default=None),
+) -> dict:
+    _require_early_access_admin(request, x_pitmark_admin_key)
+    analytics = prt_analytics_summary()
+    return prt_licensing_store.licensing_summary(registered_devices=int(analytics.get("registered_devices") or 0))
 
 
 @router.get("/admin/early-access")

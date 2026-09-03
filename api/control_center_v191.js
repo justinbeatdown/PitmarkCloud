@@ -69,14 +69,18 @@
     });
   }
 
-  /* ---------------- PRT analytics ---------------- */
+  /* ---------------- PRT hub ---------------- */
+  const inviteResults = new WeakMap();
+
   function analyticsMarkup(mobile=false) {
-    return `<div class="${mobile ? 'pm191-mobile-analytics' : 'view pm191-analytics-view'}" ${mobile ? '' : 'data-view-section="analytics"'}>
+    return `<div class="${mobile ? 'pm191-mobile-analytics' : 'view pm191-analytics-view'} pm210-prt-hub" ${mobile ? '' : 'data-view-section="analytics"'} data-prt-hub>
       <div class="pm191-section-head">
-        <div><span class="pm19-kicker">PITMARK RACING TOOLS</span><h1>PRT Analytics</h1>
-        <p>Real installs and usage flowing through Pitmark Cloud.</p></div>
-        <button class="pm191-secondary" id="pm191AnalyticsRefresh">Refresh</button>
+        <div><span class="pm19-kicker">PITMARK RACING TOOLS</span><h1>PRT</h1>
+        <p>Early Access, licensing, installs and usage — one place to run Pitmark Racing Tools.</p></div>
+        <button class="pm191-secondary" data-prt-refresh>Refresh</button>
       </div>
+      <div data-prt-access-body><div class="pm191-loading">Loading PRT access…</div></div>
+      <div class="pm210-usage-head"><span class="pm19-kicker">USAGE ANALYTICS</span><h2>PRT Activity</h2><p>Real installs and usage flowing through Pitmark Cloud.</p></div>
       <div id="pm191AnalyticsBody"><div class="pm191-loading">Loading PRT usage…</div></div>
     </div>`;
   }
@@ -89,25 +93,31 @@
     if (nav && content && !nav.querySelector('[data-view="analytics"]')) {
       const btn = document.createElement('button');
       btn.dataset.view = 'analytics';
-      btn.innerHTML = '<span class="ico">⌁</span><span>PRT Analytics<small>Installs & Usage</small></span>';
+      btn.innerHTML = '<span class="ico">⌁</span><span>PRT<small>Access & Analytics</small></span>';
       const settings = nav.querySelector('[data-view="settings"]');
       nav.insertBefore(btn, settings || null);
       btn.addEventListener('click', () => {
         currentDesktopView('analytics');
         loadAnalytics();
       });
+    } else if (nav) {
+      const label = nav.querySelector('[data-view="analytics"] span:last-child');
+      if (label) label.innerHTML = 'PRT<small>Access & Analytics</small>';
     }
     if (content && !document.querySelector('[data-view-section="analytics"]')) {
       const wrap = document.createElement('div');
       wrap.innerHTML = analyticsMarkup(false);
       content.appendChild(wrap.firstElementChild);
+    } else {
+      const existing = document.querySelector('[data-view-section="analytics"]');
+      if (existing && !existing.matches('[data-prt-hub]')) existing.outerHTML = analyticsMarkup(false);
     }
 
     const mobileSettings = document.querySelector('[data-mview="home"]') || document.querySelector('[data-mview="settings"]');
     if (mobileSettings && !mobileSettings.querySelector('[data-pm191-open-analytics]')) {
       const card = document.createElement('section');
       card.className = 'm-card pm191-mobile-launch';
-      card.innerHTML = `<strong>PRT Analytics</strong><p>Installs, live sessions and activity.</p><button class="m-orange" data-pm191-open-analytics>Open Analytics</button><div data-pm191-mobile-analytics></div>`;
+      card.innerHTML = `<strong>PRT</strong><p>Tester access, licensing, installs and activity.</p><button class="m-orange" data-pm191-open-analytics>Open PRT</button><div data-pm191-mobile-analytics></div>`;
       mobileSettings.appendChild(card);
       card.querySelector('[data-pm191-open-analytics]').addEventListener('click', async () => {
         const target = card.querySelector('[data-pm191-mobile-analytics]');
@@ -121,10 +131,121 @@
     return `<article class="pm191-metric"><span>${esc(label)}</span><strong>${esc(value)}</strong>${sub ? `<small>${esc(sub)}</small>` : ''}</article>`;
   }
 
+  function prtRoot(scope=document) {
+    if (scope?.matches?.('[data-prt-hub]')) return scope;
+    return scope?.querySelector?.('[data-prt-hub]') || document.querySelector('[data-prt-hub]');
+  }
+
+  async function copyText(text, button) {
+    try {
+      await navigator.clipboard.writeText(text);
+      const old = button.textContent;
+      button.textContent = 'COPIED';
+      setTimeout(() => button.textContent = old, 1200);
+    } catch (_) {
+      window.prompt('Copy:', text);
+    }
+  }
+
+  function acceptanceMessage(name, code) {
+    const first = String(name || '').trim().split(/\s+/)[0] || 'there';
+    return `Hey ${first},\n\nYou’re in — your Pitmark Racing Tools Early Access application has been accepted.\n\nEARLY ACCESS CODE: ${code}\n\nInstall/open PRT v0.16.49 or newer, go to Settings → Access & Licensing → PRT Early Access, paste the code, and choose ACTIVATE EARLY ACCESS. The code is personal and binds to your PRT device when activated.\n\nEarly Access builds may contain bugs or unfinished features. Please use PRT during normal racing, keep private builds/codes private, and send us honest feedback when something breaks or could be better.\n\nThanks for helping build PRT.\n\nLeave your mark.\nPitmark Racing Co.`;
+  }
+
+  function inviteRows(items) {
+    if (!items.length) return '<div class="pm210-empty">No tester invites yet.</div>';
+    return `<div class="pm210-invite-list">${items.map(x=>`<article class="pm210-invite-row">
+      <div><strong>${esc(x.applicant_name)}</strong><small>${esc(x.email)}</small></div>
+      <div><span class="pm210-status ${esc(x.status)}">${esc(x.status)}</span><small>${esc(x.tester_status || '')}</small></div>
+      <div><code>${esc(x.code_hint || '—')}</code><small>${x.bound_device_id ? 'Device …'+esc(String(x.bound_device_id).slice(-8)) : 'Not activated yet'}</small></div>
+      <div>${x.status !== 'revoked' ? `<button class="pm210-revoke" data-prt-revoke="${x.id}">Revoke</button>` : ''}</div>
+    </article>`).join('')}</div>`;
+  }
+
+  async function loadPrtAccess(root) {
+    const target = root?.querySelector('[data-prt-access-body]');
+    if (!target) return;
+    target.innerHTML = '<div class="pm191-loading">Loading PRT access…</div>';
+    try {
+      const [summary, invites] = await Promise.all([
+        api('/api/entitlements/admin/summary'),
+        api('/api/entitlements/admin/early-access')
+      ]);
+      const result = inviteResults.get(root);
+      target.innerHTML = `
+        <div class="pm210-access-metrics">
+          ${metric('Free', summary.free_devices, 'Registered devices without a paid/test entitlement')}
+          ${metric('Early Access', summary.early_access, `${summary.invites_issued} unused codes issued`)}
+          ${metric('Pro', summary.pro)}
+          ${metric('League / Team', summary.league_team)}
+          ${metric('Active licenses', summary.active_entitlements)}
+        </div>
+        <div class="pm210-access-grid">
+          <section class="pm191-card pm210-invite-create">
+            <div class="pm191-card-head"><div><strong>Early Access</strong><small>Generate a personal, one-device tester code.</small></div></div>
+            <form data-prt-invite-form>
+              <div class="pm210-form-grid">
+                <label><span>Applicant name</span><input data-prt-name maxlength="180" required></label>
+                <label><span>Email</span><input data-prt-email type="email" maxlength="254" required></label>
+                <label><span>Discord <i>optional</i></span><input data-prt-discord maxlength="120"></label>
+                <label><span>Valid for</span><select data-prt-days><option value="7">7 days</option><option value="14" selected>14 days</option><option value="30">30 days</option><option value="60">60 days</option><option value="90">90 days</option></select></label>
+              </div>
+              <label class="pm210-notes"><span>Notes <i>optional</i></span><textarea data-prt-notes maxlength="1000"></textarea></label>
+              <div class="pm210-form-actions"><button class="pm191-primary" type="submit" data-prt-create>Generate Early Access Code</button><span data-prt-flash></span></div>
+            </form>
+            ${result ? `<div class="pm210-code-result"><span>NEW TESTER CODE · SHOWN IN FULL ONLY NOW</span><code>${esc(result.code)}</code><div><button class="pm191-primary" data-prt-copy-code>Copy Code</button><button class="pm191-secondary" data-prt-copy-message>Copy Acceptance Message</button></div></div>` : ''}
+          </section>
+          <section class="pm191-card pm210-invites"><div class="pm191-card-head"><div><strong>Tester Invites</strong><small>Issued, activated and revoked codes.</small></div></div>${inviteRows(invites.items || [])}</section>
+        </div>`;
+
+      const form = target.querySelector('[data-prt-invite-form]');
+      form?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const button = form.querySelector('[data-prt-create]');
+        const flash = form.querySelector('[data-prt-flash]');
+        button.disabled = true;
+        flash.textContent = 'Generating…';
+        const applicantName = form.querySelector('[data-prt-name]').value.trim();
+        try {
+          const created = await api('/api/entitlements/admin/early-access', {
+            method:'POST',
+            body:JSON.stringify({
+              applicant_name: applicantName,
+              email: form.querySelector('[data-prt-email]').value.trim(),
+              discord: form.querySelector('[data-prt-discord]').value.trim(),
+              expires_days: Number(form.querySelector('[data-prt-days]').value),
+              notes: form.querySelector('[data-prt-notes]').value.trim()
+            })
+          });
+          inviteResults.set(root, {code:created.code, message:acceptanceMessage(applicantName, created.code)});
+          await loadPrtAccess(root);
+        } catch (err) {
+          flash.textContent = err.message;
+          button.disabled = false;
+        }
+      });
+
+      target.querySelector('[data-prt-copy-code]')?.addEventListener('click', e => copyText(result.code, e.currentTarget));
+      target.querySelector('[data-prt-copy-message]')?.addEventListener('click', e => copyText(result.message, e.currentTarget));
+      target.querySelectorAll('[data-prt-revoke]').forEach(button => button.addEventListener('click', async () => {
+        if (!confirm('Revoke this Early Access invite and shut off its tester entitlement?')) return;
+        try {
+          await api(`/api/entitlements/admin/early-access/${button.dataset.prtRevoke}/revoke`, {method:'POST'});
+          inviteResults.delete(root);
+          await loadPrtAccess(root);
+        } catch (err) { toast('PRT Early Access', err.message, 'error'); }
+      }));
+    } catch (err) {
+      target.innerHTML = `<div class="pm191-error">${esc(err.message)}</div>`;
+    }
+  }
+
   async function loadAnalytics(scope=document) {
-    const target = scope.querySelector?.('#pm191AnalyticsBody') || $('pm191AnalyticsBody');
+    const root = prtRoot(scope);
+    const target = root?.querySelector('#pm191AnalyticsBody');
     if (!target) return;
     target.innerHTML = '<div class="pm191-loading">Loading PRT usage…</div>';
+    await loadPrtAccess(root);
     try {
       const x = await api('/api/prt/analytics/summary');
       target.innerHTML = `
@@ -150,7 +271,7 @@
             <div><b>${v.max_lap ? `Lap ${v.max_lap}` : 'Session'}</b><small>${esc(v.device_id ? `Device …${v.device_id}` : '')}</small></div>
           </article>`).join('') : '<p class="pm191-empty">No PRT live-session history has been recorded yet.</p>'}</div>
         </section>`;
-      target.closest('.pm191-analytics-view, .pm191-mobile-analytics')?.querySelector('#pm191AnalyticsRefresh')?.addEventListener('click', () => loadAnalytics(scope));
+      root.querySelector('[data-prt-refresh]')?.addEventListener('click', () => loadAnalytics(root), {once:true});
     } catch (err) {
       target.innerHTML = `<div class="pm191-error">${esc(err.message)}</div>`;
     }

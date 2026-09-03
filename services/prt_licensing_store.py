@@ -341,6 +341,31 @@ def _early_access_dict(row: PrtEarlyAccessInviteRow) -> dict:
     }
 
 
+
+def licensing_summary(*, registered_devices: int = 0) -> dict:
+    with SessionLocal() as db:
+        entitlements = list(db.scalars(select(PrtEntitlementRow)).all())
+        invites = list(db.scalars(select(PrtEarlyAccessInviteRow)).all())
+
+    active = [row for row in entitlements if str(row.status or "").lower() == "active"]
+    early_access = [row for row in active if str(row.source or "").lower() == "early_access"]
+    paid_or_manual = [row for row in active if str(row.source or "").lower() != "early_access"]
+    active_device_ids = {row.device_id for row in active if row.device_id}
+    free_devices = max(int(registered_devices or 0) - len(active_device_ids), 0)
+
+    return {
+        "registered_devices": int(registered_devices or 0),
+        "free_devices": free_devices,
+        "early_access": len(early_access),
+        "pro": sum(1 for row in paid_or_manual if str(row.plan or "").lower() == "pro"),
+        "league_team": sum(1 for row in paid_or_manual if str(row.plan or "").lower() == "league_team"),
+        "active_entitlements": len(active),
+        "invites_issued": sum(1 for row in invites if row.status == "issued"),
+        "invites_redeemed": sum(1 for row in invites if row.status == "redeemed"),
+        "invites_revoked": sum(1 for row in invites if row.status == "revoked"),
+        "invites_expired": sum(1 for row in invites if row.status == "expired"),
+    }
+
 def create_early_access_invite(
     *,
     applicant_name: str,

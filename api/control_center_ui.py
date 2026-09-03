@@ -71,25 +71,25 @@ def control(request: Request):
     if filename == 'control_center.html':
         import re
         html = re.sub(r'PITMARK CLOUD v[0-9]+(?:\.[0-9]+)*', f'PITMARK CLOUD v{settings.app_version}', html, flags=re.IGNORECASE)
-        html = html.replace('href="/control.css"', 'href="/control.css?v=02002"')
-        html = html.replace('src="/control.js"', 'src="/control.js?v=02002"')
+        html = html.replace('href="/control.css"', 'href="/control.css?v=02110"')
+        html = html.replace('src="/control.js"', 'src="/control.js?v=02110"')
         html = html.replace(
             '</head>',
-            '<link rel="stylesheet" href="/control-center-v19.css?v=02002">\n'
-            '<link rel="stylesheet" href="/control-center-v191.css?v=02002">\n'
-            '<link rel="stylesheet" href="/control-center-v195.css?v=02002">\n'
-            '<link rel="stylesheet" href="/control-center-v201.css?v=02002">\n'
-            '<link rel="stylesheet" href="/control-center-v202.css?v=02002">\n'
+            '<link rel="stylesheet" href="/control-center-v19.css?v=02110">\n'
+            '<link rel="stylesheet" href="/control-center-v191.css?v=02110">\n'
+            '<link rel="stylesheet" href="/control-center-v195.css?v=02110">\n'
+            '<link rel="stylesheet" href="/control-center-v201.css?v=02110">\n'
+            '<link rel="stylesheet" href="/control-center-v202.css?v=02110">\n'
             '</head>'
         )
         html = html.replace(
             '</body>',
             AUTOFILL_GUARD
-            + '\n<script src="/control-center-v19.js?v=02002" defer></script>'
-            + '\n<script src="/control-center-v191.js?v=02002" defer></script>'
-            + '\n<script src="/control-runtime-v194.js?v=02002" defer></script>'
-            + '\n<script src="/control-center-v195.js?v=02002" defer></script>'
-            + '\n<script src="/control-center-v202.js?v=02002" defer></script>'
+            + '\n<script src="/control-center-v19.js?v=02110" defer></script>'
+            + '\n<script src="/control-center-v191.js?v=02110" defer></script>'
+            + '\n<script src="/control-runtime-v194.js?v=02110" defer></script>'
+            + '\n<script src="/control-center-v195.js?v=02110" defer></script>'
+            + '\n<script src="/control-center-v202.js?v=02110" defer></script>'
             + '</body>'
         )
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
@@ -262,23 +262,23 @@ def control_mobile(request: Request):
     if filename == 'control_mobile.html':
         html = html.replace(
             '</head>',
-            '<link rel="stylesheet" href="/control-center-v19.css?v=02002">\n'
-            '<link rel="stylesheet" href="/control-center-v191.css?v=02002">\n'
-            '<link rel="stylesheet" href="/control-center-v195.css?v=02002">\n'
-            '<link rel="stylesheet" href="/control-center-v201.css?v=02002">\n'
-            '<link rel="stylesheet" href="/control-center-v202.css?v=02002">\n'
-            '<link rel="stylesheet" href="/control-mobile-v2.css?v=02002">\n'
+            '<link rel="stylesheet" href="/control-center-v19.css?v=02110">\n'
+            '<link rel="stylesheet" href="/control-center-v191.css?v=02110">\n'
+            '<link rel="stylesheet" href="/control-center-v195.css?v=02110">\n'
+            '<link rel="stylesheet" href="/control-center-v201.css?v=02110">\n'
+            '<link rel="stylesheet" href="/control-center-v202.css?v=02110">\n'
+            '<link rel="stylesheet" href="/control-mobile-v2.css?v=02110">\n'
             '</head>'
         )
         html = html.replace(
             '</body>',
             AUTOFILL_GUARD
-            + '\n<script src="/control-center-v19.js?v=02002" defer></script>'
-            + '\n<script src="/control-center-v191.js?v=02002" defer></script>'
-            + '\n<script src="/control-mobile-v2.js?v=02002" defer></script>'
-            + '\n<script src="/control-runtime-v194.js?v=02002" defer></script>'
-            + '\n<script src="/control-center-v195.js?v=02002" defer></script>'
-            + '\n<script src="/control-center-v202.js?v=02002" defer></script>'
+            + '\n<script src="/control-center-v19.js?v=02110" defer></script>'
+            + '\n<script src="/control-center-v191.js?v=02110" defer></script>'
+            + '\n<script src="/control-mobile-v2.js?v=02110" defer></script>'
+            + '\n<script src="/control-runtime-v194.js?v=02110" defer></script>'
+            + '\n<script src="/control-center-v195.js?v=02110" defer></script>'
+            + '\n<script src="/control-center-v202.js?v=02110" defer></script>'
             + '</body>'
         )
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})

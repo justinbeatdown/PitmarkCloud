@@ -94,7 +94,7 @@
 
     const button = document.createElement('button');
     button.dataset.view = 'analytics';
-    button.innerHTML = '<span class="ico">⌁</span><span>PRT Analytics<small>Installs & Usage</small></span>';
+    button.innerHTML = '<span class="ico">⌁</span><span>PRT<small>Access & Analytics</small></span>';
     button.addEventListener('click', () => activate('analytics'));
 
     const directory = nav.querySelector('[data-view="directory"]');
