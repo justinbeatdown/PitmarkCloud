@@ -3,7 +3,8 @@ from __future__ import annotations
 import hmac
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Header, HTTPException, Request
+from pydantic import BaseModel, Field
 
 from models.schemas import (
     EntitlementResponse,
@@ -13,6 +14,7 @@ from models.schemas import (
     ShopifyPlanMappingUpdate,
 )
 from services import device_auth_service, prt_licensing_store
+from services.control_auth import require_control_user
 from services.licensing import (
     current_entitlements,
     development_entitlements,
@@ -22,6 +24,24 @@ from utils.config import settings
 from utils.security import enforce_rate_limit
 
 router = APIRouter()
+
+
+class EarlyAccessClaim(BaseModel):
+    device_id: str = Field(min_length=16, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    code: str = Field(min_length=16, max_length=64)
+    display_name: str = Field(default="Pitmark Racer", max_length=180)
+
+
+class EarlyAccessInviteCreate(BaseModel):
+    applicant_name: str = Field(min_length=1, max_length=180)
+    email: str = Field(min_length=3, max_length=254)
+    discord: str = Field(default="", max_length=120)
+    notes: str = Field(default="", max_length=1000)
+    expires_days: int = Field(default=14, ge=1, le=90)
+
+
+def _require_early_access_admin(request: Request, admin_key: str | None = None):
+    return require_control_user(request, admin_key)
 
 
 def _require_admin(request: Request) -> None:
@@ -80,6 +100,83 @@ async def claim_shopify(payload: ShopifyLicenseClaim, request: Request) -> Entit
         "offline_grace_until": grace.isoformat(),
     })
     return current_entitlements(payload.device_id)
+
+
+@router.post("/claim-early-access", response_model=EntitlementResponse)
+async def claim_early_access(payload: EarlyAccessClaim, request: Request) -> EntitlementResponse:
+    enforce_rate_limit(request, "prt-entitlement-early-access-claim", 12, 300)
+    token = request.headers.get("X-Pitmark-Device-Token")
+    if not device_auth_service.authenticate(payload.device_id, token):
+        raise HTTPException(status_code=401, detail="Invalid Pitmark device credential.")
+
+    try:
+        invite = prt_licensing_store.redeem_early_access_invite(payload.code, payload.device_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="That PRT Early Access code was not found.")
+    except TimeoutError:
+        raise HTTPException(status_code=410, detail="That PRT Early Access code has expired.")
+    except PermissionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+    # Early Access gets the complete current feature set while remaining fully
+    # revocable and separate from Shopify purchases. A short offline grace keeps
+    # testers usable through temporary outages without making revoked access linger.
+    grace = datetime.now(timezone.utc) + timedelta(days=3)
+    existing = prt_licensing_store.get_entitlement(payload.device_id)
+    if not existing or str(existing.get("source") or "") != "shopify":
+        prt_licensing_store.upsert_entitlement({
+            "device_id": payload.device_id,
+            "customer_id": f"early-access:{invite['id']}",
+            "display_name": payload.display_name.strip() or invite.get("applicant_name") or "Pitmark Tester",
+            "plan": PitmarkPlan.league_team.value,
+            "status": "active",
+            "source": "early_access",
+            "shopify_customer_id": "",
+            "shopify_subscription_id": "",
+            "offline_grace_until": grace.isoformat(),
+        })
+    return current_entitlements(payload.device_id)
+
+
+@router.get("/admin/early-access")
+async def admin_early_access_list(
+    request: Request,
+    x_pitmark_admin_key: str | None = Header(default=None),
+) -> dict:
+    _require_early_access_admin(request, x_pitmark_admin_key)
+    return {"items": prt_licensing_store.list_early_access_invites()}
+
+
+@router.post("/admin/early-access")
+async def admin_early_access_create(
+    payload: EarlyAccessInviteCreate,
+    request: Request,
+    x_pitmark_admin_key: str | None = Header(default=None),
+) -> dict:
+    _require_early_access_admin(request, x_pitmark_admin_key)
+    enforce_rate_limit(request, "prt-early-access-admin-create", 60, 300)
+    item = prt_licensing_store.create_early_access_invite(
+        applicant_name=payload.applicant_name,
+        email=payload.email,
+        discord=payload.discord,
+        notes=payload.notes,
+        expires_days=payload.expires_days,
+    )
+    code = item.pop("code")
+    return {"ok": True, "code": code, "invite": item}
+
+
+@router.post("/admin/early-access/{invite_id}/revoke")
+async def admin_early_access_revoke(
+    invite_id: int,
+    request: Request,
+    x_pitmark_admin_key: str | None = Header(default=None),
+) -> dict:
+    _require_early_access_admin(request, x_pitmark_admin_key)
+    item = prt_licensing_store.revoke_early_access_invite(invite_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Early Access invite not found.")
+    return {"ok": True, "invite": item}
 
 
 @router.post("/admin/grant", response_model=EntitlementResponse)

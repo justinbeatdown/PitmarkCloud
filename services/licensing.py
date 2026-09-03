@@ -64,12 +64,26 @@ def development_entitlements(device_id: str = "") -> EntitlementResponse:
     )
 
 
+def free_entitlements(device_id: str = "") -> EntitlementResponse:
+    return EntitlementResponse(
+        development_mode=False,
+        customer_id=device_id or "free-user",
+        display_name="Pitmark Racer",
+        plan=PitmarkPlan.free,
+        status="active",
+        source="pitmark_free",
+        device_id=device_id,
+        offline_grace_until=datetime.now(timezone.utc) + timedelta(days=3650),
+        features=_features_for_plan(PitmarkPlan.free),
+    )
+
+
 def current_entitlements(device_id: str) -> EntitlementResponse:
     row = prt_licensing_store.get_entitlement(device_id)
     if row is None:
-        # Development bridge: existing testers stay fully unlocked until the
-        # Shopify billing cut-over. Launch mode will change this default to Free.
-        return development_entitlements(device_id=device_id)
+        # Early Access now uses explicit tester codes. Unlicensed devices retain
+        # the permanent Free tier instead of inheriting the old development bridge.
+        return free_entitlements(device_id=device_id)
 
     try:
         plan = PitmarkPlan(str(row.get("plan") or "free"))

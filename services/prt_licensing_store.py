@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from sqlalchemy import Boolean, String, select
+from datetime import datetime, timedelta, timezone
+import hashlib
+import secrets
+
+from sqlalchemy import Boolean, Integer, String, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from services.database import Base, SessionLocal
@@ -52,6 +55,27 @@ class ShopifyPurchaseRow(Base):
     selling_plan_name: Mapped[str] = mapped_column(String(180), default="")
     paid_at: Mapped[str] = mapped_column(String(64), default=_now_iso)
     updated_at: Mapped[str] = mapped_column(String(64), default=_now_iso)
+
+
+class PrtEarlyAccessInviteRow(Base):
+    __tablename__ = "prt_early_access_invites"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    applicant_name: Mapped[str] = mapped_column(String(180), default="")
+    email: Mapped[str] = mapped_column(String(254), index=True, default="")
+    discord: Mapped[str] = mapped_column(String(120), default="")
+    code_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    code_hint: Mapped[str] = mapped_column(String(48), default="")
+    status: Mapped[str] = mapped_column(String(32), index=True, default="issued")
+    tester_status: Mapped[str] = mapped_column(String(32), index=True, default="invited")
+    notes: Mapped[str] = mapped_column(String(1000), default="")
+    bound_device_id: Mapped[str] = mapped_column(String(64), index=True, default="")
+    expires_at: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[str] = mapped_column(String(64), default=_now_iso)
+    redeemed_at: Mapped[str] = mapped_column(String(64), default="")
+    revoked_at: Mapped[str] = mapped_column(String(64), default="")
+    last_seen_at: Mapped[str] = mapped_column(String(64), default="")
+
 
 
 DEFAULT_SHOPIFY_MAPPINGS = (
@@ -281,3 +305,181 @@ def refresh_entitlements_for_shopify_customer(customer_id: str, *, plan: str, or
             row.updated_at = _now_iso()
         db.commit()
         return len(rows)
+
+_EARLY_ACCESS_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def _normalize_early_access_code(code: str) -> str:
+    return (code or "").strip().upper().replace(" ", "")
+
+
+def _hash_early_access_code(code: str) -> str:
+    return hashlib.sha256(_normalize_early_access_code(code).encode("utf-8")).hexdigest()
+
+
+def _generate_early_access_code() -> str:
+    groups = ["".join(secrets.choice(_EARLY_ACCESS_ALPHABET) for _ in range(4)) for _ in range(5)]
+    return "PRT-EA-" + "-".join(groups)
+
+
+def _early_access_dict(row: PrtEarlyAccessInviteRow) -> dict:
+    return {
+        "id": row.id,
+        "applicant_name": row.applicant_name,
+        "email": row.email,
+        "discord": row.discord,
+        "code_hint": row.code_hint,
+        "status": row.status,
+        "tester_status": row.tester_status,
+        "notes": row.notes,
+        "bound_device_id": row.bound_device_id,
+        "expires_at": row.expires_at,
+        "created_at": row.created_at,
+        "redeemed_at": row.redeemed_at,
+        "revoked_at": row.revoked_at,
+        "last_seen_at": row.last_seen_at,
+    }
+
+
+def create_early_access_invite(
+    *,
+    applicant_name: str,
+    email: str,
+    discord: str = "",
+    notes: str = "",
+    expires_days: int = 14,
+) -> dict:
+    applicant_name = applicant_name.strip()
+    email = email.strip().lower()
+    discord = discord.strip()
+    notes = notes.strip()
+    expires_days = max(1, min(int(expires_days), 90))
+
+    with SessionLocal() as db:
+        code = ""
+        code_hash = ""
+        for _ in range(20):
+            candidate = _generate_early_access_code()
+            candidate_hash = _hash_early_access_code(candidate)
+            exists = db.scalar(select(PrtEarlyAccessInviteRow).where(PrtEarlyAccessInviteRow.code_hash == candidate_hash))
+            if exists is None:
+                code = candidate
+                code_hash = candidate_hash
+                break
+        if not code:
+            raise RuntimeError("Could not generate a unique Early Access code.")
+
+        parts = code.split("-")
+        hint = "-".join(parts[:3]) + "-••••-••••-" + parts[-1]
+        row = PrtEarlyAccessInviteRow(
+            applicant_name=applicant_name,
+            email=email,
+            discord=discord,
+            code_hash=code_hash,
+            code_hint=hint,
+            status="issued",
+            tester_status="invited",
+            notes=notes,
+            expires_at=(datetime.now(timezone.utc) + timedelta(days=expires_days)).isoformat(),
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        item = _early_access_dict(row)
+        item["code"] = code
+        return item
+
+
+def list_early_access_invites(limit: int = 250) -> list[dict]:
+    now = datetime.now(timezone.utc)
+    with SessionLocal() as db:
+        rows = list(db.scalars(
+            select(PrtEarlyAccessInviteRow)
+            .order_by(PrtEarlyAccessInviteRow.id.desc())
+            .limit(max(1, min(int(limit), 500)))
+        ).all())
+        changed = False
+        for row in rows:
+            if row.status == "issued" and row.expires_at:
+                try:
+                    expiry = datetime.fromisoformat(row.expires_at.replace("Z", "+00:00"))
+                    if expiry.tzinfo is None:
+                        expiry = expiry.replace(tzinfo=timezone.utc)
+                    if expiry < now:
+                        row.status = "expired"
+                        changed = True
+                except ValueError:
+                    pass
+        if changed:
+            db.commit()
+        return [_early_access_dict(row) for row in rows]
+
+
+def redeem_early_access_invite(code: str, device_id: str) -> dict:
+    code_hash = _hash_early_access_code(code)
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    with SessionLocal() as db:
+        row = db.scalar(select(PrtEarlyAccessInviteRow).where(PrtEarlyAccessInviteRow.code_hash == code_hash))
+        if row is None:
+            raise LookupError("Early Access code not found.")
+        if row.status == "revoked" or row.tester_status == "removed":
+            raise PermissionError("This Early Access code has been revoked.")
+        if row.expires_at and row.status != "redeemed":
+            try:
+                expiry = datetime.fromisoformat(row.expires_at.replace("Z", "+00:00"))
+                if expiry.tzinfo is None:
+                    expiry = expiry.replace(tzinfo=timezone.utc)
+                if expiry < now:
+                    row.status = "expired"
+                    db.commit()
+                    raise TimeoutError("This Early Access code has expired.")
+            except ValueError:
+                pass
+        if row.bound_device_id and row.bound_device_id != device_id:
+            raise PermissionError("This Early Access code is already bound to another PRT device.")
+
+        row.bound_device_id = device_id
+        row.status = "redeemed"
+        row.tester_status = "active"
+        if not row.redeemed_at:
+            row.redeemed_at = now_iso
+        row.last_seen_at = now_iso
+        db.commit()
+        db.refresh(row)
+        return _early_access_dict(row)
+
+
+def touch_early_access_device(device_id: str) -> None:
+    with SessionLocal() as db:
+        row = db.scalar(
+            select(PrtEarlyAccessInviteRow).where(
+                PrtEarlyAccessInviteRow.bound_device_id == device_id,
+                PrtEarlyAccessInviteRow.status == "redeemed",
+            )
+        )
+        if row is None:
+            return
+        row.last_seen_at = _now_iso()
+        db.commit()
+
+
+def revoke_early_access_invite(invite_id: int) -> dict | None:
+    with SessionLocal() as db:
+        row = db.get(PrtEarlyAccessInviteRow, int(invite_id))
+        if row is None:
+            return None
+        row.status = "revoked"
+        row.tester_status = "removed"
+        row.revoked_at = _now_iso()
+        bound_device_id = row.bound_device_id
+        if bound_device_id:
+            entitlement = db.get(PrtEntitlementRow, bound_device_id)
+            if entitlement is not None and entitlement.source == "early_access":
+                entitlement.status = "inactive"
+                entitlement.offline_grace_until = _now_iso()
+                entitlement.updated_at = _now_iso()
+        db.commit()
+        db.refresh(row)
+        return _early_access_dict(row)
+

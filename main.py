@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse
 from utils.security import SecurityHeadersMiddleware, security_summary
 
-from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_v19, control_center_v195, control_access_v191, control_center_ui, social_publish, social_context_v191, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui
+from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_v19, control_center_v195, control_access_v191, control_center_ui, social_publish, social_context_v191, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, early_access_admin
 from utils.config import settings
 from utils.logger import configure_logging
 from services import discord_gateway_service
@@ -214,6 +214,7 @@ app.include_router(prt_analytics_v191.router, prefix="/api/prt/analytics", tags=
 app.include_router(content_tools.router, prefix="/api/control/content", tags=["content-tools"])
 app.include_router(control_center_ui.router)
 app.include_router(prt_ui.router)
+app.include_router(early_access_admin.router)
 
 
 def _dashboard_root_target(request: Request) -> str | None:
