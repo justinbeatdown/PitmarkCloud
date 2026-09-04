@@ -1,4 +1,4 @@
-PITMARK CLOUD v0.21.16 — PATCH DEPLOY
+PITMARK CLOUD v0.21.17 — PRT v0.16.62 UPDATE PATCH
 
 1. Open your current real PitmarkCloud repository.
 2. Copy the contents of this ZIP into the repository root.
@@ -12,6 +12,11 @@ VERIFY AFTER RENDER IS LIVE:
 - https://prt.pitmarkracing.com/downloads/PRT-Setup-Latest.exe
 - https://prt.pitmarkracing.com/downloads/latest.json
 
+EXPECTED:
+- Public PRT page shows Windows build v0.16.62.
+- latest.json reports version 0.16.62.
+- Existing v0.16.61 clients will see v0.16.62 as a required update.
+
 IMPORTANT:
-The EXE and latest.json in this patch are a matched PRT v0.16.61 release pair.
+The EXE and latest.json in this patch are the exact matched PRT v0.16.62 release pair produced by the Windows release builder.
 Do not replace only one of them.
