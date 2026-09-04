@@ -1,27 +1,15 @@
-PITMARK CLOUD v0.21.21 — PRT SITE v0.16.69 + CLOUD/SHIELD BRANDING
+﻿PITMARK CLOUD + PRT v0.16.70 COORDINATED RELEASE
 
-Overlay this ZIP into the ROOT of your existing PitmarkCloud repository.
+Extract this ZIP into the ROOT of the PitmarkCloud repository.
 
-Replace/add:
+Included:
+- api/downloads/PRT-Setup-Latest.exe
+- api/downloads/latest.json
 - api/prt.html
 - api/prt.css
+- api/prt_ui.py
 - api/pitmark-cloud-badge.png
 - api/pitmark-shield-badge.png
 
-This patch DOES NOT replace the installer or latest.json.
-Your v0.16.69 app payload stays exactly as already pushed.
-
-Changes:
-- Public PRT site build badge: v0.16.69
-- Public PRT download label: v0.16.69
-- Adds a footer-area "POWERED BY" Pitmark Cloud badge
-- Adds a footer-area "PROTECTED BY" Pitmark Shield badge
-- Uses the user's existing Pitmark Cloud/Shield artwork; logos were cropped only, not redesigned
-- Adds responsive styling for desktop/mobile
-- Preserves Free Live Track Map and all existing site links/content
-
-After copying:
-1. Open GitHub Desktop.
-2. Confirm only the four files above are changed/added.
-3. Commit and Push origin.
-4. If Render does not auto-deploy, use Manual Deploy -> Deploy latest commit.
+The app build, updater manifest, PRT website version, and Cloud image routes are all
+generated/staged together from this exact release.

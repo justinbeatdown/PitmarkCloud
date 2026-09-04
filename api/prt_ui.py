@@ -40,6 +40,10 @@ def prt_current_logo(): return FileResponse(ASSET_DIR/"prt-current-logo.png",med
 def prt_tools_logo(): return FileResponse(ASSET_DIR/"prt-tools-logo.png",media_type="image/png")
 @router.get("/prt-app-preview.png",include_in_schema=False)
 def prt_app_preview(): return FileResponse(ASSET_DIR/"prt-app-preview.png",media_type="image/png")
+@router.get("/pitmark-cloud-badge.png",include_in_schema=False)
+def pitmark_cloud_badge(): return FileResponse(ASSET_DIR/"pitmark-cloud-badge.png",media_type="image/png")
+@router.get("/pitmark-shield-badge.png",include_in_schema=False)
+def pitmark_shield_badge(): return FileResponse(ASSET_DIR/"pitmark-shield-badge.png",media_type="image/png")
 @router.get("/api/discord/install/launch",include_in_schema=False)
 def prt_discord_install_launch():
     value=discord_service.install_url()
