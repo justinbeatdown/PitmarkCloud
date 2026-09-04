@@ -8,6 +8,7 @@ from utils.config import settings
 
 router = APIRouter()
 ASSET_DIR = Path(__file__).resolve().parent
+PRT_DOWNLOAD_DIR = ASSET_DIR / 'downloads'
 
 AUTOFILL_GUARD = r"""
 <script>
@@ -353,3 +354,24 @@ def control_favicon(): return FileResponse(ASSET_DIR / 'pitmark_favicon.png', me
 
 @router.get('/favicon.ico', include_in_schema=False)
 def favicon_ico(): return FileResponse(ASSET_DIR / 'pitmark_favicon.ico', media_type='image/x-icon', headers={'Cache-Control':'public, max-age=3600'})
+
+
+@router.get('/downloads/PRT-Setup-Latest.exe', include_in_schema=False)
+def prt_windows_installer():
+    """Serve the current public PRT Windows installer from the stable release URL."""
+    return FileResponse(
+        PRT_DOWNLOAD_DIR / 'PRT-Setup-Latest.exe',
+        media_type='application/vnd.microsoft.portable-executable',
+        filename='PRT-Setup-Latest.exe',
+        headers={'Cache-Control': 'no-store'},
+    )
+
+
+@router.get('/downloads/latest.json', include_in_schema=False)
+def prt_update_manifest():
+    """Serve the PRT auto-update manifest from the stable updater URL."""
+    return FileResponse(
+        PRT_DOWNLOAD_DIR / 'latest.json',
+        media_type='application/json',
+        headers={'Cache-Control': 'no-store'},
+    )

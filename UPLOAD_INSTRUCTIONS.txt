@@ -1,9 +1,17 @@
-PITMARK CLOUD v0.21.14 PATCH
+PITMARK CLOUD v0.21.16 — PATCH DEPLOY
 
-1. DO NOT push v0.21.13 separately.
-2. Copy this patch into your current PitmarkCloud repo and replace matching files.
-3. Commit/push with the supplied GitHub Desktop summary + description.
-4. Wait for Render to report Live.
-5. Hard refresh Control Center and verify PRT > Feedback Queue.
+1. Open your current real PitmarkCloud repository.
+2. Copy the contents of this ZIP into the repository root.
+3. Allow these patch files to overwrite the matching existing files.
+4. Do NOT delete unrelated files.
+5. Commit and push with GitHub Desktop.
+6. Let Render deploy normally.
 
-This patch includes the unpushed v0.21.13 public PRT header-spacing correction.
+VERIFY AFTER RENDER IS LIVE:
+- https://prt.pitmarkracing.com/prt
+- https://prt.pitmarkracing.com/downloads/PRT-Setup-Latest.exe
+- https://prt.pitmarkracing.com/downloads/latest.json
+
+IMPORTANT:
+The EXE and latest.json in this patch are a matched PRT v0.16.61 release pair.
+Do not replace only one of them.

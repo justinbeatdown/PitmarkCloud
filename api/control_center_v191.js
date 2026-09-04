@@ -354,11 +354,21 @@
             <div class="pm191-ranked">${(x.top_cars_7d || []).length ? x.top_cars_7d.map((v,i)=>`<div><b>${i+1}</b><span>${esc(v.name)}</span><strong>${v.sessions}</strong></div>`).join('') : '<p>No tracked sessions yet.</p>'}</div>
           </section>
         </div>
-        <section class="pm191-card"><div class="pm191-card-head"><strong>Recent PRT sessions</strong><small>No personally identifying info is shown here.</small></div>
-          <div class="pm191-session-list">${(x.recent_sessions || []).length ? x.recent_sessions.map(v=>`<article class="${v.active?'live':''}">
-            <span class="pm191-live-dot"></span><div><strong>${esc(v.track_name || 'iRacing session')}</strong><small>${esc(v.car_name || '')}</small></div>
-            <div><b>${v.max_lap ? `Lap ${v.max_lap}` : 'Session'}</b><small>${esc(v.device_id ? `Device …${v.device_id}` : '')}</small></div>
-          </article>`).join('') : '<p class="pm191-empty">No PRT live-session history has been recorded yet.</p>'}</div>
+        <section class="pm191-card"><div class="pm191-card-head"><strong>Recent PRT connections</strong><small>One row per recent device connection — lap-by-lap noise is intentionally hidden.</small></div>
+          <div class="pm191-session-list">${(() => {
+            const rows = x.recent_sessions || [];
+            const seen = new Set();
+            const connections = rows.filter(v => {
+              const key = v.device_id || `${v.track_name || ''}|${v.car_name || ''}`;
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            }).slice(0, 12);
+            return connections.length ? connections.map(v=>`<article class="${v.active?'live':''}">
+              <span class="pm191-live-dot"></span><div><strong>${esc(v.active ? 'PRT connected now' : 'Recent PRT connection')}</strong><small>${esc([v.track_name, v.car_name].filter(Boolean).join(' · ') || 'iRacing')}</small></div>
+              <div><b>${v.active ? 'LIVE' : 'RECENT'}</b><small>${esc(v.device_id ? `Device …${v.device_id}` : '')}</small></div>
+            </article>`).join('') : '<p class="pm191-empty">No recent PRT connections yet.</p>';
+          })()}</div>
         </section>`;
     } catch (err) {
       target.innerHTML = `<div class="pm191-error">${esc(err.message)}</div>`;
