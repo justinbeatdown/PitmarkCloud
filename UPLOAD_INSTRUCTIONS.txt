@@ -1,15 +1,19 @@
-PITMARK CLOUD v0.21.18 — PRT v0.16.65 SITE PATCH
+PITMARK CLOUD v0.21.19 — PRT v0.16.66 DEPLOY
 
-1. Open your real current PitmarkCloud repository.
-2. Extract this ZIP.
-3. Copy its contents into the repository root.
-4. Replace api/prt.html when prompted.
-5. Do not change unrelated files.
-6. Separately copy the freshly built v0.16.65 PRT-Setup-Latest.exe and latest.json into api/downloads/.
-7. Commit and push with GitHub Desktop.
+1. Extract this ZIP into the ROOT of your real PitmarkCloud repo.
+2. Replace api/prt.html.
+3. After Build-Release.cmd finishes for PRT v0.16.66, copy:
+   release\website-downloads\PRT-Setup-Latest.exe
+   release\website-downloads\latest.json
+   into PitmarkCloud\api\downloads\
+4. Review changes in GitHub Desktop.
+5. Commit and push.
+6. Wait for Render to deploy.
 
 VERIFY:
-- PRT page shows Windows build v0.16.65.
-- Download button says v0.16.65.
-- FREE plan includes Live Track Map.
-- latest.json reports 0.16.65 after the matched release pair is uploaded.
+- /prt shows v0.16.66.
+- Free plan lists Live Track Map.
+- /downloads/latest.json reports 0.16.66.
+- Downloaded installer is the matching v0.16.66 build.
+
+Never deploy the EXE without its matching latest.json.
