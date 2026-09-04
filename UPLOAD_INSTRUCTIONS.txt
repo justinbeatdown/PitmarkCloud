@@ -1,22 +1,15 @@
-PITMARK CLOUD v0.21.17 — PRT v0.16.62 UPDATE PATCH
+PITMARK CLOUD v0.21.18 — PRT v0.16.65 SITE PATCH
 
-1. Open your current real PitmarkCloud repository.
-2. Copy the contents of this ZIP into the repository root.
-3. Allow these patch files to overwrite the matching existing files.
-4. Do NOT delete unrelated files.
-5. Commit and push with GitHub Desktop.
-6. Let Render deploy normally.
+1. Open your real current PitmarkCloud repository.
+2. Extract this ZIP.
+3. Copy its contents into the repository root.
+4. Replace api/prt.html when prompted.
+5. Do not change unrelated files.
+6. Separately copy the freshly built v0.16.65 PRT-Setup-Latest.exe and latest.json into api/downloads/.
+7. Commit and push with GitHub Desktop.
 
-VERIFY AFTER RENDER IS LIVE:
-- https://prt.pitmarkracing.com/prt
-- https://prt.pitmarkracing.com/downloads/PRT-Setup-Latest.exe
-- https://prt.pitmarkracing.com/downloads/latest.json
-
-EXPECTED:
-- Public PRT page shows Windows build v0.16.62.
-- latest.json reports version 0.16.62.
-- Existing v0.16.61 clients will see v0.16.62 as a required update.
-
-IMPORTANT:
-The EXE and latest.json in this patch are the exact matched PRT v0.16.62 release pair produced by the Windows release builder.
-Do not replace only one of them.
+VERIFY:
+- PRT page shows Windows build v0.16.65.
+- Download button says v0.16.65.
+- FREE plan includes Live Track Map.
+- latest.json reports 0.16.65 after the matched release pair is uploaded.
