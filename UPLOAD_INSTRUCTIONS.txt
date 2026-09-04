@@ -1,22 +1,27 @@
-PITMARK CLOUD v0.21.20 — PRT v0.16.67 COMPLETE PATCH
+PITMARK CLOUD v0.21.21 — PRT SITE v0.16.69 + CLOUD/SHIELD BRANDING
 
-1. Open the current real PitmarkCloud repository.
-2. Extract this ZIP directly into the repository root.
-3. Allow these files to replace the existing versions:
-   - api/prt.html
-   - api/downloads/PRT-Setup-Latest.exe
-   - api/downloads/latest.json
-4. Do not change unrelated files.
-5. Open GitHub Desktop and review the changes.
-6. Commit and Push origin.
-7. Wait for Render to deploy.
+Overlay this ZIP into the ROOT of your existing PitmarkCloud repository.
 
-VERIFY AFTER DEPLOY:
-- PRT page shows Windows build v0.16.67.
-- Download PRT button shows v0.16.67.
-- Free plan still lists Live Track Map.
-- /downloads/latest.json reports 0.16.67.
-- Downloaded installer SHA-256 matches latest.json.
+Replace/add:
+- api/prt.html
+- api/prt.css
+- api/pitmark-cloud-badge.png
+- api/pitmark-shield-badge.png
 
-IMPORTANT:
-The EXE and latest.json in this ZIP are a verified matched pair. Do not replace only one.
+This patch DOES NOT replace the installer or latest.json.
+Your v0.16.69 app payload stays exactly as already pushed.
+
+Changes:
+- Public PRT site build badge: v0.16.69
+- Public PRT download label: v0.16.69
+- Adds a footer-area "POWERED BY" Pitmark Cloud badge
+- Adds a footer-area "PROTECTED BY" Pitmark Shield badge
+- Uses the user's existing Pitmark Cloud/Shield artwork; logos were cropped only, not redesigned
+- Adds responsive styling for desktop/mobile
+- Preserves Free Live Track Map and all existing site links/content
+
+After copying:
+1. Open GitHub Desktop.
+2. Confirm only the four files above are changed/added.
+3. Commit and Push origin.
+4. If Render does not auto-deploy, use Manual Deploy -> Deploy latest commit.
