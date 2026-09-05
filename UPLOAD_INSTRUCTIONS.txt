@@ -1,4 +1,4 @@
-﻿PITMARK CLOUD + PRT v0.16.70 COORDINATED RELEASE
+﻿PITMARK CLOUD + PRT v0.16.71 COORDINATED RELEASE
 
 Extract this ZIP into the ROOT of the PitmarkCloud repository.
 
