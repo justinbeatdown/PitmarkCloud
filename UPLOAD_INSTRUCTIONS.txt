@@ -1,4 +1,4 @@
-﻿PITMARK CLOUD + PRT v0.16.73 COORDINATED RELEASE
+﻿PITMARK CLOUD + PRT v0.16.74 COORDINATED RELEASE
 
 Extract this ZIP into the ROOT of the PitmarkCloud repository.
 
@@ -10,6 +10,7 @@ Included:
 - api/prt_ui.py
 - api/pitmark-cloud-badge.png
 - api/pitmark-shield-badge.png
+- utils/security.py (Race Card upload route-specific body limit)
 
 The app build, updater manifest, PRT website version, and Cloud image routes are all
 generated/staged together from this exact release.

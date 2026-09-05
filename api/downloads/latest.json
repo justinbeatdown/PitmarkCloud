@@ -1,7 +1,7 @@
 ﻿{
-    "version":  "0.16.73",
+    "version":  "0.16.74",
     "installerUrl":  "https://prt.pitmarkracing.com/downloads/PRT-Setup-Latest.exe",
-    "sha256":  "03c07a6dba0ad5027b27056148d4130f0f9526f431a223499d6d0488bdcad4aa",
+    "sha256":  "1de72f0117711e4770688ec4915edb86dc609fbb4eb7cb81aa94caea6e3f8789",
     "required":  true,
     "notes":  "Early Access update: Windows installer and automatic updates."
 }

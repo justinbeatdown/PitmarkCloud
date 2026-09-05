@@ -16,6 +16,10 @@ DEVICE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
 DISCORD_ID_RE = re.compile(r"^[0-9]{5,32}$")
 MAX_REQUEST_BODY = 1024 * 1024
 SOCIAL_UPLOAD_MAX_REQUEST_BODY = 7 * 1024 * 1024
+# Race Cards are rendered as full 1600x1000 PNGs and uploaded as multipart/form-data.
+# Keep the normal API body cap tight, but permit the dedicated authenticated Race Card
+# endpoint enough room for the endpoint's existing 8 MiB PNG limit plus multipart overhead.
+RACE_CARD_UPLOAD_MAX_REQUEST_BODY = 9 * 1024 * 1024
 
 
 def validate_device_id(value: str) -> str:
@@ -41,7 +45,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         content_length = request.headers.get("content-length")
         if content_length:
             try:
-                limit = SOCIAL_UPLOAD_MAX_REQUEST_BODY if request.url.path == "/api/control/social/assets/upload" else MAX_REQUEST_BODY
+                path = request.url.path
+                if path == "/api/control/social/assets/upload":
+                    limit = SOCIAL_UPLOAD_MAX_REQUEST_BODY
+                elif path == "/api/discord/share/racecard-image":
+                    limit = RACE_CARD_UPLOAD_MAX_REQUEST_BODY
+                else:
+                    limit = MAX_REQUEST_BODY
                 if int(content_length) > limit:
                     return JSONResponse({"detail": "Request body too large."}, status_code=413)
             except ValueError:
