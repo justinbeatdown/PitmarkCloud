@@ -46,22 +46,38 @@ def pitmark_cloud_badge(): return FileResponse(ASSET_DIR/"pitmark-cloud-badge.pn
 def pitmark_shield_badge(): return FileResponse(ASSET_DIR/"pitmark-shield-badge.png",media_type="image/png")
 
 
-def _r2_installer_url() -> str:
+def _r2_object_url(key: str) -> str:
     if not bool(getattr(settings, "prt_r2_enabled", False)):
         return ""
     base = (getattr(settings, "prt_r2_public_base_url", "") or "").strip().rstrip("/")
-    key = (getattr(settings, "prt_r2_installer_key", "prt/PRT-Setup-Latest.exe") or "").strip().lstrip("/")
-    return f"{base}/{key}" if base and key else ""
+    normalized_key = (key or "").strip().lstrip("/")
+    return f"{base}/{normalized_key}" if base and normalized_key else ""
 
 
-# control_center_ui historically owned the stable /downloads installer route. During
-# module import, remove only that one route so the R2-aware replacement below is the
-# single source of truth. The tiny latest.json manifest stays served locally by Cloud.
+def _r2_installer_key() -> str:
+    return (getattr(settings, "prt_r2_installer_key", "prt/PRT-Setup-Latest.exe") or "").strip().lstrip("/")
+
+
+def _r2_installer_url() -> str:
+    return _r2_object_url(_r2_installer_key())
+
+
+def _r2_manifest_url() -> str:
+    installer_key = _r2_installer_key()
+    prefix = installer_key.rsplit("/", 1)[0] if "/" in installer_key else ""
+    manifest_key = f"{prefix}/latest.json" if prefix else "latest.json"
+    return _r2_object_url(manifest_key)
+
+
+# control_center_ui historically owned the stable /downloads routes. During module
+# import, remove only those two release routes so this R2-aware implementation is the
+# single source of truth. Local files remain as a safe fallback if R2 is disabled.
 try:
     from api import control_center_ui as _control_center_ui
+    _release_paths = {"/downloads/PRT-Setup-Latest.exe", "/downloads/latest.json"}
     _control_center_ui.router.routes[:] = [
         route for route in _control_center_ui.router.routes
-        if getattr(route, "path", "") != "/downloads/PRT-Setup-Latest.exe"
+        if getattr(route, "path", "") not in _release_paths
     ]
 except Exception:
     _control_center_ui = None
@@ -73,8 +89,6 @@ def prt_windows_installer():
     if target:
         return RedirectResponse(url=target,status_code=307,headers={"Cache-Control":"no-store"})
 
-    # Safe migration fallback: if R2/custom-domain configuration is not live yet, keep
-    # serving the repository copy so an early Cloud deploy cannot strand existing testers.
     local = ASSET_DIR / "downloads" / "PRT-Setup-Latest.exe"
     if local.exists():
         return FileResponse(
@@ -84,6 +98,22 @@ def prt_windows_installer():
             headers={"Cache-Control":"no-store"},
         )
     return Response("PRT installer is being published. Try again shortly.",status_code=503,media_type="text/plain",headers={"Cache-Control":"no-store"})
+
+
+@router.get("/downloads/latest.json",include_in_schema=False)
+def prt_update_manifest():
+    # The generated manifest is uploaded beside the installer in R2. Serving it through
+    # the stable Pitmark URL keeps existing clients unchanged while preventing a stale
+    # repository manifest from blocking a newly published Windows build.
+    target = _r2_manifest_url()
+    if target:
+        return RedirectResponse(url=target,status_code=307,headers={"Cache-Control":"no-store"})
+
+    local = ASSET_DIR / "downloads" / "latest.json"
+    if local.exists():
+        return FileResponse(local,media_type="application/json",headers={"Cache-Control":"no-store"})
+    return Response("PRT update manifest is being published. Try again shortly.",status_code=503,media_type="text/plain",headers={"Cache-Control":"no-store"})
+
 
 @router.get("/api/discord/install/launch",include_in_schema=False)
 def prt_discord_install_launch():
