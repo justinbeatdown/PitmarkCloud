@@ -22,7 +22,7 @@ PLATFORM_GUIDANCE = {
     "facebook": "Write like an organic Facebook post. Use natural paragraph spacing. Usually 45-120 words unless the request calls for shorter copy.",
     "instagram": "Write an Instagram-ready caption with a strong first line, natural paragraph spacing, and no hashtag dump. Use at most 3 genuinely useful hashtags only when they help.",
     "tiktok": "Write a short TikTok caption or post copy with a fast hook and conversational race-culture energy. Keep it compact.",
-    "x": "Write for X. Be punchy and comfortably under 280 characters unless the user explicitly asks for a thread.",
+    "x": "Write for X. Pitmark's account has X Premium, so longer posts are supported. Prefer concise copy when it works, but do not force the post under 280 characters when useful context needs more room. Never exceed 25,000 characters.",
 }
 
 GOAL_GUIDANCE = {
