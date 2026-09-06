@@ -124,6 +124,64 @@ h1 {
 .copy small { margin-top: 4px; color: var(--muted); font-size: .79rem; line-height: 1.3; }
 .arrow { color: var(--orange); font-size: 1.35rem; font-weight: 800; }
 
+.socials {
+  margin-top: 22px;
+  padding: 18px 18px 17px;
+  border: 1px solid rgba(255,85,0,.28);
+  border-radius: 15px;
+  background: rgba(18,18,18,.8);
+  box-shadow: 0 12px 34px rgba(0,0,0,.14);
+}
+
+.socials-label {
+  margin: 0 0 13px;
+  text-align: center;
+  color: var(--muted);
+  font-size: .69rem;
+  font-weight: 900;
+  letter-spacing: .18em;
+}
+
+.social-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  flex-wrap: wrap;
+}
+
+.social-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid #333;
+  border-radius: 13px;
+  background: #171717;
+  color: #f7f7f7;
+  text-decoration: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 8px 24px rgba(0,0,0,.2);
+  transition: transform .16s ease, border-color .16s ease, background .16s ease, color .16s ease, box-shadow .16s ease;
+}
+
+.social-icon svg {
+  width: 27px;
+  height: 27px;
+  display: block;
+}
+
+.social-icon:hover,
+.social-icon:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(255,85,0,.9);
+  background: #21170f;
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(255,85,0,.2), 0 10px 26px rgba(0,0,0,.28);
+  outline: none;
+}
+
+.social-icon.discord svg { width: 29px; height: 29px; }
+
 footer {
   text-align: center;
   padding: 30px 10px 0;
@@ -142,4 +200,8 @@ footer a { color: var(--orange); text-decoration: none; font-weight: 800; }
   .icon { width: 38px; height: 38px; }
   .copy strong { font-size: .94rem; }
   .copy small { font-size: .74rem; }
+  .socials { padding: 16px 13px 15px; }
+  .social-row { gap: 9px; }
+  .social-icon { width: 48px; height: 48px; border-radius: 12px; }
+  .social-icon svg { width: 25px; height: 25px; }
 }
