@@ -88,9 +88,9 @@
   }
 
   function installMobileV3Style() {
-    if (location.pathname !== '/control/mobile' || document.getElementById('pm2133-mobile-v3-style')) return;
+    if (location.pathname !== '/control/mobile' || document.getElementById('pm2135-mobile-v3-style')) return;
     const style = document.createElement('style');
-    style.id = 'pm2133-mobile-v3-style';
+    style.id = 'pm2135-mobile-v3-style';
     style.textContent = `
       body.pm-mobile-v3{
         --v3-orange:#ff5500;--v3-orange2:#ff7430;--v3-bg:#080a0c;--v3-surface:#111419;
@@ -379,7 +379,7 @@
     document.body.classList.add('pm-mobile-v3');
     installMobileV3Style();
     const brand = document.querySelector('.m-brand span');
-    if (brand) brand.textContent = 'MOBILE · v0.21.33';
+    if (brand) brand.textContent = 'MOBILE · v0.21.35';
     rebuildHome();
     simplifyAutopilot();
     simplifyMore();
@@ -397,8 +397,8 @@
     applyAccessPermissions();
     rebuildMobileApp();
 
-    // Older enhancement bundles finish asynchronously; mobile v3 owns the final
-    // phone presentation and reapplies only idempotent structure if necessary.
+    // Keep the dedicated mobile shell authoritative while async data and the PWA
+    // finish booting. These calls are idempotent and no longer compete with desktop bundles.
     [100,300,700,1400,3000].forEach(delay => setTimeout(() => {
       installNoMailStyle(); addAnalyticsNav(); cleanMailCopy(); rebuildMobileApp();
     }, delay));
