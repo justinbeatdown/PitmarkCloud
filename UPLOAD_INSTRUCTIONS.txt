@@ -1,16 +1,15 @@
-﻿PITMARK CLOUD + PRT v0.16.76 COORDINATED RELEASE
+PITMARK CLOUD v0.21.23 + PRT v0.16.77 COMPLETE PATCH
 
-Extract this ZIP into the ROOT of the PitmarkCloud repository.
+Extract this ZIP into the ROOT of the PitmarkCloud repository, replacing matching files.
+Then commit/push and redeploy Render.
 
-Included:
-- api/downloads/PRT-Setup-Latest.exe
-- api/downloads/latest.json
-- api/prt.html
-- api/prt.css
-- api/prt_ui.py
-- api/pitmark-cloud-badge.png
-- api/pitmark-shield-badge.png
-- utils/security.py (Race Card upload route-specific body limit)
+Cloudflare R2 rollout:
+- PRT_R2_ENABLED=true
+- PRT_R2_PUBLIC_BASE_URL=<your R2 public/custom domain, no trailing slash>
+- PRT_R2_INSTALLER_KEY=prt/PRT-Setup-Latest.exe
 
-The app build, updater manifest, PRT website version, and Cloud image routes are all
-generated/staged together from this exact release.
+No R2 API secret is required in Pitmark Cloud. The server redirects the heavy installer
+object to R2. The updater manifest remains small and is served by Pitmark Cloud.
+
+Safe rollout: if R2 is not enabled/configured yet, the route falls back to the existing
+local installer if one is present, so deploying this patch first does not break downloads.

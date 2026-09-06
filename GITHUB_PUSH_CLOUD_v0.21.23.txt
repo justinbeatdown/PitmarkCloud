@@ -1,0 +1,5 @@
+SUMMARY
+Pitmark Cloud v0.21.23 — PRT v0.16.77 + Cloudflare R2 rollout
+
+DESCRIPTION
+Coordinates Pitmark Cloud with PRT v0.16.77, fixes the footer service-badge halo/double-circle presentation, and moves heavy PRT installer delivery toward Cloudflare R2 while preserving the existing stable download URL and a safe local fallback. Adds R2 public-domain configuration only—no Cloudflare secrets are stored in source. Also retains the Race Card upload-limit fix and leaves unrelated Cloud/Shield/Autopilot/licensing behavior untouched.

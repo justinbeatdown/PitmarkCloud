@@ -3,7 +3,7 @@
 .pitmark-trust{max-width:1500px;margin:0 auto;padding:10px clamp(22px,4vw,72px) 26px;display:flex;align-items:center;justify-content:flex-end;gap:24px;color:#737a7a}
 .trust-service{display:flex;align-items:center;gap:12px;min-width:0}
 .trust-label{font-size:9px;font-weight:950;letter-spacing:1.7px;color:#777f7f;white-space:nowrap}
-.trust-service img{display:block;width:auto;height:54px;max-width:170px;object-fit:contain;filter:drop-shadow(0 6px 18px rgba(0,0,0,.35))}
+.trust-service img{display:block;width:auto;height:54px;max-width:170px;object-fit:contain;filter:none}
 .trust-divider{width:1px;height:42px;background:#2a2e2e;flex:0 0 1px}
 @media(max-width:700px){.pitmark-trust{justify-content:center;gap:16px;padding-left:16px;padding-right:16px}.trust-service{gap:8px}.trust-service img{height:44px;max-width:135px}.trust-label{font-size:8px;letter-spacing:1.2px}}
 @media(max-width:500px){.pitmark-trust{flex-direction:column;align-items:flex-start;gap:12px}.trust-divider{display:none}.trust-service img{height:46px;max-width:145px}}

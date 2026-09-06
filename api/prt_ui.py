@@ -44,11 +44,53 @@ def prt_app_preview(): return FileResponse(ASSET_DIR/"prt-app-preview.png",media
 def pitmark_cloud_badge(): return FileResponse(ASSET_DIR/"pitmark-cloud-badge.png",media_type="image/png")
 @router.get("/pitmark-shield-badge.png",include_in_schema=False)
 def pitmark_shield_badge(): return FileResponse(ASSET_DIR/"pitmark-shield-badge.png",media_type="image/png")
+
+
+def _r2_installer_url() -> str:
+    if not bool(getattr(settings, "prt_r2_enabled", False)):
+        return ""
+    base = (getattr(settings, "prt_r2_public_base_url", "") or "").strip().rstrip("/")
+    key = (getattr(settings, "prt_r2_installer_key", "prt/PRT-Setup-Latest.exe") or "").strip().lstrip("/")
+    return f"{base}/{key}" if base and key else ""
+
+
+# control_center_ui historically owned the stable /downloads installer route. During
+# module import, remove only that one route so the R2-aware replacement below is the
+# single source of truth. The tiny latest.json manifest stays served locally by Cloud.
+try:
+    from api import control_center_ui as _control_center_ui
+    _control_center_ui.router.routes[:] = [
+        route for route in _control_center_ui.router.routes
+        if getattr(route, "path", "") != "/downloads/PRT-Setup-Latest.exe"
+    ]
+except Exception:
+    _control_center_ui = None
+
+
+@router.get("/downloads/PRT-Setup-Latest.exe",include_in_schema=False)
+def prt_windows_installer():
+    target = _r2_installer_url()
+    if target:
+        return RedirectResponse(url=target,status_code=307,headers={"Cache-Control":"no-store"})
+
+    # Safe migration fallback: if R2/custom-domain configuration is not live yet, keep
+    # serving the repository copy so an early Cloud deploy cannot strand existing testers.
+    local = ASSET_DIR / "downloads" / "PRT-Setup-Latest.exe"
+    if local.exists():
+        return FileResponse(
+            local,
+            media_type="application/vnd.microsoft.portable-executable",
+            filename="PRT-Setup-Latest.exe",
+            headers={"Cache-Control":"no-store"},
+        )
+    return Response("PRT installer is being published. Try again shortly.",status_code=503,media_type="text/plain",headers={"Cache-Control":"no-store"})
+
 @router.get("/api/discord/install/launch",include_in_schema=False)
 def prt_discord_install_launch():
     value=discord_service.install_url()
     if not value:return RedirectResponse(url="/prt?discord=unavailable",status_code=302)
     return RedirectResponse(url=value,status_code=302)
+
 
 # Public Pitmark link-in-bio hub lives under the existing public PRT UI router.
 from api import links_ui

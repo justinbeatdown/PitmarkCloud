@@ -4,7 +4,7 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PITMARK_RELEASE_VERSION = "0.21.15"
+PITMARK_RELEASE_VERSION = "0.21.23"
 
 
 class Settings(BaseSettings):
@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     pitmark_timezone: str = "America/New_York"
     pitmark_public_store_url: str = "https://pitmarkracing.com"
     prt_early_access_form_url: str = ""
+    # Cloudflare R2 public-download rollout. No R2 credentials are stored in Pitmark Cloud;
+    # Cloud only redirects the heavy installer to the configured public/custom-domain URL.
+    prt_r2_enabled: bool = False
+    prt_r2_public_base_url: str = ""
+    prt_r2_installer_key: str = "prt/PRT-Setup-Latest.exe"
     tiktok_client_key: str = ""
     tiktok_client_secret: str = ""
     x_client_id: str = ""
