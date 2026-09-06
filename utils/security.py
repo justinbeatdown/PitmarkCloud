@@ -69,9 +69,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; "
                 "base-uri 'none'; form-action 'none'; img-src 'none'; script-src 'none'"
             )
-        elif request.url.path.startswith("/prt"):
-            # PRT pages and PRT-served assets are same-origin. Allow only the assets and
-            # API calls required by the PRT website/Support Hub while keeping CSP strict.
+        elif request.url.path.startswith(("/prt", "/links")):
+            # PRT and the public Pitmark link hub use same-origin static assets only.
+            # Keeping these paths explicit avoids weakening the default CSP for the API.
             response.headers["Content-Security-Policy"] = (
                 "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; "
                 "frame-ancestors 'none'; base-uri 'none'; form-action 'none'; img-src 'self'; "
