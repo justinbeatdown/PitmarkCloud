@@ -261,20 +261,15 @@ def control_mobile(request: Request):
     filename = 'control_mobile.html' if user_from_request(request) else 'control_mobile_login.html'
     html = (ASSET_DIR / filename).read_text(encoding='utf-8')
     if filename == 'control_mobile.html':
-        # Mobile owns its own shell. Do not inject the desktop Control Center CSS/JS
-        # stacks here: those legacy bundles were rebuilding the v0.21.35 app back
-        # into the older v0.21.33 DOM a moment after first paint.
-        html = html.replace(
-            '</body>',
-            AUTOFILL_GUARD
-            + '\n<script src="/control-center-v202.js?v=02135" defer></script>'
-            + '</body>'
-        )
+        # The mobile app owns its DOM and presentation. Only the shared autofill
+        # guard is injected here. Desktop enhancement bundles must never run on
+        # /control/mobile because they rebuild the mobile shell after first paint.
+        html = html.replace('</body>', AUTOFILL_GUARD + '</body>')
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
 
 
 @router.get('/control-mobile.css', include_in_schema=False)
-def control_mobile_css(): return Response((ASSET_DIR / 'control_mobile.css').read_text(encoding='utf-8'), media_type='text/css')
+def control_mobile_css(): return Response((ASSET_DIR / 'control_mobile.css').read_text(encoding='utf-8'), media_type='text/css', headers={'Cache-Control':'no-store'})
 
 @router.get('/control-mobile.js', include_in_schema=False)
 def control_mobile_js(): return Response((ASSET_DIR / 'control_mobile.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Cache-Control':'no-store'})
@@ -329,7 +324,7 @@ def control_mobile_login_js(): return Response((ASSET_DIR / 'control_mobile_logi
 def control_manifest(): return Response((ASSET_DIR / 'control.webmanifest').read_text(encoding='utf-8'), media_type='application/manifest+json')
 
 @router.get('/control-sw.js', include_in_schema=False)
-def control_sw(): return Response((ASSET_DIR / 'control_sw.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Service-Worker-Allowed':'/control/'})
+def control_sw(): return Response((ASSET_DIR / 'control_sw.js').read_text(encoding='utf-8'), media_type='application/javascript', headers={'Service-Worker-Allowed':'/control/','Cache-Control':'no-store'})
 
 @router.get('/control-logo-wide.png', include_in_schema=False)
 def control_logo_wide(): return FileResponse(ASSET_DIR / 'pitmark_logo_wide.png', media_type='image/png')
