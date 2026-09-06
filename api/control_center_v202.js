@@ -1,10 +1,8 @@
 (() => {
   'use strict';
 
-  // v0.21.6 — Control Center is not an email client.
-  // Gmail remains server-side for Shield and automation. The two legacy
-  // mail-client bootstrap reads are short-circuited so opening Control Center
-  // does not initialize identities/preferences for a UI that is no longer used.
+  // Control Center is not an email client. Gmail remains server-side for Shield
+  // and automation, so legacy mail bootstrap reads are short-circuited.
   const nativeFetch = window.fetch.bind(window);
   window.fetch = function pitmarkControlFetch(input, init) {
     try {
@@ -12,33 +10,15 @@
       const url = new URL(raw, location.origin);
       if (url.origin === location.origin) {
         if (url.pathname === '/api/control/email/identities') {
-          return Promise.resolve(new Response(JSON.stringify([]), {
-            status: 200,
-            headers: {'Content-Type':'application/json'}
-          }));
+          return Promise.resolve(new Response(JSON.stringify([]), {status:200,headers:{'Content-Type':'application/json'}}));
         }
         if (url.pathname === '/api/control/email/preferences') {
-          return Promise.resolve(new Response(JSON.stringify({}), {
-            status: 200,
-            headers: {'Content-Type':'application/json'}
-          }));
+          return Promise.resolve(new Response(JSON.stringify({}), {status:200,headers:{'Content-Type':'application/json'}}));
         }
       }
     } catch (_) {}
     return nativeFetch(input, init);
   };
-
-  const MAIL_HIDE_SELECTORS = [
-    '[data-view="email"]',
-    '[data-view-section="email"]',
-    '[data-mview="email"]',
-    '[data-mnav="email"]',
-    '[data-mgo="email"]',
-    '[data-pm19-go="email"]',
-    '[data-go="email"]',
-    '#pm19ComposeOverlay',
-    '#pm204BulkBar'
-  ];
 
   function installNoMailStyle() {
     if (document.getElementById('pm216-no-mail-style')) return;
@@ -46,38 +26,21 @@
     style.id = 'pm216-no-mail-style';
     style.textContent = `
       html body .shell>.sidebar>.nav>button[data-view="email"],
-      html body .shell>.sidebar>.nav>button[data-view="email"]:not([hidden]),
       html body .content>[data-view-section="email"],
-      html body [data-pm19-go="email"],
-      html body [data-go="email"],
-      html body #pm19ComposeOverlay,
-      html body #pm204BulkBar,
-      html body [data-mview="email"],
-      html body .m-nav>button[data-mnav="email"],
-      html body [data-mgo="email"] {
-        display:none !important;
-        visibility:hidden !important;
-        pointer-events:none !important;
-      }
-      @media (max-width:980px) {
-        html body .m-nav { grid-template-columns:repeat(4,1fr) !important; }
-      }
+      html body [data-pm19-go="email"],html body [data-go="email"],
+      html body #pm19ComposeOverlay,html body #pm204BulkBar,
+      html body [data-mview="email"],html body .m-nav>button[data-mnav="email"],
+      html body [data-mgo="email"]{display:none!important;visibility:hidden!important;pointer-events:none!important}
+      @media(max-width:980px){html body .m-nav{grid-template-columns:repeat(4,1fr)!important}}
     `;
     document.head.appendChild(style);
   }
 
   function activate(view) {
     if (view === 'email') view = 'dashboard';
-    if (typeof window.setView === 'function') {
-      window.setView(view);
-      return;
-    }
-    document.querySelectorAll('[data-view-section]').forEach(section => {
-      section.classList.toggle('active', section.dataset.viewSection === view);
-    });
-    document.querySelectorAll('#nav [data-view]').forEach(button => {
-      button.classList.toggle('active', button.dataset.view === view);
-    });
+    if (typeof window.setView === 'function') { window.setView(view); return; }
+    document.querySelectorAll('[data-view-section]').forEach(s => s.classList.toggle('active', s.dataset.viewSection === view));
+    document.querySelectorAll('#nav [data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === view));
     location.hash = `#${view}`;
   }
 
@@ -91,14 +54,11 @@
     if (innerWidth <= 980) return;
     const nav = document.getElementById('nav');
     if (!nav || nav.querySelector('[data-view="analytics"]')) return;
-
     const button = document.createElement('button');
     button.dataset.view = 'analytics';
     button.innerHTML = '<span class="ico">⌁</span><span>PRT<small>Access & Analytics</small></span>';
     button.addEventListener('click', () => activate('analytics'));
-
-    const directory = nav.querySelector('[data-view="directory"]');
-    nav.insertBefore(button, directory || null);
+    nav.insertBefore(button, nav.querySelector('[data-view="directory"]') || null);
   }
 
   async function applyAccessPermissions() {
@@ -107,7 +67,6 @@
       if (!response.ok) return;
       const access = await response.json();
       if (access.role === 'owner' || access.role === 'admin') return;
-
       document.querySelectorAll('#nav [data-view]').forEach(button => {
         const view = button.dataset.view;
         if (!view || view === 'dashboard' || view === 'email') return;
@@ -123,140 +82,129 @@
     if (heroCopy && /\bmail\b/i.test(heroCopy.textContent || '')) {
       heroCopy.textContent = 'Publishing, security, partnerships and content — each tool gets a focused workspace without turning Control Center into an inbox.';
     }
-
     const shieldQuick = document.querySelector('[data-go="shield"] span');
     if (shieldQuick && /messages needing a human call/i.test(shieldQuick.textContent || '')) {
       shieldQuick.textContent = 'Inspect communications that need a security decision';
     }
   }
 
-  // v0.21.31 — the dedicated mobile surface should look and behave like a
-  // pocket command app, not a compressed desktop dashboard.
-  function installMobileCommandDeck() {
-    if (location.pathname !== '/control/mobile') return;
-    document.body.classList.add('pm-mobile-command-deck');
+  function installMobileRaceControlStyle() {
+    if (location.pathname !== '/control/mobile' || document.getElementById('pm2132-race-control-style')) return;
+    const style = document.createElement('style');
+    style.id = 'pm2132-race-control-style';
+    style.textContent = `
+      body.pm-mobile-race-control{
+        --rc-o:#ff5500;--rc-hot:#ff7633;--rc-bg:#050607;--rc-panel:#0b0e11;--rc-panel2:#101418;
+        --rc-line:rgba(255,255,255,.105);--rc-muted:#78818a;
+        background:linear-gradient(180deg,#08090b 0,#050607 58%,#030405 100%)!important;
+      }
+      body.pm-mobile-race-control:before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;opacity:.12;background:repeating-linear-gradient(135deg,transparent 0 21px,rgba(255,255,255,.022) 22px,transparent 23px)}
+      body.pm-mobile-race-control .m-app{padding-bottom:84px!important}
+      body.pm-mobile-race-control .m-head{min-height:54px!important;padding:7px 10px!important;border:0!important;border-bottom:3px solid var(--rc-o)!important;background:#07090b!important;box-shadow:0 10px 30px rgba(0,0,0,.28)!important}
+      body.pm-mobile-race-control .m-brand{gap:8px!important}
+      body.pm-mobile-race-control .m-brand img{width:34px!important;height:34px!important}
+      body.pm-mobile-race-control .m-brand strong{font-size:13px!important;letter-spacing:.06em!important;font-style:italic!important}
+      body.pm-mobile-race-control .m-brand span{margin-top:1px!important;color:#8b9298!important;font-size:7px!important;letter-spacing:.15em!important}
+      body.pm-mobile-race-control .m-head .m-ghost{min-height:32px!important;padding:5px 8px!important;border-radius:3px!important;font-size:8px!important;background:#101316!important}
+      body.pm-mobile-race-control .m-main{max-width:560px!important;padding:10px 10px 22px!important}
+      body.pm-mobile-race-control [data-mview="home"]>.m-title{display:none!important}
 
-    if (!document.getElementById('pm2131-mobile-command-deck-style')) {
-      const style = document.createElement('style');
-      style.id = 'pm2131-mobile-command-deck-style';
-      style.textContent = `
-        body.pm-mobile-command-deck{
-          --deck-orange:#ff5500;
-          --deck-orange-hot:#ff7430;
-          --deck-bg:#050607;
-          --deck-panel:#0d1013;
-          --deck-panel-2:#12161a;
-          --deck-line:rgba(255,255,255,.085);
-          --deck-muted:#7f8992;
-          background:
-            radial-gradient(circle at 82% -6%,rgba(255,85,0,.17),transparent 29%),
-            linear-gradient(180deg,#07090a,#040506 72%);
-        }
-        body.pm-mobile-command-deck:before{
-          content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;opacity:.16;
-          background-image:linear-gradient(120deg,transparent 0 48%,rgba(255,255,255,.025) 49%,transparent 50%);
-          background-size:28px 28px;
-        }
-        body.pm-mobile-command-deck .m-app{padding-bottom:102px}
-        body.pm-mobile-command-deck .m-head{
-          min-height:56px;padding:8px 11px;border-bottom:1px solid var(--deck-line);
-          background:rgba(5,6,7,.94);backdrop-filter:blur(22px) saturate(1.25);
-        }
-        body.pm-mobile-command-deck .m-brand{gap:9px}
-        body.pm-mobile-command-deck .m-brand img{width:36px;height:36px;filter:drop-shadow(0 5px 12px rgba(0,0,0,.5))}
-        body.pm-mobile-command-deck .m-brand strong{font-size:14px;letter-spacing:.045em;font-style:italic}
-        body.pm-mobile-command-deck .m-brand span{margin-top:2px;color:#8b929a;font-size:7px;letter-spacing:.15em}
-        body.pm-mobile-command-deck .m-head .m-ghost{min-height:34px;padding:6px 9px;font-size:8px;border-radius:8px}
-        body.pm-mobile-command-deck .m-main{max-width:560px;padding:11px 10px 24px}
-        body.pm-mobile-command-deck [data-mview="home"]>.m-title{display:none}
-        body.pm-mobile-command-deck .pm-mobile-hero{
-          margin:2px 0 10px;padding:22px 17px 16px;border:1px solid rgba(255,85,0,.24);
-          border-left:4px solid var(--deck-orange);border-radius:13px;
-          background:linear-gradient(128deg,rgba(255,85,0,.17),rgba(255,85,0,.025) 46%,transparent 47%),linear-gradient(180deg,#15191d,#0a0d10);
-          box-shadow:0 20px 48px rgba(0,0,0,.34);
-        }
-        body.pm-mobile-command-deck .pm-mobile-hero:before{
-          content:"";position:absolute;right:13px;top:13px;width:68px;height:28px;opacity:.12;
-          background:conic-gradient(#fff 25%,transparent 0 50%,#fff 0 75%,transparent 0);background-size:12px 12px;
-          transform:skewX(-10deg);pointer-events:none;
-        }
-        body.pm-mobile-command-deck .pm-mobile-hero:after{right:-18px;bottom:-45px;font-size:165px;color:rgba(255,255,255,.018)}
-        body.pm-mobile-command-deck .pm-mobile-kicker{font-size:8px;letter-spacing:.18em;color:#ff7b3b}
-        body.pm-mobile-command-deck .pm-mobile-live{top:17px;right:17px;width:8px;height:8px}
-        body.pm-mobile-command-deck .pm-mobile-hero h2{max-width:92%;margin:8px 0 7px;font-size:29px;line-height:.98;letter-spacing:-.047em;text-transform:uppercase;font-style:italic}
-        body.pm-mobile-command-deck .pm-mobile-hero p{max-width:92%;font-size:11px;line-height:1.5;color:#9aa2aa}
-        .pm-deck-status{position:relative;z-index:2;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)}
-        .pm-deck-status span{display:flex;align-items:center;justify-content:center;gap:5px;min-height:29px;border:1px solid rgba(255,255,255,.075);border-radius:7px;background:rgba(0,0,0,.17);color:#929aa2;font-size:7px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}
-        .pm-deck-status i{width:6px;height:6px;border-radius:50%;background:#48dd83;box-shadow:0 0 9px rgba(72,221,131,.65)}
-        body.pm-mobile-command-deck .pm-mobile-section-label{margin:15px 2px 7px}
-        body.pm-mobile-command-deck .pm-mobile-section-label strong{font-size:9px;color:#c2c7cc;letter-spacing:.13em}
-        body.pm-mobile-command-deck .pm-mobile-section-label span{font-size:7px;color:#626b73}
-        body.pm-mobile-command-deck .pm-mobile-quick{grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px}
-        body.pm-mobile-command-deck .pm-mobile-quick button{min-height:86px;padding:12px;border-radius:11px;border-color:var(--deck-line);background:linear-gradient(145deg,#12161a,#0a0d10)}
-        body.pm-mobile-command-deck .pm-mobile-quick button:first-child{grid-column:1/-1;min-height:74px;background:linear-gradient(135deg,#ff6414,#d94400);border-color:#ff7024}
-        body.pm-mobile-command-deck .pm-mobile-quick .pm-q-icon{width:29px;height:29px;margin-bottom:8px;border-radius:7px;font-size:13px}
-        body.pm-mobile-command-deck .pm-mobile-quick strong{font-size:11px;text-transform:uppercase;letter-spacing:.025em}
-        body.pm-mobile-command-deck .pm-mobile-quick small{font-size:8px;line-height:1.3}
-        body.pm-mobile-command-deck .m-stats{grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px}
-        body.pm-mobile-command-deck .m-stats button{position:relative;overflow:hidden;min-height:88px;padding:12px;border-radius:11px;background:linear-gradient(145deg,#12161a,#090c0f);border-color:var(--deck-line)}
-        body.pm-mobile-command-deck .m-stats button:after{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,var(--deck-orange),transparent 72%);opacity:.7}
-        body.pm-mobile-command-deck .m-stats span{font-size:8px;letter-spacing:.11em}
-        body.pm-mobile-command-deck .m-stats b{margin-top:13px;font-size:30px;font-style:italic}
-        body.pm-mobile-command-deck .m-card,body.pm-mobile-command-deck .m-row,body.pm-mobile-command-deck .m-item{border-radius:11px;border-color:var(--deck-line);background:linear-gradient(145deg,#101418,#090c0f)}
-        body.pm-mobile-command-deck .m-card{padding:13px;margin-bottom:8px}
-        body.pm-mobile-command-deck .m-card h2{font-size:13px;text-transform:uppercase;font-style:italic;letter-spacing:.025em}
-        body.pm-mobile-command-deck .m-card p{font-size:10.5px;line-height:1.45}
-        body.pm-mobile-command-deck .m-card-head>span{font-size:8px;color:#78818a;text-transform:uppercase}
-        body.pm-mobile-command-deck .m-row{padding:13px;margin-bottom:7px}
-        body.pm-mobile-command-deck .m-row b{font-size:11px;text-transform:uppercase}
-        body.pm-mobile-command-deck .m-row span{font-size:9px;line-height:1.35}
-        body.pm-mobile-command-deck input,body.pm-mobile-command-deck select,body.pm-mobile-command-deck textarea{border-radius:9px;background:#07090b;border-color:rgba(255,255,255,.12)}
-        body.pm-mobile-command-deck .m-orange,body.pm-mobile-command-deck .m-ghost{min-height:43px;border-radius:9px;font-size:9px}
-        body.pm-mobile-command-deck .m-orange{background:linear-gradient(180deg,#ff6818,#e44800)}
-        body.pm-mobile-command-deck .pm-mobile-workspace-grid{gap:7px}
-        body.pm-mobile-command-deck .pm-mobile-workspace-grid button{min-height:86px;padding:13px;border-radius:11px;background:linear-gradient(145deg,#11151a,#090c0f)}
-        body.pm-mobile-command-deck .pm-mobile-workspace-grid strong{font-size:11px;text-transform:uppercase}
-        body.pm-mobile-command-deck .m-nav{left:8px;right:8px;bottom:8px;padding:6px 7px calc(6px + env(safe-area-inset-bottom));border-radius:14px;background:rgba(9,11,13,.96);border:1px solid rgba(255,255,255,.11);box-shadow:0 15px 45px rgba(0,0,0,.55)}
-        body.pm-mobile-command-deck .m-nav button{position:relative;min-height:49px;border-radius:9px;font-size:16px}
-        body.pm-mobile-command-deck .m-nav button span{font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
-        body.pm-mobile-command-deck .m-nav button.active{color:#fff;background:rgba(255,85,0,.12)}
-        body.pm-mobile-command-deck .m-nav button.active:before{content:"";position:absolute;left:28%;right:28%;top:2px;height:2px;border-radius:2px;background:var(--deck-orange)}
-        body.pm-mobile-command-deck .m-nav button.active span{color:#ff7a39}
-        body.pm-mobile-command-deck .pm-mobile-tools-drawer{border-radius:11px;background:#090c0f}
-        @media(max-width:390px){
-          body.pm-mobile-command-deck .pm-mobile-hero h2{font-size:26px}
-          body.pm-mobile-command-deck .pm-mobile-quick{grid-template-columns:1fr 1fr}
-          body.pm-mobile-command-deck .pm-mobile-quick button:first-child{grid-column:1/-1}
-        }
-      `;
-      document.head.appendChild(style);
-    }
+      body.pm-mobile-race-control .pm-mobile-hero{position:relative!important;margin:2px 0 10px!important;padding:15px 15px 13px!important;min-height:150px!important;border:1px solid rgba(255,85,0,.32)!important;border-left:5px solid var(--rc-o)!important;border-radius:2px!important;background:linear-gradient(105deg,rgba(255,85,0,.13),transparent 38%),linear-gradient(180deg,#11161a,#080b0e)!important;box-shadow:0 16px 40px rgba(0,0,0,.32)!important}
+      body.pm-mobile-race-control .pm-mobile-hero:before{content:""!important;position:absolute!important;right:0!important;top:0!important;width:92px!important;height:46px!important;opacity:.12!important;background:conic-gradient(#fff 25%,transparent 0 50%,#fff 0 75%,transparent 0)!important;background-size:14px 14px!important;transform:none!important}
+      body.pm-mobile-race-control .pm-mobile-hero:after{content:"87"!important;right:8px!important;bottom:-18px!important;font-size:110px!important;line-height:1!important;font-style:italic!important;color:rgba(255,255,255,.025)!important}
+      body.pm-mobile-race-control .pm-mobile-kicker{color:var(--rc-hot)!important;font-size:8px!important;letter-spacing:.19em!important}
+      body.pm-mobile-race-control .pm-mobile-live{top:15px!important;right:15px!important;width:8px!important;height:8px!important}
+      body.pm-mobile-race-control .pm-mobile-hero h2{max-width:80%!important;margin:7px 0 6px!important;font-size:28px!important;line-height:.96!important;letter-spacing:-.045em!important;text-transform:uppercase!important;font-style:italic!important}
+      body.pm-mobile-race-control .pm-mobile-hero p{max-width:82%!important;margin:0!important;font-size:10px!important;line-height:1.45!important;color:#919aa2!important}
+      .pm-rc-status{position:relative;z-index:2;display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)}
+      .pm-rc-status span{display:inline-flex;align-items:center;gap:5px;padding:5px 7px;border:1px solid rgba(255,255,255,.09);background:#090c0e;color:#9199a1;font-size:7px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}
+      .pm-rc-status i{width:5px;height:5px;border-radius:50%;background:#4fe082;box-shadow:0 0 8px rgba(79,224,130,.8)}
+
+      body.pm-mobile-race-control .pm-mobile-section-label{margin:13px 0 6px!important;padding-bottom:5px!important;border-bottom:1px solid rgba(255,255,255,.07)!important}
+      body.pm-mobile-race-control .pm-mobile-section-label strong{font-size:9px!important;letter-spacing:.16em!important;color:#c5c9cd!important}
+      body.pm-mobile-race-control .pm-mobile-section-label span{font-size:7px!important;color:#606970!important}
+
+      body.pm-mobile-race-control .m-stats{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important;margin-bottom:9px!important}
+      body.pm-mobile-race-control .m-stats button{position:relative!important;min-height:78px!important;padding:10px 11px!important;border:1px solid var(--rc-line)!important;border-left:3px solid #353b40!important;border-radius:0!important;background:#0b0f12!important;box-shadow:none!important}
+      body.pm-mobile-race-control .m-stats button.pm-needs-attention{border-left-color:var(--rc-o)!important;background:linear-gradient(90deg,rgba(255,85,0,.08),#0b0f12 46%)!important}
+      body.pm-mobile-race-control .m-stats span{font-size:8px!important;letter-spacing:.12em!important;color:#6f7880!important}
+      body.pm-mobile-race-control .m-stats b{margin-top:9px!important;font-size:27px!important;line-height:1!important;font-style:italic!important}
+
+      body.pm-mobile-race-control .pm-mobile-quick{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important;margin-bottom:10px!important}
+      body.pm-mobile-race-control .pm-mobile-quick button{min-height:64px!important;padding:10px!important;border:1px solid var(--rc-line)!important;border-radius:0!important;background:#0d1114!important;box-shadow:none!important}
+      body.pm-mobile-race-control .pm-mobile-quick button.pm-rc-primary{grid-column:1/-1!important;min-height:58px!important;background:linear-gradient(90deg,#ff5f0b,#dd4200)!important;border-color:#ff6b1b!important}
+      body.pm-mobile-race-control .pm-mobile-quick .pm-q-icon{float:left!important;width:28px!important;height:28px!important;margin:0 10px 0 0!important;border-radius:2px!important;background:rgba(255,255,255,.07)!important}
+      body.pm-mobile-race-control .pm-mobile-quick strong{display:block!important;padding-top:1px!important;font-size:10px!important;text-transform:uppercase!important;letter-spacing:.035em!important}
+      body.pm-mobile-race-control .pm-mobile-quick small{font-size:8px!important;line-height:1.3!important}
+
+      body.pm-mobile-race-control .m-card,body.pm-mobile-race-control .m-row,body.pm-mobile-race-control .m-item{border:1px solid var(--rc-line)!important;border-radius:0!important;background:linear-gradient(145deg,#0d1114,#090c0e)!important;box-shadow:none!important}
+      body.pm-mobile-race-control .m-card{padding:12px!important;margin-bottom:7px!important}
+      body.pm-mobile-race-control .m-card h2{font-size:12px!important;text-transform:uppercase!important;font-style:italic!important;letter-spacing:.04em!important}
+      body.pm-mobile-race-control .m-card p{font-size:10px!important;line-height:1.45!important}
+      body.pm-mobile-race-control .m-row{padding:12px!important;margin-bottom:6px!important}
+      body.pm-mobile-race-control .m-row b{font-size:10px!important;text-transform:uppercase!important}
+      body.pm-mobile-race-control .m-row span{font-size:9px!important}
+      body.pm-mobile-race-control input,body.pm-mobile-race-control select,body.pm-mobile-race-control textarea{border-radius:2px!important;background:#06080a!important;border-color:rgba(255,255,255,.13)!important}
+      body.pm-mobile-race-control .m-orange,body.pm-mobile-race-control .m-ghost{min-height:42px!important;border-radius:2px!important;font-size:9px!important}
+      body.pm-mobile-race-control .m-orange{background:linear-gradient(180deg,#ff6511,#df4500)!important}
+      body.pm-mobile-race-control .pm-mobile-workspace-grid{gap:6px!important}
+      body.pm-mobile-race-control .pm-mobile-workspace-grid button{min-height:76px!important;padding:11px!important;border-radius:0!important;background:#0c1013!important}
+
+      body.pm-mobile-race-control .m-nav{left:0!important;right:0!important;bottom:0!important;width:100%!important;transform:none!important;padding:5px max(5px,env(safe-area-inset-right)) calc(5px + env(safe-area-inset-bottom))!important;border:0!important;border-top:2px solid var(--rc-o)!important;border-radius:0!important;background:rgba(6,8,10,.98)!important;box-shadow:0 -12px 28px rgba(0,0,0,.42)!important}
+      body.pm-mobile-race-control .m-nav button{position:relative!important;min-height:48px!important;border-radius:0!important;color:#68717a!important;font-size:15px!important}
+      body.pm-mobile-race-control .m-nav button span{font-size:7px!important;font-weight:900!important;text-transform:uppercase!important;letter-spacing:.07em!important}
+      body.pm-mobile-race-control .m-nav button.active{color:#fff!important;background:linear-gradient(180deg,rgba(255,85,0,.12),transparent)!important}
+      body.pm-mobile-race-control .m-nav button.active:before{content:"";position:absolute;top:-5px;left:22%;right:22%;height:3px;background:var(--rc-o)}
+      body.pm-mobile-race-control .m-nav button.active span{color:#ff7736!important}
+      @media(max-width:390px){body.pm-mobile-race-control .pm-mobile-hero h2{font-size:25px!important}}
+    `;
+    document.head.appendChild(style);
+  }
+
+  function remodelMobileHome() {
+    if (location.pathname !== '/control/mobile') return;
+    document.body.classList.add('pm-mobile-race-control');
+    installMobileRaceControlStyle();
 
     const brand = document.querySelector('.m-brand span');
-    if (brand) brand.textContent = 'MOBILE OPERATIONS · v0.21.31';
+    if (brand) brand.textContent = 'RACE CONTROL · v0.21.32';
 
-    const hero = document.querySelector('[data-mview="home"] .pm-mobile-hero');
+    const home = document.querySelector('[data-mview="home"]');
+    const hero = home?.querySelector('.pm-mobile-hero');
     if (hero) {
       const kicker = hero.querySelector('.pm-mobile-kicker');
       const heading = hero.querySelector('h2');
       const copy = hero.querySelector('p');
-      if (kicker) kicker.textContent = 'PITMARK MOBILE OPERATIONS';
-      if (heading) heading.textContent = 'Command Pitmark from your pocket.';
-      if (copy) copy.textContent = 'Approvals, publishing, Shield, outreach and PRT activity — without dragging the desktop dashboard onto your phone.';
-      if (!hero.querySelector('.pm-deck-status')) {
+      if (kicker) kicker.textContent = 'PITMARK // MOBILE RACE CONTROL';
+      if (heading) heading.textContent = 'Run the whole operation.';
+      if (copy) copy.textContent = 'What needs your decision right now — content, Shield, outreach and PRT — in one pit-wall view.';
+      hero.querySelector('.pm-deck-status')?.remove();
+      if (!hero.querySelector('.pm-rc-status')) {
         const status = document.createElement('div');
-        status.className = 'pm-deck-status';
-        status.innerHTML = '<span><i></i>Cloud live</span><span>Autopilot</span><span>PRT early access</span>';
+        status.className = 'pm-rc-status';
+        status.innerHTML = '<span><i></i>Cloud live</span><span>Autopilot armed</span><span>PRT early access</span>';
         hero.appendChild(status);
       }
     }
 
-    // The previous mobile-v2 quick deck still offered Mail even though Mail was
-    // removed from Control Center. Remove that stale tile and make Review the
-    // primary mobile action.
+    // v2 used an icon span before the word Mail, so the old /^Mail/ check never
+    // matched. Remove it by semantic text instead and promote Review to primary.
     document.querySelectorAll('.pm-mobile-quick button').forEach(button => {
-      if (/^Mail\b/i.test((button.textContent || '').trim())) button.remove();
+      const text = (button.textContent || '').replace(/\s+/g,' ').trim();
+      if (/Mail/i.test(text) && /Inbox|replies/i.test(text)) { button.remove(); return; }
+      button.classList.toggle('pm-rc-primary', /Review/i.test(text));
     });
+
+    const quick = home?.querySelector('.pm-mobile-quick');
+    const stats = home?.querySelector('.m-stats');
+    if (hero && stats && quick && !home.dataset.rcOrder) {
+      home.dataset.rcOrder = '1';
+      const labels = [...home.querySelectorAll('.pm-mobile-section-label')];
+      const attentionLabel = labels.find(x => /Needs your attention/i.test(x.textContent || ''));
+      const quickLabel = labels.find(x => /Quick actions/i.test(x.textContent || ''));
+      hero.after(attentionLabel || stats, stats);
+      stats.after(quickLabel || quick, quick);
+    }
 
     const moreTitle = document.querySelector('[data-mview="more"] .m-title h1');
     if (moreTitle) moreTitle.textContent = 'Pitmark Workspaces';
@@ -268,25 +216,15 @@
     addAnalyticsNav();
     cleanMailCopy();
     applyAccessPermissions();
-    installMobileCommandDeck();
+    remodelMobileHome();
 
-    // Legacy bundles finish asynchronously. Re-apply only harmless,
-    // idempotent presentation work — no MutationObserver and no DOM churn loop.
-    [80, 160, 450, 1200, 3000].forEach(delay => {
-      setTimeout(() => {
-        installNoMailStyle();
-        addAnalyticsNav();
-        cleanMailCopy();
-        installMobileCommandDeck();
-      }, delay);
-    });
-
+    // Older enhancement bundles build pieces asynchronously. Re-apply the small,
+    // idempotent mobile transformation after they finish.
+    [80,180,320,520,900,1500,3000].forEach(delay => setTimeout(() => {
+      installNoMailStyle(); addAnalyticsNav(); cleanMailCopy(); remodelMobileHome();
+    }, delay));
     window.addEventListener('pageshow', () => {
-      installNoMailStyle();
-      repairDirectMailRoute();
-      addAnalyticsNav();
-      cleanMailCopy();
-      installMobileCommandDeck();
+      installNoMailStyle(); repairDirectMailRoute(); addAnalyticsNav(); cleanMailCopy(); remodelMobileHome();
     });
   }
 
