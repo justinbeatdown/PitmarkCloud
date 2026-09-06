@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from services.control_access import (
     ALL_PERMISSIONS,
@@ -18,8 +18,12 @@ router = APIRouter()
 
 
 class CreateControlUser(BaseModel):
-    username: str = Field(min_length=2, max_length=80)
-    password: str = Field(min_length=12, max_length=200)
+    # Keep request parsing permissive enough that validation errors can be
+    # returned as simple human-readable strings instead of FastAPI's list of
+    # validation objects (which the Control Center previously rendered as
+    # "[object Object]"). The actual constraints are enforced in the route.
+    username: str = ""
+    password: str = ""
     role: str = "viewer"
     display_name: str = ""
 
@@ -32,7 +36,21 @@ class UpdateControlUser(BaseModel):
 
 
 class ResetPassword(BaseModel):
-    password: str = Field(min_length=12, max_length=200)
+    password: str = ""
+
+
+def _validate_username(username: str) -> None:
+    length = len((username or "").strip())
+    if length < 2 or length > 80:
+        raise HTTPException(400, "Username must be between 2 and 80 characters.")
+
+
+def _validate_password(password: str) -> None:
+    length = len(password or "")
+    if length < 12:
+        raise HTTPException(400, "Password must be at least 12 characters.")
+    if length > 200:
+        raise HTTPException(400, "Password must be 200 characters or fewer.")
 
 
 @router.get("/access/me")
@@ -56,6 +74,8 @@ def users(request: Request):
 
 @router.post("/access/users")
 def add_user(req: CreateControlUser, request: Request):
+    _validate_username(req.username)
+    _validate_password(req.password)
     try:
         return create_user(
             request,
@@ -85,6 +105,7 @@ def change_user(user_id: int, req: UpdateControlUser, request: Request):
 
 @router.post("/access/users/{user_id}/password")
 def change_user_password(user_id: int, req: ResetPassword, request: Request):
+    _validate_password(req.password)
     try:
         return reset_user_password(request, user_id=user_id, new_password=req.password)
     except ValueError as exc:
