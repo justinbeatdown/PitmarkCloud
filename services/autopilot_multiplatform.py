@@ -8,6 +8,7 @@ from sqlalchemy import select
 from services.autopilot_ai import compose_with_ai
 from services.control_center import AutopilotOpportunity, SocialPost
 from services.database import SessionLocal
+from services.first_party_autopilot import scan_and_generate as scan_first_party_events
 
 log = logging.getLogger("pitmark.autopilot.multiplatform")
 
@@ -114,4 +115,19 @@ async def scheduler_loop():
             await asyncio.to_thread(backfill_platform_variants)
         except Exception:
             log.exception("Autopilot multiplatform backfill failed")
+
+        # First-party Autopilot watches Pitmark itself: product drops, PRT releases,
+        # published blogs, partnership/street-team changes, and useful milestones.
+        # It only creates approval-queue drafts; nothing is auto-published here.
+        try:
+            result = await asyncio.to_thread(scan_first_party_events)
+            if result.get("queued") or (result.get("processed") or {}).get("attempted"):
+                log.info(
+                    "First-party Autopilot: queued=%s processed=%s",
+                    result.get("queued", 0),
+                    (result.get("processed") or {}).get("attempted", 0),
+                )
+        except Exception:
+            log.exception("First-party Autopilot scan failed")
+
         await asyncio.sleep(300)
