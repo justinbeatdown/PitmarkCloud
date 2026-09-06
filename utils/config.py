@@ -4,7 +4,7 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PITMARK_RELEASE_VERSION = "0.21.25"
+PITMARK_RELEASE_VERSION = "0.21.26"
 
 
 class Settings(BaseSettings):
@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     x_access_token: str = ""
     x_access_token_secret: str = ""
     x_realtime_max_age_minutes: int = 60
+    # Pitmark's connected X account has Premium. Keep this configurable in case
+    # the connected publishing account changes later.
+    x_post_max_characters: int = 25000
     shopify_shop_domain: str = ""
     shopify_client_id: str = ""
     shopify_client_secret: str = ""
