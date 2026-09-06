@@ -49,3 +49,7 @@ def prt_discord_install_launch():
     value=discord_service.install_url()
     if not value:return RedirectResponse(url="/prt?discord=unavailable",status_code=302)
     return RedirectResponse(url=value,status_code=302)
+
+# Public Pitmark link-in-bio hub lives under the existing public PRT UI router.
+from api import links_ui
+router.include_router(links_ui.router)
