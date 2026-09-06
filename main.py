@@ -82,9 +82,6 @@ async def runtime_maintenance_loop() -> None:
 
 
 async def gmail_sync_loop() -> None:
-    # Shield does not need inbox-client-level polling. Bound both cadence and batch
-    # size so Google Workspace protection remains useful without recreating a full
-    # mail client workload inside the 512 MB Cloud service.
     interval = _env_int("PITMARK_GMAIL_SYNC_SECONDS", 120, 120, 3600)
     limit = _env_int("PITMARK_GMAIL_SYNC_LIMIT", 25, 5, 25)
     while True:
@@ -97,16 +94,13 @@ async def gmail_sync_loop() -> None:
                     result.get("synced", 0),
                     result.get("shield_protected", 0),
                 )
-        except Exception as exc:  # noqa: BLE001 - keep the background worker alive
+        except Exception as exc:
             log.warning("Google Workspace Gmail sync failed: %s", exc)
         await asyncio.sleep(interval)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # asyncio.to_thread() is used by several always-on workers. The default Python
-    # executor can grow much larger than a 0.5 CPU / 512 MB Render service needs,
-    # so keep the background thread pool deliberately small and predictable.
     loop = asyncio.get_running_loop()
     background_threads = _env_int("PITMARK_BACKGROUND_THREADS", 4, 2, 6)
     executor = ThreadPoolExecutor(
@@ -116,8 +110,6 @@ async def lifespan(app: FastAPI):
     loop.set_default_executor(executor)
 
     init_database()
-    # One-time repair of old Shield live-queue rows whose Pitmark Mail messages
-    # were already deleted. Audit history remains intact.
     try:
         purge_orphaned_mail_events()
     except Exception:
@@ -239,11 +231,20 @@ def _prt_root_target(request: Request) -> str | None:
     return "/prt" if host == "prt.pitmarkracing.com" else None
 
 
+def _links_root_target(request: Request) -> str | None:
+    host = (request.url.hostname or "").lower().rstrip(".")
+    return "/links" if host == "links.pitmarkracing.com" else None
+
+
 @app.get("/")
 async def root(request: Request):
     dashboard_target = _dashboard_root_target(request)
     if dashboard_target:
         return RedirectResponse(url=dashboard_target, status_code=302)
+
+    links_target = _links_root_target(request)
+    if links_target:
+        return RedirectResponse(url=links_target, status_code=302)
 
     prt_target = _prt_root_target(request)
     if prt_target:
