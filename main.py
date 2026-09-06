@@ -239,11 +239,20 @@ def _prt_root_target(request: Request) -> str | None:
     return "/prt" if host == "prt.pitmarkracing.com" else None
 
 
+def _links_root_target(request: Request) -> str | None:
+    host = (request.url.hostname or "").lower().rstrip(".")
+    return "/links" if host == "links.pitmarkracing.com" else None
+
+
 @app.get("/")
 async def root(request: Request):
     dashboard_target = _dashboard_root_target(request)
     if dashboard_target:
         return RedirectResponse(url=dashboard_target, status_code=302)
+
+    links_target = _links_root_target(request)
+    if links_target:
+        return RedirectResponse(url=links_target, status_code=302)
 
     prt_target = _prt_root_target(request)
     if prt_target:
