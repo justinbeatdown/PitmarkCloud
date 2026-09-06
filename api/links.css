@@ -125,7 +125,7 @@ h1 {
 .arrow { color: var(--orange); font-size: 1.35rem; font-weight: 800; }
 
 .socials {
-  margin-top: 22px;
+  margin: 0 0 22px;
   padding: 18px 18px 17px;
   border: 1px solid rgba(255,85,0,.28);
   border-radius: 15px;
