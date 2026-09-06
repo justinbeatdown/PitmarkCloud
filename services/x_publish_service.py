@@ -10,8 +10,22 @@ class XPublishError(RuntimeError): pass
 def configured()->bool:
     return all(x.strip() for x in (settings.x_api_key, settings.x_api_secret, settings.x_access_token, settings.x_access_token_secret))
 
+def _max_post_chars()->int:
+    try:
+        return max(280, min(25000, int(settings.x_post_max_characters)))
+    except (TypeError, ValueError):
+        return 25000
+
 def connection_status()->dict:
-    return {'configured':configured(),'connected':configured(),'read_write':True if configured() else False,'realtime_search_enabled':configured()}
+    max_chars = _max_post_chars()
+    return {
+        'configured': configured(),
+        'connected': configured(),
+        'read_write': True if configured() else False,
+        'realtime_search_enabled': configured(),
+        'max_post_characters': max_chars,
+        'premium_long_posts': max_chars > 280,
+    }
 
 def _enc(v): return quote(str(v), safe='~-._')
 def _oauth(method,url,params=None):
@@ -33,13 +47,15 @@ def publish_x_post(text:str)->dict:
     if not configured(): raise XPublishError('X publishing is not configured on the server.')
     body=(text or '').strip()
     if not body: raise XPublishError('X post body is empty.')
-    if len(body)>280: raise XPublishError(f'X post is {len(body)} characters; maximum is 280.')
+    max_chars = _max_post_chars()
+    if len(body)>max_chars:
+        raise XPublishError(f'X post is {len(body)} characters; configured maximum is {max_chars:,}.')
     url='https://api.x.com/2/tweets'
     try: r=httpx.post(url,headers={'Authorization':_oauth('POST',url),'Content-Type':'application/json'},json={'text':body},timeout=30)
     except httpx.HTTPError as e: raise XPublishError(f'X request failed: {e}') from e
     data=_decode(r); pid=(data.get('data') or {}).get('id')
     if not pid: raise XPublishError('X returned success without a post id.')
-    return {'ok':True,'platform':'x','external_post_id':pid,'raw':data}
+    return {'ok':True,'platform':'x','external_post_id':pid,'raw':data,'character_count':len(body),'max_post_characters':max_chars}
 
 def search_recent(query:str,max_results:int=10)->list[dict]:
     if not configured(): return []
