@@ -4,7 +4,7 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PITMARK_RELEASE_VERSION = "0.21.23"
+PITMARK_RELEASE_VERSION = "0.21.24"
 
 
 class Settings(BaseSettings):
@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     pitmark_image_model: str = "gpt-image-2"
     pitmark_image_timeout_seconds: float = 90.0
+    pitmark_image_size: str = "1536x1024"
+    pitmark_image_quality: str = "low"
+    pitmark_image_max_attempts: int = 2
+    pitmark_blog_image_ttl_seconds: int = 3600
     autopilot_intelligence_enabled: bool = True
     autopilot_scan_hours: int = 1
     autopilot_scan_minutes: int = 15

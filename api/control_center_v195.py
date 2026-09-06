@@ -4,11 +4,13 @@ import re
 from fastapi import APIRouter, Header, HTTPException, Request
 from sqlalchemy import select
 
+from api.blog_publish_guard import router as blog_publish_guard_router
 from services.control_auth import require_control_user
 from services.control_center import BlogDraft, serialize, utcnow
 from services.database import SessionLocal
 
 router = APIRouter()
+router.include_router(blog_publish_guard_router)
 
 
 def _auth(request: Request, admin_key: str | None):
