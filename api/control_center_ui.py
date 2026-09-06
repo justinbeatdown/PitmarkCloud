@@ -261,25 +261,13 @@ def control_mobile(request: Request):
     filename = 'control_mobile.html' if user_from_request(request) else 'control_mobile_login.html'
     html = (ASSET_DIR / filename).read_text(encoding='utf-8')
     if filename == 'control_mobile.html':
-        html = html.replace(
-            '</head>',
-            '<link rel="stylesheet" href="/control-center-v19.css?v=02114">\n'
-            '<link rel="stylesheet" href="/control-center-v191.css?v=02114">\n'
-            '<link rel="stylesheet" href="/control-center-v195.css?v=02114">\n'
-            '<link rel="stylesheet" href="/control-center-v201.css?v=02114">\n'
-            '<link rel="stylesheet" href="/control-center-v202.css?v=02114">\n'
-            '<link rel="stylesheet" href="/control-mobile-v2.css?v=02114">\n'
-            '</head>'
-        )
+        # Mobile owns its own shell. Do not inject the desktop Control Center CSS/JS
+        # stacks here: those legacy bundles were rebuilding the v0.21.35 app back
+        # into the older v0.21.33 DOM a moment after first paint.
         html = html.replace(
             '</body>',
             AUTOFILL_GUARD
-            + '\n<script src="/control-center-v19.js?v=02114" defer></script>'
-            + '\n<script src="/control-center-v191.js?v=02114" defer></script>'
-            + '\n<script src="/control-mobile-v2.js?v=02114" defer></script>'
-            + '\n<script src="/control-runtime-v194.js?v=02114" defer></script>'
-            + '\n<script src="/control-center-v195.js?v=02114" defer></script>'
-            + '\n<script src="/control-center-v202.js?v=02114" defer></script>'
+            + '\n<script src="/control-center-v202.js?v=02135" defer></script>'
             + '</body>'
         )
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
