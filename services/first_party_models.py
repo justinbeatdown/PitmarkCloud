@@ -38,12 +38,15 @@ class FirstPartyState(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+# TikTok is intentionally excluded from automatic first-party campaigns for now.
+# Pitmark's goal there is ready-to-use vertical video, not a caption-only draft.
+# Manual TikTok copy generation stays available separately if/when useful.
 PLATFORMS = {
-    "shopify_product": ("facebook", "instagram", "x", "tiktok"),
-    "prt_release": ("facebook", "instagram", "x", "tiktok", "discord"),
+    "shopify_product": ("facebook", "instagram", "x"),
+    "prt_release": ("facebook", "instagram", "x", "discord"),
     "blog_publish": ("facebook", "instagram", "x"),
     "partnership": ("facebook", "instagram", "x"),
-    "street_team": ("facebook", "instagram", "x", "tiktok"),
+    "street_team": ("facebook", "instagram", "x"),
     "prt_milestone": ("facebook", "instagram", "x"),
     "street_team_milestone": ("facebook", "instagram", "x"),
 }

@@ -9,6 +9,7 @@ import httpx
 from services.control_auth import require_control_user
 from services.control_center import SocialPost, serialize, utcnow
 from services.database import SessionLocal
+from services.first_party_media import resolve_product_media_for_source
 from services.meta_publish_service import (
     MetaPublishError,
     facebook_connection_status,
@@ -23,8 +24,6 @@ from utils.security import enforce_rate_limit
 
 router = APIRouter()
 public_router = APIRouter()
-
-
 
 
 class GeneratedImageRequest(BaseModel):
@@ -214,6 +213,11 @@ def _auto_asset(post: SocialPost) -> dict | None:
     return choose_asset(body=post.body, content_type=post.content_type, platform=post.platform)
 
 
+def _exact_product_image(post: SocialPost) -> tuple[bool, str | None]:
+    """First-party product posts must use the real Shopify product image."""
+    return resolve_product_media_for_source(post.source)
+
+
 @router.post("/posts/{post_id}/assign-asset")
 def assign_asset(post_id: int, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
@@ -221,6 +225,24 @@ def assign_asset(post_id: int, request: Request, x_pitmark_admin_key: str | None
         post = db.get(SocialPost, post_id)
         if not post:
             raise HTTPException(404, "Post not found.")
+
+        is_product, product_media = _exact_product_image(post)
+        if is_product:
+            if not product_media:
+                raise HTTPException(
+                    409,
+                    "This product post needs the Shopify product image, but Pitmark Cloud could not resolve it yet. "
+                    "Autopilot will retry instead of substituting a generated image.",
+                )
+            post.media_url = product_media
+            post.updated_at = utcnow()
+            db.commit(); db.refresh(post)
+            return {
+                "ok": True,
+                "post": serialize(post),
+                "asset": {"url": product_media, "source": "shopify_product", "exact_product_image": True},
+            }
+
         asset = _auto_asset(post)
         if not asset:
             raise HTTPException(409, "No approved Pitmark images are available yet.")
@@ -269,13 +291,24 @@ def publish_post(post_id: int, request: Request, x_pitmark_admin_key: str | None
             elif platform == "x":
                 result = publish_x_post(post.body)
             else:
-                media_url = (post.media_url or "").strip()
-                if not media_url:
-                    asset = _auto_asset(post)
-                    if not asset:
-                        raise HTTPException(409, "Instagram needs an image and no Pitmark image could be selected.")
-                    media_url = asset["url"]
-                    post.media_url = media_url
+                is_product, product_media = _exact_product_image(post)
+                if is_product:
+                    if not product_media:
+                        raise HTTPException(
+                            409,
+                            "This is a product post and the Shopify product image could not be resolved yet. "
+                            "Pitmark Cloud will not replace it with an AI or generic image.",
+                        )
+                    media_url = product_media
+                    post.media_url = product_media
+                else:
+                    media_url = (post.media_url or "").strip()
+                    if not media_url:
+                        asset = _auto_asset(post)
+                        if not asset:
+                            raise HTTPException(409, "Instagram needs an image and no Pitmark image could be selected.")
+                        media_url = asset["url"]
+                        post.media_url = media_url
                 result = publish_instagram_post(caption=post.body, image_url=media_url)
                 mark_used(media_url)
         except HTTPException:

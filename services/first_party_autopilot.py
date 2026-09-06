@@ -4,6 +4,7 @@ import logging
 import os
 
 from services.first_party_content import process_pending
+from services.first_party_media import reconcile_first_party_drafts
 from services.first_party_sources import (
     scan_blogs,
     scan_outreach,
@@ -44,4 +45,15 @@ def scan_and_generate() -> dict:
         except Exception as exc:
             log.exception("First-party scanner %s failed", name); details[name] = {"queued": 0, "error": str(exc)[:300]}
     processed = process_pending(_limit())
-    return {"enabled": True, "queued": queued, "sources": details, "processed": processed}
+    try:
+        reconciled = reconcile_first_party_drafts()
+    except Exception as exc:
+        log.exception("First-party draft reconciliation failed")
+        reconciled = {"error": str(exc)[:300]}
+    return {
+        "enabled": True,
+        "queued": queued,
+        "sources": details,
+        "processed": processed,
+        "reconciled": reconciled,
+    }
