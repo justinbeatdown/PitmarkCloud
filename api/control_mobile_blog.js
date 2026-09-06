@@ -7,3 +7,29 @@ async function load(){try{const f=$('mBlogFilter').value,rows=await call('/api/c
 async function act(c,a){try{if(a==='publish'){if(!confirm('Publish this approved article to Shopify now?'))return;await call(`/api/control/blog/drafts/${c.dataset.mid}/shopify-publish`,{method:'POST'})}else{const p={action:a};if(a==='schedule'){const i=c.querySelector('.schedule');if(!i.value){i.focus();return}p.scheduled_for=i.value}await call(`/api/control/blog/drafts/${c.dataset.mid}/decision`,{method:'POST',body:JSON.stringify(p)})}await load();if(typeof home==='function')home()}catch(e){alert(e.message)}}
 function wire(){document.querySelectorAll('[data-mgo="blog"]').forEach(b=>b.addEventListener('click',()=>setTimeout(load,0)));$('mBlogGenerate')?.addEventListener('click',generate);$('mBlogSave')?.addEventListener('click',save);$('mBlogClear')?.addEventListener('click',clearEditor);$('mBlogRefresh')?.addEventListener('click',load);$('mBlogFilter')?.addEventListener('change',load);$('mBlogList')?.addEventListener('click',e=>{const b=e.target.closest('[data-mba]');if(b)act(b.closest('[data-mid]'),b.dataset.mba)})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',wire);else wire()})();
+
+;(()=>{
+  const cleanMailUi=()=>{
+    document.querySelectorAll('[data-mview="email"],[data-mgo="email"]').forEach(el=>el.remove());
+    const mailNav=document.querySelector('.m-nav [data-mnav="email"]');
+    if(mailNav){
+      mailNav.removeAttribute('data-mnav');
+      mailNav.removeAttribute('data-mgo');
+      mailNav.id='mNavCreate';
+      mailNav.innerHTML='＋<span>Create</span>';
+      mailNav.onclick=()=>{
+        const review=document.querySelector('.m-nav [data-mnav="autopilot"]');
+        if(review)review.click();
+        setTimeout(()=>{
+          document.getElementById('mTopic')?.scrollIntoView({behavior:'smooth',block:'center'});
+          document.getElementById('mTopic')?.focus();
+        },120);
+      };
+    }
+    const brand=document.querySelector('.m-brand span');
+    if(brand&&brand.textContent!=='MOBILE · v0.21.36')brand.textContent='MOBILE · v0.21.36';
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cleanMailUi,{once:true});else cleanMailUi();
+  [100,400,1000,2500].forEach(ms=>setTimeout(cleanMailUi,ms));
+  window.addEventListener('pageshow',cleanMailUi);
+})();
