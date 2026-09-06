@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.21.15
+
+- Added the public Pitmark-branded links hub to the Cloud release.
+- Added `links.pitmarkracing.com` host routing so the custom subdomain can land directly on the links hub once DNS/custom-domain setup is completed.
+- Preserved Shop, PRT, PRT Early Access, and Contact as stable Pitmark-owned destinations on the links page.
+- Preserved Autopilot intelligence, multiplatform scheduling, research, and social publishing workers.
+- Preserved Pitmark Shield/Gmail protection, Discord integrations, Control Center access controls, and existing security middleware.
+- Kept this release Cloud-only: no PRT Windows installer, updater manifest, or desktop app version changes.
+
 ## 0.20.2
 
 - Restored the missing desktop Control Center sidebar with an authoritative,
