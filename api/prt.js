@@ -1,6 +1,22 @@
 const $=id=>document.getElementById(id);
 let installUrl="";
 
+async function loadReleaseVersion(){
+  try{
+    const response=await fetch("/downloads/latest.json",{cache:"no-store",credentials:"same-origin"});
+    if(!response.ok) throw new Error("PRT release manifest unavailable");
+    const manifest=await response.json();
+    const version=String(manifest.version||"").trim();
+    if(!version) return;
+    const buildVersion=$("prtBuildVersion");
+    const downloadVersion=$("prtDownloadVersion");
+    if(buildVersion) buildVersion.textContent=`v${version}`;
+    if(downloadVersion) downloadVersion.textContent=`DOWNLOAD PRT v${version}`;
+  }catch(_){
+    // Keep the server-rendered fallback version if the manifest is temporarily unavailable.
+  }
+}
+
 async function loadPrt(){
   try{
     const [prt,discord]=await Promise.all([
@@ -24,6 +40,7 @@ async function loadPrt(){
   }
 }
 document.addEventListener("DOMContentLoaded",()=>{
+  loadReleaseVersion();
   loadPrt();
 });
 
