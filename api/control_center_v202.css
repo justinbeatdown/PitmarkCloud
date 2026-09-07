@@ -152,6 +152,18 @@ html body [data-mgo="email"]{
   pointer-events:none!important;
 }
 
+/* v0.21.38 — Shield remains active server-side but is intentionally not exposed in the Control Center UI. */
+html body .shell>.sidebar>.nav>button[data-view="shield"],
+html body .shell>.sidebar>.nav>button[data-view="shield"]:not([hidden]),
+html body .content>[data-view-section="shield"],
+html body [data-stat-target="shield"],
+html body [data-go="shield"],
+html body [data-pm19-go="shield"]{
+  display:none!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+
 @media (max-width:980px){
   html body .m-nav{grid-template-columns:repeat(4,1fr)!important}
 }
