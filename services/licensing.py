@@ -92,6 +92,7 @@ def current_entitlements(device_id: str) -> EntitlementResponse:
 
     status = str(row.get("status") or "inactive").strip().lower()
     active = status in {"active", "trialing", "grace"}
+    source = str(row.get("source") or "pitmark_cloud").strip().lower()
     raw_grace = str(row.get("offline_grace_until") or "")
     try:
         grace = datetime.fromisoformat(raw_grace.replace("Z", "+00:00"))
@@ -100,13 +101,22 @@ def current_entitlements(device_id: str) -> EntitlementResponse:
     except ValueError:
         grace = datetime.now(timezone.utc)
 
+    # Early Access uses a short *sliding* offline grace. The authenticated
+    # /current/{device_id} check is proof that the tester can reach Pitmark Cloud,
+    # so every successful check renews the local window. Previously the grace was
+    # only written once during invite redemption, causing every tester to be
+    # locked out roughly three days after activation even while still entitled.
+    # Revoked/inactive entitlements are never renewed.
+    if active and source == "early_access":
+        grace = datetime.now(timezone.utc) + timedelta(days=3)
+
     return EntitlementResponse(
         development_mode=False,
         customer_id=str(row.get("customer_id") or device_id),
         display_name=str(row.get("display_name") or "Pitmark Racer"),
         plan=plan,
         status=status,
-        source=str(row.get("source") or "pitmark_cloud"),
+        source=source,
         device_id=device_id,
         offline_grace_until=grace,
         features=_features_for_plan(plan, enabled=active),
