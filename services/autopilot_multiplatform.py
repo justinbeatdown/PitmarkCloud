@@ -9,6 +9,7 @@ from services.autopilot_ai import compose_with_ai
 from services.control_center import AutopilotOpportunity, SocialPost
 from services.database import SessionLocal
 from services.first_party_autopilot import scan_and_generate as scan_first_party_events
+from services.first_party_auto_schedule import auto_schedule_verified_first_party
 
 log = logging.getLogger("pitmark.autopilot.multiplatform")
 
@@ -118,7 +119,6 @@ async def scheduler_loop():
 
         # First-party Autopilot watches Pitmark itself: product drops, PRT releases,
         # published blogs, partnership/street-team changes, and useful milestones.
-        # It only creates approval-queue drafts; nothing is auto-published here.
         try:
             result = await asyncio.to_thread(scan_first_party_events)
             if result.get("queued") or (result.get("processed") or {}).get("attempted"):
@@ -129,5 +129,19 @@ async def scheduler_loop():
                 )
         except Exception:
             log.exception("First-party Autopilot scan failed")
+
+        # Verified first-party campaigns can be scheduled automatically under their
+        # own narrow autonomy policy. The scheduler bootstraps without touching any
+        # existing backlog, and never handles intelligence/manual/TikTok/Discord.
+        try:
+            scheduled = await asyncio.to_thread(auto_schedule_verified_first_party)
+            if scheduled.get("scheduled_posts"):
+                log.info(
+                    "First-party auto-schedule: campaigns=%s posts=%s",
+                    scheduled.get("scheduled_campaigns", 0),
+                    scheduled.get("scheduled_posts", 0),
+                )
+        except Exception:
+            log.exception("First-party auto-schedule failed")
 
         await asyncio.sleep(300)
