@@ -64,6 +64,43 @@ EMAIL_ASSETS = """
 <script src="/control-email-identity.js?v=01612" defer></script>
 """
 
+SHIELD_UI_HIDDEN = r"""
+<style id="pitmark-hide-shield-ui">
+[data-view="shield"],
+[data-view-section="shield"],
+[data-stat-target="shield"],
+[data-go="shield"],
+[data-mview="shield"],
+[data-mgo="shield"],
+[data-mnav="shield"] { display:none !important; }
+</style>
+<script>
+(() => {
+  function escapeShield() {
+    const desktopShield = document.querySelector('[data-view-section="shield"].active');
+    if (desktopShield) {
+      desktopShield.classList.remove('active');
+      document.querySelector('[data-view-section="dashboard"]')?.classList.add('active');
+      document.querySelectorAll('[data-view]').forEach(el => el.classList.remove('active'));
+      document.querySelector('[data-view="dashboard"]')?.classList.add('active');
+    }
+    const mobileShield = document.querySelector('[data-mview="shield"].active');
+    if (mobileShield) {
+      mobileShield.classList.remove('active');
+      document.querySelector('[data-mview="home"]')?.classList.add('active');
+      document.querySelectorAll('[data-mnav]').forEach(el => el.classList.remove('active'));
+      document.querySelector('[data-mnav="home"]')?.classList.add('active');
+    }
+    if ((location.hash || '').toLowerCase().includes('shield')) {
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+  }
+  document.addEventListener('DOMContentLoaded', escapeShield);
+  window.addEventListener('pageshow', escapeShield);
+})();
+</script>
+"""
+
 
 @router.get('/control', response_class=HTMLResponse, include_in_schema=False)
 def control(request: Request):
@@ -81,7 +118,8 @@ def control(request: Request):
             '<link rel="stylesheet" href="/control-center-v195.css?v=02114">\n'
             '<link rel="stylesheet" href="/control-center-v201.css?v=02114">\n'
             '<link rel="stylesheet" href="/control-center-v202.css?v=02114">\n'
-            '</head>'
+            + SHIELD_UI_HIDDEN
+            + '</head>'
         )
         html = html.replace(
             '</body>',
@@ -264,6 +302,7 @@ def control_mobile(request: Request):
         # The mobile app owns its DOM and presentation. Only the shared autofill
         # guard is injected here. Desktop enhancement bundles must never run on
         # /control/mobile because they rebuild the mobile shell after first paint.
+        html = html.replace('</head>', SHIELD_UI_HIDDEN + '</head>')
         html = html.replace('</body>', AUTOFILL_GUARD + '</body>')
     return HTMLResponse(html, headers={'Cache-Control': 'no-store'})
 
