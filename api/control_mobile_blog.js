@@ -1,4 +1,4 @@
-(()=>{const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));async function call(url,opt={}){const r=await fetch(url,{credentials:'same-origin',...opt,headers:{'Content-Type':'application/json',...(opt.headers||{})}}),t=await r.text();let d;try{d=JSON.parse(t)}catch{d=t}if(r.status===401){location.href='/control/mobile';throw Error('Session expired')}if(!r.ok)throw Error((d&&d.detail)||t||('HTTP '+r.status));return d}
+(()=>{const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt',"'":'&#39;','"':'&quot;'}[c]));async function call(url,opt={}){const r=await fetch(url,{credentials:'same-origin',...opt,headers:{'Content-Type':'application/json',...(opt.headers||{})}}),t=await r.text();let d;try{d=JSON.parse(t)}catch{d=t}if(r.status===401){location.href='/control/mobile';throw Error('Session expired')}if(!r.ok)throw Error((d&&d.detail)||t||('HTTP '+r.status));return d}
 function clearEditor(){['mBlogTitle','mBlogBody','mBlogSeoTitle','mBlogSeoDescription','mBlogImage'].forEach(id=>{if($(id))$(id).value=''});$('mBlogDraftState').textContent='NEW';$('mBlogMsg').textContent=''}
 async function generate(){const url=$('mBlogSource').value.trim(),b=$('mBlogGenerate');if(!url){$('mBlogSourceMsg').textContent='Paste a source URL first.';return}b.disabled=true;b.textContent='Reading source…';$('mBlogSourceMsg').textContent='Pitmark is reading and grounding the source…';try{const x=await call('/api/control/content/article-from-source',{method:'POST',body:JSON.stringify({source_url:url,prompt:$('mBlogPrompt').value.trim()||'Make our own story about this article.'})});$('mBlogTitle').value=x.title||'';$('mBlogBody').value=x.body_html||'';$('mBlogSeoTitle').value=x.seo_title||'';$('mBlogSeoDescription').value=x.seo_description||'';$('mBlogDraftState').textContent='GENERATED';$('mBlogSourceMsg').textContent='Draft ready ✓ · Source grounded.';$('mBlogTitle').scrollIntoView({behavior:'smooth',block:'center'})}catch(e){$('mBlogSourceMsg').textContent=e.message}finally{b.disabled=false;b.textContent='Generate Article'}}
 async function save(){const title=$('mBlogTitle').value.trim(),body=$('mBlogBody').value.trim(),b=$('mBlogSave');if(!title||!body){$('mBlogMsg').textContent='Title and article body are required.';return}b.disabled=true;try{const x=await call('/api/control/blog/drafts',{method:'POST',body:JSON.stringify({title,body_html:body,content_type:$('mBlogType').value,seo_title:$('mBlogSeoTitle').value.trim()||null,seo_description:$('mBlogSeoDescription').value.trim()||null,featured_image_url:$('mBlogImage').value.trim()||null})});$('mBlogMsg').textContent=`Draft #${x.id} saved ✓`;clearEditor();await load();if(typeof home==='function')home()}catch(e){$('mBlogMsg').textContent=e.message}finally{b.disabled=false}}
@@ -27,9 +27,31 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       };
     }
     const brand=document.querySelector('.m-brand span');
-    if(brand&&brand.textContent!=='MOBILE · v0.21.36')brand.textContent='MOBILE · v0.21.36';
+    if(brand&&brand.textContent!=='MOBILE · v0.21.38')brand.textContent='MOBILE · v0.21.38';
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cleanMailUi,{once:true});else cleanMailUi();
   [100,400,1000,2500].forEach(ms=>setTimeout(cleanMailUi,ms));
   window.addEventListener('pageshow',cleanMailUi);
+})();
+
+;(()=>{
+  const removeShieldUi=()=>{
+    document.querySelectorAll('[data-mview="shield"],[data-mgo="shield"],[data-mnav="shield"]').forEach(el=>el.remove());
+    document.querySelectorAll('.m-stats button').forEach(el=>{
+      if((el.textContent||'').toLowerCase().includes('shield'))el.remove();
+    });
+    document.querySelectorAll('.m-row').forEach(el=>{
+      if((el.textContent||'').toLowerCase().includes('pitmark shield'))el.remove();
+    });
+    const active=document.querySelector('[data-mview="shield"].active');
+    if(active){
+      active.classList.remove('active');
+      document.querySelector('[data-mview="home"]')?.classList.add('active');
+    }
+    const nav=document.querySelector('.m-nav');
+    if(nav)nav.style.gridTemplateColumns='repeat(4,1fr)';
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',removeShieldUi,{once:true});else removeShieldUi();
+  [50,150,400,1000,2500].forEach(ms=>setTimeout(removeShieldUi,ms));
+  window.addEventListener('pageshow',removeShieldUi);
 })();
