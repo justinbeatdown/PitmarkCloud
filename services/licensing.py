@@ -102,13 +102,18 @@ def current_entitlements(device_id: str) -> EntitlementResponse:
         grace = datetime.now(timezone.utc)
 
     # Early Access uses a short *sliding* offline grace. The authenticated
-    # /current/{device_id} check is proof that the tester can reach Pitmark Cloud,
-    # so every successful check renews the local window. Previously the grace was
-    # only written once during invite redemption, causing every tester to be
-    # locked out roughly three days after activation even while still entitled.
+    # /current/{device_id} check proves that the tester can reach Pitmark Cloud,
+    # so each successful check renews the local window. Previously the grace was
+    # only written once during invite redemption, which locked testers out about
+    # three days after their original activation even though access remained active.
     # Revoked/inactive entitlements are never renewed.
     if active and source == "early_access":
         grace = datetime.now(timezone.utc) + timedelta(days=3)
+        prt_licensing_store.upsert_entitlement({
+            "device_id": device_id,
+            "offline_grace_until": grace.isoformat(),
+        })
+        prt_licensing_store.touch_early_access_device(device_id)
 
     return EntitlementResponse(
         development_mode=False,
