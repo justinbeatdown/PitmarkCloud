@@ -178,6 +178,12 @@ def summary() -> dict:
         sessions_7d = db.scalar(
             select(func.count()).select_from(PrtUsageSession).where(PrtUsageSession.started_at >= week)
         ) or 0
+        active_devices_7d = db.scalar(
+            select(func.count(func.distinct(PrtUsageSession.device_id))).where(
+                PrtUsageSession.started_at >= week,
+                PrtUsageSession.device_id != "",
+            )
+        ) or 0
         active_now = db.scalar(
             select(func.count()).select_from(PrtUsageSession).where(
                 PrtUsageSession.last_seen_at >= active_cutoff,
@@ -225,6 +231,7 @@ def summary() -> dict:
         "registered_devices": int(registered),
         "active_now": int(active_now),
         "active_devices_24h": int(active_24h),
+        "active_devices_7d": int(active_devices_7d),
         "sessions_today": int(sessions_today),
         "sessions_7d": int(sessions_7d),
         "total_sessions": int(total_sessions),
