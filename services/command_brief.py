@@ -4,10 +4,8 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 
 from services.database import SessionLocal, database_status
-from services.control_center import SocialPost, ShieldEvent, OutreachContact, BlogDraft, AutopilotOpportunity, OpportunitySourceMeta
+from services.control_center import SocialPost, OutreachContact, BlogDraft, AutopilotOpportunity, OpportunitySourceMeta
 from services.racing_community import ResearchJob, OutreachPrep, CampaignParticipant, CommunityEntity
-from utils.config import settings
-from utils.security import security_summary
 
 
 def utcnow():
@@ -33,24 +31,10 @@ def build_command_brief() -> dict:
     info: list[dict] = []
 
     with SessionLocal() as db:
-        # Synthetic Shield harness events intentionally never reach the production brief.
-        shield_reviews = db.scalars(
-            select(ShieldEvent).where(
-                ShieldEvent.classification == 'Review',
-                ShieldEvent.acknowledged == False,  # noqa: E712
-                ~ShieldEvent.source_message_id.like('shield-test:%'),
-            ).order_by(ShieldEvent.id.desc()).limit(20)
-        ).all()
-        for ev in shield_reviews:
-            target = critical if ev.protected else action
-            target.append(_item(
-                'critical' if ev.protected else 'action',
-                'Shield',
-                'Protected message needs review' if ev.protected else 'Message needs review',
-                f"{ev.subject or '(no subject)'} · {ev.sender}",
-                action_view='shield', record_id=ev.id,
-            ))
-
+        # Shield/security and mailbox content are intentionally excluded from the
+        # Control Center command brief. They continue running server-side, but the
+        # dashboard must never expose message subjects, senders, review counts, or
+        # Shield-specific actions.
         pending_posts = db.scalars(select(SocialPost).where(SocialPost.status == 'pending').order_by(SocialPost.id.desc()).limit(8)).all()
         if pending_posts:
             action.append(_item('action', 'Autopilot', f'{len(pending_posts)} post approval' + ('s' if len(pending_posts) != 1 else '') + ' waiting', 'Review queued social content before anything is published.', action_view='autopilot'))
@@ -85,25 +69,10 @@ def build_command_brief() -> dict:
         contact_count = len(db.scalars(select(OutreachContact)).all())
         active_research = len(db.scalars(select(ResearchJob).where(ResearchJob.status.in_(['queued','researching','verifying']))).all())
 
-    sec = security_summary(
-        environment=settings.environment,
-        signing_secret=settings.pitmark_signing_secret,
-        admin_key=settings.pitmark_admin_key,
-        cors_origins=settings.cors_origin_list,
-    )
     dbs = database_status()
-    if not sec.get('ready'):
-        critical.append(_item('critical', 'Shield', 'Security posture needs attention', 'One or more production security controls are not hardened. Open Shield for the posture summary.', action_view='shield'))
-    else:
-        info.append(_item('info', 'Shield', 'Core security controls healthy', 'Signed sessions, security headers, rate limiting, request limits and protected secrets are active.', action_view='shield'))
     if not dbs.get('durable_for_render'):
         critical.append(_item('critical', 'Pitmark Cloud', 'Persistent database is not production-ready', dbs.get('warning') or 'Configure a durable PostgreSQL database.', action_view='settings'))
 
-    from services.google_gmail import credentials_configured
-    if credentials_configured():
-        info.append(_item('info', 'Shield', 'Google Workspace protection active', 'Pitmark Mail is connected to Gmail and inbound messages are protected by Shield.', action_view='shield'))
-    else:
-        action.append(_item('action', 'Shield', 'Connect Google Workspace', 'Add the Gmail OAuth credentials in Pitmark Cloud to activate sending, mailbox sync, and Shield scanning.', action_view='shield'))
     if active_research:
         info.append(_item('info', 'Autopilot', f'{active_research} research job' + ('s' if active_research != 1 else '') + ' running', 'Autopilot Research Agent is working in the background.', action_view='campaigns'))
     if draft_count:
