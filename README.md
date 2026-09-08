@@ -1,5 +1,13 @@
 ## Current release
 
+**v0.21.40 — PRT setup and growth metrics**
+
+PRT download buttons now report anonymous click activity, seven-day active devices are visible in PRT Analytics, and the Support Hub provides clearer Early Access installation, activation, and bug-reporting guidance.
+
+See [release details and verification](RELEASE_v0.21.40.md).
+
+## Earlier release — v0.20.1
+
 **v0.20.1 — Gmail Routing, Shield Automation & Sidebar Repair**
 
 Pitmark Mail now provisions the Google Workspace labels and alias filters that organize the shared inbox, mirrors Shield verdicts back into Gmail, and can send Shield-gated per-alias acknowledgments around the clock. The desktop Control Center sidebar is restored with one authoritative, cache-busted rail layout; mobile keeps its existing navigation.

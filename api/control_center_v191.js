@@ -341,10 +341,11 @@
         <div class="pm191-metrics">
           ${metric('Registered installs', x.registered_installs, `${x.registered_devices} devices registered`)}
           ${metric('Live right now', x.active_now, `${x.active_devices_24h} devices active in 24h`)}
+          ${metric('Active devices · 7 days', x.active_devices_7d, 'Unique devices with recent session activity')}
           ${metric('Sessions today', x.sessions_today)}
           ${metric('Sessions · 7 days', x.sessions_7d)}
           ${metric('Total tracked sessions', x.total_sessions)}
-          ${metric('Download clicks', x.downloads, x.download_tracking_ready ? 'Tracker ready for the public download button' : '')}
+          ${metric('Download clicks', x.downloads, x.download_tracking_ready ? 'Website button clicks; not completed downloads or unique installs' : '')}
         </div>
         <div class="pm191-analytics-grid">
           <section class="pm191-card"><div class="pm191-card-head"><strong>Top tracks · 7 days</strong></div>

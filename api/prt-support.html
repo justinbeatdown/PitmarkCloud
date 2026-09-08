@@ -1,14 +1,82 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PRT Support Hub</title><link rel="stylesheet" href="/prt.css?v=0211"><link rel="stylesheet" href="/prt-support.css?v=01704"></head><body>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PRT Support Hub</title>
+  <link rel="stylesheet" href="/prt.css?v=0211">
+  <link rel="stylesheet" href="/prt-support.css?v=02140">
+</head>
+<body>
 <header class="topbar"><a class="brand" href="/prt"><span class="brand-wide"><img src="/prt-tools-logo.png" alt="Pitmark Racing Tools"></span></a><div class="top-actions"><a class="ghost-link" href="/prt">BACK TO PRT</a></div></header>
-<main class="support-main"><section class="support-hero"><p class="eyebrow">PRT SUPPORT</p><h1>What do you need help with?</h1><p>Start with the quick answers below. If that doesn't solve it, Pitmark Support is ready to help.</p><input id="faqSearch" type="search" placeholder="Search installation, telemetry, overlays, Discord, licensing…" autocomplete="off"></section>
-<section class="support-cats"><button data-filter="getting">GETTING STARTED</button><button data-filter="telemetry">TELEMETRY</button><button data-filter="overlays">OVERLAYS</button><button data-filter="discord">DISCORD</button><button data-filter="account">ACCOUNT & LICENSING</button><button data-filter="issues">KNOWN ISSUES</button></section>
-<section class="faq-list" id="faqList">
-<details data-tags="getting install windows"><summary>How do I install Pitmark Racing Tools?</summary><p>Download the current Windows build when your account has access, run the installer, then launch PRT before or alongside iRacing.</p></details>
-<details data-tags="telemetry iracing connection"><summary>Why does PRT say “Waiting for iRacing”?</summary><p>That is the normal idle state. Launch iRacing and enter a session; PRT will begin receiving live telemetry when the simulator exposes session data.</p></details>
-<details data-tags="overlays telemetry"><summary>How do I use the on-screen overlays?</summary><p>Open Overlays inside PRT, enable the displays you want, and configure their layout for your race session.</p></details>
-<details data-tags="discord bot server"><summary>How do I add the Pitmark Bot to Discord?</summary><p>Use the Add Pitmark Bot button on the PRT site, choose a Discord server where you have permission to install apps, and approve the requested permissions.</p></details>
-<details data-tags="account licensing early access pro league subscription shopify"><summary>How do PRT plans and licensing work?</summary><p>PRT has Free, Pro, and League / Team tiers. Paid subscriptions are purchased through Pitmark Racing Co. and verified securely by Pitmark Cloud. Your Windows app receives only the features enabled by your current entitlement.</p></details>
-<details data-tags="issues problem bug report"><summary>I found a bug or something isn't working. What should I do?</summary><p>Check the known/common issues here first. If the problem remains, use Report a Problem below and include what you were doing, what happened, and your PRT version.</p></details>
-</section>
-<section class="support-contact"><p class="eyebrow">STILL NEED HELP?</p><h2>Talk to Pitmark.</h2><p>If the Support Hub didn't solve it, contact PRT Support and we'll take it from there.</p><div class="support-actions"><a class="primary action-link" href="mailto:prt@pitmarkracing.com?subject=PRT%20Support%20Request">EMAIL PRT SUPPORT</a><a class="secondary-link" href="mailto:prt@pitmarkracing.com?subject=PRT%20Problem%20Report">REPORT A PROBLEM</a></div></section>
-</main><footer><span class="footer-brand"><img src="/prt-current-logo.png" alt="Pitmark Racing Co."><span>PITMARK RACING CO. · LEAVE YOUR MARK.</span></span><span>PRT SUPPORT</span></footer><script src="/prt-support.js?v=0211"></script></body></html>
+<main class="support-main">
+  <section class="support-hero">
+    <p class="eyebrow">PRT SUPPORT</p><h1>What do you need help with?</h1>
+    <p>New to PRT? Start with Early Access, install the Windows app, then connect to iRacing.</p>
+    <div class="support-actions support-start">
+      <a class="primary action-link" href="/prt/apply">APPLY FOR EARLY ACCESS</a>
+      <a class="secondary-link" href="/downloads/PRT-Setup-Latest.exe" data-prt-download="prt-support">DOWNLOAD PRT — WINDOWS</a>
+    </div>
+    <p>A valid Early Access activation code is required to enter PRT. Downloading the installer does not grant access.</p>
+    <input id="faqSearch" type="search" aria-label="Search PRT support" placeholder="Search installation, telemetry, overlays, Discord, licensing…" autocomplete="off">
+  </section>
+  <section class="support-cats" aria-label="Support topics">
+    <button data-filter="getting" aria-pressed="false">GETTING STARTED</button>
+    <button data-filter="telemetry" aria-pressed="false">TELEMETRY</button>
+    <button data-filter="overlays" aria-pressed="false">OVERLAYS</button>
+    <button data-filter="discord" aria-pressed="false">DISCORD</button>
+    <button data-filter="account" aria-pressed="false">ACCOUNT &amp; LICENSING</button>
+    <button data-filter="issues" aria-pressed="false">BUG REPORTS</button>
+  </section>
+  <section class="faq-list" id="faqList">
+    <details data-tags="getting install windows activation code">
+      <summary>How do I install and start Pitmark Racing Tools?</summary>
+      <ol>
+        <li><a href="/prt/apply">Apply for Early Access</a> if you do not already have an activation code.</li>
+        <li><a href="/downloads/PRT-Setup-Latest.exe" data-prt-download="prt-support-install">Download the current Windows installer</a> and run it on the PC you use for iRacing.</li>
+        <li>Launch PRT and enter your Early Access activation code. Early Access includes activation on one device.</li>
+        <li>Launch iRacing and enter a session, then enable the PRT overlays you want to use.</li>
+      </ol>
+    </details>
+    <details data-tags="getting account licensing activation code locked device pc">
+      <summary>PRT is locked or my activation code is not working. What now?</summary>
+      <p>The installer is public, but Early Access requires a valid activation code. If you have not received one, <a href="/prt/apply">apply here</a>. If your code is rejected or you have changed PCs, contact <a href="mailto:prt@pitmarkracing.com?subject=PRT%20Activation%20Help">PRT Support</a> with the exact error and your PRT version. Keep your activation code private.</p>
+    </details>
+    <details data-tags="getting install windows mac phone android ios requirements">
+      <summary>Can I run PRT on my phone or Mac?</summary>
+      <p>The current PRT app is a Windows download for the PC running iRacing. You can browse the website and apply from your phone, then open the download link on your racing PC.</p>
+    </details>
+    <details data-tags="telemetry iracing connection getting">
+      <summary>Why does PRT say “Waiting for iRacing”?</summary>
+      <p>That is the normal idle state. Launch iRacing and enter a session; PRT will begin receiving live telemetry when the simulator exposes session data. If it remains waiting while you are in a session, tell support your PRT version, the car and track, and whether the session is Test Drive, Practice, Qualifying, or Race.</p>
+    </details>
+    <details data-tags="overlays telemetry layout">
+      <summary>How do I use the on-screen overlays?</summary>
+      <p>Open Overlays inside PRT, enable the displays you want, and configure their layout for your race session. For a layout or data problem, include a screenshot showing the overlay and the corresponding iRacing information.</p>
+    </details>
+    <details data-tags="discord bot server league">
+      <summary>How do I add the Pitmark Bot to Discord?</summary>
+      <p>Use <a href="/api/discord/install/launch" target="_blank" rel="noopener noreferrer">Add Pitmark Bot</a>, choose a Discord server where you have permission to install apps, and review the requested permissions. For PRT updates and community support, <a href="https://discord.gg/jP6fQuW7dr" target="_blank" rel="noopener noreferrer">join the Pitmark Discord</a>.</p>
+    </details>
+    <details data-tags="account licensing early access pro league subscription shopify">
+      <summary>How do PRT plans and licensing work?</summary>
+      <p>PRT has Free, Pro, and League / Team tiers. Your Windows app receives the features enabled by your current entitlement. During Early Access, a valid activation code is required to enter the app. <a href="/prt#plans">Review the plans and current Early Access information</a>, or contact support if your purchased plan and app access do not match.</p>
+    </details>
+    <details data-tags="issues problem bug report standings map lap session">
+      <summary>I found a bug or something isn't working. What should I include?</summary>
+      <p>Use Report a Problem below and include your PRT version, car and track, session type (Test Drive, Practice, Qualifying, or Race), what you expected, what happened, and the steps that reproduce it. Attach a screenshot or short clip when possible. For standings, lap-count, or track-map issues, show the matching iRacing display too.</p>
+    </details>
+  </section>
+  <p id="faqNoResults" class="faq-empty" role="status" hidden>No matching answers. Try a shorter search, choose a topic, or contact PRT Support below.</p>
+  <section class="support-contact">
+    <p class="eyebrow">STILL NEED HELP?</p><h2>Talk to Pitmark.</h2>
+    <p>If the Support Hub didn't solve it, contact PRT Support and we'll take it from there.</p>
+    <div class="support-actions">
+      <a class="primary action-link" href="mailto:prt@pitmarkracing.com?subject=PRT%20Support%20Request">EMAIL PRT SUPPORT</a>
+      <a class="secondary-link" href="mailto:prt@pitmarkracing.com?subject=PRT%20Problem%20Report&amp;body=PRT%20version%3A%20%0ACar%20and%20track%3A%20%0ASession%20type%20%28Test%20Drive%2FPractice%2FQualifying%2FRace%29%3A%20%0AExpected%20behavior%3A%20%0AWhat%20happened%3A%20%0ASteps%20to%20reproduce%3A%20%0A%0APlease%20attach%20a%20screenshot%20or%20short%20clip%20if%20available.">REPORT A PROBLEM</a>
+    </div>
+  </section>
+</main>
+<footer><span class="footer-brand"><img src="/prt-current-logo.png" alt="Pitmark Racing Co."><span>PITMARK RACING CO. · LEAVE YOUR MARK.</span></span><span>PRT SUPPORT</span></footer>
+<script src="/prt-support.js?v=02140"></script>
+<script src="/prt-downloads.js?v=02140"></script>
+</body></html>

@@ -26,6 +26,8 @@ def prt_apply():
 def prt_css(): return Response((ASSET_DIR/"prt.css").read_text(encoding="utf-8"),media_type="text/css",headers={"Cache-Control":"no-store"})
 @router.get("/prt.js",include_in_schema=False)
 def prt_js(): return Response((ASSET_DIR/"prt.js").read_text(encoding="utf-8"),media_type="application/javascript",headers={"Cache-Control":"no-store"})
+@router.get("/prt-downloads.js",include_in_schema=False)
+def prt_downloads_js(): return Response((ASSET_DIR/"prt-downloads.js").read_text(encoding="utf-8"),media_type="application/javascript",headers={"Cache-Control":"no-store"})
 @router.get("/prt-support.css",include_in_schema=False)
 def prt_support_css(): return Response((ASSET_DIR/"prt-support.css").read_text(encoding="utf-8"),media_type="text/css",headers={"Cache-Control":"no-store"})
 @router.get("/prt-support.js",include_in_schema=False)

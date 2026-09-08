@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.21.40
+
+- Connected PRT website and support download buttons to anonymous click analytics without blocking downloads.
+- Corrected seven-day active devices to use last session activity and surfaced the metric in PRT Analytics.
+- Expanded Early Access setup and activation guidance, direct links, and bug-report templates.
+- Fixed FAQ search across closed/hidden answers and added accessible topic and empty-result states.
+- Added focused download and support-search regression checks.
+
 ## 0.21.15
 
 - Added the public Pitmark-branded links hub to the Cloud release.

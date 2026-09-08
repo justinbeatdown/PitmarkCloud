@@ -180,7 +180,7 @@ def summary() -> dict:
         ) or 0
         active_devices_7d = db.scalar(
             select(func.count(func.distinct(PrtUsageSession.device_id))).where(
-                PrtUsageSession.started_at >= week,
+                PrtUsageSession.last_seen_at >= week,
                 PrtUsageSession.device_id != "",
             )
         ) or 0
