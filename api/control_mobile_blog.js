@@ -9,8 +9,13 @@ function wire(){document.querySelectorAll('[data-mgo="blog"]').forEach(b=>b.addE
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',wire);else wire()})();
 
 ;(()=>{
+  const style=document.createElement('style');
+  style.id='pm-mobile-retired-workspaces';
+  style.textContent='[data-mview="email"],[data-mgo="email"],[data-mview="shield"],[data-mgo="shield"],[data-mnav="shield"]{display:none!important}';
+  document.head.appendChild(style);
+
   const cleanMailUi=()=>{
-    document.querySelectorAll('[data-mview="email"],[data-mgo="email"]').forEach(el=>el.remove());
+    document.querySelectorAll('[data-mview="email"],[data-mgo="email"]').forEach(el=>{el.style.display='none'});
     const mailNav=document.querySelector('.m-nav [data-mnav="email"]');
     if(mailNav){
       mailNav.removeAttribute('data-mnav');
@@ -26,8 +31,6 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
         },120);
       };
     }
-    const brand=document.querySelector('.m-brand span');
-    if(brand&&brand.textContent!=='MOBILE · v0.21.38')brand.textContent='MOBILE · v0.21.38';
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cleanMailUi,{once:true});else cleanMailUi();
   [100,400,1000,2500].forEach(ms=>setTimeout(cleanMailUi,ms));
@@ -36,12 +39,12 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 
 ;(()=>{
   const removeShieldUi=()=>{
-    document.querySelectorAll('[data-mview="shield"],[data-mgo="shield"],[data-mnav="shield"]').forEach(el=>el.remove());
+    document.querySelectorAll('[data-mview="shield"],[data-mgo="shield"],[data-mnav="shield"]').forEach(el=>{el.style.display='none'});
     document.querySelectorAll('.m-stats button').forEach(el=>{
-      if((el.textContent||'').toLowerCase().includes('shield'))el.remove();
+      if((el.textContent||'').toLowerCase().includes('shield'))el.style.display='none';
     });
     document.querySelectorAll('.m-row').forEach(el=>{
-      if((el.textContent||'').toLowerCase().includes('pitmark shield'))el.remove();
+      if((el.textContent||'').toLowerCase().includes('pitmark shield'))el.style.display='none';
     });
     const active=document.querySelector('[data-mview="shield"].active');
     if(active){
