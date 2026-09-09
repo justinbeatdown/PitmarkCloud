@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi import APIRouter
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 
 router = APIRouter()
 ASSET_DIR = Path(__file__).resolve().parent
@@ -31,3 +31,8 @@ def partner_guide_css():
         media_type="text/css",
         headers={"Cache-Control": "no-store"},
     )
+
+
+@router.get("/pitmark_favicon.png", include_in_schema=False)
+def partner_favicon():
+    return FileResponse(ASSET_DIR / "pitmark_favicon.png", media_type="image/png")
