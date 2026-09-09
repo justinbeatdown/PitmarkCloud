@@ -88,6 +88,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 + "frame-ancestors 'none'; base-uri 'none'; form-action 'none'; img-src 'self'; "
                 "font-src 'self'"
             )
+        elif request.url.path == "/control/early-access":
+            # Applicant Center is an authenticated, server-rendered Control Center
+            # workspace. Its CSS is intentionally inline and it loads only Pitmark's
+            # same-origin logo asset; scripts, frames and forms remain disabled.
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; "
+                "base-uri 'none'; form-action 'none'; img-src 'self'; script-src 'none'"
+            )
         elif request.url.path in {"/control", "/control.css", "/control.js", "/control-login.js", "/control/mobile", "/control-mobile.css", "/control-mobile.js", "/control-mobile-login.js", "/control.webmanifest", "/control-sw.js", "/control-logo-wide.png", "/control-logo-badge.png"}:
             response.headers["Content-Security-Policy"] = (
                 "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; "
