@@ -164,6 +164,87 @@ html body [data-pm19-go="shield"]{
   pointer-events:none!important;
 }
 
+/* v0.21.47 — PRT applicant access should read as a native Control Center surface,
+   not an injected hyperlink card. */
+html body a.pm194-stat-link,
+html body a.pm194-stat-link:link,
+html body a.pm194-stat-link:visited,
+html body a.pm194-stat-link:hover,
+html body a.pm194-stat-link:active{
+  position:relative!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  min-height:118px!important;
+  padding:18px 20px!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  border-left:2px solid #ff5500!important;
+  border-radius:14px!important;
+  background:linear-gradient(145deg,#12161b,#0d1014)!important;
+  box-shadow:0 12px 28px rgba(0,0,0,.18)!important;
+  color:#f4f5f5!important;
+  text-decoration:none!important;
+  outline:none!important;
+  transform:none!important;
+}
+html body a.pm194-stat-link.attention{
+  border:1px solid rgba(255,255,255,.08)!important;
+  border-left:2px solid #ff5500!important;
+  background:linear-gradient(145deg,#12161b,#0d1014)!important;
+}
+html body a.pm194-stat-link:hover{
+  border-color:rgba(255,85,0,.38)!important;
+  border-left-color:#ff5500!important;
+  background:linear-gradient(145deg,#151a20,#101419)!important;
+}
+html body a.pm194-stat-link>span{
+  font-size:0!important;
+  line-height:1!important;
+  color:#8e979f!important;
+  text-decoration:none!important;
+}
+html body a.pm194-stat-link>span::after{
+  content:"PRT APPLICANTS";
+  display:block;
+  font-size:10px!important;
+  font-weight:850!important;
+  letter-spacing:.12em!important;
+  color:#9099a2!important;
+  text-decoration:none!important;
+}
+html body a.pm194-stat-link>strong{
+  margin:7px 0 1px!important;
+  color:#f7f7f4!important;
+  font-size:36px!important;
+  line-height:1!important;
+  font-weight:850!important;
+  letter-spacing:-.04em!important;
+  text-decoration:none!important;
+}
+html body a.pm194-stat-link>small{
+  display:block!important;
+  margin-top:7px!important;
+  color:#ff7431!important;
+  font-size:9px!important;
+  font-weight:850!important;
+  letter-spacing:.06em!important;
+  text-transform:uppercase!important;
+  text-decoration:none!important;
+}
+html body a.pm194-quick-link,
+html body a.pm194-quick-link:link,
+html body a.pm194-quick-link:visited,
+html body a.pm194-quick-link:hover,
+html body a.pm194-quick-link:active{
+  color:#f4f5f5!important;
+  text-decoration:none!important;
+}
+html body .shell>.sidebar>.nav>a.pm194-prt-nav,
+html body .shell>.sidebar>.nav>a.pm194-prt-nav:visited{
+  color:#d9dde0!important;
+  text-decoration:none!important;
+}
+
 @media (max-width:980px){
   html body .m-nav{grid-template-columns:repeat(4,1fr)!important}
 }
