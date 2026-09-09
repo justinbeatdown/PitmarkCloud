@@ -3,15 +3,19 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+from html import escape
 import json
+import logging
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
 
-from services import prt_licensing_store
+from services import google_gmail, prt_licensing_store, prt_paid_activation
 from utils.config import settings
+
+log = logging.getLogger("pitmark.shopify")
 
 _TOKEN: str | None = None
 _TOKEN_EXPIRES_AT: float = 0.0
@@ -163,6 +167,122 @@ def infer_billing_interval(line: dict[str, Any], order: dict[str, Any]) -> str:
     return "monthly"
 
 
+def _plan_label(plan: str) -> str:
+    return "PRT League / Team" if (plan or "").strip().lower() == "league_team" else "PRT Pro"
+
+
+def _prt_sender() -> str:
+    preferred = f"prt@{google_gmail.business_domain()}".lower()
+    send_as = google_gmail.list_send_as()
+
+    for row in send_as:
+        address = str(row.get("sendAsEmail") or "").strip().lower()
+        if address == preferred:
+            return address
+
+    for row in send_as:
+        if bool(row.get("isPrimary")) or bool(row.get("isDefault")):
+            address = str(row.get("sendAsEmail") or "").strip()
+            if address:
+                return address
+
+    for row in send_as:
+        address = str(row.get("sendAsEmail") or "").strip()
+        if address:
+            return address
+
+    configured_user = google_gmail.gmail_user().strip()
+    if configured_user and configured_user.lower() != "me":
+        return configured_user
+    return f"justin@{google_gmail.business_domain()}"
+
+
+def _deliver_paid_activation_email(activation: dict) -> None:
+    code = str(activation.get("code") or "").strip()
+    email = str(activation.get("email") or "").strip().lower()
+    if not code or not email:
+        raise RuntimeError("Paid PRT activation is missing its delivery code or customer email.")
+
+    activation_id = int(activation["id"])
+    plan_label = _plan_label(str(activation.get("plan") or "pro"))
+    order_name = str(activation.get("order_name") or activation.get("order_id") or "").strip()
+    sender = _prt_sender()
+
+    subject = f"Your {plan_label} activation code"
+    text = (
+        f"Thanks for subscribing to {plan_label} during Pitmark Racing Tools Early Access.\n\n"
+        f"YOUR PRT ACTIVATION CODE\n{code}\n\n"
+        "How to activate:\n"
+        "1. Install or open the latest Pitmark Racing Tools build.\n"
+        "2. Enter this code on the PRT activation screen.\n"
+        "3. PRT will bind your paid subscription to that PC through Pitmark Cloud.\n\n"
+        "Your subscription stays linked to Shopify. Successful renewals keep access active; "
+        "cancellations, failed payments, and refunds are reflected through Pitmark Cloud.\n"
+    )
+    if order_name:
+        text += f"\nShopify order: {order_name}\n"
+    text += "\nPitmark Racing Co.\nLeave your mark."
+
+    safe_code = escape(code)
+    safe_plan = escape(plan_label)
+    safe_order = escape(order_name)
+    html = f"""
+    <div style="margin:0;padding:28px;background:#111214;color:#f3f3f3;font-family:Arial,sans-serif">
+      <div style="max-width:620px;margin:0 auto;background:#1b1d20;border:1px solid #33363a;border-radius:12px;overflow:hidden">
+        <div style="padding:24px 28px;border-bottom:3px solid #ff5500">
+          <div style="font-size:12px;letter-spacing:2px;color:#ff5500;font-weight:700">PITMARK RACING TOOLS</div>
+          <h1 style="margin:8px 0 0;font-size:26px;color:#fff">Your {safe_plan} code is ready.</h1>
+        </div>
+        <div style="padding:28px">
+          <p style="line-height:1.6;color:#d5d7da">Thanks for subscribing while PRT is in Early Access. Your paid plan is ready to activate.</p>
+          <div style="margin:24px 0;padding:18px;background:#101113;border:1px solid #ff5500;border-radius:8px;text-align:center">
+            <div style="font-size:11px;letter-spacing:1.5px;color:#a9adb2">PRT ACTIVATION CODE</div>
+            <div style="margin-top:9px;font-family:Consolas,monospace;font-size:23px;font-weight:700;color:#fff;letter-spacing:1px">{safe_code}</div>
+          </div>
+          <p style="line-height:1.7;color:#d5d7da">
+            Install or open the latest PRT build, enter this code on the activation screen, and Pitmark Cloud will bind the subscription to that PC.
+          </p>
+          <p style="line-height:1.7;color:#aeb2b7;font-size:13px">
+            Renewals stay automatic through Shopify. If a subscription is cancelled, refunded, or becomes inactive, Pitmark Cloud updates access automatically.
+          </p>
+          {"<p style='color:#8f949a;font-size:12px'>Shopify order: " + safe_order + "</p>" if safe_order else ""}
+        </div>
+        <div style="padding:18px 28px;background:#141517;color:#8f949a;font-size:12px">Pitmark Racing Co. &mdash; Leave your mark.</div>
+      </div>
+    </div>
+    """
+
+    try:
+        raw = google_gmail.build_raw_message(
+            sender=sender,
+            to=[email],
+            subject=subject,
+            text=text,
+            html=html,
+            reply_to=[sender],
+            headers={"X-Pitmark-Purpose": "prt-paid-activation"},
+        )
+        google_gmail.send_message(raw=raw)
+    except Exception as exc:
+        prt_paid_activation.mark_delivery_failure(activation_id, str(exc))
+        log.exception(
+            "PRT paid activation email failed: activation_id=%s order=%s",
+            activation_id,
+            activation.get("order_id"),
+        )
+        # Fail the webhook so Shopify retries. ensure_for_purchase() is idempotent,
+        # so a retry resends the same code instead of minting duplicates.
+        raise RuntimeError("PRT activation code was created but email delivery failed.") from exc
+
+    prt_paid_activation.mark_delivery_success(activation_id)
+    log.info(
+        "PRT paid activation delivered: activation_id=%s plan=%s order=%s",
+        activation_id,
+        activation.get("plan"),
+        activation.get("order_id"),
+    )
+
+
 def process_paid_order(order: dict[str, Any]) -> list[dict[str, Any]]:
     prt_licensing_store.ensure_default_shopify_mappings()
     order_id = _as_id(order.get("id") or order.get("admin_graphql_api_id"))
@@ -194,7 +314,7 @@ def process_paid_order(order: dict[str, Any]) -> list[dict[str, Any]]:
             "selling_plan_name": _selling_plan_name(line),
             "paid_at": paid_at,
         })
-        records.append(record)
+
         renewal_days = 380 if billing_interval == "yearly" else 40
         prt_licensing_store.refresh_entitlements_for_shopify_customer(
             customer_id,
@@ -202,6 +322,17 @@ def process_paid_order(order: dict[str, Any]) -> list[dict[str, Any]]:
             order_id=order_id,
             grace_until=(datetime.now(timezone.utc) + timedelta(days=renewal_days)).isoformat(),
         )
+
+        activation = prt_paid_activation.ensure_for_purchase(record)
+        if activation and activation.get("code"):
+            _deliver_paid_activation_email(activation)
+        if activation:
+            record["activation"] = {
+                key: value
+                for key, value in activation.items()
+                if key != "code"
+            }
+        records.append(record)
     return records
 
 
@@ -210,8 +341,8 @@ def process_order_invalidation(order: dict[str, Any], status: str) -> int:
     if not order_id:
         return 0
     prt_licensing_store.set_purchase_status(order_id, status)
+    prt_paid_activation.revoke_for_order(order_id)
     return prt_licensing_store.deactivate_entitlements_for_order(order_id, status=status)
-
 
 
 def process_refund(refund: dict[str, Any]) -> int:
@@ -227,6 +358,7 @@ def process_refund(refund: dict[str, Any]) -> int:
         return 0
     return process_order_invalidation(refund, "inactive")
 
+
 def process_subscription_status(payload: dict[str, Any], status_override: str = "") -> int:
     customer_id = _as_id(payload.get("customer_id") or payload.get("admin_graphql_api_customer_id"))
     if not customer_id:
@@ -239,6 +371,7 @@ def process_subscription_status(payload: dict[str, Any], status_override: str = 
         entitlement_status = "grace"
     else:
         entitlement_status = "inactive"
+        prt_paid_activation.revoke_issued_for_customer(customer_id)
     return prt_licensing_store.set_entitlements_status_for_shopify_customer(customer_id, entitlement_status)
 
 

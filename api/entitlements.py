@@ -13,7 +13,7 @@ from models.schemas import (
     ShopifyLicenseClaim,
     ShopifyPlanMappingUpdate,
 )
-from services import device_auth_service, prt_licensing_store, prt_feedback
+from services import device_auth_service, prt_licensing_store, prt_feedback, prt_paid_activation
 from services.control_auth import require_control_user
 from services.control_access import access_from_request
 from services.prt_analytics import summary as prt_analytics_summary, active_device_ids
@@ -87,6 +87,73 @@ def _require_admin(request: Request) -> None:
         raise HTTPException(status_code=401, detail="Pitmark admin authentication required.")
 
 
+def _legacy_client_needs_early_access_source(request: Request) -> bool:
+    """PRT <=0.16.80 gates all app access behind its EarlyAccessActivated marker.
+
+    Paid entitlements are still stored as source=shopify. Only the response source is
+    translated for those legacy builds so they remain usable during Early Access.
+    v0.16.81+ will understand paid activation natively.
+    """
+    user_agent = (request.headers.get("user-agent") or "").strip().lower()
+    marker = "pitmarkracingtools/"
+    if marker not in user_agent:
+        return False
+    version_text = user_agent.split(marker, 1)[1].split()[0].split(";", 1)[0].strip()
+    try:
+        parts = [int(part) for part in version_text.split(".")[:3]]
+    except ValueError:
+        return False
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts[:3]) <= (0, 16, 80)
+
+
+def _legacy_compatible_response(response: EntitlementResponse, request: Request) -> EntitlementResponse:
+    if (
+        _legacy_client_needs_early_access_source(request)
+        and str(response.source or "").strip().lower() == "shopify"
+        and str(response.status or "").strip().lower() in {"active", "trialing", "grace"}
+    ):
+        response.source = "early_access"
+    return response
+
+
+def _redeem_paid_activation(payload: EarlyAccessClaim) -> EntitlementResponse:
+    try:
+        activation = prt_paid_activation.redeem_paid_activation(payload.code, payload.device_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="That PRT paid activation code was not found.")
+    except PermissionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+    try:
+        plan = PitmarkPlan(str(activation.get("plan") or "free"))
+    except ValueError:
+        raise HTTPException(status_code=409, detail="This activation code is not mapped to a valid PRT plan.")
+
+    interval = str(activation.get("billing_interval") or "monthly").strip().lower()
+    grace_days = 380 if interval == "yearly" else 40
+    grace = datetime.now(timezone.utc) + timedelta(days=grace_days)
+    customer_id = str(
+        activation.get("customer_id")
+        or activation.get("email")
+        or payload.device_id
+    ).strip()
+
+    prt_licensing_store.upsert_entitlement({
+        "device_id": payload.device_id,
+        "customer_id": customer_id,
+        "display_name": payload.display_name.strip() or "Pitmark Racer",
+        "plan": plan.value,
+        "status": "active",
+        "source": "shopify",
+        "shopify_customer_id": str(activation.get("customer_id") or ""),
+        "shopify_subscription_id": str(activation.get("order_id") or ""),
+        "offline_grace_until": grace.isoformat(),
+    })
+    return current_entitlements(payload.device_id)
+
+
 @router.get("/development", response_model=EntitlementResponse)
 async def development() -> EntitlementResponse:
     return development_entitlements()
@@ -98,7 +165,8 @@ async def current(device_id: str, request: Request) -> EntitlementResponse:
     token = request.headers.get("X-Pitmark-Device-Token")
     if not device_auth_service.authenticate(device_id, token):
         raise HTTPException(status_code=401, detail="Invalid Pitmark device credential.")
-    return current_entitlements(device_id)
+    response = current_entitlements(device_id)
+    return _legacy_compatible_response(response, request)
 
 
 @router.post("/claim-shopify", response_model=EntitlementResponse)
@@ -135,7 +203,18 @@ async def claim_shopify(payload: ShopifyLicenseClaim, request: Request) -> Entit
         "shopify_subscription_id": str(purchase.get("order_id") or ""),
         "offline_grace_until": grace.isoformat(),
     })
-    return current_entitlements(payload.device_id)
+    response = current_entitlements(payload.device_id)
+    return _legacy_compatible_response(response, request)
+
+
+@router.post("/claim-paid-code", response_model=EntitlementResponse)
+async def claim_paid_code(payload: EarlyAccessClaim, request: Request) -> EntitlementResponse:
+    enforce_rate_limit(request, "prt-entitlement-paid-code-claim", 12, 300)
+    token = request.headers.get("X-Pitmark-Device-Token")
+    if not device_auth_service.authenticate(payload.device_id, token):
+        raise HTTPException(status_code=401, detail="Invalid Pitmark device credential.")
+    response = _redeem_paid_activation(payload)
+    return _legacy_compatible_response(response, request)
 
 
 @router.post("/claim-early-access", response_model=EntitlementResponse)
@@ -144,6 +223,13 @@ async def claim_early_access(payload: EarlyAccessClaim, request: Request) -> Ent
     token = request.headers.get("X-Pitmark-Device-Token")
     if not device_auth_service.authenticate(payload.device_id, token):
         raise HTTPException(status_code=401, detail="Invalid Pitmark device credential.")
+
+    # v0.16.80's single activation box posts every code to this route and does not
+    # enforce a PRT-EA prefix locally. Accept paid code prefixes here so customers
+    # can activate immediately without waiting for the v0.16.81 UI wording update.
+    if prt_paid_activation.looks_like_paid_code(payload.code):
+        response = _redeem_paid_activation(payload)
+        return _legacy_compatible_response(response, request)
 
     try:
         invite = prt_licensing_store.redeem_early_access_invite(payload.code, payload.device_id)
@@ -196,6 +282,16 @@ async def admin_early_access_list(
 ) -> dict:
     _require_early_access_admin(request, x_pitmark_admin_key)
     return {"items": prt_licensing_store.list_early_access_invites()}
+
+
+@router.get("/admin/paid-activations")
+async def admin_paid_activations_list(
+    request: Request,
+    limit: int = 250,
+    x_pitmark_admin_key: str | None = Header(default=None),
+) -> dict:
+    _require_early_access_admin(request, x_pitmark_admin_key)
+    return {"items": prt_paid_activation.list_paid_activations(limit=limit)}
 
 
 @router.post("/admin/early-access")
