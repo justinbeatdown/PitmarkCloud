@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import Boolean, DateTime, Integer, String, Text, func, select
 from sqlalchemy.orm import Mapped, mapped_column
 
+from services import pitmark_mail
 from services.database import Base, SessionLocal
 
 
@@ -60,6 +62,40 @@ def _clean_email(value: str | None) -> str:
     if not local or "." not in domain or domain.startswith(".") or domain.endswith("."):
         raise ValueError("Enter a valid email address.")
     return email
+
+
+def _notification_recipient() -> str:
+    return (os.getenv("PRT_APPLICATION_NOTIFY_TO") or "justin@pitmarkracing.com").strip()
+
+
+def _notify_new_application(row: PrtEarlyAccessApplication) -> bool:
+    recipient = _notification_recipient()
+    if not recipient:
+        return False
+    subject = f"[PRT Early Access] New application — {row.full_name}"
+    text = (
+        "A new PRT Early Access Quick Apply was submitted.\n\n"
+        f"Applicant: {row.full_name}\n"
+        f"Email: {row.email}\n"
+        f"iRacing: {row.iracing_name}\n"
+        f"Discord: {row.discord_username or 'Not provided'}\n"
+        f"Disciplines: {row.disciplines}\n"
+        f"Race frequency: {row.race_frequency}\n"
+        f"Current tools: {row.current_tools or 'Not provided'}\n"
+        f"What would make PRT useful: {row.goals or 'Not provided'}\n\n"
+        f"Source: {row.source or 'website'}\n"
+        f"Campaign: {row.campaign or 'none'}\n"
+        f"Creative: {row.asset or 'none'}\n"
+        f"Application ID: {row.id}\n\n"
+        "Review native applications at: https://pcc.pitmarkracing.com/control/early-access\n"
+    )
+    pitmark_mail.send_message(
+        to=[recipient],
+        subject=subject,
+        text=text,
+        reply_to=[row.email],
+    )
+    return True
 
 
 def record_funnel_event(
@@ -133,7 +169,7 @@ def submit_application(
             .limit(1)
         )
         if existing is not None:
-            return {"ok": True, "duplicate": True, "application_id": existing.id}
+            return {"ok": True, "duplicate": True, "application_id": existing.id, "notification_sent": False}
 
         row = PrtEarlyAccessApplication(
             full_name=clean_name,
@@ -169,7 +205,22 @@ def submit_application(
         )
         db.commit()
         db.refresh(row)
-        return {"ok": True, "duplicate": False, "application_id": row.id}
+
+    notification_sent = False
+    try:
+        notification_sent = _notify_new_application(row)
+    except Exception:
+        # The application must remain accepted by the backend even if Gmail is
+        # temporarily unavailable. The native application stays in Postgres and
+        # remains visible in Control Center for manual follow-up.
+        notification_sent = False
+
+    return {
+        "ok": True,
+        "duplicate": False,
+        "application_id": row.id,
+        "notification_sent": notification_sent,
+    }
 
 
 def application_summary() -> dict:
