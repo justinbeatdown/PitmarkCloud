@@ -1,11 +1,18 @@
 from pathlib import Path
 from fastapi import APIRouter
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, Response, RedirectResponse
 
 from api import partner_ui
 
 router = APIRouter()
 ASSET_DIR = Path(__file__).resolve().parent
+RACEPROOF_TARGET = (
+    "https://prt.pitmarkracing.com/prt"
+    "?utm_campaign=prt_raceproof_202609"
+    "&utm_source=facebook"
+    "&utm_medium=organic_social"
+    "&utm_content=race"
+)
 
 
 def _html(name: str) -> HTMLResponse:
@@ -18,6 +25,15 @@ def _html(name: str) -> HTMLResponse:
 @router.get("/links", response_class=HTMLResponse, include_in_schema=False)
 def pitmark_links():
     return _html("links.html")
+
+
+@router.get("/raceproof", include_in_schema=False)
+def raceproof_redirect():
+    return RedirectResponse(
+        url=RACEPROOF_TARGET,
+        status_code=302,
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.get("/links.css", include_in_schema=False)
