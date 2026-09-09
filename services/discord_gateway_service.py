@@ -70,6 +70,7 @@ def _official_links_payload(guild_id: str, support_channel_id: str | None) -> di
                     "🎵 **TikTok** — https://www.tiktok.com/@pitmarkracing\n"
                     "📘 **Facebook** — https://www.facebook.com/profile.php?id=61593441036636\n"
                     "𝕏 **X** — https://x.com/pitmarkracing\n"
+                    "▶️ **YouTube** — https://www.youtube.com/@pitmarkracing\n"
                     "💬 **Discord** — https://discord.gg/jP6fQuW7dr\n\n"
                     f"🛟 **Discord Support**\n{support_line}"
                 ),
@@ -95,6 +96,12 @@ def _official_links_payload(guild_id: str, support_channel_id: str | None) -> di
                     _link_button("TikTok", "https://www.tiktok.com/@pitmarkracing", "🎵"),
                     _link_button("Facebook", "https://www.facebook.com/profile.php?id=61593441036636", "📘"),
                     _link_button("X", "https://x.com/pitmarkracing", "✖️"),
+                    _link_button("YouTube", "https://www.youtube.com/@pitmarkracing", "▶️"),
+                ],
+            },
+            {
+                "type": 1,
+                "components": [
                     _link_button("Discord", "https://discord.gg/jP6fQuW7dr", "💬"),
                 ],
             },
