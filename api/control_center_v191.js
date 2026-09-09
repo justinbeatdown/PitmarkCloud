@@ -355,6 +355,9 @@
             <div class="pm191-ranked">${(x.top_cars_7d || []).length ? x.top_cars_7d.map((v,i)=>`<div><b>${i+1}</b><span>${esc(v.name)}</span><strong>${v.sessions}</strong></div>`).join('') : '<p>No tracked sessions yet.</p>'}</div>
           </section>
         </div>
+        <section class="pm191-card"><div class="pm191-card-head"><strong>Download sources · 7 days</strong><small>Top 20 button/campaign sources. Clicks do not identify completed installs or returning testers.</small></div>
+          <div class="pm191-ranked">${(x.download_sources_7d || []).length ? x.download_sources_7d.map((v,i)=>`<div><b>${i+1}</b><span>${esc((v.source || 'website').split('|').join(' · '))}</span><strong>${v.clicks}</strong></div>`).join('') : '<p>No download clicks recorded in the last seven days.</p>'}</div>
+        </section>
         <section class="pm191-card"><div class="pm191-card-head"><strong>Recent PRT connections</strong><small>One row per recent device connection — lap-by-lap noise is intentionally hidden.</small></div>
           <div class="pm191-session-list">${(() => {
             const rows = x.recent_sessions || [];

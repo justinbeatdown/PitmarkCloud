@@ -13,7 +13,7 @@ async function loadReleaseVersion(){
     if(buildVersion) buildVersion.textContent=`v${version}`;
     if(downloadVersion) downloadVersion.textContent=`DOWNLOAD PRT v${version}`;
   }catch(_){
-    // Keep the server-rendered fallback version if the manifest is temporarily unavailable.
+    // Keep the generic Windows download label if the manifest is unavailable.
   }
 }
 

@@ -1,10 +1,10 @@
 ## Current release
 
-**v0.21.40 — PRT setup and growth metrics**
+**v0.21.42 — PRT campaign attribution and application clarity**
 
-PRT download buttons now report anonymous click activity, seven-day active devices are visible in PRT Analytics, and the Support Hub provides clearer Early Access installation, activation, and bug-reporting guidance.
+PRT campaign links retain validated source and creative labels along the setup path. Desktop PRT Analytics summarizes download-click sources for the last seven days, and the website explains Google sign-in before the Early Access application. The installer version is taken from its release manifest. Recent paid activation, Partner Paddock, and mobile fixes are retained.
 
-See [release details and verification](RELEASE_v0.21.40.md).
+See [release details and verification](RELEASE_v0.21.42.md). Earlier changes: [paid activation v0.21.41](RELEASE_v0.21.41.md), [setup and growth metrics v0.21.40](RELEASE_v0.21.40.md).
 
 ## Earlier release — v0.20.1
 

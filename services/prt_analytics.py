@@ -171,6 +171,13 @@ def summary() -> dict:
         registered = db.scalar(select(func.count()).select_from(DeviceCredentialRow)) or 0
         installs = db.scalar(select(func.count()).select_from(PrtInstallEvent)) or 0
         downloads = db.scalar(select(func.count()).select_from(PrtDownloadEvent)) or 0
+        download_sources_7d = db.execute(
+            select(PrtDownloadEvent.source, func.count().label('clicks'))
+            .where(PrtDownloadEvent.created_at >= week)
+            .group_by(PrtDownloadEvent.source)
+            .order_by(func.count().desc(), PrtDownloadEvent.source)
+            .limit(20)
+        ).all()
         total_sessions = db.scalar(select(func.count()).select_from(PrtUsageSession)) or 0
         sessions_today = db.scalar(
             select(func.count()).select_from(PrtUsageSession).where(PrtUsageSession.started_at >= today)
@@ -239,4 +246,8 @@ def summary() -> dict:
         "top_cars_7d": [{"name": name, "sessions": count} for name, count in car_counts.most_common(5)],
         "recent_sessions": recent,
         "download_tracking_ready": True,
+        "download_sources_7d": [
+            {"source": source or "website", "clicks": int(clicks)}
+            for source, clicks in download_sources_7d
+        ],
     }

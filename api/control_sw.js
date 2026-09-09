@@ -1,5 +1,5 @@
-const RELEASE='0.21.40';
-const CACHE='pitmark-mobile-v0.21.40-force2';
+const RELEASE='0.21.42';
+const CACHE='pitmark-mobile-v0.21.42-force2';
 const STATIC=['/control-mobile.css','/control-mobile.js','/control-mobile-blog.js','/control-logo-badge.png','/control.webmanifest'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(STATIC)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil((async()=>{

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.21.42
+
+- Added allowlisted source/creative attribution for the September PRT proof campaign and preserved it along same-origin setup links.
+- Added a seven-day download-click source breakdown to desktop PRT Analytics using the existing event table.
+- Explained Google sign-in before Early Access application and added the PRT application-help email route.
+- Removed stale hard-coded installer-version labels; kept the live release manifest authoritative.
+- Synchronized mobile release/cache labels and retained current paid activation, Partner Paddock, and mobile work.
+
+## 0.21.41
+
+- Added paid PRT activation code issuance, delivery, redemption, and legacy-client compatibility. See RELEASE_v0.21.41.md.
+
 ## 0.21.40
 
 - Connected PRT website and support download buttons to anonymous click analytics without blocking downloads.
