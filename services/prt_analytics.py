@@ -50,6 +50,18 @@ class PrtDownloadEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
 
 
+class PrtCampaignLinkEvent(Base):
+    __tablename__ = "prt_campaign_link_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    slug: Mapped[str] = mapped_column(String(80), default="", index=True)
+    campaign: Mapped[str] = mapped_column(String(80), default="", index=True)
+    source: Mapped[str] = mapped_column(String(40), default="", index=True)
+    asset: Mapped[str] = mapped_column(String(40), default="", index=True)
+    traffic_type: Mapped[str] = mapped_column(String(20), default="visit", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
 def record_install(device_id: str) -> None:
     clean = (device_id or "").strip()
     if not clean:
@@ -68,6 +80,29 @@ def record_download(*, source: str = "website", version: str = "") -> dict:
         db.commit()
         db.refresh(row)
         return {"ok": True, "event_id": row.id}
+
+
+def record_campaign_link(
+    *,
+    slug: str,
+    campaign: str,
+    source: str,
+    asset: str,
+    traffic_type: str = "visit",
+) -> dict:
+    clean_type = "preview" if (traffic_type or "").strip().lower() == "preview" else "visit"
+    with SessionLocal() as db:
+        row = PrtCampaignLinkEvent(
+            slug=(slug or "")[:80],
+            campaign=(campaign or "")[:80],
+            source=(source or "")[:40],
+            asset=(asset or "")[:40],
+            traffic_type=clean_type,
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return {"ok": True, "event_id": row.id, "traffic_type": clean_type}
 
 
 def _aware(value: datetime | None) -> datetime | None:
@@ -136,7 +171,6 @@ def close_live_session(device_id: str) -> None:
             db.commit()
 
 
-
 def active_device_ids(minutes: int = 15) -> set[str]:
     """Return device identities seen recently. Used for current-access counts.
 
@@ -172,11 +206,41 @@ def summary() -> dict:
         installs = db.scalar(select(func.count()).select_from(PrtInstallEvent)) or 0
         downloads = db.scalar(select(func.count()).select_from(PrtDownloadEvent)) or 0
         download_sources_7d = db.execute(
-            select(PrtDownloadEvent.source, func.count().label('clicks'))
+            select(PrtDownloadEvent.source, func.count().label("clicks"))
             .where(PrtDownloadEvent.created_at >= week)
             .group_by(PrtDownloadEvent.source)
             .order_by(func.count().desc(), PrtDownloadEvent.source)
             .limit(20)
+        ).all()
+        campaign_link_visits = db.scalar(
+            select(func.count()).select_from(PrtCampaignLinkEvent).where(
+                PrtCampaignLinkEvent.traffic_type == "visit"
+            )
+        ) or 0
+        campaign_link_previews = db.scalar(
+            select(func.count()).select_from(PrtCampaignLinkEvent).where(
+                PrtCampaignLinkEvent.traffic_type == "preview"
+            )
+        ) or 0
+        campaign_links_7d = db.execute(
+            select(
+                PrtCampaignLinkEvent.slug,
+                PrtCampaignLinkEvent.campaign,
+                PrtCampaignLinkEvent.source,
+                PrtCampaignLinkEvent.asset,
+                PrtCampaignLinkEvent.traffic_type,
+                func.count().label("clicks"),
+            )
+            .where(PrtCampaignLinkEvent.created_at >= week)
+            .group_by(
+                PrtCampaignLinkEvent.slug,
+                PrtCampaignLinkEvent.campaign,
+                PrtCampaignLinkEvent.source,
+                PrtCampaignLinkEvent.asset,
+                PrtCampaignLinkEvent.traffic_type,
+            )
+            .order_by(func.count().desc(), PrtCampaignLinkEvent.slug)
+            .limit(40)
         ).all()
         total_sessions = db.scalar(select(func.count()).select_from(PrtUsageSession)) or 0
         sessions_today = db.scalar(
@@ -249,5 +313,19 @@ def summary() -> dict:
         "download_sources_7d": [
             {"source": source or "website", "clicks": int(clicks)}
             for source, clicks in download_sources_7d
+        ],
+        "campaign_link_tracking_ready": True,
+        "campaign_link_visits": int(campaign_link_visits),
+        "campaign_link_previews": int(campaign_link_previews),
+        "campaign_links_7d": [
+            {
+                "slug": slug or "",
+                "campaign": campaign or "",
+                "source": source or "",
+                "asset": asset or "",
+                "traffic_type": traffic_type or "visit",
+                "clicks": int(clicks),
+            }
+            for slug, campaign, source, asset, traffic_type, clicks in campaign_links_7d
         ],
     }
