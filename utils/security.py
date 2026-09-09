@@ -69,9 +69,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; "
                 "base-uri 'none'; form-action 'none'; img-src 'none'; script-src 'none'"
             )
-        elif request.url.path.startswith(("/prt", "/links")):
-            # PRT and the public Pitmark link hub use same-origin static assets only.
-            # Keeping these paths explicit avoids weakening the default CSP for the API.
+        elif request.url.path.startswith(("/prt", "/links", "/partners", "/partner-guide")):
+            # PRT, the public Pitmark link hub, and Partner Paddock use same-origin
+            # static assets only. Keep these paths explicit so the API default CSP
+            # remains locked down while public branded pages can load CSS/images.
             response.headers["Content-Security-Policy"] = (
                 "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; "
                 "frame-ancestors 'none'; base-uri 'none'; form-action 'none'; img-src 'self'; "
