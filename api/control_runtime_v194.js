@@ -97,7 +97,6 @@
     setTimeout(() => {
       queueSyncPending = false;
       try { window.loadQueue?.(); } catch {}
-      // Status/brief is deliberately background work now.
       setTimeout(() => { try { window.loadStatus?.(); } catch {} }, 120);
     }, 50);
   }
@@ -137,7 +136,7 @@
 
   async function handleDesktopAction(button, card, action) {
     if (button.dataset.pm194Busy) return;
-    if (action === 'asset') return; // story-image handler remains owned by v191
+    if (action === 'asset') return;
 
     const id = card?.dataset.id;
     if (!id) return;
@@ -276,9 +275,52 @@
     syncMobilePublishButtons();
   }
 
-  // Queue actions are handled in capture phase so the UI can provide immediate
-  // feedback and avoid the legacy "publish -> reload queue -> reload dashboard
-  // -> rebuild command brief" serial wait.
+  async function installPrtApplicantAccess() {
+    if (location.pathname !== '/control') return;
+
+    const nav = $('nav');
+    if (nav && !$('pmPrtApplicantsNav')) {
+      const link = document.createElement('a');
+      link.id = 'pmPrtApplicantsNav';
+      link.href = '/control/early-access';
+      link.className = 'pm194-prt-nav';
+      link.innerHTML = '<span class="ico">🏎</span><span>PRT Testers<small>Early Access Applicants</small></span>';
+      nav.insertBefore(link, nav.querySelector('[data-view="directory"]') || null);
+    }
+
+    const dashboard = document.querySelector('[data-view-section="dashboard"]');
+    const statGrid = dashboard?.querySelector('.stat-grid');
+    if (statGrid && !$('statPrtApplicants')) {
+      const link = document.createElement('a');
+      link.href = '/control/early-access';
+      link.className = 'stat-card pm194-stat-link';
+      link.innerHTML = '<span>PRT Quick Apply</span><strong id="statPrtApplicants">—</strong><small>Review applicants →</small>';
+      statGrid.appendChild(link);
+    }
+
+    const quickGrid = dashboard?.querySelector('.quick-grid');
+    if (quickGrid && !$('pmPrtApplicantsQuick')) {
+      const link = document.createElement('a');
+      link.id = 'pmPrtApplicantsQuick';
+      link.href = '/control/early-access';
+      link.className = 'quick-card pm194-quick-link';
+      link.innerHTML = '<strong>Review PRT Applicants</strong><span>Quick Apply + legacy response access</span>';
+      quickGrid.appendChild(link);
+    }
+
+    try {
+      const data = await request('/api/prt/analytics/summary');
+      const count = Number(data.quick_apply_applications || 0);
+      const stat = $('statPrtApplicants');
+      if (stat) {
+        stat.textContent = String(count);
+        stat.closest('.stat-card')?.classList.toggle('attention', count > 0);
+      }
+    } catch (err) {
+      console.warn('PRT applicant count unavailable', err);
+    }
+  }
+
   document.addEventListener('click', e => {
     const desktopButton = e.target.closest?.('.queue-card [data-action]');
     if (desktopButton) {
@@ -314,6 +356,11 @@
       .pm194-action-status.success{border:1px solid rgba(72,221,131,.18);color:#55dc89}
       .pm194-action-status.error{border:1px solid rgba(255,95,95,.24);color:#ff8181}
       .pm194-busy{cursor:wait!important;opacity:.82!important}
+      .pm194-prt-nav{display:flex!important;gap:14px;align-items:center;padding:12px 14px;border:1px solid rgba(255,85,0,.28)!important;border-radius:5px;color:#f4f2ed!important;text-decoration:none!important;text-transform:uppercase;font-size:14px;font-weight:800;background:rgba(255,85,0,.055)!important}
+      .pm194-prt-nav:hover{border-color:#ff5500!important;background:rgba(255,85,0,.12)!important}
+      .pm194-prt-nav .ico{width:28px;text-align:center;font-size:18px}.pm194-prt-nav small{display:block;color:#9ba0a0;text-transform:none;font-weight:500;margin-top:3px;font-size:11px}
+      .pm194-stat-link,.pm194-quick-link{text-decoration:none!important;color:inherit!important;display:block}
+      .pm194-stat-link small{display:block;margin-top:6px;color:#ff7431;font-size:10px;font-weight:900;text-transform:uppercase}
     `;
     document.head.appendChild(style);
   }
@@ -321,8 +368,10 @@
   function boot() {
     installStyles();
     observeMobileQueue();
+    installPrtApplicantAccess();
     setTimeout(observeMobileQueue, 500);
     setTimeout(syncMobilePublishButtons, 900);
+    setTimeout(installPrtApplicantAccess, 700);
   }
 
   if (document.readyState === 'loading')
