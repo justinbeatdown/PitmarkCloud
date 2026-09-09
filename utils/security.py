@@ -60,7 +60,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Referrer-Policy"] = (
+            "strict-origin-when-cross-origin"
+            if request.url.path.startswith("/prt")
+            else "no-referrer"
+        )
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         response.headers["Cross-Origin-Resource-Policy"] = "cross-origin" if request.url.path.startswith("/social-assets/") else "same-origin"
         response.headers["Cache-Control"] = "no-store"
@@ -70,12 +74,18 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "base-uri 'none'; form-action 'none'; img-src 'none'; script-src 'none'"
             )
         elif request.url.path.startswith(("/prt", "/links", "/partners", "/partner-guide")):
-            # PRT, the public Pitmark link hub, and Partner Paddock use same-origin
-            # static assets only. Keep these paths explicit so the API default CSP
-            # remains locked down while public branded pages can load CSS/images.
+            # Public Pitmark pages use same-origin static assets. PRT additionally
+            # embeds Pitmark-owned YouTube proof video, so permit only YouTube's
+            # official embed origins rather than opening frame access generally.
+            frame_src = (
+                "frame-src https://www.youtube.com https://www.youtube-nocookie.com; "
+                if request.url.path.startswith("/prt")
+                else ""
+            )
             response.headers["Content-Security-Policy"] = (
                 "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; "
-                "frame-ancestors 'none'; base-uri 'none'; form-action 'none'; img-src 'self'; "
+                + frame_src
+                + "frame-ancestors 'none'; base-uri 'none'; form-action 'none'; img-src 'self'; "
                 "font-src 'self'"
             )
         elif request.url.path in {"/control", "/control.css", "/control.js", "/control-login.js", "/control/mobile", "/control-mobile.css", "/control-mobile.js", "/control-mobile-login.js", "/control.webmanifest", "/control-sw.js", "/control-logo-wide.png", "/control-logo-badge.png"}:
