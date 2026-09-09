@@ -2,6 +2,8 @@ from pathlib import Path
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, Response
 
+from api import partner_ui
+
 router = APIRouter()
 ASSET_DIR = Path(__file__).resolve().parent
 
@@ -25,3 +27,8 @@ def pitmark_links_css():
         media_type="text/css",
         headers={"Cache-Control": "no-store"},
     )
+
+
+# Keep public partner onboarding beside the public links hub so the same Cloud
+# service exposes one stable, shareable Partner Paddock without Control Center auth.
+router.include_router(partner_ui.router)
