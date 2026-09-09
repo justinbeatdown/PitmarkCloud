@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="description" content="Quick application for Pitmark Racing Tools Early Access.">
+  <title>Apply for PRT Early Access</title>
+  <link rel="icon" href="/control-favicon.png">
+  <link rel="stylesheet" href="/prt.css?v=02123">
+  <link rel="stylesheet" href="/prt-growth.css?v=02143">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/prt"><span class="brand-wide"><img src="/prt-tools-logo.png" alt="Pitmark Racing Tools"></span></a>
+  <div class="top-actions"><span class="early">EARLY ACCESS</span><a href="/prt" class="ghost-link">BACK TO PRT</a><a href="/prt/support" class="ghost-link">SUPPORT</a></div>
+</header>
+
+<main class="apply-shell">
+  <div class="apply-grid">
+    <aside class="apply-proof">
+      <a href="/prt/proof/rob" data-prt-funnel-link="apply-proof"><img src="/prt-app-preview.png" alt="Pitmark Racing Tools Windows app preview"></a>
+      <div class="apply-proof-copy">
+        <p class="eyebrow">REAL RACERS BUILD BETTER TOOLS</p>
+        <h1>Race it.<br><em>Then tell us the truth.</em></h1>
+        <p>Early Access is not a mailing list. We are looking for Windows + iRacing drivers who will actually use PRT and give us useful feedback from real sessions.</p>
+        <a class="proof-inline-link" href="/prt/proof/rob" data-prt-funnel-link="apply-proof-text">WATCH ROB'S REAL-RACE PRT CLIP →</a>
+        <p><b>What happens after you apply?</b><br>If accepted, Pitmark sends an activation code and setup instructions. Downloading the installer alone does not activate PRT.</p>
+      </div>
+    </aside>
+
+    <section class="apply-form-panel">
+      <p class="eyebrow">PRT QUICK APPLY</p>
+      <h2>Get into the feedback loop.</h2>
+      <p class="apply-intro">No Google sign-in. This usually takes about two minutes. Applying does not guarantee acceptance, and you do not need to buy a paid plan to apply.</p>
+
+      <form id="quickApplyForm" class="apply-form" novalidate>
+        <div class="field-grid">
+          <label>FULL NAME<input name="full_name" type="text" maxlength="120" autocomplete="name" required></label>
+          <label>EMAIL<input name="email" type="email" maxlength="200" autocomplete="email" required></label>
+          <label>iRACING DISPLAY NAME<input name="iracing_name" type="text" maxlength="120" required></label>
+          <label>DISCORD USERNAME <span style="color:#737a7a;font-weight:700">(OPTIONAL)</span><input name="discord_username" type="text" maxlength="100" autocomplete="off"></label>
+        </div>
+
+        <fieldset style="border:0;padding:0;margin:0">
+          <legend class="field-label">WHAT DO YOU RACE ON iRACING?</legend>
+          <div class="choice-grid">
+            <label class="choice-pill"><input type="checkbox" name="disciplines" value="Asphalt Oval"> Asphalt Oval</label>
+            <label class="choice-pill"><input type="checkbox" name="disciplines" value="Dirt Oval"> Dirt Oval</label>
+            <label class="choice-pill"><input type="checkbox" name="disciplines" value="Sports Car / Road"> Sports Car / Road</label>
+            <label class="choice-pill"><input type="checkbox" name="disciplines" value="Formula / Open Wheel"> Formula / Open Wheel</label>
+            <label class="choice-pill"><input type="checkbox" name="disciplines" value="Dirt Road / Off-Road"> Dirt Road / Off-Road</label>
+            <label class="choice-pill"><input type="checkbox" name="disciplines" value="Endurance"> Endurance</label>
+          </div>
+        </fieldset>
+
+        <div class="field-grid">
+          <label>HOW OFTEN DO YOU RACE?
+            <select name="race_frequency" required>
+              <option value="">Choose one</option>
+              <option>Almost every day</option>
+              <option>3–5 days per week</option>
+              <option>1–2 days per week</option>
+              <option>A few times per month</option>
+              <option>Less often / special events</option>
+            </select>
+          </label>
+          <label>CURRENT RACING TOOLS <span style="color:#737a7a;font-weight:700">(OPTIONAL)</span><input name="current_tools" type="text" maxlength="320" placeholder="RaceLab, iOverlay, Crew Chief, Garage61…"></label>
+        </div>
+
+        <label>WHAT WOULD MAKE PRT GENUINELY USEFUL TO YOU?
+          <textarea name="goals" maxlength="1200" placeholder="One or two sentences is plenty."></textarea>
+        </label>
+
+        <div class="expectation-box">
+          <label><input type="checkbox" name="can_test" required> I can realistically test PRT for 1–2 racing sessions during weeks when feedback is needed.</label>
+          <label><input type="checkbox" name="bug_reports" required> I will submit useful bug reports when something goes wrong.</label>
+          <label><input type="checkbox" name="honest_feedback" required> I am comfortable giving honest feedback even when I dislike a feature or design decision.</label>
+          <label><input type="checkbox" name="expectations_agreed" required> I understand Early Access is active development and agree to these tester expectations.</label>
+        </div>
+
+        <label class="hp-field" aria-hidden="true">LEAVE THIS EMPTY<input name="company_website" type="text" tabindex="-1" autocomplete="off"></label>
+        <button id="applySubmit" class="apply-submit" type="submit">SUBMIT PRT EARLY ACCESS APPLICATION</button>
+        <p id="applyStatus" class="form-status" aria-live="polite"></p>
+        <p class="fallback-note">Prefer the original application? <a href="/prt/apply/google" data-prt-funnel-link="google-form-fallback">Open the legacy Google Form</a>. It requires Google sign-in. Need help? <a href="mailto:prt@pitmarkracing.com">prt@pitmarkracing.com</a>.</p>
+      </form>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <span class="footer-brand"><img src="/prt-current-logo.png" alt="Pitmark Racing Co."><span>PITMARK RACING CO. · LEAVE YOUR MARK.</span></span>
+  <span>PRT Cloud v{{PITMARK_VERSION}}</span>
+</footer>
+<script src="/prt-growth.js?v=02143" defer></script>
+<script src="/prt-apply.js?v=02143" defer></script>
+</body>
+</html>

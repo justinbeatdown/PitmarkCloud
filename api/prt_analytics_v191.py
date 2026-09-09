@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from services.control_access import require_permission
 from services.prt_analytics import record_download, summary
+from services.prt_applications import application_summary
 from utils.security import enforce_rate_limit
 
 router = APIRouter()
@@ -18,7 +19,9 @@ class DownloadPing(BaseModel):
 @router.get("/summary")
 def analytics_summary(request: Request):
     require_permission(request, "analytics")
-    return summary()
+    result = summary()
+    result.update(application_summary())
+    return result
 
 
 @router.post("/download")

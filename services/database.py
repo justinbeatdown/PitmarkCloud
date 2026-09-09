@@ -62,6 +62,7 @@ def init_database() -> None:
     from services import pitmark_mail_auto_reply  # noqa: F401
     from services import control_access  # noqa: F401
     from services import prt_analytics  # noqa: F401
+    from services import prt_applications  # noqa: F401
     from services import prt_licensing_store  # noqa: F401
     from services import prt_paid_activation  # noqa: F401
     from services import prt_feedback  # noqa: F401
