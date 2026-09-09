@@ -8,7 +8,7 @@
   <title>Pitmark Racing Tools Early Access</title>
   <link rel="icon" href="/control-favicon.png">
   <link rel="stylesheet" href="/prt.css?v=02123">
-  <link rel="stylesheet" href="/prt-growth.css?v=02143">
+  <link rel="stylesheet" href="/prt-growth.css?v=02144">
 </head>
 <body>
 <header class="topbar">
@@ -30,24 +30,29 @@
       <p class="lead">Pitmark Racing Tools is being shaped in real races by real drivers. If you can run PRT for 1–2 sessions, tell us what helps, and report what gets in your way, we want you in Early Access.</p>
       <div class="hero-actions growth-actions">
         <a class="primary action-link" href="/prt/apply" data-prt-funnel-link="hero-apply">APPLY FOR EARLY ACCESS</a>
-        <a class="secondary action-link" href="/prt/proof/rob" data-prt-funnel-link="hero-proof">WATCH ROB'S REAL-RACE PROOF</a>
+        <a class="secondary action-link" href="#race-proof" data-prt-funnel-link="hero-proof">WATCH ROB'S RACE</a>
         <a class="secondary action-link accepted-download" href="/downloads/PRT-Setup-Latest.exe" data-prt-download="prt-home-accepted">ALREADY ACCEPTED? DOWNLOAD PRT</a>
       </div>
       <p class="growth-note"><b>No purchase required to apply.</b> Early Access is currently invite/code activated. Downloading the installer by itself does not grant access.</p>
     </div>
 
-    <aside class="product-showcase proof-showcase">
-      <a class="proof-card" href="/prt/proof/rob" data-prt-funnel-link="proof-card">
-        <div class="proof-image-wrap">
-          <img src="/prt-app-preview.png" alt="Pitmark Racing Tools Windows app preview">
-          <span class="proof-play" aria-hidden="true">▶</span>
+    <aside class="product-showcase proof-showcase" id="race-proof">
+      <div class="proof-card">
+        <div class="proof-video-wrap">
+          <iframe
+            src="https://www.youtube-nocookie.com/embed/rxpjE8gVYFc?start=1224&rel=0&modestbranding=1"
+            title="Rob Wilhoite racing with Pitmark Racing Tools"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allowfullscreen></iframe>
         </div>
         <div class="proof-copy">
           <p class="eyebrow">REAL RACE · REAL TELEMETRY</p>
           <strong>See PRT working under race pressure.</strong>
-          <span>Rob Wilhoite running the overlays in an actual iRacing session.</span>
+          <span>Rob Wilhoite running PRT in a full iRacing race. Playback starts at 20:24, where the race-night proof begins.</span>
+          <a class="proof-youtube-link" href="https://www.youtube.com/watch?v=rxpjE8gVYFc&t=1224s" target="_blank" rel="noopener noreferrer" data-prt-funnel-link="proof-youtube">WATCH FULL RACE ON YOUTUBE →</a>
         </div>
-      </a>
+      </div>
       <div class="compact-status">
         <span><i></i>PITMARK CLOUD <b id="cloudState">ONLINE</b></span>
         <span><i></i>EARLY ACCESS <b>OPEN</b></span>
@@ -61,31 +66,12 @@
     <div class="section-head">
       <p class="eyebrow">FROM CLICK TO GREEN FLAG</p>
       <h2>Three steps. Then go race.</h2>
-      <p>We cut the application path down to the information we actually need. No Google sign-in is required for the quick application.</p>
+      <p>Apply, get activated if accepted, then put PRT through a real session.</p>
     </div>
     <div class="path-grid">
       <article><span>01</span><h3>Apply</h3><p>Tell us who you are, what you race, and confirm you can give useful Early Access feedback.</p><a href="/prt/apply" data-prt-funnel-link="path-apply">START QUICK APPLY →</a></article>
       <article><span>02</span><h3>Activate</h3><p>If accepted, you receive an Early Access code and setup instructions. The installer alone does not activate PRT.</p></article>
-      <article><span>03</span><h3>Race + report</h3><p>Run a real session. Send one thing that helped and one thing that got in the way. Screenshots or clips are even better.</p></article>
-    </div>
-  </section>
-
-  <section class="early-access-callout conversion-callout">
-    <div>
-      <p class="eyebrow">WHAT WE NEED FROM TESTERS</p>
-      <h2>Useful feedback beats hype.</h2>
-      <p>You do not need to make content or praise PRT. We need racers willing to use it, break it, question it, and tell us what actually belongs on race night.</p>
-      <ul class="tester-expectations">
-        <li>Windows PC + iRacing</li>
-        <li>1–2 real testing sessions when feedback is needed</li>
-        <li>Useful bug reports: car/track, expected vs. actual, screenshot when possible</li>
-        <li>Honest feedback, including when you dislike a feature or design choice</li>
-      </ul>
-    </div>
-    <div class="early-access-actions">
-      <a class="primary action-link" href="/prt/apply" data-prt-funnel-link="requirements-apply">APPLY FOR EARLY ACCESS</a>
-      <a class="secondary action-link" href="/prt/proof/rob" data-prt-funnel-link="requirements-proof">SEE IT IN A REAL RACE</a>
-      <span>Already accepted? <a href="/downloads/PRT-Setup-Latest.exe" data-prt-download="prt-requirements-accepted">Download the Windows installer</a> · <a href="/prt/support">Setup help</a></span>
+      <article><span>03</span><h3>Race + report</h3><p>Run a real session and tell us what worked, what broke, and what would make race night better.</p></article>
     </div>
   </section>
 
@@ -129,6 +115,6 @@
 </footer>
 <script src="/prt.js?v=02143" defer></script>
 <script src="/prt-downloads.js?v=02142" defer></script>
-<script src="/prt-growth.js?v=02143" defer></script>
+<script src="/prt-growth.js?v=02144" defer></script>
 </body>
 </html>
