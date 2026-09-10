@@ -226,9 +226,18 @@ def _dashboard_root_target(request: Request) -> str | None:
     return "/control/mobile" if any(token in user_agent for token in mobile_tokens) else "/control"
 
 
+def _target_with_query(target: str, request: Request) -> str:
+    query = request.url.query
+    return f"{target}?{query}" if query else target
+
+
 def _prt_root_target(request: Request) -> str | None:
     host = (request.url.hostname or "").lower().rstrip(".")
-    return "/prt" if host == "prt.pitmarkracing.com" else None
+    if host != "prt.pitmarkracing.com":
+        return None
+
+    target = "/prt/apply" if request.query_params.get("utm_campaign") == "prt_raceproof_202609" else "/prt"
+    return _target_with_query(target, request)
 
 
 def _links_root_target(request: Request) -> str | None:
