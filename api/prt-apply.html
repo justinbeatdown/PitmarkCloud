@@ -8,7 +8,7 @@
   <title>Apply for PRT Early Access</title>
   <link rel="icon" href="/control-favicon.png">
   <link rel="stylesheet" href="/prt.css?v=02123">
-  <link rel="stylesheet" href="/prt-growth.css?v=02147">
+  <link rel="stylesheet" href="/prt-growth.css?v=02148">
 </head>
 <body>
 <header class="topbar">
@@ -27,7 +27,7 @@
       <div class="apply-proof-copy">
         <p class="eyebrow">REAL RACE · REAL PRT</p>
         <h1>See it race.<br><em>Then try it yourself.</em></h1>
-        <p>See PRT running in Rob Wilhoite's full iRacing race before you apply. The link starts at 20:24, right where the PRT race-night proof begins.</p>
+        <p>See PRT running in Rob Wilhoite's full iRacing race. You can watch the proof now or come back to it after you apply.</p>
         <a class="proof-inline-link" href="https://www.youtube.com/watch?v=rxpjE8gVYFc&t=1224s" target="_blank" rel="noopener noreferrer" data-prt-funnel-link="apply-proof-text">WATCH ROB'S FULL RACE FROM 20:24 →</a>
         <p><b>After you apply:</b><br>If accepted, Pitmark sends an activation code and setup instructions. Downloading the installer alone does not activate PRT.</p>
       </div>
@@ -35,19 +35,19 @@
 
     <section class="apply-form-panel">
       <p class="eyebrow">PRT QUICK APPLY</p>
-      <h2>Get into the feedback loop.</h2>
-      <p class="apply-intro">No Google sign-in. This usually takes about two minutes. Applying does not guarantee acceptance, and you do not need to buy a paid plan to apply.</p>
+      <h2>Get on the Early Access grid.</h2>
+      <p class="apply-intro"><b>About 60 seconds.</b> No Google sign-in. No purchase. We review applications ourselves and contact accepted testers by email or Discord.</p>
 
       <form id="quickApplyForm" class="apply-form" novalidate>
         <div class="field-grid">
           <label>FULL NAME<input name="full_name" type="text" maxlength="120" autocomplete="name" required></label>
           <label>EMAIL<input name="email" type="email" maxlength="200" autocomplete="email" required></label>
-          <label>iRACING DISPLAY NAME<input name="iracing_name" type="text" maxlength="120" required></label>
+          <label>iRACING DISPLAY NAME<input name="iracing_name" type="text" maxlength="120" autocomplete="off" required></label>
           <label>DISCORD USERNAME <span style="color:#737a7a;font-weight:700">(OPTIONAL)</span><input name="discord_username" type="text" maxlength="100" autocomplete="off"></label>
         </div>
 
         <fieldset style="border:0;padding:0;margin:0">
-          <legend class="field-label">WHAT DO YOU RACE ON iRACING?</legend>
+          <legend class="field-label">WHAT DO YOU RACE ON iRACING? <span style="color:#737a7a;font-weight:700">(PICK AT LEAST ONE)</span></legend>
           <div class="choice-grid">
             <label class="choice-pill"><input type="checkbox" name="disciplines" value="Asphalt Oval"> Asphalt Oval</label>
             <label class="choice-pill"><input type="checkbox" name="disciplines" value="Dirt Oval"> Dirt Oval</label>
@@ -72,21 +72,18 @@
           <label>CURRENT RACING TOOLS <span style="color:#737a7a;font-weight:700">(OPTIONAL)</span><input name="current_tools" type="text" maxlength="320" placeholder="RaceLab, iOverlay, Crew Chief, Garage61…"></label>
         </div>
 
-        <label>WHAT WOULD MAKE PRT GENUINELY USEFUL TO YOU?
-          <textarea name="goals" maxlength="1200" placeholder="One or two sentences is plenty."></textarea>
+        <label>WHAT WOULD MAKE PRT GENUINELY USEFUL TO YOU? <span style="color:#737a7a;font-weight:700">(OPTIONAL)</span>
+          <textarea name="goals" maxlength="1200" placeholder="One or two sentences is plenty — or leave this blank."></textarea>
         </label>
 
-        <div class="expectation-box">
-          <label><input type="checkbox" name="can_test" required> I can realistically test PRT for 1–2 racing sessions during weeks when feedback is needed.</label>
-          <label><input type="checkbox" name="bug_reports" required> I will submit useful bug reports when something goes wrong.</label>
-          <label><input type="checkbox" name="honest_feedback" required> I am comfortable giving honest feedback even when I dislike a feature or design decision.</label>
-          <label><input type="checkbox" name="expectations_agreed" required> I understand Early Access is active development and agree to these tester expectations.</label>
+        <div class="expectation-box compact-agreement">
+          <label><input type="checkbox" name="tester_agreement" required> I can test PRT in real iRacing sessions and send honest bug/feature feedback. I understand Early Access is active development.</label>
         </div>
 
         <label class="hp-field" aria-hidden="true">LEAVE THIS EMPTY<input name="company_website" type="text" tabindex="-1" autocomplete="off"></label>
-        <button id="applySubmit" class="apply-submit" type="submit">SUBMIT PRT EARLY ACCESS APPLICATION</button>
+        <button id="applySubmit" class="apply-submit" type="submit">APPLY FOR FREE EARLY ACCESS</button>
         <p id="applyStatus" class="form-status" aria-live="polite"></p>
-        <p class="fallback-note">Prefer the original application? <a href="/prt/apply/google" data-prt-funnel-link="google-form-fallback">Open the legacy Google Form</a>. It requires Google sign-in. Need help? <a href="mailto:prt@pitmarkracing.com">prt@pitmarkracing.com</a>.</p>
+        <p class="fallback-note">That's it — no payment and no Google account required. Prefer the original application? <a href="/prt/apply/google" data-prt-funnel-link="google-form-fallback">Open the legacy Google Form</a>. Need help? <a href="mailto:prt@pitmarkracing.com">prt@pitmarkracing.com</a>.</p>
       </form>
     </section>
   </div>
@@ -97,6 +94,6 @@
   <span>PRT Cloud v{{PITMARK_VERSION}}</span>
 </footer>
 <script src="/prt-growth.js?v=02146" defer></script>
-<script src="/prt-apply.js?v=02143" defer></script>
+<script src="/prt-apply.js?v=02148" defer></script>
 </body>
 </html>
