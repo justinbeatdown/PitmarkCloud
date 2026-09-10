@@ -236,7 +236,9 @@ def _prt_root_target(request: Request) -> str | None:
     if host != "prt.pitmarkracing.com":
         return None
 
-    target = "/prt/apply" if request.query_params.get("utm_campaign") == "prt_raceproof_202609" else "/prt"
+    is_raceproof_campaign = request.query_params.get("utm_campaign") == "prt_raceproof_202609"
+    is_meta_click = bool(request.query_params.get("fbclid"))
+    target = "/prt/apply" if is_raceproof_campaign or is_meta_click else "/prt"
     return _target_with_query(target, request)
 
 
