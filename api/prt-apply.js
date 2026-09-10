@@ -30,6 +30,7 @@
       return;
     }
 
+    const agreed = data.get('tester_agreement') === 'on';
     const payload = {
       full_name: String(data.get('full_name') || ''),
       email: String(data.get('email') || ''),
@@ -39,10 +40,10 @@
       race_frequency: String(data.get('race_frequency') || ''),
       current_tools: String(data.get('current_tools') || ''),
       goals: String(data.get('goals') || ''),
-      can_test: data.get('can_test') === 'on',
-      bug_reports: data.get('bug_reports') === 'on',
-      honest_feedback: data.get('honest_feedback') === 'on',
-      expectations_agreed: data.get('expectations_agreed') === 'on',
+      can_test: agreed,
+      bug_reports: agreed,
+      honest_feedback: agreed,
+      expectations_agreed: agreed,
       company_website: String(data.get('company_website') || ''),
       campaign,
       source,
@@ -72,7 +73,7 @@
       status.className = 'form-status error';
       status.textContent = error?.message || 'Application could not be submitted. Try again or use the legacy Google Form below.';
       submit.disabled = false;
-      submit.textContent = 'SUBMIT PRT EARLY ACCESS APPLICATION';
+      submit.textContent = 'APPLY FOR FREE EARLY ACCESS';
     }
   });
 })();
