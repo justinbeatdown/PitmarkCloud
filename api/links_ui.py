@@ -12,7 +12,7 @@ RACEPROOF_CAMPAIGN = "prt_raceproof_202609"
 RACEPROOF_SOURCE = "facebook"
 RACEPROOF_ASSET = "race"
 RACEPROOF_TARGET = (
-    "https://prt.pitmarkracing.com/prt"
+    "https://prt.pitmarkracing.com/prt/apply"
     f"?utm_campaign={RACEPROOF_CAMPAIGN}"
     f"&utm_source={RACEPROOF_SOURCE}"
     "&utm_medium=organic_social"
