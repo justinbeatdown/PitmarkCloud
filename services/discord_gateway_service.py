@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+from collections import defaultdict, deque
+from datetime import datetime, timedelta, timezone
 import logging
 
 import discord
 import httpx
 
 from utils.config import settings
+from services.discord_hq_common import log_named
+from services import discord_hq_moderation
 
 log = logging.getLogger("pitmark.discord.gateway")
 DISCORD_API = "https://discord.com/api/v10"
@@ -185,6 +189,76 @@ async def _sync_official_links_message(bot_user_id: str) -> None:
         log.info("Created official Pitmark links message in #%s.", links_channel.get("name"))
 
 
+BUG_INTAKE_TITLE = "Thanks for reporting this — help us reproduce it"
+_member_message_times: dict[tuple[int, int], deque[float]] = defaultdict(deque)
+_flood_cooldowns: dict[tuple[int, int], float] = {}
+
+
+def _is_hq_guild(guild: discord.Guild | None) -> bool:
+    configured_id = (settings.discord_hq_guild_id or settings.discord_guild_id or "").strip()
+    return bool(guild and configured_id and str(guild.id) == configured_id)
+
+
+def _bug_intake_embed() -> discord.Embed:
+    embed = discord.Embed(
+        title=BUG_INTAKE_TITLE,
+        description=(
+            "A Pitmark team member will review this thread. The details below usually let us "
+            "find the problem much faster. Add anything missing in a reply — you do not need "
+            "to repost the thread."
+        ),
+        color=0xFF5500,
+    )
+    embed.add_field(
+        name="Please include",
+        value=(
+            "• PRT version (shown at the bottom of the app)\n"
+            "• Car, track, and session type\n"
+            "• What you expected vs. what happened\n"
+            "• Steps that make it happen again\n"
+            "• Screenshot or short video, if possible"
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="If it crashed or froze",
+        value=(
+            "Tell us what else was running (streaming/recording included), whether the overlays "
+            "returned, and attach the PRT diagnostic log if available."
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="Keep private information private",
+        value=(
+            "Do not post passwords, activation codes, order details, email addresses, or tokens. "
+            "Open a private support ticket for account-specific help."
+        ),
+        inline=False,
+    )
+    embed.set_footer(text="Pitmark Racing Tools • Leave Your Mark.")
+    return embed
+
+
+async def _audit(guild: discord.Guild, text: str, *, moderation: bool = False) -> None:
+    if not settings.discord_audit_logging_enabled or not _is_hq_guild(guild):
+        return
+    try:
+        await log_named(str(guild.id), "moderation-log" if moderation else "bot-logs", text[:1900])
+    except Exception:
+        log.exception("Failed to write Discord audit event")
+
+
+def _staff_exempt(member: discord.Member) -> bool:
+    permissions = member.guild_permissions
+    return bool(
+        permissions.administrator
+        or permissions.manage_guild
+        or permissions.manage_messages
+        or permissions.moderate_members
+    )
+
+
 class PitmarkPresenceClient(discord.Client):
     async def on_ready(self) -> None:
         await self.change_presence(
@@ -201,6 +275,140 @@ class PitmarkPresenceClient(discord.Client):
         except Exception:
             # Presence and HTTP interactions must stay online even if the links card cannot sync.
             log.exception("Failed to sync official Pitmark links message.")
+        try:
+            guild = next((item for item in self.guilds if _is_hq_guild(item)), None)
+            if guild:
+                role_map = {role.name: {"id": str(role.id)} for role in guild.roles}
+                channel_map = {
+                    channel.name: {"id": str(channel.id), "name": channel.name, "type": 0}
+                    for channel in guild.channels
+                }
+                count = await discord_hq_moderation.sync_automod(
+                    str(guild.id), role_map, channel_map
+                )
+                log.info("Synced %s Pitmark AutoMod rules on Gateway ready.", count)
+        except Exception:
+            # AutoMod repair must not prevent support intake or bot presence.
+            log.exception("Failed to sync Pitmark AutoMod rules on Gateway ready.")
+
+    async def on_thread_create(self, thread: discord.Thread) -> None:
+        if not settings.discord_support_automation_enabled or not _is_hq_guild(thread.guild):
+            return
+        parent_name = str(getattr(thread.parent, "name", "") or "").lower()
+        if parent_name != (settings.discord_bug_forum_name or "prt-bug-reports").strip().lower():
+            return
+        try:
+            await thread.send(embed=_bug_intake_embed(), allowed_mentions=discord.AllowedMentions.none())
+            await _audit(
+                thread.guild,
+                f"🐞 **BUG THREAD OPENED** • {thread.mention}\nOpened by: "
+                f"<@{thread.owner_id}>\nThread ID: `{thread.id}`",
+            )
+        except discord.Forbidden:
+            log.warning("Cannot reply to bug thread %s; check Send Messages in Threads permission.", thread.id)
+        except Exception:
+            log.exception("Failed to send bug-report intake reply")
+
+    async def on_thread_delete(self, thread: discord.Thread) -> None:
+        if _is_hq_guild(thread.guild):
+            await _audit(thread.guild, f"🗑️ **THREAD DELETED** • `{thread.name}` (`{thread.id}`)")
+
+    async def on_guild_channel_create(self, channel: discord.abc.GuildChannel) -> None:
+        if _is_hq_guild(channel.guild):
+            await _audit(channel.guild, f"➕ **CHANNEL CREATED** • {channel.mention} (`{channel.id}`)")
+
+    async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
+        if _is_hq_guild(channel.guild):
+            await _audit(channel.guild, f"➖ **CHANNEL DELETED** • `#{channel.name}` (`{channel.id}`)")
+
+    async def on_member_join(self, member: discord.Member) -> None:
+        if not _is_hq_guild(member.guild):
+            return
+        age = datetime.now(timezone.utc) - member.created_at
+        flags = []
+        if member.bot:
+            flags.append("bot account")
+        if age < timedelta(days=1):
+            flags.append("account under 24 hours old")
+        suffix = f"\n⚠️ Review: {', '.join(flags)}" if flags else ""
+        await _audit(
+            member.guild,
+            f"📥 **MEMBER JOINED** • {member.mention} (`{member.id}`)\n"
+            f"Account created: <t:{int(member.created_at.timestamp())}:R>{suffix}",
+            moderation=bool(flags),
+        )
+
+    async def on_member_remove(self, member: discord.Member) -> None:
+        if _is_hq_guild(member.guild):
+            await _audit(member.guild, f"📤 **MEMBER LEFT** • `{member}` (`{member.id}`)")
+
+    async def on_message_delete(self, message: discord.Message) -> None:
+        if message.guild and _is_hq_guild(message.guild) and not message.author.bot:
+            await _audit(
+                message.guild,
+                f"🗑️ **MESSAGE DELETED** • {message.author.mention} in {message.channel.mention}\n"
+                f"Message ID: `{message.id}`",
+            )
+
+    async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
+        if (
+            before.guild
+            and _is_hq_guild(before.guild)
+            and not before.author.bot
+            and before.content != after.content
+        ):
+            await _audit(
+                before.guild,
+                f"✏️ **MESSAGE EDITED** • {before.author.mention} in {before.channel.mention}\n"
+                f"Message ID: `{before.id}`",
+            )
+
+    async def on_message(self, message: discord.Message) -> None:
+        if (
+            not settings.discord_flood_protection_enabled
+            or not message.guild
+            or not _is_hq_guild(message.guild)
+            or message.author.bot
+            or not isinstance(message.author, discord.Member)
+            or _staff_exempt(message.author)
+        ):
+            return
+
+        now = asyncio.get_running_loop().time()
+        key = (message.guild.id, message.author.id)
+        window = max(3, int(settings.discord_flood_window_seconds))
+        limit = max(4, int(settings.discord_flood_message_limit))
+        timestamps = _member_message_times[key]
+        while timestamps and timestamps[0] < now - window:
+            timestamps.popleft()
+        timestamps.append(now)
+        if len(timestamps) < limit or _flood_cooldowns.get(key, 0) > now:
+            return
+
+        _flood_cooldowns[key] = now + 60
+        timestamps.clear()
+        minutes = max(1, min(60, int(settings.discord_flood_timeout_minutes)))
+        try:
+            await message.delete(reason="Pitmark flood protection")
+            await message.author.timeout(
+                timedelta(minutes=minutes),
+                reason=f"Pitmark flood protection: {limit} messages in {window} seconds",
+            )
+            await _audit(
+                message.guild,
+                f"🚨 **FLOOD PROTECTION** • {message.author.mention}\n"
+                f"Detected at least {limit} messages in {window}s; applied a {minutes}-minute timeout.",
+                moderation=True,
+            )
+        except discord.Forbidden:
+            await _audit(
+                message.guild,
+                f"⚠️ **FLOOD DETECTED — ACTION FAILED** • {message.author.mention}\n"
+                "Check the bot's Manage Messages / Moderate Members permissions and role position.",
+                moderation=True,
+            )
+        except Exception:
+            log.exception("Discord flood-protection action failed")
 
 
 _client: PitmarkPresenceClient | None = None
@@ -218,6 +426,11 @@ async def start() -> None:
         return
 
     intents = discord.Intents.none()
+    intents.guilds = True
+    intents.guild_messages = True
+    intents.members = settings.discord_privileged_intents_enabled
+    intents.message_content = settings.discord_privileged_intents_enabled
+    intents.moderation = True
     _client = PitmarkPresenceClient(intents=intents)
 
     async def runner() -> None:
