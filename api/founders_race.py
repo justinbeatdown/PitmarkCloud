@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 from html import escape
 
 from fastapi import APIRouter, Form, Header, Request
@@ -14,61 +13,73 @@ router = APIRouter()
 CANONICAL = "https://prt.pitmarkracing.com"
 
 
-def _b64_text(value: str) -> str:
-    return base64.b64encode(value.encode("utf-8")).decode("ascii")
-
-
 def _shell(title: str, body: str, *, admin: bool = False) -> HTMLResponse:
     script = """
 <script>
 (function(){
-  async function copyText(text, button){
-    let copied=false;
-    try{
-      await navigator.clipboard.writeText(text);
-      copied=true;
-    }catch(e){
-      try{
-        const ta=document.createElement('textarea');
-        ta.value=text;
-        ta.setAttribute('readonly','');
-        ta.style.position='fixed';
-        ta.style.left='-9999px';
-        ta.style.top='0';
-        document.body.appendChild(ta);
-        ta.focus();
-        ta.select();
-        ta.setSelectionRange(0, ta.value.length);
-        copied=document.execCommand('copy');
-        ta.remove();
-      }catch(_){ copied=false; }
-    }
-    if(button){
-      const old=button.textContent;
-      button.textContent=copied ? 'COPIED ✓' : 'COPY FAILED';
-      setTimeout(()=>button.textContent=old,1600);
-    }
+  function flash(button, ok){
+    if(!button) return;
+    const old=button.textContent;
+    button.textContent=ok ? 'COPIED ✓' : 'SELECT + COPY BELOW';
+    setTimeout(()=>button.textContent=old,1800);
   }
-  function decodeB64Utf8(value){
-    const binary=atob(value||'');
-    const bytes=Uint8Array.from(binary, c=>c.charCodeAt(0));
-    return new TextDecoder('utf-8').decode(bytes);
+  function legacyCopy(text){
+    const ta=document.createElement('textarea');
+    ta.value=text;
+    ta.style.position='fixed';
+    ta.style.left='-9999px';
+    ta.style.top='0';
+    ta.style.opacity='0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    let ok=false;
+    try{ok=document.execCommand('copy');}catch(e){ok=false;}
+    ta.remove();
+    return ok;
+  }
+  async function copyText(text, button){
+    // Try the synchronous legacy path first while the click still owns user activation.
+    if(legacyCopy(text)){flash(button,true);return true;}
+    try{
+      if(navigator.clipboard && window.isSecureContext){
+        await navigator.clipboard.writeText(text);
+        flash(button,true);
+        return true;
+      }
+    }catch(e){}
+    flash(button,false);
+    return false;
   }
   document.addEventListener('click', async function(e){
-    const copy=e.target.closest('[data-copy],[data-copy-b64]');
+    const copy=e.target.closest('[data-copy],[data-copy-target]');
     if(copy){
       e.preventDefault();
       let text=copy.getAttribute('data-copy')||'';
-      const encoded=copy.getAttribute('data-copy-b64');
-      if(encoded){try{text=decodeB64Utf8(encoded);}catch(err){text='';}}
-      await copyText(text,copy);
+      const targetId=copy.getAttribute('data-copy-target');
+      if(targetId){
+        const source=document.getElementById(targetId);
+        if(source) text=('value' in source ? source.value : source.textContent)||'';
+      }
+      const ok=await copyText(text,copy);
+      if(!ok && targetId){
+        const source=document.getElementById(targetId);
+        if(source){
+          source.hidden=false;
+          source.focus();
+          if(source.select) source.select();
+          source.scrollIntoView({behavior:'smooth',block:'center'});
+        }
+      }
       return;
     }
     const share=e.target.closest('[data-share]');
     if(share){
-      e.preventDefault(); const url=share.getAttribute('data-share')||location.href;
-      const text=share.getAttribute('data-share-text')||'Join PRT Early Access through my Founder\'s Race link.';
-      if(navigator.share){try{await navigator.share({title:'PRT Founder\'s Race',text,url}); return;}catch(err){}}
+      e.preventDefault();
+      const url=share.getAttribute('data-share')||location.href;
+      const text=share.getAttribute('data-share-text')||"Join PRT Early Access through my Founder's Race link.";
+      if(navigator.share){try{await navigator.share({title:"PRT Founder's Race",text,url});return;}catch(err){}}
       await copyText(url,share);
     }
   });
@@ -88,7 +99,7 @@ def _shell(title: str, body: str, *, admin: bool = False) -> HTMLResponse:
 .podium{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px;align-items:end}}.pod{{position:relative;min-height:155px;padding:18px;border:1px solid var(--line);border-radius:16px;background:#0b0f13;overflow:hidden}}.pod.p1{{min-height:182px;border-color:rgba(255,85,0,.45);background:linear-gradient(180deg,rgba(255,85,0,.09),#0b0f13)}}.pod .p{{font-size:34px;font-weight:1000;font-style:italic;color:var(--o)}}.pod .n{{font-weight:900;margin-top:9px}}.pod .q{{font-size:28px;font-weight:1000;margin-top:12px}}.pod small{{display:block;color:var(--muted);text-transform:uppercase;font-size:8px;letter-spacing:.1em}}
 .standings{{display:grid;gap:8px}}.row{{display:grid;grid-template-columns:58px 1fr 94px;align-items:center;gap:10px;padding:13px;border:1px solid var(--line);border-radius:12px;background:#0b0f13}}.pos{{font-size:23px;font-weight:1000;font-style:italic;color:var(--o2)}}.name{{font-weight:850}}.count{{text-align:right;font-size:22px;font-weight:1000}}.count small{{display:block;color:var(--muted);font-size:8px;text-transform:uppercase;letter-spacing:.09em}}.tag{{display:inline-block;padding:4px 7px;border-radius:999px;background:rgba(255,85,0,.08);color:#ff9d70;font-size:8px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;margin-top:4px}}
 .steps{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}}.step{{padding:18px;border:1px solid var(--line);border-radius:14px;background:#0b0f13}}.step .num{{font-size:28px;font-weight:1000;color:var(--o)}}.prizes{{display:grid;gap:9px}}.prize{{padding:14px;border:1px solid var(--line);border-radius:12px;background:#0b0f13}}.prize strong{{display:block;color:var(--o2)}}
-.linkbox{{padding:14px;border:1px solid rgba(255,85,0,.35);border-radius:12px;background:rgba(255,85,0,.055);word-break:break-all;font:700 12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;color:#ffd1bc}}.sharecopy{{white-space:pre-wrap;padding:14px;border:1px dashed rgba(255,255,255,.15);border-radius:12px;background:#090c0f;color:#d6dade;font-size:12px;line-height:1.55}}.progress{{height:11px;border-radius:999px;background:#080a0d;border:1px solid var(--line);overflow:hidden}}.progress>span{{display:block;height:100%;background:linear-gradient(90deg,var(--o),#ff8d55)}}
+.linkbox{{padding:14px;border:1px solid rgba(255,85,0,.35);border-radius:12px;background:rgba(255,85,0,.055);word-break:break-all;font:700 12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;color:#ffd1bc}}.sharecopy{{white-space:pre-wrap;padding:14px;border:1px dashed rgba(255,255,255,.15);border-radius:12px;background:#090c0f;color:#d6dade;font-size:12px;line-height:1.55}}.copy-source{{width:100%;min-height:210px;margin-top:10px;padding:12px;border:1px solid rgba(255,85,0,.35);border-radius:10px;background:#090c0f;color:#e7eaec;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;resize:vertical}}.progress{{height:11px;border-radius:999px;background:#080a0d;border:1px solid var(--line);overflow:hidden}}.progress>span{{display:block;height:100%;background:linear-gradient(90deg,var(--o),#ff8d55)}}
 form{{display:grid;gap:12px}}label{{font-size:10px;color:#aeb5bb;font-weight:850;letter-spacing:.05em;text-transform:uppercase}}input,select,textarea{{width:100%;margin-top:6px;padding:12px;border-radius:9px;border:1px solid var(--line);background:#090c10;color:white}}textarea{{min-height:90px;resize:vertical}}.checks{{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}}.check{{display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:9px;padding:10px;background:#0b0f13;font-size:12px;color:#d9dcdf;text-transform:none;letter-spacing:0}}.check input{{width:auto;margin:0}}
 table{{width:100%;border-collapse:collapse;font-size:11px}}th,td{{padding:9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}}th{{color:#818a93;font-size:8px;text-transform:uppercase;letter-spacing:.08em}}details{{margin-top:9px}}summary{{cursor:pointer;color:#d9dcdf;font-weight:800}}.tester{{padding:18px;border:1px solid var(--line);border-radius:16px;background:#0b0f13;margin-top:11px}}.testerhead{{display:flex;justify-content:space-between;gap:12px;align-items:start}}.testerlinks{{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:13px}}.linklabel{{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}}
 .footer{{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#707980;font-size:10px;text-transform:uppercase;letter-spacing:.08em}}
@@ -250,14 +261,14 @@ def founders_race_admin(request: Request, x_pitmark_admin_key: str | None = Head
             "When Early Access ends, P1 gets 12 months of the highest paid PRT tier, P2 gets 6 months, and P3 gets 3 months.\n\n"
             "Open your hub, grab your recruit link, and bring the grid. 🏁"
         )
-        hub_message_b64 = _b64_text(hub_message)
+        msg_id = f"hubmsg-{r['referral_code']}"
         details = "".join(
             f'<tr><td>#{item["application_id"]}</td><td>{escape(item["applicant_name"])}</td><td>{escape(item["applicant_email"])}</td><td>{escape(item["state"])}</td><td>{escape(item["fraud_reason"] or "—")}</td></tr>'
             for item in r["referrals"]
         ) or '<tr><td colspan="5" class="muted">No referrals yet.</td></tr>'
         cards.append(f"""
         <div class="tester"><div class="testerhead"><div><div class="eyebrow">P{r['position']} · {escape(r['referral_code'])}</div><h2 style="margin-top:5px">{escape(r['display_name'])}</h2><div class="muted">{escape(r['email'])}</div></div><div class="kpis" style="margin:0;grid-template-columns:repeat(3,92px)"><div class="kpi"><span>Q</span><strong>{r['qualified']}</strong></div><div class="kpi"><span>Pending</span><strong>{r['pending']}</strong></div><div class="kpi"><span>Flagged</span><strong>{r['flagged']}</strong></div></div></div>
-        <div class="testerlinks"><div><div class="linklabel">Recruit link — give this to racers</div><div class="linkbox">{escape(recruit)}</div><div class="actions"><button class="btn primary" data-copy="{escape(recruit, quote=True)}">Copy Recruit Link</button><a class="btn" target="_blank" href="/founders-race/r/{escape(r['referral_code'])}">Open</a></div></div><div><div class="linklabel">Tester Race Hub — give this to the tester</div><div class="linkbox">{escape(hub)}</div><div class="actions"><button class="btn primary" data-copy-b64="{hub_message_b64}">Copy Hub + Message</button><a class="btn" target="_blank" href="/founders-race/t/{escape(r['referral_code'])}">Open Hub</a></div></div></div>
+        <div class="testerlinks"><div><div class="linklabel">Recruit link — give this to racers</div><div class="linkbox">{escape(recruit)}</div><div class="actions"><button class="btn primary" data-copy="{escape(recruit, quote=True)}">Copy Recruit Link</button><a class="btn" target="_blank" href="/founders-race/r/{escape(r['referral_code'])}">Open</a></div></div><div><div class="linklabel">Tester Race Hub — give this to the tester</div><div class="linkbox">{escape(hub)}</div><div class="actions"><button class="btn primary" data-copy-target="{escape(msg_id, quote=True)}">Copy Hub + Message</button><a class="btn" target="_blank" href="/founders-race/t/{escape(r['referral_code'])}">Open Hub</a></div><details><summary>Preview send message</summary><textarea id="{escape(msg_id, quote=True)}" class="copy-source" readonly>{escape(hub_message)}</textarea></details></div></div>
         <details><summary>Referral audit ({r['total']})</summary><div style="overflow:auto"><table><thead><tr><th>App</th><th>Name</th><th>Email</th><th>State</th><th>Flag</th></tr></thead><tbody>{details}</tbody></table></div></details></div>""")
     body = f"""
     <div class="top"><div class="brand">PITMARK CONTROL <b>FOUNDER’S RACE</b></div><div class="nav"><a href="/control">Control Center</a><a target="_blank" href="/founders-race">Public Race</a><a href="/control/early-access">Early Access</a></div></div>
