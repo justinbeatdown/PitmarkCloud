@@ -27,6 +27,14 @@ class Settings(BaseSettings):
     discord_hq_guild_id: str = ""
     discord_owner_user_id: str = ""
     discord_hq_install_permissions: int = 8
+    discord_support_automation_enabled: bool = True
+    discord_bug_forum_name: str = "prt-bug-reports"
+    discord_audit_logging_enabled: bool = True
+    discord_flood_protection_enabled: bool = True
+    discord_flood_message_limit: int = 8
+    discord_flood_window_seconds: int = 10
+    discord_flood_timeout_minutes: int = 10
+    discord_privileged_intents_enabled: bool = False
     pitmark_admin_key: str = ""
     pitmark_ai_provider: str = "openai"
     pitmark_ai_model: str = "gpt-5.6-luna"
