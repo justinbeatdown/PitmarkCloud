@@ -89,11 +89,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "font-src 'self'"
             )
         elif request.url.path.startswith(("/founders-race", "/control/founders-race")):
-            # Founder's Race is server-rendered with inline CSS. Referral application
-            # and authenticated admin forms post only to Pitmark's own origin.
+            # Founder’s Race is server-rendered with inline CSS and a tiny inline helper
+            # for user-initiated copy/share actions. Forms remain same-origin only.
             response.headers["Content-Security-Policy"] = (
-                "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; "
-                "base-uri 'none'; form-action 'self'; img-src 'self'; script-src 'none'"
+                "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; frame-ancestors 'none'; "
+                "base-uri 'none'; form-action 'self'; img-src 'self'"
             )
         elif request.url.path.startswith("/control/early-access"):
             # Applicant Center is authenticated and server-rendered. Management forms
