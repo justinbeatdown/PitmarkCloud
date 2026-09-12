@@ -1,4 +1,4 @@
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
 
 from api import early_access_admin as early_access_admin
 from api import founders_race as founders_race
@@ -11,26 +11,24 @@ prt_ui.router.include_router(founders_race.router)
 
 
 def _gmail_compose_direct(email: str, name: str) -> str:
-    """Open Gmail compose directly instead of bouncing through Google AccountChooser.
+    """Open a compose draft without depending on Gmail web-account redirects.
 
-    The generic /mail/? compose URL can send Workspace/multi-account sessions through
-    accounts.google.com and, in some browsers, end up in an ERR_TOO_MANY_REDIRECTS loop.
-    Pinning the compose route to the active Gmail slot avoids that account chooser hop.
+    Google Workspace/multi-account browser sessions can redirect mail.google.com
+    through accounts.google.com and hit ERR_TOO_MANY_REDIRECTS. A mailto link hands
+    the compose request to the user's configured mail handler instead and keeps the
+    applicant address, subject, and greeting prefilled.
     """
     query = urlencode(
         {
-            "view": "cm",
-            "fs": "1",
-            "tf": "1",
-            "to": email,
-            "su": "Pitmark Racing Tools Early Access",
+            "subject": "Pitmark Racing Tools Early Access",
             "body": f"Hi {name},\n\n",
-        }
+        },
+        quote_via=quote,
     )
-    return f"https://mail.google.com/mail/u/0/?{query}"
+    return f"mailto:{quote(email)}?{query}"
 
 
 # Early Access applicant cards call this module-level helper when rendering.
-# Override it here so both the EMAIL IN GMAIL button and applicant email link
-# use the direct Gmail compose route without changing the rest of the admin UI.
+# Override it here so both the contact button and applicant email link avoid
+# Google's account-chooser redirect loop entirely.
 early_access_admin._gmail_compose = _gmail_compose_direct
