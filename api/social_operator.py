@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import select
 
@@ -12,8 +13,10 @@ from services.social_operator import (
     operator_status,
     run_operator_once,
 )
+from utils.config import settings
 
 router = APIRouter()
+_operator_paused = False
 
 
 class EngagementReplyRequest(BaseModel):
@@ -27,13 +30,33 @@ def auth(request: Request, admin_key: str | None):
 @router.get("/status")
 def get_operator_status(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
-    return operator_status()
+    payload = operator_status()
+    payload["paused"] = _operator_paused
+    return payload
 
 
 @router.post("/run")
 def run_operator(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
     return run_operator_once()
+
+
+@router.post("/pause")
+def pause_operator(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    global _operator_paused
+    _operator_paused = True
+    settings.social_operator_enabled = False
+    return {"ok": True, "paused": True}
+
+
+@router.post("/resume")
+def resume_operator(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    global _operator_paused
+    _operator_paused = False
+    settings.social_operator_enabled = True
+    return {"ok": True, "paused": False}
 
 
 @router.get("/engagement")
@@ -120,3 +143,38 @@ def dismiss_engagement(
         event.updated_at = utcnow()
         db.commit()
     return {"ok": True}
+
+
+def _install_control_center_operator_assets() -> None:
+    """Layer Social Operator UI onto the already-loaded v202 Control Center bundle."""
+    try:
+        from api import control_center_ui
+
+        for path, media_type, base_name, operator_name in (
+            ("/control-center-v202.js", "application/javascript", "control_center_v202.js", "control_social_operator.js"),
+            ("/control-center-v202.css", "text/css", "control_center_v202.css", "control_social_operator.css"),
+        ):
+            control_center_ui.router.routes[:] = [
+                route for route in control_center_ui.router.routes if getattr(route, "path", None) != path
+            ]
+
+            def layered_asset(
+                _base_name: str = base_name,
+                _operator_name: str = operator_name,
+                _media_type: str = media_type,
+            ) -> Response:
+                base = (control_center_ui.ASSET_DIR / _base_name).read_text(encoding="utf-8")
+                operator = (control_center_ui.ASSET_DIR / _operator_name).read_text(encoding="utf-8")
+                return Response(
+                    base + "\n\n" + operator,
+                    media_type=_media_type,
+                    headers={"Cache-Control": "no-store"},
+                )
+
+            control_center_ui.router.add_api_route(path, layered_asset, methods=["GET"], include_in_schema=False)
+    except Exception:
+        # A UI enhancement must never prevent Pitmark Cloud from starting.
+        pass
+
+
+_install_control_center_operator_assets()
