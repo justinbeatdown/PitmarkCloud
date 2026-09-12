@@ -162,3 +162,107 @@ def publish_instagram_post(*, caption: str, image_url: str) -> dict:
     if not post_id:
         raise MetaPublishError("Meta returned success without an Instagram post id.")
     return {"ok": True, "platform": "instagram", "external_post_id": post_id, "creation_id": creation_id, "media_url": media, "raw": publish_data}
+
+
+def fetch_facebook_page_comments(*, limit_posts: int = 12, limit_comments: int = 50) -> list[dict]:
+    """Return recent comments on Pitmark-owned Facebook posts.
+
+    This uses only the existing Page token. Missing read permissions are surfaced to the
+    caller so Social Operator can degrade to posting-only mode instead of guessing.
+    """
+    if not facebook_configured():
+        return []
+    token = _page_token()
+    fields = (
+        "id,message,created_time,"
+        f"comments.limit({max(1, min(100, limit_comments))})"
+        "{id,message,created_time,from{id,name},can_reply}"
+    )
+    response = httpx.get(
+        _graph_url(settings.meta_page_id, "published_posts"),
+        params={"fields": fields, "limit": max(1, min(50, limit_posts)), "access_token": token},
+        timeout=25.0,
+    )
+    data = _decode(response)
+    page_id = settings.meta_page_id.strip()
+    items: list[dict] = []
+    for post in data.get("data") or []:
+        post_id = str(post.get("id") or "")
+        for comment in ((post.get("comments") or {}).get("data") or []):
+            author = comment.get("from") or {}
+            # Do not ingest a top-level comment authored by the Page itself.
+            if str(author.get("id") or "") == page_id:
+                continue
+            items.append(
+                {
+                    "id": str(comment.get("id") or ""),
+                    "post_id": post_id,
+                    "message": str(comment.get("message") or ""),
+                    "author_name": str(author.get("name") or ""),
+                    "created_time": comment.get("created_time"),
+                    "can_reply": comment.get("can_reply", True),
+                }
+            )
+    return items
+
+
+def reply_facebook_comment(comment_id: str, message: str) -> dict:
+    if not facebook_configured():
+        raise MetaPublishError("Facebook publishing is not configured.")
+    body = (message or "").strip()
+    if not comment_id.strip() or not body:
+        raise MetaPublishError("Facebook comment reply needs a comment id and message.")
+    response = httpx.post(
+        _graph_url(comment_id, "comments"),
+        data={"message": body, "access_token": _page_token()},
+        timeout=25.0,
+    )
+    data = _decode(response)
+    return {"ok": True, "platform": "facebook", "external_reply_id": data.get("id"), "raw": data}
+
+
+def fetch_instagram_comments(*, limit_media: int = 12, limit_comments: int = 50) -> list[dict]:
+    if not instagram_configured():
+        return []
+    token = _page_token()
+    ig_id = settings.meta_instagram_account_id.strip()
+    fields = (
+        "id,caption,timestamp,"
+        f"comments.limit({max(1, min(100, limit_comments))})"
+        "{id,text,timestamp,username}"
+    )
+    response = httpx.get(
+        _graph_url(ig_id, "media"),
+        params={"fields": fields, "limit": max(1, min(50, limit_media)), "access_token": token},
+        timeout=25.0,
+    )
+    data = _decode(response)
+    items: list[dict] = []
+    for media in data.get("data") or []:
+        media_id = str(media.get("id") or "")
+        for comment in ((media.get("comments") or {}).get("data") or []):
+            items.append(
+                {
+                    "id": str(comment.get("id") or ""),
+                    "media_id": media_id,
+                    "message": str(comment.get("text") or ""),
+                    "author_name": str(comment.get("username") or ""),
+                    "created_time": comment.get("timestamp"),
+                }
+            )
+    return items
+
+
+def reply_instagram_comment(comment_id: str, message: str) -> dict:
+    if not instagram_configured():
+        raise MetaPublishError("Instagram publishing is not configured.")
+    body = (message or "").strip()
+    if not comment_id.strip() or not body:
+        raise MetaPublishError("Instagram comment reply needs a comment id and message.")
+    response = httpx.post(
+        _graph_url(comment_id, "replies"),
+        data={"message": body, "access_token": _page_token()},
+        timeout=25.0,
+    )
+    data = _decode(response)
+    return {"ok": True, "platform": "instagram", "external_reply_id": data.get("id"), "raw": data}
