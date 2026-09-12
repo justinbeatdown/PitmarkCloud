@@ -65,3 +65,52 @@ def search_recent(query:str,max_results:int=10)->list[dict]:
     except httpx.HTTPError: return []
     if r.is_error: return []
     return r.json().get('data') or []
+
+
+def _current_user() -> dict | None:
+    if not configured():
+        return None
+    url = 'https://api.x.com/2/users/me'
+    params = {'user.fields': 'id,name,username'}
+    try:
+        r = httpx.get(url, headers={'Authorization': _oauth('GET', url, params)}, params=params, timeout=20)
+    except httpx.HTTPError:
+        return None
+    if r.is_error:
+        return None
+    return r.json().get('data') or None
+
+
+def fetch_mentions(max_results: int = 25) -> list[dict]:
+    """Fetch recent mentions of the connected Pitmark X account.
+
+    Read failures return an empty list so Social Operator can continue serving Facebook/Instagram.
+    """
+    user = _current_user()
+    if not user or not user.get('id'):
+        return []
+    user_id = str(user['id'])
+    url = f'https://api.x.com/2/users/{user_id}/mentions'
+    params = {
+        'max_results': max(5, min(100, max_results)),
+        'tweet.fields': 'created_at,author_id,conversation_id,public_metrics,lang',
+        'expansions': 'author_id',
+        'user.fields': 'id,name,username',
+    }
+    try:
+        r = httpx.get(url, headers={'Authorization': _oauth('GET', url, params)}, params=params, timeout=20)
+    except httpx.HTTPError:
+        return []
+    if r.is_error:
+        return []
+    payload = r.json()
+    users = {str(item.get('id')): item for item in ((payload.get('includes') or {}).get('users') or [])}
+    items = []
+    for tweet in payload.get('data') or []:
+        author = users.get(str(tweet.get('author_id') or '')) or {}
+        items.append({
+            **tweet,
+            'author_name': author.get('name') or author.get('username') or tweet.get('author_id'),
+            'author_username': author.get('username'),
+        })
+    return items

@@ -4,7 +4,7 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PITMARK_RELEASE_VERSION = "0.21.42"
+PITMARK_RELEASE_VERSION = "0.21.43"
 
 
 class Settings(BaseSettings):
@@ -55,6 +55,17 @@ class Settings(BaseSettings):
         "grassroots racing OR dirt track racing OR short track racing "
         "OR sim racing OR motorsports"
     )
+
+    # Social Operator: fills quiet posting gaps and keeps safe comment threads alive.
+    # It deliberately does not automate Facebook Group sharing or invite-to-follow.
+    social_operator_enabled: bool = True
+    social_operator_auto_reply_enabled: bool = True
+    social_operator_growth_posts_enabled: bool = True
+    social_operator_autopublish_low_risk: bool = True
+    social_operator_poll_seconds: int = 300
+    social_operator_min_facebook_posts_daily: int = 1
+    social_operator_min_x_posts_daily: int = 1
+
     meta_app_id: str = ""
     meta_app_secret: str = ""
     meta_page_id: str = ""

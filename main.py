@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse
 from utils.security import SecurityHeadersMiddleware, security_summary
 
-from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_v19, control_center_v195, control_access_v191, control_center_ui, social_publish, social_context_v191, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, early_access_admin
+from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_v19, control_center_v195, control_access_v191, control_center_ui, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, early_access_admin
 from utils.config import settings
 from utils.logger import configure_logging
 from services import discord_gateway_service
@@ -20,6 +20,7 @@ from services.autopilot_intelligence import scheduler_loop
 from services.autopilot_multiplatform import scheduler_loop as multiplatform_scheduler_loop
 from services.research_agent import research_worker_loop
 from services.social_publish_worker import social_publish_worker_loop
+from services.social_operator import social_operator_loop
 from services.shield_mail_cleanup import purge_orphaned_mail_events
 from services.shield_mail_worker import sync_gmail_shield_worker
 from services.control_access import access_from_request, permission_for_path
@@ -121,14 +122,16 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(multiplatform_scheduler_loop(), name="autopilot-multiplatform"),
         asyncio.create_task(research_worker_loop(), name="autopilot-research"),
         asyncio.create_task(social_publish_worker_loop(), name="social-publish"),
+        asyncio.create_task(social_operator_loop(), name="social-operator"),
         asyncio.create_task(gmail_sync_loop(), name="gmail-shield"),
         asyncio.create_task(runtime_maintenance_loop(), name="runtime-memory-maintenance"),
     ]
     log.info(
-        "Pitmark Cloud runtime started: background_threads=%s gmail_sync_min=%ss gmail_batch<=%s",
+        "Pitmark Cloud runtime started: background_threads=%s gmail_sync_min=%ss gmail_batch<=%s social_operator=%s",
         background_threads,
         _env_int("PITMARK_GMAIL_SYNC_SECONDS", 120, 120, 3600),
         _env_int("PITMARK_GMAIL_SYNC_LIMIT", 25, 5, 25),
+        settings.social_operator_enabled,
     )
     try:
         yield
@@ -199,6 +202,7 @@ app.include_router(control_center_v195.router, prefix="/api/control", tags=["con
 app.include_router(control_center.router, prefix="/api/control", tags=["control-center"])
 app.include_router(social_context_v191.router, prefix="/api/control/social", tags=["social-context-v191"])
 app.include_router(social_publish.router, prefix="/api/control/social", tags=["social-publishing"])
+app.include_router(social_operator.router, prefix="/api/control/social/operator", tags=["social-operator"])
 app.include_router(social_publish.public_router, tags=["public-social-assets"])
 app.include_router(email_center_v19.router, prefix="/api/control/email", tags=["email-v19"])
 app.include_router(email_center.router, prefix="/api/control/email", tags=["email"])
