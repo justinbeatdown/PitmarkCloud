@@ -203,13 +203,24 @@ def founders_race_admin(request: Request, x_pitmark_admin_key: str | None = Head
     for r in rows:
         recruit = f"{CANONICAL}/founders-race/r/{r['referral_code']}"
         hub = f"{CANONICAL}/founders-race/t/{r['referral_code']}"
+        hub_message = (
+            f"Hey {r['display_name']}! 🏁\n\n"
+            "You’re officially in the PRT Founder’s Race — our Early Access referral championship. "
+            "This is your personal Race Hub:\n\n"
+            f"{hub}\n\n"
+            "Inside, you’ll find your unique recruit link, current position, qualified and pending referrals, "
+            "milestone progress, and ready-made social copy you can share.\n\n"
+            "A referral only counts after the racer applies through your link, gets approved, and actually activates PRT. "
+            "When Early Access ends, P1 gets 12 months of the highest paid PRT tier, P2 gets 6 months, and P3 gets 3 months.\n\n"
+            "Open your hub, grab your recruit link, and bring the grid. 🏁"
+        )
         details = "".join(
             f'<tr><td>#{item["application_id"]}</td><td>{escape(item["applicant_name"])}</td><td>{escape(item["applicant_email"])}</td><td>{escape(item["state"])}</td><td>{escape(item["fraud_reason"] or "—")}</td></tr>'
             for item in r["referrals"]
         ) or '<tr><td colspan="5" class="muted">No referrals yet.</td></tr>'
         cards.append(f"""
         <div class="tester"><div class="testerhead"><div><div class="eyebrow">P{r['position']} · {escape(r['referral_code'])}</div><h2 style="margin-top:5px">{escape(r['display_name'])}</h2><div class="muted">{escape(r['email'])}</div></div><div class="kpis" style="margin:0;grid-template-columns:repeat(3,92px)"><div class="kpi"><span>Q</span><strong>{r['qualified']}</strong></div><div class="kpi"><span>Pending</span><strong>{r['pending']}</strong></div><div class="kpi"><span>Flagged</span><strong>{r['flagged']}</strong></div></div></div>
-        <div class="testerlinks"><div><div class="linklabel">Recruit link — give this to racers</div><div class="linkbox">{escape(recruit)}</div><div class="actions"><button class="btn primary" data-copy="{escape(recruit, quote=True)}">Copy Recruit Link</button><a class="btn" target="_blank" href="/founders-race/r/{escape(r['referral_code'])}">Open</a></div></div><div><div class="linklabel">Tester Race Hub — give this to the tester</div><div class="linkbox">{escape(hub)}</div><div class="actions"><button class="btn primary" data-copy="{escape(hub, quote=True)}">Copy Hub Link</button><a class="btn" target="_blank" href="/founders-race/t/{escape(r['referral_code'])}">Open Hub</a></div></div></div>
+        <div class="testerlinks"><div><div class="linklabel">Recruit link — give this to racers</div><div class="linkbox">{escape(recruit)}</div><div class="actions"><button class="btn primary" data-copy="{escape(recruit, quote=True)}">Copy Recruit Link</button><a class="btn" target="_blank" href="/founders-race/r/{escape(r['referral_code'])}">Open</a></div></div><div><div class="linklabel">Tester Race Hub — give this to the tester</div><div class="linkbox">{escape(hub)}</div><div class="actions"><button class="btn primary" data-copy="{escape(hub_message, quote=True)}">Copy Hub + Message</button><a class="btn" target="_blank" href="/founders-race/t/{escape(r['referral_code'])}">Open Hub</a></div></div></div>
         <details><summary>Referral audit ({r['total']})</summary><div style="overflow:auto"><table><thead><tr><th>App</th><th>Name</th><th>Email</th><th>State</th><th>Flag</th></tr></thead><tbody>{details}</tbody></table></div></details></div>""")
     body = f"""
     <div class="top"><div class="brand">PITMARK CONTROL <b>FOUNDER’S RACE</b></div><div class="nav"><a href="/control">Control Center</a><a target="_blank" href="/founders-race">Public Race</a><a href="/control/early-access">Early Access</a></div></div>
