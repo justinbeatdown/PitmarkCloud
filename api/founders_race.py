@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from html import escape
 
 from fastapi import APIRouter, Form, Header, Request
@@ -13,21 +14,56 @@ router = APIRouter()
 CANONICAL = "https://prt.pitmarkracing.com"
 
 
+def _b64_text(value: str) -> str:
+    return base64.b64encode(value.encode("utf-8")).decode("ascii")
+
+
 def _shell(title: str, body: str, *, admin: bool = False) -> HTMLResponse:
     script = """
 <script>
 (function(){
   async function copyText(text, button){
-    try{await navigator.clipboard.writeText(text);}
-    catch(e){
-      const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
-      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    let copied=false;
+    try{
+      await navigator.clipboard.writeText(text);
+      copied=true;
+    }catch(e){
+      try{
+        const ta=document.createElement('textarea');
+        ta.value=text;
+        ta.setAttribute('readonly','');
+        ta.style.position='fixed';
+        ta.style.left='-9999px';
+        ta.style.top='0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        copied=document.execCommand('copy');
+        ta.remove();
+      }catch(_){ copied=false; }
     }
-    if(button){const old=button.textContent; button.textContent='COPIED ✓'; setTimeout(()=>button.textContent=old,1400);}
+    if(button){
+      const old=button.textContent;
+      button.textContent=copied ? 'COPIED ✓' : 'COPY FAILED';
+      setTimeout(()=>button.textContent=old,1600);
+    }
+  }
+  function decodeB64Utf8(value){
+    const binary=atob(value||'');
+    const bytes=Uint8Array.from(binary, c=>c.charCodeAt(0));
+    return new TextDecoder('utf-8').decode(bytes);
   }
   document.addEventListener('click', async function(e){
-    const copy=e.target.closest('[data-copy]');
-    if(copy){e.preventDefault(); await copyText(copy.getAttribute('data-copy')||'',copy); return;}
+    const copy=e.target.closest('[data-copy],[data-copy-b64]');
+    if(copy){
+      e.preventDefault();
+      let text=copy.getAttribute('data-copy')||'';
+      const encoded=copy.getAttribute('data-copy-b64');
+      if(encoded){try{text=decodeB64Utf8(encoded);}catch(err){text='';}}
+      await copyText(text,copy);
+      return;
+    }
     const share=e.target.closest('[data-share]');
     if(share){
       e.preventDefault(); const url=share.getAttribute('data-share')||location.href;
@@ -214,13 +250,14 @@ def founders_race_admin(request: Request, x_pitmark_admin_key: str | None = Head
             "When Early Access ends, P1 gets 12 months of the highest paid PRT tier, P2 gets 6 months, and P3 gets 3 months.\n\n"
             "Open your hub, grab your recruit link, and bring the grid. 🏁"
         )
+        hub_message_b64 = _b64_text(hub_message)
         details = "".join(
             f'<tr><td>#{item["application_id"]}</td><td>{escape(item["applicant_name"])}</td><td>{escape(item["applicant_email"])}</td><td>{escape(item["state"])}</td><td>{escape(item["fraud_reason"] or "—")}</td></tr>'
             for item in r["referrals"]
         ) or '<tr><td colspan="5" class="muted">No referrals yet.</td></tr>'
         cards.append(f"""
         <div class="tester"><div class="testerhead"><div><div class="eyebrow">P{r['position']} · {escape(r['referral_code'])}</div><h2 style="margin-top:5px">{escape(r['display_name'])}</h2><div class="muted">{escape(r['email'])}</div></div><div class="kpis" style="margin:0;grid-template-columns:repeat(3,92px)"><div class="kpi"><span>Q</span><strong>{r['qualified']}</strong></div><div class="kpi"><span>Pending</span><strong>{r['pending']}</strong></div><div class="kpi"><span>Flagged</span><strong>{r['flagged']}</strong></div></div></div>
-        <div class="testerlinks"><div><div class="linklabel">Recruit link — give this to racers</div><div class="linkbox">{escape(recruit)}</div><div class="actions"><button class="btn primary" data-copy="{escape(recruit, quote=True)}">Copy Recruit Link</button><a class="btn" target="_blank" href="/founders-race/r/{escape(r['referral_code'])}">Open</a></div></div><div><div class="linklabel">Tester Race Hub — give this to the tester</div><div class="linkbox">{escape(hub)}</div><div class="actions"><button class="btn primary" data-copy="{escape(hub_message, quote=True)}">Copy Hub + Message</button><a class="btn" target="_blank" href="/founders-race/t/{escape(r['referral_code'])}">Open Hub</a></div></div></div>
+        <div class="testerlinks"><div><div class="linklabel">Recruit link — give this to racers</div><div class="linkbox">{escape(recruit)}</div><div class="actions"><button class="btn primary" data-copy="{escape(recruit, quote=True)}">Copy Recruit Link</button><a class="btn" target="_blank" href="/founders-race/r/{escape(r['referral_code'])}">Open</a></div></div><div><div class="linklabel">Tester Race Hub — give this to the tester</div><div class="linkbox">{escape(hub)}</div><div class="actions"><button class="btn primary" data-copy-b64="{hub_message_b64}">Copy Hub + Message</button><a class="btn" target="_blank" href="/founders-race/t/{escape(r['referral_code'])}">Open Hub</a></div></div></div>
         <details><summary>Referral audit ({r['total']})</summary><div style="overflow:auto"><table><thead><tr><th>App</th><th>Name</th><th>Email</th><th>State</th><th>Flag</th></tr></thead><tbody>{details}</tbody></table></div></details></div>""")
     body = f"""
     <div class="top"><div class="brand">PITMARK CONTROL <b>FOUNDER’S RACE</b></div><div class="nav"><a href="/control">Control Center</a><a target="_blank" href="/founders-race">Public Race</a><a href="/control/early-access">Early Access</a></div></div>
