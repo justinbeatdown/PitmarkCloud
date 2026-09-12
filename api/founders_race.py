@@ -1,16 +1,34 @@
 from __future__ import annotations
 
 from html import escape
+from urllib.parse import quote
 
 from fastapi import APIRouter, Form, Header, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from services.control_auth import require_control_user
 from services.founders_race import leaderboard, record_referral, referrer_card
+from services.pitmark_mail_identities import send_message as send_mail
 from services.prt_applications import submit_application
+from utils.security import enforce_rate_limit
 
 router = APIRouter()
 CANONICAL = "https://prt.pitmarkracing.com"
+
+
+def _hub_message(display_name: str, hub: str) -> str:
+    return (
+        f"Hey {display_name}! 🏁\n\n"
+        "You’re officially in the PRT Founder’s Race — our Early Access referral championship. "
+        "This is your personal Race Hub:\n\n"
+        f"{hub}\n\n"
+        "Inside, you’ll find your unique recruit link, current position, qualified and pending referrals, "
+        "milestone progress, and ready-made social copy you can share.\n\n"
+        "A referral only counts after the racer applies through your link, gets approved, and actually activates PRT. "
+        "When Early Access ends, P1 gets 12 months of the highest paid PRT tier, P2 gets 6 months, and P3 gets 3 months.\n\n"
+        "Open your hub, grab your recruit link, and bring the grid. 🏁\n\n"
+        "— Pitmark Racing Tools\nLeave your mark."
+    )
 
 
 def _shell(title: str, body: str, *, admin: bool = False) -> HTMLResponse:
@@ -40,7 +58,6 @@ def _shell(title: str, body: str, *, admin: bool = False) -> HTMLResponse:
     return ok;
   }
   async function copyText(text, button){
-    // Try the synchronous legacy path first while the click still owns user activation.
     if(legacyCopy(text)){flash(button,true);return true;}
     try{
       if(navigator.clipboard && window.isSecureContext){
@@ -101,7 +118,7 @@ def _shell(title: str, body: str, *, admin: bool = False) -> HTMLResponse:
 .steps{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}}.step{{padding:18px;border:1px solid var(--line);border-radius:14px;background:#0b0f13}}.step .num{{font-size:28px;font-weight:1000;color:var(--o)}}.prizes{{display:grid;gap:9px}}.prize{{padding:14px;border:1px solid var(--line);border-radius:12px;background:#0b0f13}}.prize strong{{display:block;color:var(--o2)}}
 .linkbox{{padding:14px;border:1px solid rgba(255,85,0,.35);border-radius:12px;background:rgba(255,85,0,.055);word-break:break-all;font:700 12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;color:#ffd1bc}}.sharecopy{{white-space:pre-wrap;padding:14px;border:1px dashed rgba(255,255,255,.15);border-radius:12px;background:#090c0f;color:#d6dade;font-size:12px;line-height:1.55}}.copy-source{{width:100%;min-height:210px;margin-top:10px;padding:12px;border:1px solid rgba(255,85,0,.35);border-radius:10px;background:#090c0f;color:#e7eaec;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;resize:vertical}}.progress{{height:11px;border-radius:999px;background:#080a0d;border:1px solid var(--line);overflow:hidden}}.progress>span{{display:block;height:100%;background:linear-gradient(90deg,var(--o),#ff8d55)}}
 form{{display:grid;gap:12px}}label{{font-size:10px;color:#aeb5bb;font-weight:850;letter-spacing:.05em;text-transform:uppercase}}input,select,textarea{{width:100%;margin-top:6px;padding:12px;border-radius:9px;border:1px solid var(--line);background:#090c10;color:white}}textarea{{min-height:90px;resize:vertical}}.checks{{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}}.check{{display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:9px;padding:10px;background:#0b0f13;font-size:12px;color:#d9dcdf;text-transform:none;letter-spacing:0}}.check input{{width:auto;margin:0}}
-table{{width:100%;border-collapse:collapse;font-size:11px}}th,td{{padding:9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}}th{{color:#818a93;font-size:8px;text-transform:uppercase;letter-spacing:.08em}}details{{margin-top:9px}}summary{{cursor:pointer;color:#d9dcdf;font-weight:800}}.tester{{padding:18px;border:1px solid var(--line);border-radius:16px;background:#0b0f13;margin-top:11px}}.testerhead{{display:flex;justify-content:space-between;gap:12px;align-items:start}}.testerlinks{{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:13px}}.linklabel{{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}}
+table{{width:100%;border-collapse:collapse;font-size:11px}}th,td{{padding:9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}}th{{color:#818a93;font-size:8px;text-transform:uppercase;letter-spacing:.08em}}details{{margin-top:9px}}summary{{cursor:pointer;color:#d9dcdf;font-weight:800}}.tester{{padding:18px;border:1px solid var(--line);border-radius:16px;background:#0b0f13;margin-top:11px;scroll-margin-top:16px}}.testerhead{{display:flex;justify-content:space-between;gap:12px;align-items:start}}.testerlinks{{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:13px}}.linklabel{{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}}.notice{{margin:14px 0;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#0d1115;font-weight:800}}.notice.good{{border-color:rgba(80,218,134,.45);color:#aaf0c4}}.notice.bad{{border-color:rgba(255,112,112,.45);color:#ffaaaa}}
 .footer{{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#707980;font-size:10px;text-transform:uppercase;letter-spacing:.08em}}
 @media(max-width:780px){{.grid,.steps,.podium,.testerlinks,.kpis{{grid-template-columns:1fr}}.pod,.pod.p1{{min-height:auto}}.top{{align-items:flex-start;flex-direction:column}}.hero{{padding:24px}}.row{{grid-template-columns:48px 1fr 72px}}.checks{{grid-template-columns:1fr}}.testerhead{{flex-direction:column}}}}
 </style></head><body><div class="wrap">{body}</div>{script}</body></html>""", headers={"Cache-Control":"no-store"})
@@ -239,6 +256,36 @@ def founder_referred_apply(
     return _shell("PRT Founder’s Race · Application received", body)
 
 
+@router.post("/control/founders-race/email/{code}", include_in_schema=False)
+def founders_race_email(code: str, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    require_control_user(request, x_pitmark_admin_key)
+    enforce_rate_limit(request, "founders-race-email", 40, 300)
+    card = referrer_card(code)
+    if card is None:
+        return RedirectResponse(url="/control/founders-race?email_error=not_found", status_code=303)
+    hub = f"{CANONICAL}/founders-race/t/{card['referral_code']}"
+    message = _hub_message(card["display_name"], hub)
+    subject = "Your PRT Founder’s Race Hub 🏁"
+    try:
+        send_mail(
+            to=[card["email"]],
+            from_identity="prt",
+            subject=subject,
+            text=message,
+        )
+    except ValueError as exc:
+        if "sending identity" in str(exc).lower():
+            try:
+                send_mail(to=[card["email"]], subject=subject, text=message)
+            except (ValueError, RuntimeError):
+                return RedirectResponse(url=f"/control/founders-race?email_error=send_failed&code={quote(code)}#tester-{quote(code)}", status_code=303)
+        else:
+            return RedirectResponse(url=f"/control/founders-race?email_error=send_failed&code={quote(code)}#tester-{quote(code)}", status_code=303)
+    except RuntimeError:
+        return RedirectResponse(url=f"/control/founders-race?email_error=send_failed&code={quote(code)}#tester-{quote(code)}", status_code=303)
+    return RedirectResponse(url=f"/control/founders-race?sent={quote(code)}#tester-{quote(code)}", status_code=303)
+
+
 @router.get("/control/founders-race", response_class=HTMLResponse, include_in_schema=False)
 def founders_race_admin(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     require_control_user(request, x_pitmark_admin_key)
@@ -246,35 +293,35 @@ def founders_race_admin(request: Request, x_pitmark_admin_key: str | None = Head
     qualified_total = sum(r["qualified"] for r in rows)
     pending_total = sum(r["pending"] for r in rows)
     flagged_total = sum(r["flagged"] for r in rows)
+    sent_code = (request.query_params.get("sent") or "").strip()
+    error_code = (request.query_params.get("email_error") or "").strip()
+    status_notice = ""
+    if sent_code:
+        sent_row = next((row for row in rows if row["referral_code"] == sent_code), None)
+        who = sent_row["display_name"] if sent_row else sent_code
+        status_notice = f'<div class="notice good">✓ Founder’s Race hub email sent to {escape(who)}.</div>'
+    elif error_code:
+        status_notice = '<div class="notice bad">Couldn’t send that Founder’s Race email. The tester was not emailed.</div>'
     cards = []
     for r in rows:
         recruit = f"{CANONICAL}/founders-race/r/{r['referral_code']}"
         hub = f"{CANONICAL}/founders-race/t/{r['referral_code']}"
-        hub_message = (
-            f"Hey {r['display_name']}! 🏁\n\n"
-            "You’re officially in the PRT Founder’s Race — our Early Access referral championship. "
-            "This is your personal Race Hub:\n\n"
-            f"{hub}\n\n"
-            "Inside, you’ll find your unique recruit link, current position, qualified and pending referrals, "
-            "milestone progress, and ready-made social copy you can share.\n\n"
-            "A referral only counts after the racer applies through your link, gets approved, and actually activates PRT. "
-            "When Early Access ends, P1 gets 12 months of the highest paid PRT tier, P2 gets 6 months, and P3 gets 3 months.\n\n"
-            "Open your hub, grab your recruit link, and bring the grid. 🏁"
-        )
+        hub_message = _hub_message(r["display_name"], hub)
         msg_id = f"hubmsg-{r['referral_code']}"
         details = "".join(
             f'<tr><td>#{item["application_id"]}</td><td>{escape(item["applicant_name"])}</td><td>{escape(item["applicant_email"])}</td><td>{escape(item["state"])}</td><td>{escape(item["fraud_reason"] or "—")}</td></tr>'
             for item in r["referrals"]
         ) or '<tr><td colspan="5" class="muted">No referrals yet.</td></tr>'
         cards.append(f"""
-        <div class="tester"><div class="testerhead"><div><div class="eyebrow">P{r['position']} · {escape(r['referral_code'])}</div><h2 style="margin-top:5px">{escape(r['display_name'])}</h2><div class="muted">{escape(r['email'])}</div></div><div class="kpis" style="margin:0;grid-template-columns:repeat(3,92px)"><div class="kpi"><span>Q</span><strong>{r['qualified']}</strong></div><div class="kpi"><span>Pending</span><strong>{r['pending']}</strong></div><div class="kpi"><span>Flagged</span><strong>{r['flagged']}</strong></div></div></div>
-        <div class="testerlinks"><div><div class="linklabel">Recruit link — give this to racers</div><div class="linkbox">{escape(recruit)}</div><div class="actions"><button class="btn primary" data-copy="{escape(recruit, quote=True)}">Copy Recruit Link</button><a class="btn" target="_blank" href="/founders-race/r/{escape(r['referral_code'])}">Open</a></div></div><div><div class="linklabel">Tester Race Hub — give this to the tester</div><div class="linkbox">{escape(hub)}</div><div class="actions"><button class="btn primary" data-copy-target="{escape(msg_id, quote=True)}">Copy Hub + Message</button><a class="btn" target="_blank" href="/founders-race/t/{escape(r['referral_code'])}">Open Hub</a></div><details><summary>Preview send message</summary><textarea id="{escape(msg_id, quote=True)}" class="copy-source" readonly>{escape(hub_message)}</textarea></details></div></div>
+        <div class="tester" id="tester-{escape(r['referral_code'], quote=True)}"><div class="testerhead"><div><div class="eyebrow">P{r['position']} · {escape(r['referral_code'])}</div><h2 style="margin-top:5px">{escape(r['display_name'])}</h2><div class="muted">{escape(r['email'])}</div></div><div class="kpis" style="margin:0;grid-template-columns:repeat(3,92px)"><div class="kpi"><span>Q</span><strong>{r['qualified']}</strong></div><div class="kpi"><span>Pending</span><strong>{r['pending']}</strong></div><div class="kpi"><span>Flagged</span><strong>{r['flagged']}</strong></div></div></div>
+        <div class="testerlinks"><div><div class="linklabel">Recruit link — give this to racers</div><div class="linkbox">{escape(recruit)}</div><div class="actions"><button class="btn primary" data-copy="{escape(recruit, quote=True)}">Copy Recruit Link</button><a class="btn" target="_blank" href="/founders-race/r/{escape(r['referral_code'])}">Open</a></div></div><div><div class="linklabel">Tester Race Hub — give this to the tester</div><div class="linkbox">{escape(hub)}</div><div class="actions"><button class="btn primary" data-copy-target="{escape(msg_id, quote=True)}">Copy Hub + Message</button><form method="post" action="/control/founders-race/email/{escape(r['referral_code'], quote=True)}" style="display:inline"><button class="btn" type="submit">Email Hub Message</button></form><a class="btn" target="_blank" href="/founders-race/t/{escape(r['referral_code'])}">Open Hub</a></div><details><summary>Preview send message</summary><textarea id="{escape(msg_id, quote=True)}" class="copy-source" readonly>{escape(hub_message)}</textarea></details></div></div>
         <details><summary>Referral audit ({r['total']})</summary><div style="overflow:auto"><table><thead><tr><th>App</th><th>Name</th><th>Email</th><th>State</th><th>Flag</th></tr></thead><tbody>{details}</tbody></table></div></details></div>""")
     body = f"""
     <div class="top"><div class="brand">PITMARK CONTROL <b>FOUNDER’S RACE</b></div><div class="nav"><a href="/control">Control Center</a><a target="_blank" href="/founders-race">Public Race</a><a href="/control/early-access">Early Access</a></div></div>
     <section class="hero"><div class="eyebrow">RACE CONTROL · PRIVATE ADMIN</div><h1>RUN<br>THE FIELD.</h1><p class="lead">Distribute tester hubs, copy recruit links, watch the pipeline, and audit anything suspicious.</p></section>
+    {status_notice}
     <div class="kpis"><div class="kpi"><span>Eligible Testers</span><strong>{len(rows)}</strong></div><div class="kpi"><span>Qualified</span><strong>{qualified_total}</strong></div><div class="kpi"><span>Pending</span><strong>{pending_total}</strong></div><div class="kpi"><span>Flagged</span><strong>{flagged_total}</strong></div></div>
-    <section class="panel"><div class="eyebrow">DISTRIBUTION</div><h2>Tester links + race hubs</h2><p class="muted">Recruit link = what the tester shares publicly. Tester Race Hub = their own campaign dashboard with copy/share tools and progress.</p>{''.join(cards) if cards else '<p class="muted">No eligible Early Access testers found yet.</p>'}</section>
+    <section class="panel"><div class="eyebrow">DISTRIBUTION</div><h2>Tester links + race hubs</h2><p class="muted">Recruit link = what the tester shares publicly. Tester Race Hub = their own campaign dashboard with copy/share tools and progress. Email Hub Message sends the same personalized hub message directly from Pitmark Mail.</p>{''.join(cards) if cards else '<p class="muted">No eligible Early Access testers found yet.</p>'}</section>
     <div class="footer"><span>Founder’s Race Admin</span><span>Rewards remain subject to normal entitlement controls.</span></div>
     """
     return _shell("PRT Founder’s Race · Admin", body, admin=True)
