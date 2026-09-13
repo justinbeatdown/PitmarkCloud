@@ -11,7 +11,8 @@
   function mount() {
     const dash = document.querySelector('[data-view-section="dashboard"]');
     const auto = document.querySelector('[data-view-section="autopilot"]');
-    if (!dash || !auto || document.getElementById('socialOperatorPanel')) return false;
+    if (!dash || !auto) return false;
+    if (document.getElementById('socialOperatorPanel')) return true;
 
     const dashCard = document.createElement('div');
     dashCard.className = 'social-operator-dash-card';
