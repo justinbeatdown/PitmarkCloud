@@ -43,6 +43,26 @@ def _hub_message(display_name: str, hub: str) -> str:
     )
 
 
+def _send_hub_message(email: str, subject: str, text: str) -> None:
+    """Prefer the PRT alias, but never block onboarding if that alias is not approved."""
+    try:
+        send_mail(
+            to=[email],
+            from_identity="prt",
+            subject=subject,
+            text=text,
+        )
+    except ValueError as exc:
+        if "sending identity" not in str(exc).lower():
+            raise
+        log.warning("PRT sending identity unavailable; falling back to approved default sender for %s", email)
+        send_mail(
+            to=[email],
+            subject=subject,
+            text=text,
+        )
+
+
 def _send_hub_email(invite_id: int) -> None:
     try:
         ensure_referrers()
@@ -71,11 +91,10 @@ def _send_hub_email(invite_id: int) -> None:
             code = referrer.referral_code
 
         hub = f"{CANONICAL}/founders-race/t/{code}"
-        send_mail(
-            to=[email],
-            from_identity="prt",
-            subject="Your PRT Founder’s Race Hub is ready 🏁",
-            text=_hub_message(name, hub),
+        _send_hub_message(
+            email,
+            "Your PRT Founder’s Race Hub is ready 🏁",
+            _hub_message(name, hub),
         )
 
         with SessionLocal() as db:
