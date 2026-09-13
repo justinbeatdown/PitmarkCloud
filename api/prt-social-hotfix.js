@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('.tester-proof-kicker')?.remove();
   const avatar = document.querySelector('.tester-proof-avatar');
   if (avatar) {
-    avatar.src = 'https://raw.githubusercontent.com/justinbeatdown/PitmarkCloud/22858f5ba55a3e2382fea38a339a49206dc12f89/api/timmyneutron020-logo.jpg';
+    avatar.src = '/prt-timmy-logo.jpg?v=1';
     avatar.alt = 'TimmyNeutron020 logo';
     avatar.style.width = '64px';
     avatar.style.height = '64px';
