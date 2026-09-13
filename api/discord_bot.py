@@ -5,7 +5,14 @@ from json import JSONDecodeError
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
-from services import discord_bot_service, discord_gateway_service, discord_hq_service, discord_service, guild_config_service
+from services import (
+    discord_bot_service,
+    discord_gateway_service,
+    discord_hq_service,
+    discord_policy_sync,
+    discord_service,
+    guild_config_service,
+)
 from services.database import database_status
 from utils.security import MAX_REQUEST_BODY, enforce_rate_limit
 
@@ -15,6 +22,7 @@ HQ_COMMANDS = {"hq", "ticket", "mod"}
 
 @router.get("/bot/status")
 async def bot_status() -> dict:
+    policy_sync = await discord_policy_sync.ensure_policies()
     return {
         "interaction_endpoint_configured": discord_bot_service.interactions_configured(),
         "command_registration_configured": discord_bot_service.registration_configured(),
@@ -26,6 +34,7 @@ async def bot_status() -> dict:
             "guild_locked": bool(discord_hq_service.configured()),
             "owner_locked": bool(discord_hq_service.configured()),
         },
+        "policies": policy_sync,
         "database": database_status(),
         "install_url": discord_service.install_url(),
     }
@@ -39,7 +48,8 @@ async def register_bot_commands(request: Request, x_pitmark_admin_key: str | Non
     try:
         public_commands = await discord_bot_service.register_commands()
         hq_commands = await discord_hq_service.register_commands()
-        return {"public": public_commands, "hq": hq_commands}
+        policies = await discord_policy_sync.ensure_policies(force=True)
+        return {"public": public_commands, "hq": hq_commands, "policies": policies}
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
 
