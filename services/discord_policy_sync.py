@@ -4,6 +4,7 @@ import logging
 from collections import defaultdict
 from typing import Any
 
+from services import discord_hq_content
 from services.discord_hq_common import DISCORD_API, discord_request, list_channels
 from services.discord_hq_blueprint import (
     EMBED_LINKS,
@@ -132,11 +133,7 @@ async def _message_history(
     *,
     max_pages: int = 20,
 ) -> list[dict[str, Any]]:
-    """Read enough history to find an older canonical managed panel.
-
-    Discord returns newest first. We page backwards so a panel that fell outside
-    the most recent 100 messages is still found instead of being recreated.
-    """
+    """Read enough history to find older canonical managed panels."""
     messages: list[dict[str, Any]] = []
     before: str | None = None
     for _ in range(max_pages):
@@ -172,13 +169,7 @@ async def _cleanup_duplicate_managed_panels(
     channels: list[dict[str, Any]],
     bot_id: str,
 ) -> dict[str, int]:
-    """Undo accidental HQ repainting without touching member/staff messages.
-
-    Only bot-authored embeds with the explicit Pitmark managed-panel marker are
-    candidates. For duplicate copies of the same title in the same channel, the
-    oldest message is kept and all newer copies are removed. If any duplicate was
-    pinned, the keeper is pinned before cleanup.
-    """
+    """Undo accidental HQ repainting without touching user/staff messages."""
     channels_checked = 0
     duplicate_messages_removed = 0
     canonical_panels_found = 0
@@ -205,8 +196,6 @@ async def _cleanup_duplicate_managed_panels(
         channels_checked += 1
 
         for messages in groups.values():
-            # Snowflake IDs are monotonically increasing; the smallest is the
-            # original/oldest managed panel and therefore the canonical copy.
             messages.sort(key=lambda item: int(str(item.get("id") or "0")))
             keeper = messages[0]
             canonical_panels_found += 1
@@ -244,6 +233,75 @@ async def _cleanup_duplicate_managed_panels(
     }
 
 
+async def _safe_hq_upsert_panel(
+    channel: dict[str, Any],
+    *,
+    key: str,
+    embed: dict[str, Any],
+    components: list[dict[str, Any]] | None = None,
+    pin: bool = True,
+) -> str:
+    """Idempotent replacement for the legacy recent-100-message upsert."""
+    channel_id = str(channel["id"])
+    title = f"{MANAGED_PANEL_PREFIX}{key}"
+    embed = dict(embed)
+    embed["title"] = title
+
+    bot_id = await _bot_id()
+    history = await _message_history(channel_id)
+    matches = [
+        message
+        for message in history
+        if str((message.get("author") or {}).get("id") or "") == bot_id
+        and _managed_title(message) == title
+    ]
+    matches.sort(key=lambda item: int(str(item.get("id") or "0")))
+    existing = matches[0] if matches else None
+
+    payload: dict[str, Any] = {"embeds": [embed]}
+    if components:
+        payload["components"] = components
+
+    if existing:
+        response = await discord_request(
+            "PATCH",
+            f"{DISCORD_API}/channels/{channel_id}/messages/{existing['id']}",
+            json=payload,
+        )
+        message = response.json()
+    else:
+        response = await discord_request(
+            "POST",
+            f"{DISCORD_API}/channels/{channel_id}/messages",
+            json=payload,
+        )
+        message = response.json()
+
+    for duplicate in matches[1:]:
+        try:
+            await discord_request(
+                "DELETE",
+                f"{DISCORD_API}/channels/{channel_id}/messages/{duplicate['id']}",
+                reason="Pitmark HQ sync repair: remove duplicate managed panel",
+                expected={200, 204},
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Could not remove duplicate HQ panel: %s", exc)
+
+    if pin:
+        try:
+            await discord_request(
+                "PUT",
+                f"{DISCORD_API}/channels/{channel_id}/messages/pins/{message['id']}",
+                reason="Pitmark HQ sync repair: preserve managed panel pin",
+                expected={200, 204},
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Could not pin managed HQ panel: %s", exc)
+
+    return str(message["id"])
+
+
 async def _upsert_policy_panel(channel: dict[str, Any], bot_id: str) -> str:
     channel_id = str(channel["id"])
     messages = await _message_history(channel_id)
@@ -275,21 +333,9 @@ async def _upsert_policy_panel(channel: dict[str, Any], bot_id: str) -> str:
         ),
         "color": 0xFF5500,
         "fields": [
-            {
-                "name": "🛍️ Store & Customer Policies",
-                "value": store_links,
-                "inline": False,
-            },
-            {
-                "name": "🏎️ Pitmark Racing Tools",
-                "value": prt_links,
-                "inline": False,
-            },
-            {
-                "name": "📸 Media, Creators & Partners",
-                "value": relationship_links,
-                "inline": False,
-            },
+            {"name": "🛍️ Store & Customer Policies", "value": store_links, "inline": False},
+            {"name": "🏎️ Pitmark Racing Tools", "value": prt_links, "inline": False},
+            {"name": "📸 Media, Creators & Partners", "value": relationship_links, "inline": False},
             {
                 "name": "✉️ Questions",
                 "value": (
@@ -323,7 +369,6 @@ async def _upsert_policy_panel(channel: dict[str, Any], bot_id: str) -> str:
         )
         message = response.json()
 
-    # Remove any duplicate policy panels if an earlier failed rollout produced one.
     for duplicate in matches[1:]:
         try:
             await discord_request(
@@ -359,11 +404,7 @@ async def ensure_policies(*, force: bool = False) -> dict[str, Any]:
     try:
         channels = await list_channels(guild_id)
         bot_id = await _bot_id()
-
-        # Repair the accidental duplicate managed panels before adding/updating
-        # the legal channel. This cleanup is deliberately marker- and author-bound.
         cleanup = await _cleanup_duplicate_managed_panels(channels, bot_id)
-
         channel = await _ensure_channel(guild_id, channels, bot_id)
         message_id = await _upsert_policy_panel(channel, bot_id)
         _synced = True
@@ -375,10 +416,29 @@ async def ensure_policies(*, force: bool = False) -> dict[str, Any]:
             "message_id": message_id,
             "cleanup": cleanup,
         }
-    except Exception as exc:  # noqa: BLE001 - status endpoint should remain available
+    except Exception as exc:  # noqa: BLE001
         log.exception("Discord policy sync failed")
         return {
             "configured": True,
             "synced": False,
             "error": str(exc)[:500],
         }
+
+
+# Patch the HQ content layer at import time. This keeps /hq sync compatible with
+# the existing command path while replacing the unsafe recent-100-message upsert.
+_original_sync_server_content = discord_hq_content.sync_server_content
+
+
+async def _safe_sync_server_content(guild_id: str) -> dict[str, Any]:
+    result = await _original_sync_server_content(guild_id)
+    policies = await ensure_policies(force=True)
+    result["policies_synced"] = bool(policies.get("synced"))
+    result["duplicate_panels_removed"] = int(
+        ((policies.get("cleanup") or {}).get("duplicates_removed") or 0)
+    )
+    return result
+
+
+discord_hq_content._upsert_panel = _safe_hq_upsert_panel
+discord_hq_content.sync_server_content = _safe_sync_server_content
