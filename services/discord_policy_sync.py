@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from typing import Any
 
 from services.discord_hq_common import DISCORD_API, discord_request, list_channels
@@ -20,6 +21,7 @@ log = logging.getLogger("pitmark.discord.policies")
 POLICY_CHANNEL = "policies"
 POLICY_CATEGORY = "📌 START HERE"
 POLICY_PANEL_TITLE = "Pitmark • 📚 POLICIES & LEGAL"
+MANAGED_PANEL_PREFIX = "Pitmark • "
 
 POLICY_LINKS = [
     ("Legal & Policies Hub", "https://pitmarkracing.com/pages/legal"),
@@ -47,7 +49,12 @@ async def _bot_id() -> str:
     return str(response.json()["id"])
 
 
-def _find(channels: list[dict[str, Any]], *, name: str, typ: int | None = None) -> dict[str, Any] | None:
+def _find(
+    channels: list[dict[str, Any]],
+    *,
+    name: str,
+    typ: int | None = None,
+) -> dict[str, Any] | None:
     for channel in channels:
         if str(channel.get("name") or "") != name:
             continue
@@ -57,7 +64,11 @@ def _find(channels: list[dict[str, Any]], *, name: str, typ: int | None = None) 
     return None
 
 
-async def _ensure_channel(guild_id: str, channels: list[dict[str, Any]], bot_id: str) -> dict[str, Any]:
+async def _ensure_channel(
+    guild_id: str,
+    channels: list[dict[str, Any]],
+    bot_id: str,
+) -> dict[str, Any]:
     category = _find(channels, name=POLICY_CATEGORY, typ=4)
     if not category:
         response = await discord_request(
@@ -88,7 +99,10 @@ async def _ensure_channel(guild_id: str, channels: list[dict[str, Any]], bot_id:
     payload = {
         "name": POLICY_CHANNEL,
         "type": 0,
-        "topic": "Official Pitmark Racing Co. and Pitmark Racing Tools policies, terms, privacy notices and legal resources.",
+        "topic": (
+            "Official Pitmark Racing Co. and Pitmark Racing Tools policies, "
+            "terms, privacy notices and legal resources."
+        ),
         "parent_id": str(category["id"]),
         "permission_overwrites": permission_overwrites,
     }
@@ -108,42 +122,148 @@ async def _ensure_channel(guild_id: str, channels: list[dict[str, Any]], bot_id:
         reason="Pitmark legal rollout: create policies channel",
         json=payload,
     )
-    return response.json()
+    created = response.json()
+    channels.append(created)
+    return created
 
 
-async def _recent_messages(channel_id: str) -> list[dict[str, Any]]:
-    response = await discord_request(
-        "GET",
-        f"{DISCORD_API}/channels/{channel_id}/messages",
-        params={"limit": 100},
-    )
-    return list(response.json())
+async def _message_history(
+    channel_id: str,
+    *,
+    max_pages: int = 20,
+) -> list[dict[str, Any]]:
+    """Read enough history to find an older canonical managed panel.
+
+    Discord returns newest first. We page backwards so a panel that fell outside
+    the most recent 100 messages is still found instead of being recreated.
+    """
+    messages: list[dict[str, Any]] = []
+    before: str | None = None
+    for _ in range(max_pages):
+        params: dict[str, Any] = {"limit": 100}
+        if before:
+            params["before"] = before
+        response = await discord_request(
+            "GET",
+            f"{DISCORD_API}/channels/{channel_id}/messages",
+            params=params,
+        )
+        batch = list(response.json())
+        if not batch:
+            break
+        messages.extend(batch)
+        if len(batch) < 100:
+            break
+        before = str(batch[-1].get("id") or "")
+        if not before:
+            break
+    return messages
 
 
-async def _upsert_policy_panel(channel: dict[str, Any]) -> str:
+def _managed_title(message: dict[str, Any]) -> str:
+    embeds = message.get("embeds") or []
+    if not embeds:
+        return ""
+    title = str(embeds[0].get("title") or "")
+    return title if title.startswith(MANAGED_PANEL_PREFIX) else ""
+
+
+async def _cleanup_duplicate_managed_panels(
+    channels: list[dict[str, Any]],
+    bot_id: str,
+) -> dict[str, int]:
+    """Undo accidental HQ repainting without touching member/staff messages.
+
+    Only bot-authored embeds with the explicit Pitmark managed-panel marker are
+    candidates. For duplicate copies of the same title in the same channel, the
+    oldest message is kept and all newer copies are removed. If any duplicate was
+    pinned, the keeper is pinned before cleanup.
+    """
+    channels_checked = 0
+    duplicate_messages_removed = 0
+    canonical_panels_found = 0
+
+    for channel in channels:
+        if int(channel.get("type", -1)) not in {0, 5}:
+            continue
+        channel_id = str(channel.get("id") or "")
+        if not channel_id:
+            continue
+
+        history = await _message_history(channel_id)
+        groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for message in history:
+            author_id = str((message.get("author") or {}).get("id") or "")
+            if author_id != bot_id:
+                continue
+            title = _managed_title(message)
+            if title:
+                groups[title].append(message)
+
+        if not groups:
+            continue
+        channels_checked += 1
+
+        for messages in groups.values():
+            # Snowflake IDs are monotonically increasing; the smallest is the
+            # original/oldest managed panel and therefore the canonical copy.
+            messages.sort(key=lambda item: int(str(item.get("id") or "0")))
+            keeper = messages[0]
+            canonical_panels_found += 1
+            duplicates = messages[1:]
+            if not duplicates:
+                continue
+
+            if bool(keeper.get("pinned")) or any(bool(item.get("pinned")) for item in duplicates):
+                try:
+                    await discord_request(
+                        "PUT",
+                        f"{DISCORD_API}/channels/{channel_id}/messages/pins/{keeper['id']}",
+                        reason="Pitmark HQ repair: preserve original managed panel pin",
+                        expected={200, 204},
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("Could not restore original managed panel pin: %s", exc)
+
+            for duplicate in duplicates:
+                try:
+                    await discord_request(
+                        "DELETE",
+                        f"{DISCORD_API}/channels/{channel_id}/messages/{duplicate['id']}",
+                        reason="Pitmark HQ repair: remove duplicate managed panel",
+                        expected={200, 204},
+                    )
+                    duplicate_messages_removed += 1
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("Could not remove duplicate managed panel: %s", exc)
+
+    return {
+        "channels_checked": channels_checked,
+        "canonical_panels_found": canonical_panels_found,
+        "duplicates_removed": duplicate_messages_removed,
+    }
+
+
+async def _upsert_policy_panel(channel: dict[str, Any], bot_id: str) -> str:
     channel_id = str(channel["id"])
-    messages = await _recent_messages(channel_id)
-    existing = next(
-        (
-            message
-            for message in messages
-            if (message.get("embeds") or [])
-            and str(message["embeds"][0].get("title") or "") == POLICY_PANEL_TITLE
-        ),
-        None,
-    )
+    messages = await _message_history(channel_id)
+    matches = [
+        message
+        for message in messages
+        if str((message.get("author") or {}).get("id") or "") == bot_id
+        and _managed_title(message) == POLICY_PANEL_TITLE
+    ]
+    matches.sort(key=lambda item: int(str(item.get("id") or "0")))
+    existing = matches[0] if matches else None
 
     store_links = "\n".join(
-        f"• [{label}]({url})"
-        for label, url in POLICY_LINKS[:6]
+        f"• [{label}]({url})" for label, url in POLICY_LINKS[:6]
     )
     prt_links = "\n".join(
-        f"• [{label}]({url})"
-        for label, url in POLICY_LINKS[6:9]
+        f"• [{label}]({url})" for label, url in POLICY_LINKS[6:9]
     )
     relationship_links = "\n".join(
-        f"• [{label}]({url})"
-        for label, url in POLICY_LINKS[9:]
+        f"• [{label}]({url})" for label, url in POLICY_LINKS[9:]
     )
 
     embed = {
@@ -155,16 +275,36 @@ async def _upsert_policy_panel(channel: dict[str, Any]) -> str:
         ),
         "color": 0xFF5500,
         "fields": [
-            {"name": "🛍️ Store & Customer Policies", "value": store_links, "inline": False},
-            {"name": "🏎️ Pitmark Racing Tools", "value": prt_links, "inline": False},
-            {"name": "📸 Media, Creators & Partners", "value": relationship_links, "inline": False},
+            {
+                "name": "🛍️ Store & Customer Policies",
+                "value": store_links,
+                "inline": False,
+            },
+            {
+                "name": "🏎️ Pitmark Racing Tools",
+                "value": prt_links,
+                "inline": False,
+            },
+            {
+                "name": "📸 Media, Creators & Partners",
+                "value": relationship_links,
+                "inline": False,
+            },
             {
                 "name": "✉️ Questions",
-                "value": "Legal, privacy, rights and policy questions: **contact@pitmarkracing.com**",
+                "value": (
+                    "Legal, privacy, rights and policy questions: "
+                    "**contact@pitmarkracing.com**"
+                ),
                 "inline": False,
             },
         ],
-        "footer": {"text": "Pitmark Racing Co. • Leave Your Mark. • Updated September 13, 2026"},
+        "footer": {
+            "text": (
+                "Pitmark Racing Co. • Leave Your Mark. • "
+                "Updated September 13, 2026"
+            )
+        },
     }
     payload = {"embeds": [embed]}
 
@@ -183,6 +323,18 @@ async def _upsert_policy_panel(channel: dict[str, Any]) -> str:
         )
         message = response.json()
 
+    # Remove any duplicate policy panels if an earlier failed rollout produced one.
+    for duplicate in matches[1:]:
+        try:
+            await discord_request(
+                "DELETE",
+                f"{DISCORD_API}/channels/{channel_id}/messages/{duplicate['id']}",
+                reason="Pitmark legal rollout: remove duplicate policy panel",
+                expected={200, 204},
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Could not remove duplicate Discord policy panel: %s", exc)
+
     try:
         await discord_request(
             "PUT",
@@ -190,7 +342,7 @@ async def _upsert_policy_panel(channel: dict[str, Any]) -> str:
             reason="Pitmark legal rollout: pin official policy index",
             expected={200, 204},
         )
-    except Exception as exc:  # noqa: BLE001 - pin failure should not undo channel sync
+    except Exception as exc:  # noqa: BLE001
         log.warning("Could not pin Discord policy panel: %s", exc)
 
     return str(message["id"])
@@ -207,8 +359,13 @@ async def ensure_policies(*, force: bool = False) -> dict[str, Any]:
     try:
         channels = await list_channels(guild_id)
         bot_id = await _bot_id()
+
+        # Repair the accidental duplicate managed panels before adding/updating
+        # the legal channel. This cleanup is deliberately marker- and author-bound.
+        cleanup = await _cleanup_duplicate_managed_panels(channels, bot_id)
+
         channel = await _ensure_channel(guild_id, channels, bot_id)
-        message_id = await _upsert_policy_panel(channel)
+        message_id = await _upsert_policy_panel(channel, bot_id)
         _synced = True
         return {
             "configured": True,
@@ -216,6 +373,7 @@ async def ensure_policies(*, force: bool = False) -> dict[str, Any]:
             "cached": False,
             "channel_id": str(channel["id"]),
             "message_id": message_id,
+            "cleanup": cleanup,
         }
     except Exception as exc:  # noqa: BLE001 - status endpoint should remain available
         log.exception("Discord policy sync failed")
