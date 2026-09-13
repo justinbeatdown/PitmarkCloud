@@ -120,16 +120,16 @@ def _send_hub_email(invite_id: int) -> None:
             pass
 
 
-def queue_hub_email(invite: dict) -> None:
+def queue_hub_email(invite: dict) -> bool:
     invite_id = int(invite.get("id") or 0)
     if invite_id <= 0:
-        return
+        return False
     if str(invite.get("status") or "").strip().lower() != "redeemed":
-        return
+        return False
     if str(invite.get("tester_status") or "").strip().lower() not in {"active", "completed"}:
-        return
+        return False
     if not str(invite.get("bound_device_id") or "").strip():
-        return
+        return False
 
     now = datetime.now(timezone.utc)
     should_start = False
@@ -147,7 +147,7 @@ def queue_hub_email(invite: dict) -> None:
             db.commit()
             should_start = True
         elif state.status == "sent":
-            return
+            return False
         elif state.status == "failed":
             state.status = "queued"
             state.updated_at = now
@@ -161,6 +161,31 @@ def queue_hub_email(invite: dict) -> None:
 
     if should_start:
         threading.Thread(target=_send_hub_email, args=(invite_id,), daemon=True).start()
+    return should_start
+
+
+def backfill_hub_emails(limit: int = 500) -> dict:
+    """Queue any already-active tester who never received their Founder’s Race hub email."""
+    invites = prt_licensing_store.list_early_access_invites(limit=limit)
+    eligible = 0
+    queued = 0
+    for invite in invites:
+        if str(invite.get("status") or "").strip().lower() != "redeemed":
+            continue
+        if str(invite.get("tester_status") or "").strip().lower() not in {"active", "completed"}:
+            continue
+        if not str(invite.get("bound_device_id") or "").strip():
+            continue
+        eligible += 1
+        if queue_hub_email(invite):
+            queued += 1
+    log.info(
+        "Founder’s Race hub-email backfill checked=%s eligible=%s queued=%s",
+        len(invites),
+        eligible,
+        queued,
+    )
+    return {"checked": len(invites), "eligible": eligible, "queued": queued}
 
 
 _ORIGINAL_REDEEM = prt_licensing_store.redeem_early_access_invite
