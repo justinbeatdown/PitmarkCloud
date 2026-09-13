@@ -16,6 +16,7 @@ from utils.config import settings
 from utils.logger import configure_logging
 from services import discord_gateway_service
 from services.database import init_database, database_status
+from services.founders_race_activation import backfill_hub_emails
 from services.autopilot_intelligence import scheduler_loop
 from services.autopilot_multiplatform import scheduler_loop as multiplatform_scheduler_loop
 from services.research_agent import research_worker_loop
@@ -111,6 +112,10 @@ async def lifespan(app: FastAPI):
     loop.set_default_executor(executor)
 
     init_database()
+    try:
+        await asyncio.to_thread(backfill_hub_emails)
+    except Exception as exc:
+        log.warning("Founder’s Race hub-email startup backfill failed: %s", exc)
     try:
         purge_orphaned_mail_events()
     except Exception:
