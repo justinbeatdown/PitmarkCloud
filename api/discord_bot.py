@@ -12,6 +12,7 @@ from services import (
     discord_policy_sync,
     discord_service,
     guild_config_service,
+    prt_access_bans,
 )
 from services.database import database_status
 from utils.security import MAX_REQUEST_BODY, enforce_rate_limit
@@ -77,6 +78,16 @@ async def interactions(request: Request) -> dict:
     # Discord PING verification.
     if interaction_type == 1:
         return {"type": 1}
+
+    discord_user_id = prt_access_bans.interaction_discord_user_id(payload)
+    if discord_user_id and prt_access_bans.is_discord_banned(discord_user_id):
+        return {
+            "type": 4,
+            "data": {
+                "content": prt_access_bans.DENIED_MESSAGE,
+                "flags": 64,
+            },
+        }
 
     # Application command. Public racing commands remain global; HQ commands are
     # guild-registered and independently enforce the Pitmark guild/owner boundary.
