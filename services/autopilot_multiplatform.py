@@ -10,6 +10,7 @@ from services.control_center import AutopilotOpportunity, SocialPost
 from services.database import SessionLocal
 from services.first_party_autopilot import scan_and_generate as scan_first_party_events
 from services.first_party_auto_schedule import auto_schedule_verified_first_party
+from services.discord_racing_culture_feed import sync_racing_culture_feed
 
 log = logging.getLogger("pitmark.autopilot.multiplatform")
 
@@ -129,6 +130,22 @@ async def scheduler_loop():
                 )
         except Exception:
             log.exception("First-party Autopilot scan failed")
+
+        # Keep the Pitmark Discord community synced with newly published Racing Culture
+        # articles. This creates #racing-culture under the Racing Community category when
+        # the bot can manage channels, and safely falls back to #community-events.
+        try:
+            discord_feed = await sync_racing_culture_feed()
+            if discord_feed.get("posted") or discord_feed.get("created_channel"):
+                log.info(
+                    "Discord Racing Culture feed: channel=%s posted=%s created=%s fallback=%s",
+                    discord_feed.get("channel"),
+                    discord_feed.get("posted", 0),
+                    discord_feed.get("created_channel", False),
+                    discord_feed.get("fallback", False),
+                )
+        except Exception:
+            log.exception("Discord Racing Culture feed sync failed")
 
         # Verified first-party campaigns can be scheduled automatically under their
         # own narrow autonomy policy. The scheduler bootstraps without touching any
