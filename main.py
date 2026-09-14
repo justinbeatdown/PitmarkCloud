@@ -4,17 +4,18 @@ import asyncio
 import ctypes
 import gc
 import hmac
+import json
 import logging
 import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from utils.security import SecurityHeadersMiddleware, security_summary
 
 from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_v19, control_center_v195, control_access_v191, control_center_ui, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, prt_testimonial_asset, early_access_admin
 from utils.config import settings
 from utils.logger import configure_logging
-from services import discord_gateway_service
+from services import discord_gateway_service, prt_access_bans
 from services.database import init_database, database_status
 from services.founders_race_activation import backfill_hub_emails
 from services.autopilot_intelligence import scheduler_loop
@@ -113,6 +114,12 @@ async def lifespan(app: FastAPI):
 
     init_database()
     try:
+        seeded_bans = prt_access_bans.seed_from_environment()
+        if seeded_bans:
+            log.warning("Loaded %s permanent PRT Discord access ban(s).", seeded_bans)
+    except Exception:
+        log.exception("Failed to seed permanent PRT Discord access bans")
+    try:
         await asyncio.to_thread(backfill_hub_emails)
     except Exception as exc:
         log.warning("Founder’s Race hub-email startup backfill failed: %s", exc)
@@ -160,6 +167,74 @@ app = FastAPI(
 )
 
 app.add_middleware(SecurityHeadersMiddleware)
+
+
+async def _prt_access_identity(request: Request) -> tuple[str, str]:
+    """Return any device/Discord identity exposed by a PRT access request."""
+    path = request.url.path
+    device_id = ""
+    discord_user_id = ""
+
+    if path.startswith("/api/entitlements/current/"):
+        device_id = path.rsplit("/", 1)[-1].strip()
+    elif path.startswith("/api/discord/"):
+        device_id = str(request.query_params.get("device_id") or "").strip()
+
+    if (
+        path.startswith("/api/entitlements/")
+        and request.method.upper() in {"POST", "PUT", "PATCH"}
+        and "application/json" in (request.headers.get("content-type") or "").lower()
+    ):
+        try:
+            raw = await request.body()
+            payload = json.loads(raw) if raw else {}
+            if isinstance(payload, dict):
+                device_id = str(payload.get("device_id") or device_id).strip()
+                discord_user_id = str(payload.get("discord") or "").strip()
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
+
+    return device_id, discord_user_id
+
+
+@app.middleware("http")
+async def prt_permanent_ban_guard(request: Request, call_next):
+    path = request.url.path
+    device_id, discord_user_id = await _prt_access_identity(request)
+
+    if discord_user_id and prt_access_bans.is_discord_banned(discord_user_id):
+        return JSONResponse({"detail": prt_access_bans.DENIED_MESSAGE}, status_code=403)
+
+    if device_id and prt_access_bans.enforce_device_ban_if_linked(device_id):
+        return JSONResponse({"detail": prt_access_bans.DENIED_MESSAGE}, status_code=403)
+
+    response = await call_next(request)
+
+    # Discord OAuth is the moment we can reliably bind a Discord snowflake to a
+    # PRT device. If that identity is denylisted, poison the link/device after
+    # Discord identifies it and replace the success page with a hard denial.
+    if path == "/api/discord/oauth/callback":
+        state = str(request.query_params.get("state") or "")
+        try:
+            from services import discord_service
+
+            payload = discord_service.read_state(state)
+            linked_device_id = str(payload.get("device_id") or "").strip()
+        except Exception:
+            linked_device_id = ""
+        if linked_device_id and prt_access_bans.enforce_device_ban_if_linked(linked_device_id):
+            return HTMLResponse(
+                "<!doctype html><html><head><meta charset='utf-8'><title>PRT access denied</title></head>"
+                "<body style='background:#08090a;color:#f4f1eb;font-family:Segoe UI,Arial,sans-serif;"
+                "display:grid;place-items:center;min-height:100vh;margin:0'>"
+                "<main style='max-width:560px;padding:32px;border:1px solid #292d31;background:#111315'>"
+                "<h1 style='color:#ff5500'>PRT ACCESS DENIED</h1>"
+                "<p>Access to Pitmark Racing Tools is not available for this account.</p>"
+                "</main></body></html>",
+                status_code=403,
+            )
+
+    return response
 
 
 @app.middleware("http")
