@@ -17,6 +17,7 @@ STATE_KEY = "prt_release_last_announced_version"
 MAX_MANIFEST_BYTES = 64 * 1024
 MAX_CHANGE_ITEMS = 30
 MAX_FIELD_CHARS = 1000
+_session_announced_versions: set[str] = set()
 
 
 def _clean_lines(value: Any) -> list[str]:
@@ -121,3 +122,127 @@ def build_release_embed(release: dict[str, Any]) -> discord.Embed:
         )
     embed.set_footer(text="Pitmark Racing Co. • Leave Your Mark.")
     return embed
+
+
+async def fetch_manifest(client: httpx.AsyncClient | None = None) -> dict[str, Any]:
+    target = (settings.prt_release_manifest_url or "").strip()
+    if not target.startswith("https://"):
+        raise ValueError("PRT release manifest URL must use HTTPS")
+
+    owns_client = client is None
+    client = client or httpx.AsyncClient(timeout=10.0, follow_redirects=True)
+    try:
+        async with client.stream(
+            "GET",
+            target,
+            headers={"Cache-Control": "no-cache", "User-Agent": "PitmarkCloud-ReleaseWatcher/1.0"},
+        ) as response:
+            response.raise_for_status()
+            raw = bytearray()
+            async for chunk in response.aiter_bytes():
+                raw.extend(chunk)
+                if len(raw) > MAX_MANIFEST_BYTES:
+                    raise ValueError("PRT release manifest exceeded 64 KiB")
+        payload = json.loads(bytes(raw).decode("utf-8-sig"))
+        if not isinstance(payload, dict):
+            raise ValueError("PRT release manifest must be a JSON object")
+        return payload
+    finally:
+        if owns_client:
+            await client.aclose()
+
+
+def _hq_guild(bot: discord.Client):
+    target = (settings.discord_hq_guild_id or settings.discord_guild_id or "").strip()
+    if not target:
+        return None
+    return next((guild for guild in getattr(bot, "guilds", []) if str(guild.id) == target), None)
+
+
+def _channel_type_name(channel: Any) -> str:
+    channel_type = getattr(channel, "type", "")
+    if isinstance(channel_type, str):
+        return channel_type.strip().lower()
+    return str(getattr(channel_type, "name", channel_type) or "").strip().lower()
+
+
+def _announcement_channel(guild: Any):
+    wanted = (settings.prt_release_announcement_channel or "prt-announcements").strip().lower()
+    for channel in getattr(guild, "channels", []):
+        if str(getattr(channel, "name", "")).strip().lower() != wanted:
+            continue
+        if _channel_type_name(channel) not in {"text", "news"}:
+            continue
+        if callable(getattr(channel, "send", None)):
+            return channel
+    return None
+
+
+async def run_once(
+    bot: discord.Client,
+    *,
+    fetcher: Callable[[], Awaitable[dict[str, Any]]] | None = None,
+    get_state: Callable[[str], str | None] | None = None,
+    set_state: Callable[[str, str], None] | None = None,
+) -> str:
+    fetch_release = fetcher or fetch_manifest
+    read_state = get_state or persistent_store.get_runtime_state
+    write_state = set_state or persistent_store.set_runtime_state
+
+    try:
+        release = normalize_release(await fetch_release())
+    except Exception:
+        log.exception("Unable to load valid PRT release manifest")
+        return "failed"
+
+    version = release["version"]
+    try:
+        previous = read_state(STATE_KEY)
+    except Exception:
+        log.exception("Unable to read PRT release announcement state")
+        return "failed"
+
+    if previous is None:
+        try:
+            write_state(STATE_KEY, version)
+        except Exception:
+            log.exception("Unable to bootstrap PRT release announcement state")
+            return "failed"
+        log.info("Bootstrapped PRT release announcement baseline at v%s.", version)
+        return "bootstrapped"
+
+    if previous == version or version in _session_announced_versions:
+        return "unchanged"
+
+    guild = _hq_guild(bot)
+    channel = _announcement_channel(guild) if guild is not None else None
+    if channel is None:
+        log.warning(
+            "PRT release v%s is unannounced because #%s was not found in the Pitmark HQ guild.",
+            version,
+            settings.prt_release_announcement_channel,
+        )
+        return "no-channel"
+
+    try:
+        await channel.send(
+            embed=build_release_embed(release),
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+    except Exception:
+        log.exception("Failed to post PRT v%s release announcement to Discord", version)
+        return "failed"
+
+    _session_announced_versions.add(version)
+    try:
+        write_state(STATE_KEY, version)
+    except Exception:
+        log.exception(
+            "PRT v%s was posted to Discord but durable announcement state could not be saved; "
+            "this process will still suppress duplicates until restart.",
+            version,
+        )
+        return "failed"
+
+    log.info("Posted PRT v%s release announcement to #%s.", version, settings.prt_release_announcement_channel)
+    return "posted"
