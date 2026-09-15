@@ -12,6 +12,7 @@ from services.control_access import access_from_request
 from services.control_auth import require_control_user
 from services.paint_studio import MAX_ATTACHMENTS, MAX_INPUT_BYTES, PaintAttachment, PaintStudioError, generate_livery_edit
 from services.paint_studio_psd import MAX_PSD_BYTES, PsdStudioError, parse_psd_template
+from services.paint_studio_template import TemplateStudioError, prepare_template_upload
 from services.paint_studio_uploads import UploadSessionError, complete_psd_upload, read_staged_psd, stage_psd_chunk
 from utils.security import enforce_rate_limit
 
@@ -91,8 +92,8 @@ def paint_studio(request: Request):
     if access.role not in {"owner", "admin"}:
         raise HTTPException(403, "Pitmark Paint Studio is restricted to owner/admin accounts.")
     html = (ASSET_DIR / "paint-studio.html").read_text(encoding="utf-8")
-    engine_tag = '<script src="/api/control/content/paint-studio.js?v=4"></script>'
-    transport_tag = '<script src="/api/control/content/paint-studio-upload.js?v=1"></script>'
+    engine_tag = '<script src="/api/control/content/paint-studio.js?v=5"></script>'
+    transport_tag = '<script src="/api/control/content/paint-studio-upload.js?v=2"></script>'
     if transport_tag not in html:
         html = html.replace(engine_tag, f"{transport_tag}\n  {engine_tag}")
     return HTMLResponse(html, headers={"Cache-Control": "no-store"})
@@ -117,26 +118,12 @@ def paint_studio_js(request: Request):
 
 
 @router.post("/paint-studio/psd/chunk", include_in_schema=False)
-async def paint_studio_psd_chunk(
-    request: Request,
-    upload_id: str,
-    filename: str,
-    file_size: int,
-    index: int,
-    total: int,
-):
+async def paint_studio_psd_chunk(request: Request, upload_id: str, filename: str, file_size: int, index: int, total: int):
     _require_paint_studio(request)
-    enforce_rate_limit(request, "paint-studio-psd-chunk", 240, 900)
+    enforce_rate_limit(request, "paint-studio-template-chunk", 320, 900)
     raw = await request.body()
     try:
-        result = stage_psd_chunk(
-            upload_id=upload_id,
-            filename=filename,
-            file_size=file_size,
-            index=index,
-            total=total,
-            chunk=raw,
-        )
+        result = stage_psd_chunk(upload_id=upload_id, filename=filename, file_size=file_size, index=index, total=total, chunk=raw)
     except UploadSessionError as exc:
         raise HTTPException(400, str(exc)) from exc
     return JSONResponse(result, headers={"Cache-Control": "no-store"})
@@ -145,14 +132,14 @@ async def paint_studio_psd_chunk(
 @router.post("/paint-studio/psd/complete", include_in_schema=False)
 def paint_studio_psd_complete(req: PsdCompleteRequest, request: Request):
     _require_paint_studio(request)
-    enforce_rate_limit(request, "paint-studio-psd-complete", 20, 900)
+    enforce_rate_limit(request, "paint-studio-template-complete", 20, 900)
     try:
         raw, filename = complete_psd_upload(req.upload_id)
-        result = parse_psd_template(raw, filename)
-    except (UploadSessionError, PsdStudioError) as exc:
+        result = prepare_template_upload(raw, filename)
+    except (UploadSessionError, TemplateStudioError, PsdStudioError) as exc:
         raise HTTPException(400, str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(502, f"Paint Studio PSD import failed: {exc}") from exc
+        raise HTTPException(502, f"Paint Studio template import failed: {exc}") from exc
     result["upload_id"] = req.upload_id
     return JSONResponse(result, headers={"Cache-Control": "no-store"})
 
@@ -164,11 +151,14 @@ def paint_studio_psd_render_upload(req: PsdRenderUploadRequest, request: Request
     overrides = {str(key): str(value).lower() for key, value in req.role_overrides.items()}
     try:
         raw, filename = read_staged_psd(req.upload_id)
-        result = parse_psd_template(raw, filename, overrides)
-    except (UploadSessionError, PsdStudioError) as exc:
+        if filename.lower().endswith('.psd'):
+            result = parse_psd_template(raw, filename, overrides)
+        else:
+            result = prepare_template_upload(raw, filename)
+    except (UploadSessionError, TemplateStudioError, PsdStudioError) as exc:
         raise HTTPException(400, str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(502, f"Paint Studio PSD re-render failed: {exc}") from exc
+        raise HTTPException(502, f"Paint Studio template re-render failed: {exc}") from exc
     result["upload_id"] = req.upload_id
     return JSONResponse(result, headers={"Cache-Control": "no-store"})
 
@@ -179,8 +169,8 @@ async def paint_studio_psd_import(request: Request, psd: UploadFile = File(...))
     enforce_rate_limit(request, "paint-studio-psd-import", 12, 900)
     raw, filename = await _read_psd_upload(psd)
     try:
-        result = parse_psd_template(raw, filename)
-    except PsdStudioError as exc:
+        result = prepare_template_upload(raw, filename)
+    except (TemplateStudioError, PsdStudioError) as exc:
         raise HTTPException(400, str(exc)) from exc
     except Exception as exc:
         raise HTTPException(502, f"Paint Studio PSD import failed: {exc}") from exc
@@ -209,18 +199,9 @@ async def paint_studio_psd_render(request: Request, psd: UploadFile = File(...),
 
 
 @router.post("/paint-studio/generate", include_in_schema=False)
-async def paint_studio_generate(
-    request: Request,
-    template: UploadFile = File(...),
-    prompt: str = Form(...),
-    quality: str = Form("medium"),
-    guide: UploadFile | None = File(default=None),
-    assets: list[UploadFile] = File(default=[]),
-    asset_roles_json: str = Form("[]"),
-):
+async def paint_studio_generate(request: Request, template: UploadFile = File(...), prompt: str = Form(...), quality: str = Form("medium"), guide: UploadFile | None = File(default=None), assets: list[UploadFile] = File(default=[]), asset_roles_json: str = Form("[]")):
     _require_paint_studio(request)
     enforce_rate_limit(request, "paint-studio-generate", 8, 900)
-
     template_bytes = await template.read(MAX_INPUT_BYTES + 1)
     guide_bytes = await guide.read(MAX_INPUT_BYTES + 1) if guide else None
     try:
@@ -231,7 +212,6 @@ async def paint_studio_generate(
         raise HTTPException(400, "Attachment roles must be a list.")
     roles = [str(role).lower() for role in parsed_roles]
     attachments = await _read_attachment_uploads(assets, roles)
-
     try:
         result = await generate_livery_edit(
             template_bytes=template_bytes,
@@ -248,5 +228,4 @@ async def paint_studio_generate(
         raise HTTPException(400, str(exc)) from exc
     except Exception as exc:
         raise HTTPException(502, f"Paint Studio generation failed: {exc}") from exc
-
     return Response(result["data"], media_type=result["mime_type"], headers={"Cache-Control": "no-store", "X-Pitmark-Image-Model": result["model"]})
