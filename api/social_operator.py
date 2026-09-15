@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import logging
 
+import httpx
 from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
@@ -10,7 +12,7 @@ from sqlalchemy import select
 from services.control_auth import require_control_user
 from services.control_center import SocialPost
 from services.database import SessionLocal
-from services.meta_publish_service import reply_facebook_comment, reply_instagram_comment
+from services.meta_publish_service import _page_token, reply_facebook_comment, reply_instagram_comment
 from services.social_operator import (
     SocialEngagementEvent,
     operator_status,
@@ -20,7 +22,9 @@ from services.social_operator_logic import counts_toward_daily_coverage
 from utils.config import settings
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 _operator_paused = False
+_meta_diag_cache: tuple[datetime, dict] | None = None
 
 
 class EngagementReplyRequest(BaseModel):
@@ -31,11 +35,88 @@ def auth(request: Request, admin_key: str | None):
     return require_control_user(request, admin_key)
 
 
+def _meta_permission_diagnostics() -> dict:
+    """Inspect only safe metadata about the actual Page token used by Social Operator.
+
+    Never returns or logs the token itself. Cached briefly so the Control Center's
+    status polling does not hammer Meta's debug_token endpoint.
+    """
+    global _meta_diag_cache
+    now = datetime.now(timezone.utc)
+    if _meta_diag_cache and now - _meta_diag_cache[0] < timedelta(minutes=10):
+        return _meta_diag_cache[1]
+
+    app_id = settings.meta_app_id.strip()
+    app_secret = settings.meta_app_secret.strip()
+    token = _page_token()
+    if not app_id or not app_secret or not token:
+        result = {
+            "ok": False,
+            "error": "Meta app credentials or Page token are not fully configured.",
+            "scopes": [],
+        }
+        _meta_diag_cache = (now, result)
+        return result
+
+    try:
+        response = httpx.get(
+            f"https://graph.facebook.com/{settings.meta_graph_version.strip('/')}/debug_token",
+            params={
+                "input_token": token,
+                "access_token": f"{app_id}|{app_secret}",
+            },
+            timeout=12.0,
+        )
+        payload = response.json()
+        if response.is_error:
+            error = (payload.get("error") or {}).get("message") if isinstance(payload, dict) else response.text
+            raise RuntimeError(error or f"Meta debug_token failed with HTTP {response.status_code}")
+        data = payload.get("data") or {}
+        scopes = sorted({str(scope) for scope in (data.get("scopes") or []) if scope})
+        granular = data.get("granular_scopes") or []
+        comment_requirements = {
+            "pages_read_engagement",
+            "pages_read_user_content",
+            "pages_manage_engagement",
+            "pages_manage_metadata",
+            "pages_show_list",
+        }
+        result = {
+            "ok": bool(data.get("is_valid")),
+            "is_valid": bool(data.get("is_valid")),
+            "token_type": data.get("type"),
+            "app_matches": str(data.get("app_id") or "") == app_id,
+            "scopes": scopes,
+            "granular_scopes": [
+                {
+                    "scope": str(item.get("scope") or ""),
+                    "target_ids": [str(value) for value in (item.get("target_ids") or [])],
+                }
+                for item in granular
+                if isinstance(item, dict)
+            ],
+            "missing_comment_scopes": sorted(comment_requirements.difference(scopes)),
+        }
+    except Exception as exc:
+        result = {"ok": False, "error": str(exc)[:400], "scopes": []}
+
+    _meta_diag_cache = (now, result)
+    log.info(
+        "Meta permission diagnostic: valid=%s type=%s scopes=%s missing_comment_scopes=%s",
+        result.get("is_valid"),
+        result.get("token_type"),
+        result.get("scopes"),
+        result.get("missing_comment_scopes"),
+    )
+    return result
+
+
 @router.get("/status")
 def get_operator_status(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
     payload = operator_status()
     payload["paused"] = _operator_paused
+    payload["facebook_permissions"] = _meta_permission_diagnostics()
 
     # Latest-run counters answer "what happened in the last pass?" but the Control
     # Center also needs to answer "did the operator actually line anything up today?".
