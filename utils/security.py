@@ -20,6 +20,12 @@ SOCIAL_UPLOAD_MAX_REQUEST_BODY = 7 * 1024 * 1024
 # Keep the normal API body cap tight, but permit the dedicated authenticated Race Card
 # endpoint enough room for the endpoint's existing 8 MiB PNG limit plus multipart overhead.
 RACE_CARD_UPLOAD_MAX_REQUEST_BODY = 9 * 1024 * 1024
+# Paint Studio accepts original iRacing PSDs up to 80 MiB. Multipart framing adds
+# a small amount of overhead, so leave a narrow cushion above the endpoint limit.
+PAINT_STUDIO_PSD_MAX_REQUEST_BODY = 82 * 1024 * 1024
+# Generation can include a 20 MiB paint raster, a 20 MiB guide, and up to eight
+# 20 MiB reference/logo images. Keep the global 1 MiB API cap everywhere else.
+PAINT_STUDIO_GENERATE_MAX_REQUEST_BODY = 205 * 1024 * 1024
 
 
 def validate_device_id(value: str) -> str:
@@ -50,6 +56,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                     limit = SOCIAL_UPLOAD_MAX_REQUEST_BODY
                 elif path == "/api/discord/share/racecard-image":
                     limit = RACE_CARD_UPLOAD_MAX_REQUEST_BODY
+                elif path in {"/api/control/content/paint-studio/psd/import", "/api/control/content/paint-studio/psd/render"}:
+                    limit = PAINT_STUDIO_PSD_MAX_REQUEST_BODY
+                elif path == "/api/control/content/paint-studio/generate":
+                    limit = PAINT_STUDIO_GENERATE_MAX_REQUEST_BODY
                 else:
                     limit = MAX_REQUEST_BODY
                 if int(content_length) > limit:
@@ -106,6 +116,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Content-Security-Policy"] = (
                 "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; "
                 "frame-ancestors 'none'; base-uri 'none'; form-action 'self'; img-src 'self'"
+            )
+        elif request.url.path.startswith("/api/control/content/paint-studio"):
+            # Paint Studio is an authenticated internal application. Its engine and API
+            # calls stay same-origin; local PSD/reference previews use blob/data URLs.
+            # Runtime canvas sizing writes style attributes, so allow inline styles but
+            # keep scripts restricted to same-origin files only.
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; "
+                "frame-ancestors 'none'; base-uri 'none'; form-action 'none'; "
+                "img-src 'self' blob: data:; font-src 'self'; object-src 'none'"
             )
         else:
             response.headers["Content-Security-Policy"] = (
