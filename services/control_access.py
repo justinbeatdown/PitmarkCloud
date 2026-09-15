@@ -291,6 +291,11 @@ def permission_for_path(path: str) -> str | None:
         return None
     if path.startswith("/api/control/auth"):
         return None
+    if path.startswith("/api/control/content/paint-studio"):
+        # Paint Studio enforces owner/admin access inside each endpoint so the
+        # browser page can redirect an unauthenticated user into the normal
+        # Control Center login flow instead of the API middleware returning JSON.
+        return None
     if path in {"/api/control/access/me", "/api/control/access/roles"}:
         return None
     for prefix, permission in PATH_PERMISSIONS:
