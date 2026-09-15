@@ -7,8 +7,6 @@ from zipfile import BadZipFile, ZipFile
 
 from PIL import Image, ImageFile
 
-from services.paint_studio_psd import PsdStudioError, parse_psd_template
-
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 MAX_TEMPLATE_BYTES = 150 * 1024 * 1024
@@ -58,44 +56,57 @@ def _raster_payload(raw: bytes, name: str, *, source_type: str, chosen_entry: st
     }
 
 
-def _paint_has_pixels(payload: dict) -> bool:
-    try:
-        raw = base64.b64decode(payload.get('paint_png') or '')
-        image = Image.open(BytesIO(raw)).convert('RGBA')
-        return image.getchannel('A').getbbox() is not None
-    except Exception:
-        return False
-
-
-def _flatten_psd(raw: bytes, filename: str) -> dict:
-    try:
-        payload = parse_psd_template(raw, filename)
-        if _paint_has_pixels(payload):
-            payload['source_type'] = 'psd'
-            payload['chosen_entry'] = None
-            return payload
-    except PsdStudioError:
-        pass
-
-    try:
-        from psd_tools import PSDImage
-        psd = PSDImage.open(BytesIO(raw))
-        image = psd.composite(force=True)
-        if image is None:
-            raise TemplateStudioError('PSD contains no visible composite artwork.')
-        payload = _raster_payload(_image_to_png(image), filename, source_type='psd')
-        payload['fallback_flattened'] = True
-        return payload
-    except TemplateStudioError:
-        raise
-    except Exception as exc:
-        raise TemplateStudioError(f'Could not flatten PSD {filename}: {exc}') from exc
-
-
 def _image_to_png(image: Image.Image) -> bytes:
     out = BytesIO()
     image.convert('RGBA').save(out, format='PNG')
     return out.getvalue()
+
+
+def _flatten_psd(raw: bytes, filename: str) -> dict:
+    """Read a PSD's merged preview without compositing every layer.
+
+    iRacing paint-kit PSDs can be large enough that a full psd-tools layer
+    composite exhausts the small production instance. Photoshop normally
+    stores merged image data in the PSD; psd-tools exposes it via topil().
+    Initial Paint Studio import intentionally uses that lightweight merged
+    preview. Layer-aware parsing is not part of this hot path.
+    """
+    errors: list[str] = []
+
+    try:
+        from psd_tools import PSDImage
+
+        psd = PSDImage.open(BytesIO(raw))
+        if psd.has_preview():
+            image = psd.topil()
+            if image is not None and image.width > 0 and image.height > 0:
+                payload = _raster_payload(_image_to_png(image), filename, source_type='psd')
+                payload['fallback_flattened'] = True
+                payload['flatten_method'] = 'merged-preview'
+                return payload
+        errors.append('PSD does not contain usable merged preview data')
+    except Exception as exc:
+        errors.append(f'psd-tools merged preview failed: {exc}')
+
+    # Pillow can read the flattened image data from some PSD variants without
+    # invoking psd-tools' memory-heavy layer compositing engine.
+    try:
+        image = Image.open(BytesIO(raw))
+        image.load()
+        if image.width > 0 and image.height > 0:
+            payload = _raster_payload(_image_to_png(image), filename, source_type='psd')
+            payload['fallback_flattened'] = True
+            payload['flatten_method'] = 'pillow-merged'
+            return payload
+    except Exception as exc:
+        errors.append(f'Pillow merged preview failed: {exc}')
+
+    detail = '; '.join(errors[-2:])
+    raise TemplateStudioError(
+        'This PSD has no lightweight merged preview Paint Studio can safely read. '
+        'Use the original iRacing template ZIP if it includes a PNG/TGA preview, '
+        'or export a flattened PNG/TGA from the template first.' + (f' ({detail})' if detail else '')
+    )
 
 
 def _safe_member(info) -> bool:
