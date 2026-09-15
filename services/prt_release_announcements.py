@@ -17,7 +17,7 @@ STATE_KEY = "prt_release_last_announced_version"
 MAX_MANIFEST_BYTES = 64 * 1024
 MAX_CHANGE_ITEMS = 30
 MAX_FIELD_CHARS = 1000
-_session_announced_versions: set[str] = set()
+_unpersisted_announced_versions: set[str] = set()
 
 
 def _clean_lines(value: Any) -> list[str]:
@@ -211,7 +211,7 @@ async def run_once(
         log.info("Bootstrapped PRT release announcement baseline at v%s.", version)
         return "bootstrapped"
 
-    if previous == version or version in _session_announced_versions:
+    if previous == version or version in _unpersisted_announced_versions:
         return "unchanged"
 
     guild = _hq_guild(bot)
@@ -233,16 +233,17 @@ async def run_once(
         log.exception("Failed to post PRT v%s release announcement to Discord", version)
         return "failed"
 
-    _session_announced_versions.add(version)
     try:
         write_state(STATE_KEY, version)
     except Exception:
+        _unpersisted_announced_versions.add(version)
         log.exception(
             "PRT v%s was posted to Discord but durable announcement state could not be saved; "
-            "this process will still suppress duplicates until restart.",
+            "this process will suppress duplicates until restart.",
             version,
         )
         return "failed"
 
+    _unpersisted_announced_versions.discard(version)
     log.info("Posted PRT v%s release announcement to #%s.", version, settings.prt_release_announcement_channel)
     return "posted"
