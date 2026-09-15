@@ -69,20 +69,35 @@
     const run = s.latest_run || {};
     const paused = !!s.paused;
     const enabled = !!s.enabled;
-    const operational = enabled && !paused;
-    const badgeText = !enabled ? 'Disabled' : paused ? 'Paused' : 'Running';
-    const title = !enabled ? 'Operator disabled' : paused ? 'Operator paused' : 'Operator is running';
-    const sub = !enabled ? 'The operator is disabled by configuration.' : paused ? 'Background social operations are paused. Manual runs are still available.' : 'Pitmark is actively watching engagement and filling safe posting gaps.';
+    const degraded = run.status === 'degraded';
+    const failed = run.status === 'failed';
+    const operational = enabled && !paused && !failed;
+    const badgeText = !enabled ? 'Disabled' : paused ? 'Paused' : failed ? 'Failed' : degraded ? 'Needs Attention' : 'Running';
+    const title = !enabled ? 'Operator disabled' : paused ? 'Operator paused' : failed ? 'Operator failed' : degraded ? 'Operator is running with a warning' : 'Operator is running';
+    const health = run.health_message || '';
+    const sub = !enabled
+      ? 'The operator is disabled by configuration.'
+      : paused
+        ? 'Background social operations are paused. Manual runs are still available.'
+        : failed
+          ? (health || run.note || 'The last operator pass failed.')
+          : degraded
+            ? (health || 'One or more social reads need attention; safe posting automation is still running.')
+            : 'Pitmark is actively watching engagement and filling real posting gaps.';
 
     ['soBadge','soDashBadge'].forEach(id => {
       const el = document.getElementById(id); if (!el) return;
-      el.textContent = badgeText; el.classList.toggle('paused', !operational); el.classList.toggle('offline', !enabled);
+      el.textContent = badgeText;
+      el.classList.toggle('paused', paused);
+      el.classList.toggle('offline', !enabled || failed);
+      el.classList.toggle('degraded', degraded && enabled && !paused && !failed);
     });
     const dt = document.getElementById('soDashTitle'); if (dt) dt.textContent = title;
-    const dc = document.getElementById('soDashCopy'); if (dc) dc.textContent = paused ? 'Autonomous runs are paused until you resume them.' : `Last run: ${fmt(run.created_at)} · ${run.review ?? 0} item${run.review===1?'':'s'} flagged for review.`;
+    const dc = document.getElementById('soDashCopy');
+    if (dc) dc.textContent = degraded || failed ? sub : paused ? 'Autonomous runs are paused until you resume them.' : `Last run: ${fmt(run.created_at)} · ${run.review ?? 0} item${run.review===1?'':'s'} flagged for review.`;
     document.getElementById('soStatusTitle').textContent = title;
     document.getElementById('soStatusSub').textContent = sub;
-    document.getElementById('soLastRun').textContent = `Last run: ${fmt(run.created_at)}`;
+    document.getElementById('soLastRun').textContent = `Last run: ${fmt(run.created_at)}${degraded ? ' · warning' : failed ? ' · failed' : ''}`;
     document.getElementById('soScanned').textContent = run.scanned ?? 0;
     document.getElementById('soReview').textContent = run.review ?? 0;
     document.getElementById('soReplied').textContent = run.replied ?? 0;
@@ -121,7 +136,13 @@
   async function runNow() {
     const btn = document.getElementById('soRunNow'), msg = document.getElementById('soActionMsg');
     btn.disabled = true; btn.textContent = 'Running…'; msg.textContent = '';
-    try { const r = await request('/run', {method:'POST'}); msg.textContent = r.ok ? `Done — ${r.scanned||0} scanned, ${r.posts_planned||0} post${r.posts_planned===1?'':'s'} planned.` : (r.error || 'Run failed.'); await load(); }
+    try {
+      const r = await request('/run', {method:'POST'});
+      if (!r.ok) msg.textContent = r.error || 'Run failed.';
+      else if (r.degraded) msg.textContent = `Ran with warning — ${r.scanned||0} scanned, ${r.posts_planned||0} post${r.posts_planned===1?'':'s'} planned. ${r.warning || ''}`;
+      else msg.textContent = `Done — ${r.scanned||0} scanned, ${r.posts_planned||0} post${r.posts_planned===1?'':'s'} planned.`;
+      await load();
+    }
     catch (e) { msg.textContent = e.message; }
     finally { btn.disabled = false; btn.textContent = 'Run Operator Now'; }
   }
