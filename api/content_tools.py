@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from services.content_tools import generate_article_from_source
 from services.control_access import access_from_request
 from services.control_auth import require_control_user
-from services.paint_studio import PaintStudioError, generate_livery_edit
+from services.paint_studio import MAX_INPUT_BYTES, PaintStudioError, generate_livery_edit
 from utils.security import enforce_rate_limit
 
 router = APIRouter()
@@ -80,8 +80,8 @@ async def paint_studio_generate(
     _require_paint_studio(request)
     enforce_rate_limit(request, "paint-studio-generate", 8, 900)
 
-    template_bytes = await template.read()
-    reference_bytes = await reference.read() if reference else None
+    template_bytes = await template.read(MAX_INPUT_BYTES + 1)
+    reference_bytes = await reference.read(MAX_INPUT_BYTES + 1) if reference else None
     try:
         result = await generate_livery_edit(
             template_bytes=template_bytes,
