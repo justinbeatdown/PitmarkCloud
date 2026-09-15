@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -17,6 +18,7 @@ from services.meta_publish_service import (
     reply_facebook_comment,
     reply_instagram_comment,
 )
+from services.social_operator_logic import counts_toward_daily_coverage, summarize_channel_health
 from services.x_publish_service import fetch_mentions as fetch_x_mentions
 from utils.config import settings
 
@@ -59,6 +61,14 @@ FACEBOOK_PROMPTS = [
     "Unlimited budget. One race car. One track. What are you building and where are you taking it first? 🏁",
     "What’s one thing a race track does that instantly makes you want to come back? Could be the racing, food, announcing, pits, anything. 🏁",
     "Settle a race-night argument for us: feature winner from the front row or somebody charging from deep in the field—which is more fun to watch? 👀🏁",
+]
+
+INSTAGRAM_PROMPTS = [
+    "Track roll call 🏁 Drop your home track + state. Bonus points for the one race there everybody should see at least once.",
+    "Unlimited budget. One race car. One track. What are you building and where are you taking it first? 🏁",
+    "You get ONE rule change to make grassroots racing better tomorrow. What are you changing? 🏁",
+    "What’s one thing a race track does that instantly makes you want to come back? Racing, food, announcing, pits — anything. 🏁",
+    "Local track, sim, or both — where are you racing this week? 🏁",
 ]
 
 X_PROMPTS = [
@@ -161,19 +171,27 @@ def _mark_event(event_id: int, status: str, response: str | None = None) -> None
         db.commit()
 
 
-def _sync_meta_engagement() -> tuple[int, int, int]:
+def _sync_meta_engagement() -> tuple[int, int, int, dict[str, dict]]:
     scanned = 0
     review = 0
     replied = 0
+    channels: dict[str, dict] = {
+        "facebook": {"ok": True, "scanned": 0},
+        "instagram": {"ok": True, "scanned": 0},
+        "x": {"ok": True, "scanned": 0},
+    }
 
     try:
         facebook_items = fetch_facebook_page_comments(limit_posts=12, limit_comments=50)
     except Exception as exc:
+        error = str(exc)[:500]
         log.warning("Social Operator Facebook read failed: %s", exc)
+        channels["facebook"] = {"ok": False, "scanned": 0, "error": error}
         facebook_items = []
 
     for item in facebook_items:
         scanned += 1
+        channels["facebook"]["scanned"] += 1
         external_id = str(item.get("id") or "").strip()
         if not external_id:
             continue
@@ -200,11 +218,14 @@ def _sync_meta_engagement() -> tuple[int, int, int]:
     try:
         instagram_items = fetch_instagram_comments(limit_media=12, limit_comments=50)
     except Exception as exc:
+        error = str(exc)[:500]
         log.warning("Social Operator Instagram read failed: %s", exc)
+        channels["instagram"] = {"ok": False, "scanned": 0, "error": error}
         instagram_items = []
 
     for item in instagram_items:
         scanned += 1
+        channels["instagram"]["scanned"] += 1
         external_id = str(item.get("id") or "").strip()
         if not external_id:
             continue
@@ -228,15 +249,17 @@ def _sync_meta_engagement() -> tuple[int, int, int]:
                 log.warning("Social Operator Instagram reply failed for %s: %s", external_id, exc)
                 _mark_event(event.id, "reply_failed")
 
-    # Capture X mentions so the operator can surface them. V1 deliberately does not
-    # auto-reply to mentions because context is wider than a comment on our own post.
     try:
         x_items = fetch_x_mentions(max_results=25)
     except Exception as exc:
+        error = str(exc)[:500]
         log.warning("Social Operator X mention read failed: %s", exc)
+        channels["x"] = {"ok": False, "scanned": 0, "error": error}
         x_items = []
+
     for item in x_items:
         scanned += 1
+        channels["x"]["scanned"] += 1
         external_id = str(item.get("id") or "").strip()
         if not external_id:
             continue
@@ -249,7 +272,6 @@ def _sync_meta_engagement() -> tuple[int, int, int]:
         )
         if created:
             review += 1
-            # Mentions always remain operator-visible even if their language looks safe.
             with SessionLocal() as db:
                 row = db.scalar(select(SocialEngagementEvent).where(SocialEngagementEvent.external_id == f"x:{external_id}"))
                 if row:
@@ -259,13 +281,14 @@ def _sync_meta_engagement() -> tuple[int, int, int]:
                     row.updated_at = utcnow()
                     db.commit()
 
-    return scanned, review, replied
+    return scanned, review, replied, channels
 
 
 def _next_growth_slot(platform: str) -> datetime:
     now = _local_now()
     slots = {
         "facebook": [(11, 15), (15, 30), (20, 15)],
+        "instagram": [(12, 30), (17, 30), (20, 45)],
         "x": [(10, 45), (18, 45), (21, 15)],
     }.get(platform, [(12, 0)])
     for hour, minute in slots:
@@ -278,18 +301,28 @@ def _next_growth_slot(platform: str) -> datetime:
 
 
 def _recent_platform_post_count(platform: str) -> int:
-    cutoff = utcnow() - timedelta(hours=20)
     with SessionLocal() as db:
         rows = list(
             db.scalars(
                 select(SocialPost).where(
                     SocialPost.platform == platform,
-                    SocialPost.status.in_(["pending", "approved", "scheduled", "published"]),
-                    SocialPost.created_at >= cutoff,
+                    SocialPost.status.in_(["scheduled", "published"]),
                 )
             ).all()
         )
-    return len(rows)
+    now = datetime.now(timezone.utc)
+    return sum(
+        1
+        for row in rows
+        if counts_toward_daily_coverage(
+            status=row.status,
+            scheduled_for=row.scheduled_for,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+            now=now,
+            timezone_name=settings.pitmark_timezone,
+        )
+    )
 
 
 def _operator_post_exists(platform: str, scheduled_day: str) -> bool:
@@ -306,6 +339,14 @@ def _operator_post_exists(platform: str, scheduled_day: str) -> bool:
     return any((row.scheduled_for or "").startswith(scheduled_day) for row in rows)
 
 
+def _prompt_set(platform: str) -> list[str]:
+    if platform == "facebook":
+        return FACEBOOK_PROMPTS
+    if platform == "instagram":
+        return INSTAGRAM_PROMPTS
+    return X_PROMPTS
+
+
 def _ensure_growth_posts() -> int:
     if not settings.social_operator_growth_posts_enabled:
         return 0
@@ -313,9 +354,9 @@ def _ensure_growth_posts() -> int:
     planned = 0
     targets = {
         "facebook": max(0, int(settings.social_operator_min_facebook_posts_daily)),
+        "instagram": max(0, int(settings.social_operator_min_instagram_posts_daily)),
         "x": max(0, int(settings.social_operator_min_x_posts_daily)),
     }
-    now = _local_now()
     for platform, minimum in targets.items():
         if minimum <= 0 or _recent_platform_post_count(platform) >= minimum:
             continue
@@ -323,8 +364,7 @@ def _ensure_growth_posts() -> int:
         day_key = schedule.date().isoformat()
         if _operator_post_exists(platform, day_key):
             continue
-        prompts = FACEBOOK_PROMPTS if platform == "facebook" else X_PROMPTS
-        body = _pick(prompts, f"{platform}:{day_key}")
+        body = _pick(_prompt_set(platform), f"{platform}:{day_key}")
         status = "scheduled" if settings.social_operator_autopublish_low_risk else "pending"
         with SessionLocal() as db:
             db.add(
@@ -346,7 +386,6 @@ def _ensure_growth_posts() -> int:
 
 
 def run_operator_once() -> dict:
-    run_id = None
     with SessionLocal() as db:
         run = SocialOperatorRun(status="started")
         db.add(run)
@@ -355,25 +394,37 @@ def run_operator_once() -> dict:
         run_id = run.id
 
     try:
-        scanned, review, replied = _sync_meta_engagement()
+        scanned, review, replied, channels = _sync_meta_engagement()
         planned = _ensure_growth_posts()
+        run_status, health_note = summarize_channel_health(channels)
+        note = json.dumps(
+            {
+                "summary": health_note or "All configured engagement reads healthy.",
+                "channels": channels,
+            },
+            ensure_ascii=False,
+        )
         with SessionLocal() as db:
             run = db.get(SocialOperatorRun, run_id)
             if run:
-                run.status = "complete"
+                run.status = run_status
                 run.scanned_count = scanned
                 run.review_count = review
                 run.replies_sent_count = replied
                 run.posts_planned_count = planned
-                run.note = "Safe comment replies are autonomous; questions/support-sensitive items and X mentions stay in review."
+                run.note = note
                 db.commit()
         return {
             "ok": True,
+            "degraded": run_status == "degraded",
+            "status": run_status,
             "run_id": run_id,
             "scanned": scanned,
             "review": review,
             "replied": replied,
             "posts_planned": planned,
+            "channels": channels,
+            "warning": health_note or None,
         }
     except Exception as exc:
         log.exception("Social Operator run failed")
@@ -383,7 +434,7 @@ def run_operator_once() -> dict:
                 run.status = "failed"
                 run.note = str(exc)[:1000]
                 db.commit()
-        return {"ok": False, "run_id": run_id, "error": str(exc)}
+        return {"ok": False, "status": "failed", "run_id": run_id, "error": str(exc)}
 
 
 def operator_status() -> dict:
@@ -397,6 +448,18 @@ def operator_status() -> dict:
                 .limit(25)
             ).all()
         )
+
+    latest_channels: dict[str, dict] = {}
+    latest_health_message = ""
+    if latest and latest.note:
+        try:
+            parsed = json.loads(latest.note)
+            if isinstance(parsed, dict):
+                latest_channels = parsed.get("channels") or {}
+                latest_health_message = str(parsed.get("summary") or "")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            latest_health_message = latest.note
+
     return {
         "enabled": settings.social_operator_enabled,
         "auto_reply_enabled": settings.social_operator_auto_reply_enabled,
@@ -404,8 +467,8 @@ def operator_status() -> dict:
         "autopublish_low_risk": settings.social_operator_autopublish_low_risk,
         "minimum_daily": {
             "facebook": settings.social_operator_min_facebook_posts_daily,
+            "instagram": settings.social_operator_min_instagram_posts_daily,
             "x": settings.social_operator_min_x_posts_daily,
-            "instagram": 0,
         },
         "latest_run": None
         if not latest
@@ -417,6 +480,8 @@ def operator_status() -> dict:
             "replied": latest.replies_sent_count,
             "posts_planned": latest.posts_planned_count,
             "note": latest.note,
+            "health_message": latest_health_message,
+            "channels": latest_channels,
             "created_at": latest.created_at.isoformat() if latest.created_at else None,
         },
         "review_queue": [
@@ -433,21 +498,21 @@ def operator_status() -> dict:
         "guardrails": [
             "No autonomous replies to refunds, orders, payments, legal/security, support or bug reports.",
             "Questions that need product/context knowledge go to review.",
-            "X mentions are captured for review, not auto-replied in v1.",
-            "Operator fills posting gaps instead of stacking posts on already-active days.",
+            "X mentions are captured for review, not auto-replied.",
+            "Operator fills real posting gaps; pending drafts no longer count as published coverage.",
+            "Facebook engagement health is surfaced when Meta read permissions are unavailable.",
             "Facebook Groups sharing and invite-to-follow remain manual because the official APIs do not provide a safe general automation path.",
         ],
     }
 
 
 async def social_operator_loop() -> None:
-    # Give the rest of Cloud time to initialize before the first social read/write pass.
     await asyncio.sleep(45)
     while True:
         try:
             if settings.social_operator_enabled:
                 result = await asyncio.to_thread(run_operator_once)
-                if result.get("scanned") or result.get("replied") or result.get("posts_planned"):
+                if result.get("scanned") or result.get("replied") or result.get("posts_planned") or result.get("degraded"):
                     log.info("Social Operator: %s", result)
         except Exception:
             log.exception("Social Operator background iteration failed")
