@@ -145,6 +145,14 @@ def _meta_permission_diagnostics() -> dict:
     return result
 
 
+# Run once when the service starts so permission failures can be diagnosed from
+# server logs even when no Control Center browser is currently open.
+try:
+    _meta_permission_diagnostics()
+except Exception:
+    log.exception("Meta permission startup diagnostic failed")
+
+
 @router.get("/status")
 def get_operator_status(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
