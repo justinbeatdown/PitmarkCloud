@@ -6,6 +6,15 @@
     const d = new Date(iso);
     return Number.isNaN(d.getTime()) ? iso : d.toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
   };
+  const facebookReadLimited = run => {
+    const channels = run?.channels || {};
+    const error = String(channels.facebook?.error || run?.warning || '');
+    return run?.status === 'degraded'
+      && channels.facebook?.ok === false
+      && channels.instagram?.ok !== false
+      && channels.x?.ok !== false
+      && /pages_read_user_content|Page Public Content Access/i.test(error);
+  };
   let status = null;
 
   function mount() {
@@ -119,6 +128,21 @@
     const autoReply = s.auto_reply_enabled ? 'ON' : 'OFF';
     document.getElementById('soReplyNote').innerHTML = `Autonomous comment replies: <strong>${autoReply}</strong>${s.auto_reply_enabled ? ' · safe replies may publish automatically.' : ' · review and ingestion remain active, but Pitmark will not auto-reply.'}`;
     document.getElementById('soGuardrails').innerHTML = (s.guardrails || []).map(x => `<li>${esc(x)}</li>`).join('') || '<li>No guardrails reported.</li>';
+
+    if (facebookReadLimited(run) && enabled && !paused && !failed) {
+      ['soBadge','soDashBadge'].forEach(id => {
+        const el = document.getElementById(id); if (!el) return;
+        el.textContent = 'Running';
+        el.classList.remove('degraded');
+      });
+      const postWord = todayPosts === 1 ? 'post' : 'posts';
+      const platformCopy = todayPlatforms.length ? ` across ${todayPlatforms.join(', ')}` : '';
+      document.getElementById('soStatusTitle').textContent = 'Operator is running';
+      document.getElementById('soStatusSub').textContent = 'Facebook posting is active · comment monitoring is unavailable until Meta grants read access. Instagram and X engagement remain active.';
+      document.getElementById('soLastRun').textContent = `Last run: ${fmt(run.created_at)} · Facebook comments limited`;
+      if (dt) dt.textContent = 'Operator is running';
+      if (dc) dc.textContent = `${todayPosts} ${postWord} lined up today${platformCopy}. Facebook posting active; comment monitoring unavailable.`;
+    }
     renderQueue(s.review_queue || []);
   }
 
@@ -151,7 +175,8 @@
     try {
       const r = await request('/run', {method:'POST'});
       if (!r.ok) msg.textContent = r.error || 'Run failed.';
-      else if (r.degraded) msg.textContent = `Ran with warning — ${r.scanned||0} scanned, ${r.posts_planned||0} new post${r.posts_planned===1?'':'s'} planned this pass. ${r.warning || ''}`;
+      else if (r.degraded && facebookReadLimited(r)) msg.textContent = `Done — ${r.scanned||0} scanned, ${r.posts_planned||0} new post${r.posts_planned===1?'':'s'} planned this pass. Facebook posting is active; comment monitoring is unavailable.`;
+      else if (r.degraded) msg.textContent = `Ran with warning — ${r.scanned||0} scanned, ${r.posts_planned||0} new post${r.posts_planned===1?'':'s'} planned this pass.`;
       else msg.textContent = `Done — ${r.scanned||0} scanned, ${r.posts_planned||0} new post${r.posts_planned===1?'':'s'} planned this pass.`;
       await load();
     }
