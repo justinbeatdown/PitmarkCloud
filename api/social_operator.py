@@ -35,78 +35,112 @@ def auth(request: Request, admin_key: str | None):
     return require_control_user(request, admin_key)
 
 
-def _meta_permission_diagnostics() -> dict:
-    """Inspect only safe metadata about the actual Page token used by Social Operator.
+def _probe_token_permissions(token: str) -> dict:
+    try:
+        response = httpx.get(
+            f"https://graph.facebook.com/{settings.meta_graph_version.strip('/')}/me/permissions",
+            params={"access_token": token},
+            timeout=12.0,
+        )
+        payload = response.json()
+        if response.is_error:
+            detail = (payload.get("error") or {}).get("message") if isinstance(payload, dict) else response.text
+            return {"ok": False, "error": str(detail or f"HTTP {response.status_code}")[:300]}
+        granted = sorted(
+            str(item.get("permission"))
+            for item in (payload.get("data") or [])
+            if isinstance(item, dict) and item.get("status") == "granted" and item.get("permission")
+        )
+        return {"ok": True, "granted": granted}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)[:300]}
 
-    Never returns or logs the token itself. Cached briefly so the Control Center's
-    status polling does not hammer Meta's debug_token endpoint.
+
+def _probe_comment_read(token: str) -> dict:
+    try:
+        response = httpx.get(
+            f"https://graph.facebook.com/{settings.meta_graph_version.strip('/')}/{settings.meta_page_id.strip()}/published_posts",
+            params={
+                "fields": "id,comments.limit(1){id}",
+                "limit": 1,
+                "access_token": token,
+            },
+            timeout=12.0,
+        )
+        try:
+            payload = response.json()
+        except Exception:
+            payload = {}
+        if response.is_error:
+            err = payload.get("error") if isinstance(payload, dict) else None
+            return {
+                "ok": False,
+                "http_status": response.status_code,
+                "code": (err or {}).get("code") if isinstance(err, dict) else None,
+                "error": str((err or {}).get("message") if isinstance(err, dict) else response.text)[:300],
+            }
+        return {"ok": True, "http_status": response.status_code}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)[:300]}
+
+
+def _meta_permission_diagnostics() -> dict:
+    """Inspect safe metadata about every configured Facebook token candidate.
+
+    This intentionally never returns or logs token values. It verifies the exact
+    capability Social Operator needs instead of inferring health from publishing.
     """
     global _meta_diag_cache
     now = datetime.now(timezone.utc)
     if _meta_diag_cache and now - _meta_diag_cache[0] < timedelta(minutes=10):
         return _meta_diag_cache[1]
 
-    app_id = settings.meta_app_id.strip()
-    app_secret = settings.meta_app_secret.strip()
-    token = _page_token()
-    if not app_id or not app_secret or not token:
-        result = {
-            "ok": False,
-            "error": "Meta app credentials or Page token are not fully configured.",
-            "scopes": [],
-        }
-        _meta_diag_cache = (now, result)
-        return result
+    current = _page_token()
+    legacy = settings.meta_page_access_token.strip()
+    system = settings.meta_system_user_access_token.strip()
+    candidates: list[tuple[str, str]] = []
+    if current:
+        candidates.append(("resolved_page", current))
+    if legacy and all(token != legacy for _, token in candidates):
+        candidates.append(("legacy_page", legacy))
 
-    try:
-        response = httpx.get(
-            f"https://graph.facebook.com/{settings.meta_graph_version.strip('/')}/debug_token",
-            params={
-                "input_token": token,
-                "access_token": f"{app_id}|{app_secret}",
-            },
-            timeout=12.0,
+    result = {
+        "ok": False,
+        "configured": {
+            "app_id": bool(settings.meta_app_id.strip()),
+            "app_secret": bool(settings.meta_app_secret.strip()),
+            "page_id": bool(settings.meta_page_id.strip()),
+            "page_access_token": bool(legacy),
+            "system_user_token": bool(system),
+        },
+        "candidates": [],
+    }
+
+    for label, token in candidates:
+        permissions = _probe_token_permissions(token)
+        read_probe = _probe_comment_read(token)
+        result["candidates"].append(
+            {
+                "source": label,
+                "permissions": permissions,
+                "comment_read": read_probe,
+            }
         )
-        payload = response.json()
-        if response.is_error:
-            error = (payload.get("error") or {}).get("message") if isinstance(payload, dict) else response.text
-            raise RuntimeError(error or f"Meta debug_token failed with HTTP {response.status_code}")
-        data = payload.get("data") or {}
-        scopes = sorted({str(scope) for scope in (data.get("scopes") or []) if scope})
-        granular = data.get("granular_scopes") or []
-        comment_requirements = {
-            "pages_read_engagement",
-            "pages_read_user_content",
-            "pages_manage_engagement",
-            "pages_manage_metadata",
-            "pages_show_list",
-        }
-        result = {
-            "ok": bool(data.get("is_valid")),
-            "is_valid": bool(data.get("is_valid")),
-            "token_type": data.get("type"),
-            "app_matches": str(data.get("app_id") or "") == app_id,
-            "scopes": scopes,
-            "granular_scopes": [
-                {
-                    "scope": str(item.get("scope") or ""),
-                    "target_ids": [str(value) for value in (item.get("target_ids") or [])],
-                }
-                for item in granular
-                if isinstance(item, dict)
-            ],
-            "missing_comment_scopes": sorted(comment_requirements.difference(scopes)),
-        }
-    except Exception as exc:
-        result = {"ok": False, "error": str(exc)[:400], "scopes": []}
+
+    working = [item for item in result["candidates"] if item["comment_read"].get("ok")]
+    result["ok"] = bool(working)
+    result["working_source"] = working[0]["source"] if working else None
+    if not candidates:
+        result["error"] = "No Facebook Page token is configured."
+    elif not working:
+        result["error"] = "No configured Page token can read Facebook comments."
 
     _meta_diag_cache = (now, result)
     log.info(
-        "Meta permission diagnostic: valid=%s type=%s scopes=%s missing_comment_scopes=%s",
-        result.get("is_valid"),
-        result.get("token_type"),
-        result.get("scopes"),
-        result.get("missing_comment_scopes"),
+        "Meta permission diagnostic: configured=%s candidates=%s working_source=%s",
+        result["configured"],
+        result["candidates"],
+        result["working_source"],
     )
     return result
 
