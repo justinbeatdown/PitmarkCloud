@@ -11,6 +11,7 @@
   const RENDER_UPLOAD_PATH = '/api/control/content/paint-studio/psd/render-upload';
 
   const staged = { uploadId: '', fileName: '', fileSize: 0 };
+  let originalTemplateFile = null;
 
   const setTransportStatus = text => {
     const el = document.getElementById('status');
@@ -50,43 +51,63 @@
     input.dataset.templateBridge = '1';
     input.addEventListener('change', () => {
       const original = input.files && input.files[0];
-      if (!original || original.name.toLowerCase().endsWith('.psd')) return;
+      if (!original) {
+        originalTemplateFile = null;
+        return;
+      }
+      if (original.name.toLowerCase().endsWith('.psd')) {
+        originalTemplateFile = null;
+        return;
+      }
+
+      // The legacy engine still insists that the selected file name end in .psd.
+      // Keep the real ZIP/image File untouched in memory and give the engine only
+      // a tiny non-empty sentinel File. The fetch shim below uploads the original
+      // browser-selected file bytes, never the sentinel.
+      originalTemplateFile = original;
       try {
-        const proxy = new File([original], `${original.name}.pitmark-proxy.psd`, {
-          type: original.type || 'application/octet-stream',
+        const proxy = new File([new Uint8Array([1])], `${original.name}.pitmark-proxy.psd`, {
+          type: 'application/octet-stream',
           lastModified: original.lastModified,
         });
         const transfer = new DataTransfer();
         transfer.items.add(proxy);
         input.files = transfer.files;
-      } catch (_) {}
+      } catch (_) {
+        originalTemplateFile = null;
+      }
     });
   }
 
   async function uploadTemplateInChunks(file) {
     if (!(file instanceof File)) throw new Error('Choose an iRacing template ZIP or PSD.');
-    const filename = realTemplateName(file);
+
+    const bridgedName = realTemplateName(file);
+    const sourceFile = originalTemplateFile && originalTemplateFile.name === bridgedName
+      ? originalTemplateFile
+      : file;
+    const filename = realTemplateName(sourceFile);
     const lower = filename.toLowerCase();
     const allowed = ['.zip', '.psd', '.png', '.tga', '.jpg', '.jpeg', '.webp'].some(ext => lower.endsWith(ext));
     if (!allowed) throw new Error('Choose an iRacing template ZIP, PSD, PNG, TGA, JPG, or WEBP.');
-    if (!file.size) throw new Error('The selected template file is empty.');
-    if (file.size > MAX_TEMPLATE_BYTES) {
-      const mb = (file.size / (1024 * 1024)).toFixed(1);
+    if (!sourceFile.size) throw new Error('The selected template file is empty.');
+    if (sourceFile.size > MAX_TEMPLATE_BYTES) {
+      const mb = (sourceFile.size / (1024 * 1024)).toFixed(1);
       throw new Error(`This template is ${mb} MB. Paint Studio supports template files up to 150 MB.`);
     }
 
     const uploadId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const total = Math.ceil(file.size / CHUNK_BYTES);
+    const total = Math.ceil(sourceFile.size / CHUNK_BYTES);
     for (let index = 0; index < total; index += 1) {
       const start = index * CHUNK_BYTES;
-      const end = Math.min(file.size, start + CHUNK_BYTES);
-      const chunk = file.slice(start, end);
+      const end = Math.min(sourceFile.size, start + CHUNK_BYTES);
+      const chunk = sourceFile.slice(start, end);
       const percent = Math.max(1, Math.round(((index + 1) / total) * 90));
       setTransportStatus(`Uploading template… ${percent}%`);
       const params = new URLSearchParams({
         upload_id: uploadId,
         filename,
-        file_size: String(file.size),
+        file_size: String(sourceFile.size),
         index: String(index),
         total: String(total),
       });
@@ -117,7 +138,7 @@
 
     staged.uploadId = uploadId;
     staged.fileName = filename;
-    staged.fileSize = file.size;
+    staged.fileSize = sourceFile.size;
     return complete;
   }
 
@@ -125,7 +146,7 @@
     if (!staged.uploadId) return null;
     const file = form.get('psd');
     if (!(file instanceof File)) return null;
-    if (realTemplateName(file) !== staged.fileName || file.size !== staged.fileSize) return null;
+    if (realTemplateName(file) !== staged.fileName) return null;
     let overrides = {};
     try { overrides = JSON.parse(String(form.get('role_overrides_json') || '{}')); } catch (_) {}
     setTransportStatus('Updating template roles…');
@@ -153,5 +174,5 @@
     return nativeFetch(input, init);
   };
 
-  window.__PITMARK_PAINT_STUDIO_UPLOAD_TRANSPORT__ = { version: 2, chunkBytes: CHUNK_BYTES, zipFirst: true };
+  window.__PITMARK_PAINT_STUDIO_UPLOAD_TRANSPORT__ = { version: 3, chunkBytes: CHUNK_BYTES, zipFirst: true, originalFileBridge: true };
 })();
