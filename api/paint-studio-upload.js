@@ -39,28 +39,27 @@
 
   const realTemplateName = file => {
     const name = String(file && file.name || 'template.zip');
-    return name.toLowerCase().endsWith('.zip.psd') ? name.slice(0, -4) : name;
+    return name.toLowerCase().endsWith('.psd') && name.toLowerCase().includes('.pitmark-proxy.')
+      ? name.slice(0, name.toLowerCase().lastIndexOf('.pitmark-proxy.'))
+      : name;
   };
 
-  function enableZipSelection() {
+  function enableTemplateSelection() {
     const input = document.getElementById('templateInput');
-    if (!input || input.dataset.zipBridge) return;
-    input.dataset.zipBridge = '1';
+    if (!input || input.dataset.templateBridge) return;
+    input.dataset.templateBridge = '1';
     input.addEventListener('change', () => {
       const original = input.files && input.files[0];
-      if (!original || !original.name.toLowerCase().endsWith('.zip')) return;
+      if (!original || original.name.toLowerCase().endsWith('.psd')) return;
       try {
-        const proxy = new File([original], `${original.name}.psd`, {
-          type: original.type || 'application/zip',
+        const proxy = new File([original], `${original.name}.pitmark-proxy.psd`, {
+          type: original.type || 'application/octet-stream',
           lastModified: original.lastModified,
         });
         const transfer = new DataTransfer();
         transfer.items.add(proxy);
         input.files = transfer.files;
-      } catch (_) {
-        // Modern Chromium supports File/DataTransfer. If a browser does not,
-        // the main engine will surface its normal file-type error.
-      }
+      } catch (_) {}
     });
   }
 
@@ -139,7 +138,7 @@
     });
   }
 
-  enableZipSelection();
+  enableTemplateSelection();
 
   window.fetch = async function pitmarkPaintStudioFetch(input, init = {}) {
     const path = pathOf(input);
