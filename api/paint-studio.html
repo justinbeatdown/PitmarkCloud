@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Pitmark Paint Studio</title>
-  <link rel="stylesheet" href="/api/control/content/paint-studio.css?v=2">
+  <link rel="stylesheet" href="/api/control/content/paint-studio.css?v=3">
 </head>
 <body>
   <header class="topbar">
@@ -13,7 +13,7 @@
       <span class="eyebrow">PRIVATE INTERNAL TOOL</span>
       <strong>PITMARK PAINT STUDIO</strong>
     </div>
-    <div class="status" id="status">Ready</div>
+    <div class="status busy" id="status">Starting engine…</div>
   </header>
 
   <main class="workspace">
@@ -26,30 +26,22 @@
           <small>Use the layered template downloaded from iRacing · up to 80 MB</small>
         </label>
         <div class="file-meta" id="templateMeta">No template loaded</div>
-        <details class="legacy-import">
-          <summary>Legacy flattened image</summary>
-          <p class="hint">Only use this for an old PNG/JPG/WEBP workflow. PSD is the recommended source.</p>
-          <input class="file-line" id="legacyTemplateInput" type="file" accept="image/png,image/jpeg,image/webp">
-        </details>
-      </section>
-
-      <section id="psdLayersSection" class="hidden">
-        <div class="section-title"><span>02</span> PSD layers</div>
-        <p class="hint layer-help">Paint = AI-editable · Guide = editor/UV reference only · Overlay = protected final artwork · Ignore = excluded.</p>
-        <div class="role-legend">
-          <span class="role-dot paint">Paint</span>
-          <span class="role-dot guide">Guide</span>
-          <span class="role-dot overlay">Overlay</span>
-          <span class="role-dot ignore">Ignore</span>
-        </div>
-        <div id="layerTree" class="layer-tree"></div>
       </section>
 
       <section>
-        <div class="section-title"><span>03</span> Design brief</div>
-        <textarea id="prompt" rows="8" placeholder="Example: Matte black base, sharp Pitmark orange slash from left rear quarter through the door, white secondary pinstripe, aggressive modern dirt late model feel, plenty of clean sponsor space..."></textarea>
-        <label class="mini-label" for="referenceInput">Optional inspiration image</label>
-        <input class="file-line" id="referenceInput" type="file" accept="image/png,image/jpeg,image/webp">
+        <div class="section-title"><span>02</span> Attachments</div>
+        <p class="hint">Add inspiration, logos, sponsor marks, or other visual references now. Tag each file as Reference or Logo.</p>
+        <label class="secondary file-button" for="assetInput">+ Add images</label>
+        <input id="assetInput" class="hidden-input" type="file" accept="image/png,image/jpeg,image/webp" multiple>
+        <div id="assetList" class="asset-list"><div class="empty">No attachments yet</div></div>
+      </section>
+
+      <section class="chat-section">
+        <div class="section-title"><span>03</span> Livery chat</div>
+        <div id="conversationHistory" class="conversation-history">
+          <div class="chat-bubble assistant">Load a PSD, add any references you want, then describe the livery. After each paint pass, just tell me what to change.</div>
+        </div>
+        <textarea id="prompt" rows="5" placeholder="Create a Pitmark Racing Co. grassroots-inspired livery..."></textarea>
         <div class="quality-row">
           <label for="quality">AI quality</label>
           <select id="quality">
@@ -58,16 +50,30 @@
             <option value="high">High</option>
           </select>
         </div>
-        <button class="primary" id="generateBtn" disabled>Generate paint pass</button>
-        <p class="hint">AI changes only the editable paint raster. PSD guides and protected overlays stay separate and exact.</p>
+        <button class="primary" id="generateBtn" disabled>Generate paint</button>
+        <p class="hint">First prompt creates the paint. Every prompt after that revises the current version.</p>
       </section>
 
-      <section>
-        <div class="section-title"><span>04</span> Exact logos</div>
-        <label class="secondary file-button" for="logoInput">+ Add sponsor / logo files</label>
-        <input id="logoInput" class="hidden-input" type="file" accept="image/png,image/jpeg,image/webp" multiple>
-        <div id="logoList" class="logo-list"><div class="empty">No logos added</div></div>
-      </section>
+      <details class="advanced" id="advancedTemplateSettings">
+        <summary>Advanced template settings</summary>
+        <div class="advanced-body">
+          <p class="hint">Paint Studio handles PSD layers automatically. Only change these if a specific template imports incorrectly.</p>
+          <div id="psdLayersSection" class="hidden">
+            <div class="role-legend">
+              <span class="role-dot paint">Paint</span>
+              <span class="role-dot guide">Guide</span>
+              <span class="role-dot overlay">Overlay</span>
+              <span class="role-dot ignore">Ignore</span>
+            </div>
+            <div id="layerTree" class="layer-tree"></div>
+          </div>
+          <details class="legacy-import">
+            <summary>Legacy flattened image</summary>
+            <p class="hint">Fallback only. Original iRacing PSD is the normal workflow.</p>
+            <input class="file-line" id="legacyTemplateInput" type="file" accept="image/png,image/jpeg,image/webp">
+          </details>
+        </div>
+      </details>
     </aside>
 
     <section class="stage-shell">
@@ -87,7 +93,7 @@
         <div id="emptyStage" class="empty-stage">
           <div class="mark">P</div>
           <h1>LOAD AN iRACING PSD</h1>
-          <p>Paint Studio will read the layer tree, keep UV guides separate from the AI paint, and preserve protected artwork for export.</p>
+          <p>The PSD intelligence stays behind the scenes. You upload the template, attach references, describe the paint, and iterate.</p>
         </div>
       </div>
       <div class="stage-footer">
@@ -98,33 +104,35 @@
 
     <aside class="panel export-panel">
       <section>
-        <div class="section-title"><span>05</span> Selected logo</div>
-        <div id="selectedEmpty" class="empty">Click a logo on the canvas or in the list.</div>
+        <div class="section-title"><span>04</span> Exact logo placement</div>
+        <div id="selectedEmpty" class="empty">Logo-tagged attachments can also be placed exactly on the finished paint.</div>
         <div id="logoControls" class="logo-controls hidden">
+          <div id="selectedLogoName" class="selected-logo-name"></div>
           <label>Scale <input id="scaleRange" type="range" min="5" max="200" value="100"></label>
           <label>Opacity <input id="opacityRange" type="range" min="5" max="100" value="100"></label>
           <div class="button-grid">
             <button id="frontBtn" class="secondary">Bring front</button>
-            <button id="deleteLogoBtn" class="danger">Remove</button>
+            <button id="deleteLogoBtn" class="danger">Remove placement</button>
           </div>
-          <p class="hint">Drag logos directly on the canvas. Uploaded artwork is composited exactly as supplied.</p>
+          <p class="hint">Drag exact logos directly on the canvas. These overlays are never redrawn by AI.</p>
         </div>
       </section>
 
       <section>
-        <div class="section-title"><span>06</span> iRacing export</div>
+        <div class="section-title"><span>05</span> iRacing export</div>
         <button id="pngBtn" class="primary" disabled>Export PNG</button>
         <button id="tgaBtn" class="secondary" disabled>Export TGA</button>
-        <p class="hint">Exports use the original PSD resolution. Guides are removed automatically. Protected overlays and exact logos remain. TGA is uncompressed 32-bit BGRA with alpha.</p>
+        <p class="hint">Exports use the original PSD resolution. Guides are removed automatically. Protected overlays and exact logos remain.</p>
       </section>
 
       <section class="boundary">
         <strong>Internal by design</strong>
-        <p>This stays Justin's private Pitmark production tool. It is not part of PRT and not the future Trading Paints-style system.</p>
+        <p>This stays Justin's private Pitmark production tool. It is not part of PRT or the future Trading Paints-style system.</p>
       </section>
     </aside>
   </main>
 
-  <script src="/api/control/content/paint-studio.js?v=2" defer></script>
+  <noscript><div class="fatal-banner">Paint Studio needs JavaScript enabled.</div></noscript>
+  <!-- PAINT_STUDIO_ENGINE -->
 </body>
 </html>

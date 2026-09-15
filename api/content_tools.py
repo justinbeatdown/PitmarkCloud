@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from services.content_tools import generate_article_from_source
 from services.control_access import access_from_request
 from services.control_auth import require_control_user
-from services.paint_studio import MAX_INPUT_BYTES, PaintStudioError, generate_livery_edit
+from services.paint_studio import MAX_ATTACHMENTS, MAX_INPUT_BYTES, PaintAttachment, PaintStudioError, generate_livery_edit
 from services.paint_studio_psd import MAX_PSD_BYTES, PsdStudioError, parse_psd_template
 from utils.security import enforce_rate_limit
 
@@ -45,6 +45,22 @@ async def _read_psd_upload(file: UploadFile) -> tuple[bytes, str]:
     return raw, filename
 
 
+async def _read_attachment_uploads(files: list[UploadFile], roles: list[str]) -> list[PaintAttachment]:
+    if len(files) > MAX_ATTACHMENTS:
+        raise HTTPException(400, f"Use no more than {MAX_ATTACHMENTS} attachment images per generation.")
+    result: list[PaintAttachment] = []
+    for index, file in enumerate(files):
+        raw = await file.read(MAX_INPUT_BYTES + 1)
+        if not raw:
+            continue
+        if len(raw) > MAX_INPUT_BYTES:
+            raise HTTPException(400, f"Attachment {file.filename or index + 1} must be 20 MB or smaller.")
+        content_type = (file.content_type or "application/octet-stream").lower()
+        role = roles[index] if index < len(roles) and roles[index] in {"reference", "logo"} else "reference"
+        result.append(PaintAttachment(data=raw, name=(file.filename or f"attachment-{index + 1}.png"), content_type=content_type, role=role))
+    return result
+
+
 @router.post("/article-from-source")
 def article_from_source(req: ArticleFromSourceRequest, request: Request):
     require_control_user(request, None)
@@ -61,35 +77,25 @@ def article_from_source(req: ArticleFromSourceRequest, request: Request):
 def paint_studio(request: Request):
     access = access_from_request(request)
     if not access or not access.active:
-        return RedirectResponse(
-            url=f"/control?next={PAINT_STUDIO_PATH.replace('/', '%2F')}",
-            status_code=302,
-            headers={"Cache-Control": "no-store"},
-        )
+        return RedirectResponse(url=f"/control?next={PAINT_STUDIO_PATH.replace('/', '%2F')}", status_code=302, headers={"Cache-Control": "no-store"})
     if access.role not in {"owner", "admin"}:
         raise HTTPException(403, "Pitmark Paint Studio is restricted to owner/admin accounts.")
     html = (ASSET_DIR / "paint-studio.html").read_text(encoding="utf-8")
+    engine = (ASSET_DIR / "paint-studio.js").read_text(encoding="utf-8").replace("</script", "<\\/script")
+    html = html.replace("<!-- PAINT_STUDIO_ENGINE -->", f"<script>\n{engine}\n</script>")
     return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
 
 @router.get("/paint-studio.css", include_in_schema=False)
 def paint_studio_css(request: Request):
     _require_paint_studio(request)
-    return Response(
-        (ASSET_DIR / "paint-studio.css").read_text(encoding="utf-8"),
-        media_type="text/css",
-        headers={"Cache-Control": "no-store"},
-    )
+    return Response((ASSET_DIR / "paint-studio.css").read_text(encoding="utf-8"), media_type="text/css", headers={"Cache-Control": "no-store"})
 
 
 @router.get("/paint-studio.js", include_in_schema=False)
 def paint_studio_js(request: Request):
     _require_paint_studio(request)
-    return Response(
-        (ASSET_DIR / "paint-studio.js").read_text(encoding="utf-8"),
-        media_type="application/javascript",
-        headers={"Cache-Control": "no-store"},
-    )
+    return Response((ASSET_DIR / "paint-studio.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-store"})
 
 
 @router.post("/paint-studio/psd/import", include_in_schema=False)
@@ -107,11 +113,7 @@ async def paint_studio_psd_import(request: Request, psd: UploadFile = File(...))
 
 
 @router.post("/paint-studio/psd/render", include_in_schema=False)
-async def paint_studio_psd_render(
-    request: Request,
-    psd: UploadFile = File(...),
-    role_overrides_json: str = Form("{}"),
-):
+async def paint_studio_psd_render(request: Request, psd: UploadFile = File(...), role_overrides_json: str = Form("{}")):
     _require_paint_studio(request)
     enforce_rate_limit(request, "paint-studio-psd-render", 20, 900)
     raw, filename = await _read_psd_upload(psd)
@@ -138,14 +140,23 @@ async def paint_studio_generate(
     prompt: str = Form(...),
     quality: str = Form("medium"),
     guide: UploadFile | None = File(default=None),
-    reference: UploadFile | None = File(default=None),
+    assets: list[UploadFile] = File(default=[]),
+    asset_roles_json: str = Form("[]"),
 ):
     _require_paint_studio(request)
     enforce_rate_limit(request, "paint-studio-generate", 8, 900)
 
     template_bytes = await template.read(MAX_INPUT_BYTES + 1)
     guide_bytes = await guide.read(MAX_INPUT_BYTES + 1) if guide else None
-    reference_bytes = await reference.read(MAX_INPUT_BYTES + 1) if reference else None
+    try:
+        parsed_roles = json.loads(asset_roles_json or "[]")
+    except json.JSONDecodeError as exc:
+        raise HTTPException(400, "Attachment roles were invalid JSON.") from exc
+    if not isinstance(parsed_roles, list):
+        raise HTTPException(400, "Attachment roles must be a list.")
+    roles = [str(role).lower() for role in parsed_roles]
+    attachments = await _read_attachment_uploads(assets, roles)
+
     try:
         result = await generate_livery_edit(
             template_bytes=template_bytes,
@@ -155,9 +166,7 @@ async def paint_studio_generate(
             guide_bytes=guide_bytes,
             guide_name=(guide.filename if guide else "guide.png") or "guide.png",
             guide_content_type=((guide.content_type if guide else "image/png") or "image/png").lower(),
-            reference_bytes=reference_bytes,
-            reference_name=(reference.filename if reference else "reference.png") or "reference.png",
-            reference_content_type=((reference.content_type if reference else "image/png") or "image/png").lower(),
+            attachments=attachments,
             quality=quality,
         )
     except PaintStudioError as exc:
@@ -165,11 +174,4 @@ async def paint_studio_generate(
     except Exception as exc:
         raise HTTPException(502, f"Paint Studio generation failed: {exc}") from exc
 
-    return Response(
-        result["data"],
-        media_type=result["mime_type"],
-        headers={
-            "Cache-Control": "no-store",
-            "X-Pitmark-Image-Model": result["model"],
-        },
-    )
+    return Response(result["data"], media_type=result["mime_type"], headers={"Cache-Control": "no-store", "X-Pitmark-Image-Model": result["model"]})
