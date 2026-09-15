@@ -10,7 +10,7 @@ import httpx
 
 from utils.config import settings
 from services.discord_hq_common import log_named
-from services import discord_hq_moderation
+from services import discord_hq_moderation, prt_release_announcements
 
 log = logging.getLogger("pitmark.discord.gateway")
 DISCORD_API = "https://discord.com/api/v10"
@@ -261,6 +261,8 @@ def _staff_exempt(member: discord.Member) -> bool:
 
 class PitmarkPresenceClient(discord.Client):
     async def on_ready(self) -> None:
+        global _release_watcher_task
+
         await self.change_presence(
             status=discord.Status.online,
             activity=_activity(),
@@ -270,6 +272,15 @@ class PitmarkPresenceClient(discord.Client):
             self.user,
             getattr(self.user, "id", "unknown"),
         )
+
+        if settings.prt_release_announcements_enabled and (
+            _release_watcher_task is None or _release_watcher_task.done()
+        ):
+            _release_watcher_task = asyncio.create_task(
+                prt_release_announcements.watch(self),
+                name="pitmark-prt-release-announcements",
+            )
+
         try:
             await _sync_official_links_message(str(getattr(self.user, "id", "")))
         except Exception:
@@ -413,6 +424,7 @@ class PitmarkPresenceClient(discord.Client):
 
 _client: PitmarkPresenceClient | None = None
 _task: asyncio.Task | None = None
+_release_watcher_task: asyncio.Task | None = None
 
 
 async def start() -> None:
@@ -446,7 +458,18 @@ async def start() -> None:
 
 
 async def stop() -> None:
-    global _client, _task
+    global _client, _task, _release_watcher_task
+
+    if _release_watcher_task:
+        if not _release_watcher_task.done():
+            _release_watcher_task.cancel()
+        try:
+            await _release_watcher_task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            pass
+        _release_watcher_task = None
 
     if _client and not _client.is_closed():
         try:

@@ -50,6 +50,14 @@ class GuildConfigRow(Base):
     updated_at: Mapped[str] = mapped_column(String(64), default=_now_iso)
 
 
+class RuntimeStateRow(Base):
+    __tablename__ = "runtime_state"
+
+    key: Mapped[str] = mapped_column(String(120), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[str] = mapped_column(String(64), default=_now_iso)
+
+
 class RaceResultRow(Base):
     __tablename__ = "race_results"
 
@@ -178,6 +186,23 @@ def guild_config_dict(row: GuildConfigRow) -> dict[str, Any]:
         "configured_by_user_id": row.configured_by_user_id,
         "updated_at": row.updated_at,
     }
+
+
+def get_runtime_state(key: str) -> str | None:
+    with SessionLocal() as db:
+        row = db.get(RuntimeStateRow, key)
+        return row.value if row else None
+
+
+def set_runtime_state(key: str, value: str) -> None:
+    with SessionLocal() as db:
+        row = db.get(RuntimeStateRow, key)
+        if row is None:
+            row = RuntimeStateRow(key=key)
+            db.add(row)
+        row.value = value
+        row.updated_at = _now_iso()
+        db.commit()
 
 
 def publish_result(values: dict[str, Any]) -> dict[str, Any]:
