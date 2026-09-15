@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Pitmark Paint Studio</title>
+  <link rel="stylesheet" href="/api/control/content/paint-studio.css?v=1">
+</head>
+<body>
+  <header class="topbar">
+    <a class="back" href="/control">← Control Center</a>
+    <div class="brand">
+      <span class="eyebrow">PRIVATE INTERNAL TOOL</span>
+      <strong>PITMARK PAINT STUDIO</strong>
+    </div>
+    <div class="status" id="status">Ready</div>
+  </header>
+
+  <main class="workspace">
+    <aside class="panel controls">
+      <section>
+        <div class="section-title"><span>01</span> Template</div>
+        <label class="drop" for="templateInput">
+          <input id="templateInput" type="file" accept="image/png,image/jpeg,image/webp">
+          <strong>Load paint template</strong>
+          <small>PNG, JPG or WEBP · flattened export</small>
+        </label>
+        <div class="file-meta" id="templateMeta">No template loaded</div>
+      </section>
+
+      <section>
+        <div class="section-title"><span>02</span> Design brief</div>
+        <textarea id="prompt" rows="8" placeholder="Example: Matte black base, sharp fluorescent orange slash from left rear quarter through the door, white secondary pinstripe, aggressive modern dirt late model feel, plenty of clean sponsor space..."></textarea>
+        <label class="mini-label" for="referenceInput">Optional inspiration image</label>
+        <input class="file-line" id="referenceInput" type="file" accept="image/png,image/jpeg,image/webp">
+        <div class="quality-row">
+          <label for="quality">AI quality</label>
+          <select id="quality">
+            <option value="low">Draft</option>
+            <option value="medium" selected>Standard</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+        <button class="primary" id="generateBtn" disabled>Generate paint pass</button>
+        <p class="hint">AI handles the paint scheme. Real logos stay separate so they are never redrawn.</p>
+      </section>
+
+      <section>
+        <div class="section-title"><span>03</span> Exact logos</div>
+        <label class="secondary file-button" for="logoInput">+ Add sponsor / logo files</label>
+        <input id="logoInput" class="hidden-input" type="file" accept="image/png,image/jpeg,image/webp" multiple>
+        <div id="logoList" class="logo-list"><div class="empty">No logos added</div></div>
+      </section>
+    </aside>
+
+    <section class="stage-shell">
+      <div class="stage-toolbar">
+        <div class="toggle-group">
+          <button id="fitBtn" class="tool active">Fit</button>
+          <button id="actualBtn" class="tool">100%</button>
+        </div>
+        <div class="toggle-group">
+          <button id="undoBtn" class="tool" disabled>Undo AI</button>
+          <button id="resetBtn" class="tool" disabled>Reset</button>
+        </div>
+      </div>
+      <div class="stage" id="stage">
+        <canvas id="canvas"></canvas>
+        <div id="emptyStage" class="empty-stage">
+          <div class="mark">P</div>
+          <h1>LOAD A TEMPLATE</h1>
+          <p>Your working files stay in this browser except the template/reference images sent for an AI paint pass.</p>
+        </div>
+      </div>
+      <div class="stage-footer">
+        <span id="canvasMeta">—</span>
+        <span id="versionMeta">Version 0</span>
+      </div>
+    </section>
+
+    <aside class="panel export-panel">
+      <section>
+        <div class="section-title"><span>04</span> Selected logo</div>
+        <div id="selectedEmpty" class="empty">Click a logo on the canvas or in the list.</div>
+        <div id="logoControls" class="logo-controls hidden">
+          <label>Scale <input id="scaleRange" type="range" min="5" max="200" value="100"></label>
+          <label>Opacity <input id="opacityRange" type="range" min="5" max="100" value="100"></label>
+          <div class="button-grid">
+            <button id="frontBtn" class="secondary">Bring front</button>
+            <button id="deleteLogoBtn" class="danger">Remove</button>
+          </div>
+          <p class="hint">Drag logos directly on the canvas. Uploaded artwork is composited exactly as supplied.</p>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title"><span>05</span> Export</div>
+        <button id="pngBtn" class="primary" disabled>Export PNG</button>
+        <button id="tgaBtn" class="secondary" disabled>Export TGA</button>
+        <p class="hint">Exports use the original template resolution. TGA is uncompressed 32-bit BGRA with alpha.</p>
+      </section>
+
+      <section class="boundary">
+        <strong>Internal by design</strong>
+        <p>This is not part of PRT and is not a Trading Paints replacement. It is Justin's private Pitmark production tool.</p>
+      </section>
+    </aside>
+  </main>
+
+  <script src="/api/control/content/paint-studio.js?v=1" defer></script>
+</body>
+</html>
