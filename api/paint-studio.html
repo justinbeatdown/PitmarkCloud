@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Pitmark Paint Studio</title>
-  <link rel="stylesheet" href="/api/control/content/paint-studio.css?v=1">
+  <link rel="stylesheet" href="/api/control/content/paint-studio.css?v=2">
 </head>
 <body>
   <header class="topbar">
@@ -19,18 +19,35 @@
   <main class="workspace">
     <aside class="panel controls">
       <section>
-        <div class="section-title"><span>01</span> Template</div>
-        <label class="drop" for="templateInput">
-          <input id="templateInput" type="file" accept="image/png,image/jpeg,image/webp">
-          <strong>Load paint template</strong>
-          <small>PNG, JPG or WEBP · flattened export</small>
+        <div class="section-title"><span>01</span> iRacing template</div>
+        <label class="drop psd-drop" for="templateInput">
+          <input id="templateInput" type="file" accept=".psd,application/vnd.adobe.photoshop">
+          <strong>Load original .PSD</strong>
+          <small>Use the layered template downloaded from iRacing · up to 80 MB</small>
         </label>
         <div class="file-meta" id="templateMeta">No template loaded</div>
+        <details class="legacy-import">
+          <summary>Legacy flattened image</summary>
+          <p class="hint">Only use this for an old PNG/JPG/WEBP workflow. PSD is the recommended source.</p>
+          <input class="file-line" id="legacyTemplateInput" type="file" accept="image/png,image/jpeg,image/webp">
+        </details>
+      </section>
+
+      <section id="psdLayersSection" class="hidden">
+        <div class="section-title"><span>02</span> PSD layers</div>
+        <p class="hint layer-help">Paint = AI-editable · Guide = editor/UV reference only · Overlay = protected final artwork · Ignore = excluded.</p>
+        <div class="role-legend">
+          <span class="role-dot paint">Paint</span>
+          <span class="role-dot guide">Guide</span>
+          <span class="role-dot overlay">Overlay</span>
+          <span class="role-dot ignore">Ignore</span>
+        </div>
+        <div id="layerTree" class="layer-tree"></div>
       </section>
 
       <section>
-        <div class="section-title"><span>02</span> Design brief</div>
-        <textarea id="prompt" rows="8" placeholder="Example: Matte black base, sharp fluorescent orange slash from left rear quarter through the door, white secondary pinstripe, aggressive modern dirt late model feel, plenty of clean sponsor space..."></textarea>
+        <div class="section-title"><span>03</span> Design brief</div>
+        <textarea id="prompt" rows="8" placeholder="Example: Matte black base, sharp Pitmark orange slash from left rear quarter through the door, white secondary pinstripe, aggressive modern dirt late model feel, plenty of clean sponsor space..."></textarea>
         <label class="mini-label" for="referenceInput">Optional inspiration image</label>
         <input class="file-line" id="referenceInput" type="file" accept="image/png,image/jpeg,image/webp">
         <div class="quality-row">
@@ -42,11 +59,11 @@
           </select>
         </div>
         <button class="primary" id="generateBtn" disabled>Generate paint pass</button>
-        <p class="hint">AI handles the paint scheme. Real logos stay separate so they are never redrawn.</p>
+        <p class="hint">AI changes only the editable paint raster. PSD guides and protected overlays stay separate and exact.</p>
       </section>
 
       <section>
-        <div class="section-title"><span>03</span> Exact logos</div>
+        <div class="section-title"><span>04</span> Exact logos</div>
         <label class="secondary file-button" for="logoInput">+ Add sponsor / logo files</label>
         <input id="logoInput" class="hidden-input" type="file" accept="image/png,image/jpeg,image/webp" multiple>
         <div id="logoList" class="logo-list"><div class="empty">No logos added</div></div>
@@ -60,16 +77,17 @@
           <button id="actualBtn" class="tool">100%</button>
         </div>
         <div class="toggle-group">
+          <button id="guideToggleBtn" class="tool active" disabled>Guides</button>
           <button id="undoBtn" class="tool" disabled>Undo AI</button>
-          <button id="resetBtn" class="tool" disabled>Reset</button>
+          <button id="resetBtn" class="tool" disabled>Reset paint</button>
         </div>
       </div>
       <div class="stage" id="stage">
         <canvas id="canvas"></canvas>
         <div id="emptyStage" class="empty-stage">
           <div class="mark">P</div>
-          <h1>LOAD A TEMPLATE</h1>
-          <p>Your working files stay in this browser except the template/reference images sent for an AI paint pass.</p>
+          <h1>LOAD AN iRACING PSD</h1>
+          <p>Paint Studio will read the layer tree, keep UV guides separate from the AI paint, and preserve protected artwork for export.</p>
         </div>
       </div>
       <div class="stage-footer">
@@ -80,7 +98,7 @@
 
     <aside class="panel export-panel">
       <section>
-        <div class="section-title"><span>04</span> Selected logo</div>
+        <div class="section-title"><span>05</span> Selected logo</div>
         <div id="selectedEmpty" class="empty">Click a logo on the canvas or in the list.</div>
         <div id="logoControls" class="logo-controls hidden">
           <label>Scale <input id="scaleRange" type="range" min="5" max="200" value="100"></label>
@@ -94,19 +112,19 @@
       </section>
 
       <section>
-        <div class="section-title"><span>05</span> Export</div>
+        <div class="section-title"><span>06</span> iRacing export</div>
         <button id="pngBtn" class="primary" disabled>Export PNG</button>
         <button id="tgaBtn" class="secondary" disabled>Export TGA</button>
-        <p class="hint">Exports use the original template resolution. TGA is uncompressed 32-bit BGRA with alpha.</p>
+        <p class="hint">Exports use the original PSD resolution. Guides are removed automatically. Protected overlays and exact logos remain. TGA is uncompressed 32-bit BGRA with alpha.</p>
       </section>
 
       <section class="boundary">
         <strong>Internal by design</strong>
-        <p>This is not part of PRT and is not a Trading Paints replacement. It is Justin's private Pitmark production tool.</p>
+        <p>This stays Justin's private Pitmark production tool. It is not part of PRT and not the future Trading Paints-style system.</p>
       </section>
     </aside>
   </main>
 
-  <script src="/api/control/content/paint-studio.js?v=1" defer></script>
+  <script src="/api/control/content/paint-studio.js?v=2" defer></script>
 </body>
 </html>
