@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+from dataclasses import dataclass
 
 import httpx
 
@@ -13,13 +14,22 @@ class PaintStudioError(RuntimeError):
 
 SUPPORTED_INPUT_TYPES = {"image/png", "image/jpeg", "image/webp"}
 MAX_INPUT_BYTES = 20 * 1024 * 1024
+MAX_ATTACHMENTS = 8
+
+
+@dataclass(frozen=True)
+class PaintAttachment:
+    data: bytes
+    name: str
+    content_type: str
+    role: str = "reference"
 
 
 def configured() -> bool:
     return bool(settings.openai_api_key.strip() and settings.pitmark_image_model.strip())
 
 
-def _paint_prompt(user_prompt: str, has_guide: bool = False) -> str:
+def _paint_prompt(user_prompt: str, has_guide: bool = False, attachment_roles: list[str] | None = None) -> str:
     clean = (user_prompt or "").strip()
     if not clean:
         raise PaintStudioError("Describe the livery you want to create.")
@@ -29,19 +39,35 @@ def _paint_prompt(user_prompt: str, has_guide: bool = False) -> str:
     guide_text = (
         "The SECOND supplied image is a protected UV/template guide from the original layered PSD. "
         "Treat it as authoritative geometry and alignment context only: do not move, redraw, restyle, paint over, or reproduce its guide lines in the finished artwork. "
-        if has_guide
-        else ""
+        if has_guide else ""
     )
+    roles = [role if role in {"reference", "logo"} else "reference" for role in (attachment_roles or [])]
+    attachment_text = ""
+    if roles:
+        start = 3 if has_guide else 2
+        descriptions = []
+        for offset, role in enumerate(roles):
+            image_number = start + offset
+            if role == "logo":
+                descriptions.append(
+                    f"Image {image_number} is a user-supplied LOGO asset. Preserve its identity, proportions, colors, and lettering; do not invent a variation. "
+                    "Use it only where the requested livery calls for it. If exact reproduction is uncertain, leave clean placement space rather than hallucinating the mark."
+                )
+            else:
+                descriptions.append(
+                    f"Image {image_number} is a REFERENCE image for color, texture, composition, or style. Do not copy unrelated third-party branding or readable text from it."
+                )
+        attachment_text = " ".join(descriptions) + " "
+
     return (
         "You are assisting an experienced racing graphic designer inside Pitmark Paint Studio. "
         "The FIRST supplied image is the editable paint raster for a real race-car UV template. "
         "Keep its canvas orientation, panel locations, body-part geometry, seams, and alignment stable. "
         + guide_text
+        + attachment_text
         + "Create only the painted livery artwork. Do not redesign the UV/template geometry itself. "
-        "Do not invent sponsor logos, brand marks, readable sponsor text, fake contingency decals, driver names, or car numbers; "
-        "those are added later from exact uploaded assets. Preserve deliberate transparent/blank technical regions where practical. "
-        "Any later supplied image is inspiration only for color, texture, composition, or style, not permission to copy third-party logos or text. "
-        "Favor coherent real-world race-livery design with clean panel flow, intentional hierarchy, and production-ready shapes instead of an AI-art poster look. "
+        "Do not invent sponsor logos, brand marks, readable sponsor text, fake contingency decals, driver names, or car numbers that were not supplied by the user. "
+        "Preserve deliberate transparent/blank technical regions where practical. Favor coherent real-world race-livery design with clean panel flow, intentional hierarchy, and production-ready shapes instead of an AI-art poster look. "
         "User livery brief: " + clean
     )
 
@@ -64,9 +90,7 @@ async def generate_livery_edit(
     guide_bytes: bytes | None = None,
     guide_name: str = "guide.png",
     guide_content_type: str = "image/png",
-    reference_bytes: bytes | None = None,
-    reference_name: str = "reference.png",
-    reference_content_type: str = "image/png",
+    attachments: list[PaintAttachment] | None = None,
     quality: str = "medium",
 ) -> dict:
     if not configured():
@@ -76,42 +100,25 @@ async def generate_livery_edit(
     if not template_bytes or len(template_bytes) > MAX_INPUT_BYTES:
         raise PaintStudioError("Editable paint image must be between 1 byte and 20 MB.")
     _validate_optional_image(guide_bytes, guide_content_type, "Guide")
-    _validate_optional_image(reference_bytes, reference_content_type, "Reference")
+    clean_attachments = list(attachments or [])
+    if len(clean_attachments) > MAX_ATTACHMENTS:
+        raise PaintStudioError(f"Use no more than {MAX_ATTACHMENTS} attachment images per generation.")
+    for attachment in clean_attachments:
+        _validate_optional_image(attachment.data, attachment.content_type, "Attachment")
     if quality not in {"low", "medium", "high"}:
         quality = "medium"
 
     files: list[tuple[str, tuple[str, bytes, str]]] = [
-        (
-            "image[]",
-            (template_name or "paint.png", template_bytes, template_content_type),
-        )
+        ("image[]", (template_name or "paint.png", template_bytes, template_content_type))
     ]
     if guide_bytes:
-        files.append(
-            (
-                "image[]",
-                (
-                    guide_name or "guide.png",
-                    guide_bytes,
-                    guide_content_type,
-                ),
-            )
-        )
-    if reference_bytes:
-        files.append(
-            (
-                "image[]",
-                (
-                    reference_name or "reference.png",
-                    reference_bytes,
-                    reference_content_type,
-                ),
-            )
-        )
+        files.append(("image[]", (guide_name or "guide.png", guide_bytes, guide_content_type)))
+    for attachment in clean_attachments:
+        files.append(("image[]", (attachment.name or "attachment.png", attachment.data, attachment.content_type)))
 
     data = {
         "model": settings.pitmark_image_model.strip(),
-        "prompt": _paint_prompt(prompt, has_guide=bool(guide_bytes)),
+        "prompt": _paint_prompt(prompt, has_guide=bool(guide_bytes), attachment_roles=[a.role for a in clean_attachments]),
         "quality": quality,
         "output_format": "png",
     }
@@ -119,12 +126,7 @@ async def generate_livery_edit(
 
     try:
         async with httpx.AsyncClient(timeout=max(60.0, settings.pitmark_image_timeout_seconds)) as client:
-            response = await client.post(
-                "https://api.openai.com/v1/images/edits",
-                headers=headers,
-                data=data,
-                files=files,
-            )
+            response = await client.post("https://api.openai.com/v1/images/edits", headers=headers, data=data, files=files)
             response.raise_for_status()
             payload = response.json()
     except httpx.HTTPStatusError as exc:
@@ -148,9 +150,4 @@ async def generate_livery_edit(
     if not raw:
         raise PaintStudioError("Generated livery was empty.")
 
-    return {
-        "data": raw,
-        "mime_type": "image/png",
-        "model": settings.pitmark_image_model.strip(),
-        "revised_prompt": item.get("revised_prompt"),
-    }
+    return {"data": raw, "mime_type": "image/png", "model": settings.pitmark_image_model.strip(), "revised_prompt": item.get("revised_prompt")}
