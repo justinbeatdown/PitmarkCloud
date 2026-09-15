@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 
 from services.content_tools import generate_article_from_source
 from services.control_access import access_from_request
 from services.control_auth import require_control_user
 from services.paint_studio import MAX_INPUT_BYTES, PaintStudioError, generate_livery_edit
+from services.paint_studio_psd import MAX_PSD_BYTES, PsdStudioError, parse_psd_template
 from utils.security import enforce_rate_limit
 
 router = APIRouter()
@@ -29,6 +31,18 @@ def _require_paint_studio(request: Request):
     if access.role not in {"owner", "admin"}:
         raise HTTPException(403, "Pitmark Paint Studio is restricted to owner/admin accounts.")
     return access
+
+
+async def _read_psd_upload(file: UploadFile) -> tuple[bytes, str]:
+    filename = (file.filename or "").strip()
+    if not filename.lower().endswith(".psd"):
+        raise HTTPException(400, "Choose an original iRacing .psd template.")
+    raw = await file.read(MAX_PSD_BYTES + 1)
+    if not raw:
+        raise HTTPException(400, "PSD file is empty.")
+    if len(raw) > MAX_PSD_BYTES:
+        raise HTTPException(400, "PSD file must be 80 MB or smaller.")
+    return raw, filename
 
 
 @router.post("/article-from-source")
@@ -78,25 +92,69 @@ def paint_studio_js(request: Request):
     )
 
 
+@router.post("/paint-studio/psd/import", include_in_schema=False)
+async def paint_studio_psd_import(request: Request, psd: UploadFile = File(...)):
+    _require_paint_studio(request)
+    enforce_rate_limit(request, "paint-studio-psd-import", 12, 900)
+    raw, filename = await _read_psd_upload(psd)
+    try:
+        result = parse_psd_template(raw, filename)
+    except PsdStudioError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(502, f"Paint Studio PSD import failed: {exc}") from exc
+    return JSONResponse(result, headers={"Cache-Control": "no-store"})
+
+
+@router.post("/paint-studio/psd/render", include_in_schema=False)
+async def paint_studio_psd_render(
+    request: Request,
+    psd: UploadFile = File(...),
+    role_overrides_json: str = Form("{}"),
+):
+    _require_paint_studio(request)
+    enforce_rate_limit(request, "paint-studio-psd-render", 20, 900)
+    raw, filename = await _read_psd_upload(psd)
+    try:
+        parsed = json.loads(role_overrides_json or "{}")
+    except json.JSONDecodeError as exc:
+        raise HTTPException(400, "Layer role overrides were invalid JSON.") from exc
+    if not isinstance(parsed, dict):
+        raise HTTPException(400, "Layer role overrides must be an object.")
+    overrides = {str(key): str(value).lower() for key, value in parsed.items()}
+    try:
+        result = parse_psd_template(raw, filename, overrides)
+    except PsdStudioError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(502, f"Paint Studio PSD re-render failed: {exc}") from exc
+    return JSONResponse(result, headers={"Cache-Control": "no-store"})
+
+
 @router.post("/paint-studio/generate", include_in_schema=False)
 async def paint_studio_generate(
     request: Request,
     template: UploadFile = File(...),
     prompt: str = Form(...),
     quality: str = Form("medium"),
+    guide: UploadFile | None = File(default=None),
     reference: UploadFile | None = File(default=None),
 ):
     _require_paint_studio(request)
     enforce_rate_limit(request, "paint-studio-generate", 8, 900)
 
     template_bytes = await template.read(MAX_INPUT_BYTES + 1)
+    guide_bytes = await guide.read(MAX_INPUT_BYTES + 1) if guide else None
     reference_bytes = await reference.read(MAX_INPUT_BYTES + 1) if reference else None
     try:
         result = await generate_livery_edit(
             template_bytes=template_bytes,
-            template_name=template.filename or "template.png",
+            template_name=template.filename or "paint.png",
             template_content_type=(template.content_type or "application/octet-stream").lower(),
             prompt=prompt,
+            guide_bytes=guide_bytes,
+            guide_name=(guide.filename if guide else "guide.png") or "guide.png",
+            guide_content_type=((guide.content_type if guide else "image/png") or "image/png").lower(),
             reference_bytes=reference_bytes,
             reference_name=(reference.filename if reference else "reference.png") or "reference.png",
             reference_content_type=((reference.content_type if reference else "image/png") or "image/png").lower(),
