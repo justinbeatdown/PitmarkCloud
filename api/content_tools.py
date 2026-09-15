@@ -5,13 +5,14 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from services.content_tools import generate_article_from_source
 from services.control_access import access_from_request
 from services.control_auth import require_control_user
 from services.paint_studio import MAX_ATTACHMENTS, MAX_INPUT_BYTES, PaintAttachment, PaintStudioError, generate_livery_edit
 from services.paint_studio_psd import MAX_PSD_BYTES, PsdStudioError, parse_psd_template
+from services.paint_studio_uploads import UploadSessionError, complete_psd_upload, read_staged_psd, stage_psd_chunk
 from utils.security import enforce_rate_limit
 
 router = APIRouter()
@@ -22,6 +23,15 @@ PAINT_STUDIO_PATH = "/api/control/content/paint-studio"
 class ArticleFromSourceRequest(BaseModel):
     source_url: str
     prompt: str = "Make our own story about this article."
+
+
+class PsdCompleteRequest(BaseModel):
+    upload_id: str
+
+
+class PsdRenderUploadRequest(BaseModel):
+    upload_id: str
+    role_overrides: dict[str, str] = Field(default_factory=dict)
 
 
 def _require_paint_studio(request: Request):
@@ -81,6 +91,10 @@ def paint_studio(request: Request):
     if access.role not in {"owner", "admin"}:
         raise HTTPException(403, "Pitmark Paint Studio is restricted to owner/admin accounts.")
     html = (ASSET_DIR / "paint-studio.html").read_text(encoding="utf-8")
+    engine_tag = '<script src="/api/control/content/paint-studio.js?v=4"></script>'
+    transport_tag = '<script src="/api/control/content/paint-studio-upload.js?v=1"></script>'
+    if transport_tag not in html:
+        html = html.replace(engine_tag, f"{transport_tag}\n  {engine_tag}")
     return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
 
@@ -90,10 +104,73 @@ def paint_studio_css(request: Request):
     return Response((ASSET_DIR / "paint-studio.css").read_text(encoding="utf-8"), media_type="text/css", headers={"Cache-Control": "no-store"})
 
 
+@router.get("/paint-studio-upload.js", include_in_schema=False)
+def paint_studio_upload_js(request: Request):
+    _require_paint_studio(request)
+    return Response((ASSET_DIR / "paint-studio-upload.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-store"})
+
+
 @router.get("/paint-studio.js", include_in_schema=False)
 def paint_studio_js(request: Request):
     _require_paint_studio(request)
     return Response((ASSET_DIR / "paint-studio.js").read_text(encoding="utf-8"), media_type="application/javascript", headers={"Cache-Control": "no-store"})
+
+
+@router.post("/paint-studio/psd/chunk", include_in_schema=False)
+async def paint_studio_psd_chunk(
+    request: Request,
+    upload_id: str,
+    filename: str,
+    file_size: int,
+    index: int,
+    total: int,
+):
+    _require_paint_studio(request)
+    enforce_rate_limit(request, "paint-studio-psd-chunk", 240, 900)
+    raw = await request.body()
+    try:
+        result = stage_psd_chunk(
+            upload_id=upload_id,
+            filename=filename,
+            file_size=file_size,
+            index=index,
+            total=total,
+            chunk=raw,
+        )
+    except UploadSessionError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return JSONResponse(result, headers={"Cache-Control": "no-store"})
+
+
+@router.post("/paint-studio/psd/complete", include_in_schema=False)
+def paint_studio_psd_complete(req: PsdCompleteRequest, request: Request):
+    _require_paint_studio(request)
+    enforce_rate_limit(request, "paint-studio-psd-complete", 20, 900)
+    try:
+        raw, filename = complete_psd_upload(req.upload_id)
+        result = parse_psd_template(raw, filename)
+    except (UploadSessionError, PsdStudioError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(502, f"Paint Studio PSD import failed: {exc}") from exc
+    result["upload_id"] = req.upload_id
+    return JSONResponse(result, headers={"Cache-Control": "no-store"})
+
+
+@router.post("/paint-studio/psd/render-upload", include_in_schema=False)
+def paint_studio_psd_render_upload(req: PsdRenderUploadRequest, request: Request):
+    _require_paint_studio(request)
+    enforce_rate_limit(request, "paint-studio-psd-render-upload", 30, 900)
+    overrides = {str(key): str(value).lower() for key, value in req.role_overrides.items()}
+    try:
+        raw, filename = read_staged_psd(req.upload_id)
+        result = parse_psd_template(raw, filename, overrides)
+    except (UploadSessionError, PsdStudioError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(502, f"Paint Studio PSD re-render failed: {exc}") from exc
+    result["upload_id"] = req.upload_id
+    return JSONResponse(result, headers={"Cache-Control": "no-store"})
 
 
 @router.post("/paint-studio/psd/import", include_in_schema=False)
