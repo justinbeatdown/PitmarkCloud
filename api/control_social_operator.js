@@ -31,7 +31,7 @@
       <div class="so-hero">
         <div class="so-status-card">
           <div class="so-status-line"><div><div class="so-status-title" id="soStatusTitle">Checking status…</div><div class="so-status-sub" id="soStatusSub">Connecting to the live operator.</div></div><span class="so-live-badge" id="soBadge">Checking</span></div>
-          <div class="so-metrics"><div class="so-metric"><span>Scanned</span><strong id="soScanned">—</strong></div><div class="so-metric"><span>Needs Review</span><strong id="soReview">—</strong></div><div class="so-metric"><span>Replies Sent</span><strong id="soReplied">—</strong></div><div class="so-metric"><span>Posts Planned</span><strong id="soPlanned">—</strong></div></div>
+          <div class="so-metrics"><div class="so-metric"><span>Scanned</span><strong id="soScanned">—</strong></div><div class="so-metric"><span>Needs Review</span><strong id="soReview">—</strong></div><div class="so-metric"><span>Replies Sent</span><strong id="soReplied">—</strong></div><div class="so-metric"><span>Posts Today</span><strong id="soPlanned">—</strong></div></div>
           <div class="so-actions"><button class="btn" id="soRunNow">Run Operator Now</button><button class="btn secondary so-btn-danger" id="soPause">Pause Operator</button><button class="btn secondary so-btn-green" id="soResume" hidden>Resume Operator</button><span class="so-inline-alert" id="soActionMsg"></span></div>
           <div class="so-note" id="soReplyNote">Auto-reply status loading…</div>
         </div>
@@ -67,11 +67,13 @@
   function render(s) {
     status = s;
     const run = s.latest_run || {};
+    const today = s.today || {};
+    const todayPosts = today.posts_planned ?? run.posts_planned ?? 0;
+    const todayPlatforms = Array.isArray(today.platforms) ? today.platforms : [];
     const paused = !!s.paused;
     const enabled = !!s.enabled;
     const degraded = run.status === 'degraded';
     const failed = run.status === 'failed';
-    const operational = enabled && !paused && !failed;
     const badgeText = !enabled ? 'Disabled' : paused ? 'Paused' : failed ? 'Failed' : degraded ? 'Needs Attention' : 'Running';
     const title = !enabled ? 'Operator disabled' : paused ? 'Operator paused' : failed ? 'Operator failed' : degraded ? 'Operator is running with a warning' : 'Operator is running';
     const health = run.health_message || '';
@@ -94,14 +96,24 @@
     });
     const dt = document.getElementById('soDashTitle'); if (dt) dt.textContent = title;
     const dc = document.getElementById('soDashCopy');
-    if (dc) dc.textContent = degraded || failed ? sub : paused ? 'Autonomous runs are paused until you resume them.' : `Last run: ${fmt(run.created_at)} · ${run.review ?? 0} item${run.review===1?'':'s'} flagged for review.`;
+    if (dc) {
+      const postWord = todayPosts === 1 ? 'post' : 'posts';
+      const platformCopy = todayPlatforms.length ? ` across ${todayPlatforms.join(', ')}` : '';
+      dc.textContent = failed
+        ? sub
+        : paused
+          ? `${todayPosts} ${postWord} lined up today${platformCopy}. Autonomous runs are paused.`
+          : degraded
+            ? `${todayPosts} ${postWord} lined up today${platformCopy}. Facebook engagement needs attention.`
+            : `${todayPosts} ${postWord} lined up today${platformCopy}. Last run: ${fmt(run.created_at)}.`;
+    }
     document.getElementById('soStatusTitle').textContent = title;
     document.getElementById('soStatusSub').textContent = sub;
     document.getElementById('soLastRun').textContent = `Last run: ${fmt(run.created_at)}${degraded ? ' · warning' : failed ? ' · failed' : ''}`;
     document.getElementById('soScanned').textContent = run.scanned ?? 0;
     document.getElementById('soReview').textContent = run.review ?? 0;
     document.getElementById('soReplied').textContent = run.replied ?? 0;
-    document.getElementById('soPlanned').textContent = run.posts_planned ?? 0;
+    document.getElementById('soPlanned').textContent = todayPosts;
     document.getElementById('soPause').hidden = paused || !enabled;
     document.getElementById('soResume').hidden = !paused || !enabled;
     const autoReply = s.auto_reply_enabled ? 'ON' : 'OFF';
@@ -139,8 +151,8 @@
     try {
       const r = await request('/run', {method:'POST'});
       if (!r.ok) msg.textContent = r.error || 'Run failed.';
-      else if (r.degraded) msg.textContent = `Ran with warning — ${r.scanned||0} scanned, ${r.posts_planned||0} post${r.posts_planned===1?'':'s'} planned. ${r.warning || ''}`;
-      else msg.textContent = `Done — ${r.scanned||0} scanned, ${r.posts_planned||0} post${r.posts_planned===1?'':'s'} planned.`;
+      else if (r.degraded) msg.textContent = `Ran with warning — ${r.scanned||0} scanned, ${r.posts_planned||0} new post${r.posts_planned===1?'':'s'} planned this pass. ${r.warning || ''}`;
+      else msg.textContent = `Done — ${r.scanned||0} scanned, ${r.posts_planned||0} new post${r.posts_planned===1?'':'s'} planned this pass.`;
       await load();
     }
     catch (e) { msg.textContent = e.message; }
