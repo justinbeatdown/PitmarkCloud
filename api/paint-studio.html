@@ -21,9 +21,9 @@
       <section>
         <div class="section-title"><span>01</span> iRacing template</div>
         <label class="drop psd-drop" for="templateInput">
-          <input id="templateInput" type="file" accept=".psd,application/vnd.adobe.photoshop">
-          <strong>Load original .PSD</strong>
-          <small>Use the layered template downloaded from iRacing · up to 80 MB</small>
+          <input id="templateInput" type="file" accept=".zip,.psd,.png,.tga,.jpg,.jpeg,.webp,application/zip,application/x-zip-compressed,application/vnd.adobe.photoshop,image/png,image/jpeg,image/webp">
+          <strong>Load iRacing template</strong>
+          <small>ZIP recommended · PSD and flattened images also supported · up to 150 MB</small>
         </label>
         <div class="file-meta" id="templateMeta">No template loaded</div>
       </section>
@@ -39,7 +39,7 @@
       <section class="chat-section">
         <div class="section-title"><span>03</span> Livery chat</div>
         <div id="conversationHistory" class="conversation-history">
-          <div class="chat-bubble assistant">Load a PSD, add any references you want, then describe the livery. After each paint pass, just tell me what to change.</div>
+          <div class="chat-bubble assistant">Load the iRacing template ZIP, add any references you want, then describe the livery. After each paint pass, just tell me what to change.</div>
         </div>
         <textarea id="prompt" rows="5" placeholder="Create a Pitmark Racing Co. grassroots-inspired livery..."></textarea>
         <div class="quality-row">
@@ -57,7 +57,7 @@
       <details class="advanced" id="advancedTemplateSettings">
         <summary>Advanced template settings</summary>
         <div class="advanced-body">
-          <p class="hint">Paint Studio handles PSD layers automatically. Only change these if a specific template imports incorrectly.</p>
+          <p class="hint">Paint Studio handles template preparation automatically. Only change layer roles when a direct PSD exposes editable layers.</p>
           <div id="psdLayersSection" class="hidden">
             <div class="role-legend">
               <span class="role-dot paint">Paint</span>
@@ -69,7 +69,7 @@
           </div>
           <details class="legacy-import">
             <summary>Legacy flattened image</summary>
-            <p class="hint">Fallback only. Original iRacing PSD is the normal workflow.</p>
+            <p class="hint">Fallback only. The iRacing ZIP is the recommended workflow.</p>
             <input class="file-line" id="legacyTemplateInput" type="file" accept="image/png,image/jpeg,image/webp">
           </details>
         </div>
@@ -92,8 +92,8 @@
         <canvas id="canvas"></canvas>
         <div id="emptyStage" class="empty-stage">
           <div class="mark">P</div>
-          <h1>LOAD AN iRACING PSD</h1>
-          <p>The PSD intelligence stays behind the scenes. You upload the template, attach references, describe the paint, and iterate.</p>
+          <h1>LOAD AN iRACING TEMPLATE</h1>
+          <p>ZIP is recommended. Paint Studio will automatically find the usable paint canvas inside the archive, then you can attach references, describe the paint, and iterate.</p>
         </div>
       </div>
       <div class="stage-footer">
@@ -122,7 +122,7 @@
         <div class="section-title"><span>05</span> iRacing export</div>
         <button id="pngBtn" class="primary" disabled>Export PNG</button>
         <button id="tgaBtn" class="secondary" disabled>Export TGA</button>
-        <p class="hint">Exports use the original PSD resolution. Guides are removed automatically. Protected overlays and exact logos remain.</p>
+        <p class="hint">Exports use the prepared template resolution. Guides are removed automatically. Protected overlays and exact logos remain.</p>
       </section>
 
       <section class="boundary">
@@ -133,6 +133,6 @@
   </main>
 
   <noscript><div class="fatal-banner">Paint Studio needs JavaScript enabled.</div></noscript>
-  <script src="/api/control/content/paint-studio.js?v=4"></script>
+  <script src="/api/control/content/paint-studio.js?v=5"></script>
 </body>
 </html>
