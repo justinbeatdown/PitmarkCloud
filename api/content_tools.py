@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import BaseModel
 
 from services.content_tools import generate_article_from_source
@@ -14,6 +14,7 @@ from utils.security import enforce_rate_limit
 
 router = APIRouter()
 ASSET_DIR = Path(__file__).resolve().parent
+PAINT_STUDIO_PATH = "/api/control/content/paint-studio"
 
 
 class ArticleFromSourceRequest(BaseModel):
@@ -44,7 +45,15 @@ def article_from_source(req: ArticleFromSourceRequest, request: Request):
 
 @router.get("/paint-studio", response_class=HTMLResponse, include_in_schema=False)
 def paint_studio(request: Request):
-    _require_paint_studio(request)
+    access = access_from_request(request)
+    if not access or not access.active:
+        return RedirectResponse(
+            url=f"/control?next={PAINT_STUDIO_PATH.replace('/', '%2F')}",
+            status_code=302,
+            headers={"Cache-Control": "no-store"},
+        )
+    if access.role not in {"owner", "admin"}:
+        raise HTTPException(403, "Pitmark Paint Studio is restricted to owner/admin accounts.")
     html = (ASSET_DIR / "paint-studio.html").read_text(encoding="utf-8")
     return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
