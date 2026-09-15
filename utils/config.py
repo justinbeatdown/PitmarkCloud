@@ -4,7 +4,7 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PITMARK_RELEASE_VERSION = "0.21.43"
+PITMARK_RELEASE_VERSION = "0.21.44"
 
 
 class Settings(BaseSettings):
@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     social_operator_autopublish_low_risk: bool = True
     social_operator_poll_seconds: int = 300
     social_operator_min_facebook_posts_daily: int = 1
+    social_operator_min_instagram_posts_daily: int = 1
     social_operator_min_x_posts_daily: int = 1
 
     meta_app_id: str = ""
