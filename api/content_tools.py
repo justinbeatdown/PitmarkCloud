@@ -137,19 +137,24 @@ async def paint_studio_generate(
     template: UploadFile = File(...),
     prompt: str = Form(...),
     quality: str = Form("medium"),
+    guide: UploadFile | None = File(default=None),
     reference: UploadFile | None = File(default=None),
 ):
     _require_paint_studio(request)
     enforce_rate_limit(request, "paint-studio-generate", 8, 900)
 
     template_bytes = await template.read(MAX_INPUT_BYTES + 1)
+    guide_bytes = await guide.read(MAX_INPUT_BYTES + 1) if guide else None
     reference_bytes = await reference.read(MAX_INPUT_BYTES + 1) if reference else None
     try:
         result = await generate_livery_edit(
             template_bytes=template_bytes,
-            template_name=template.filename or "template.png",
+            template_name=template.filename or "paint.png",
             template_content_type=(template.content_type or "application/octet-stream").lower(),
             prompt=prompt,
+            guide_bytes=guide_bytes,
+            guide_name=(guide.filename if guide else "guide.png") or "guide.png",
+            guide_content_type=((guide.content_type if guide else "image/png") or "image/png").lower(),
             reference_bytes=reference_bytes,
             reference_name=(reference.filename if reference else "reference.png") or "reference.png",
             reference_content_type=((reference.content_type if reference else "image/png") or "image/png").lower(),
