@@ -247,3 +247,21 @@ async def run_once(
     _unpersisted_announced_versions.discard(version)
     log.info("Posted PRT v%s release announcement to #%s.", version, settings.prt_release_announcement_channel)
     return "posted"
+
+
+async def watch(bot: discord.Client) -> None:
+    if not settings.prt_release_announcements_enabled:
+        log.info("PRT release announcements disabled.")
+        return
+
+    interval = max(30, int(settings.prt_release_poll_seconds))
+    while True:
+        try:
+            status = await run_once(bot)
+            if status in {"posted", "bootstrapped"}:
+                log.info("PRT release announcement watcher: %s", status)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("PRT release announcement watcher cycle failed")
+        await asyncio.sleep(interval)
