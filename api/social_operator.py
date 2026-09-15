@@ -146,11 +146,11 @@ def _meta_permission_diagnostics() -> dict:
 
 
 # Run once when the service starts so permission failures can be diagnosed from
-# server logs even when no Control Center browser is currently open.
+# server output even when no Control Center browser is currently open.
 try:
-    _meta_permission_diagnostics()
-except Exception:
-    log.exception("Meta permission startup diagnostic failed")
+    print(f"META_PERMISSION_STARTUP_DIAGNOSTIC {_meta_permission_diagnostics()}", flush=True)
+except Exception as exc:
+    print(f"META_PERMISSION_STARTUP_DIAGNOSTIC_FAILED {type(exc).__name__}: {exc}", flush=True)
 
 
 @router.get("/status")
@@ -160,10 +160,6 @@ def get_operator_status(request: Request, x_pitmark_admin_key: str | None = Head
     payload["paused"] = _operator_paused
     payload["facebook_permissions"] = _meta_permission_diagnostics()
 
-    # Latest-run counters answer "what happened in the last pass?" but the Control
-    # Center also needs to answer "did the operator actually line anything up today?".
-    # Keep a daily activity snapshot so a healthy no-op pass does not visually erase
-    # work the operator already completed earlier in the day.
     now = datetime.now(timezone.utc)
     with SessionLocal() as db:
         rows = list(
@@ -331,7 +327,6 @@ def _install_control_center_operator_assets() -> None:
 
             control_center_ui.router.add_api_route(path, layered_asset, methods=["GET"], include_in_schema=False)
     except Exception:
-        # A UI enhancement must never prevent Pitmark Cloud from starting.
         pass
 
 
