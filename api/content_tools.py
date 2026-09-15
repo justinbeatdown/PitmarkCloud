@@ -81,8 +81,6 @@ def paint_studio(request: Request):
     if access.role not in {"owner", "admin"}:
         raise HTTPException(403, "Pitmark Paint Studio is restricted to owner/admin accounts.")
     html = (ASSET_DIR / "paint-studio.html").read_text(encoding="utf-8")
-    engine = (ASSET_DIR / "paint-studio.js").read_text(encoding="utf-8").replace("</script", "<\\/script")
-    html = html.replace("<!-- PAINT_STUDIO_ENGINE -->", f"<script>\n{engine}\n</script>")
     return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
 
