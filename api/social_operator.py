@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import select
 
 from services.control_auth import require_control_user
+from services.control_center import SocialPost
 from services.database import SessionLocal
 from services.meta_publish_service import reply_facebook_comment, reply_instagram_comment
 from services.social_operator import (
@@ -13,6 +16,7 @@ from services.social_operator import (
     operator_status,
     run_operator_once,
 )
+from services.social_operator_logic import counts_toward_daily_coverage
 from utils.config import settings
 
 router = APIRouter()
@@ -32,6 +36,37 @@ def get_operator_status(request: Request, x_pitmark_admin_key: str | None = Head
     auth(request, x_pitmark_admin_key)
     payload = operator_status()
     payload["paused"] = _operator_paused
+
+    # Latest-run counters answer "what happened in the last pass?" but the Control
+    # Center also needs to answer "did the operator actually line anything up today?".
+    # Keep a daily activity snapshot so a healthy no-op pass does not visually erase
+    # work the operator already completed earlier in the day.
+    now = datetime.now(timezone.utc)
+    with SessionLocal() as db:
+        rows = list(
+            db.scalars(
+                select(SocialPost).where(
+                    SocialPost.source == "operator:growth-loop",
+                    SocialPost.status.in_(["scheduled", "published"]),
+                )
+            ).all()
+        )
+    today_rows = [
+        row
+        for row in rows
+        if counts_toward_daily_coverage(
+            status=row.status,
+            scheduled_for=row.scheduled_for,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+            now=now,
+            timezone_name=settings.pitmark_timezone,
+        )
+    ]
+    payload["today"] = {
+        "posts_planned": len(today_rows),
+        "platforms": sorted({str(row.platform or "").lower() for row in today_rows if row.platform}),
+    }
     return payload
 
 
