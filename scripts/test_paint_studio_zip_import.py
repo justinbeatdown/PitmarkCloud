@@ -1,7 +1,13 @@
+import sys
 from io import BytesIO
+from pathlib import Path
 from zipfile import ZipFile
 
 from PIL import Image
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from services.paint_studio_template import prepare_template_upload
 
