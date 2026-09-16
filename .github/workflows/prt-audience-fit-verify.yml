@@ -1,0 +1,22 @@
+name: PRT Audience Fit Verify
+
+on:
+  pull_request:
+    paths:
+      - 'api/prt.html'
+      - 'api/prt-growth.css'
+      - 'scripts/test_prt_audience_fit.py'
+      - '.github/workflows/prt-audience-fit-verify.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify PRT audience-fit landing contract
+        run: python scripts/test_prt_audience_fit.py
+      - name: Preserve Social Operations shutdown contract
+        run: python scripts/test_social_ops_shutdown_contract.py
