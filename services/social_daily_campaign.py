@@ -185,6 +185,22 @@ def _campaign_is_stale_prt_release(row: DailyCampaign) -> bool:
     return comparison is not None and comparison < 0
 
 
+def _campaign_repeats_prior_topic(row: DailyCampaign) -> bool:
+    topic_ref = str(row.topic_ref or "").strip()
+    if not topic_ref:
+        return False
+    with SessionLocal() as db:
+        prior_id = db.scalar(
+            select(DailyCampaign.id)
+            .where(
+                DailyCampaign.topic_ref == topic_ref,
+                DailyCampaign.id != row.id,
+            )
+            .limit(1)
+        )
+    return prior_id is not None
+
+
 def _reset_campaign_bundle(campaign_id: int) -> None:
     from services.social_asset_pool import SocialAsset, SocialAssetUpload
 
@@ -303,24 +319,31 @@ def get_campaign(campaign_id: int) -> dict | None:
 def ensure_daily_campaign(now: datetime | None = None) -> dict:
     current = _aware(now)
     day_key = campaign_day_key(current)
-    stale_campaign_id: int | None = None
-    stale_title: str | None = None
+    reset_campaign_id: int | None = None
+    reset_title: str | None = None
+    reset_reason: str | None = None
     with SessionLocal() as db:
         existing = db.scalar(select(DailyCampaign).where(DailyCampaign.day_key == day_key))
         if existing:
-            if not _campaign_is_stale_prt_release(existing):
+            if _campaign_is_stale_prt_release(existing):
+                reset_campaign_id = existing.id
+                reset_title = existing.title
+                reset_reason = f"stale PRT release; trusted baseline is v{_accepted_prt_version() or 'unknown'}"
+            elif _campaign_repeats_prior_topic(existing):
+                reset_campaign_id = existing.id
+                reset_title = existing.title
+                reset_reason = f"topic {existing.topic_ref or 'unknown'} was already used by an earlier Daily Campaign"
+            else:
                 return serialize_campaign(existing)
-            stale_campaign_id = existing.id
-            stale_title = existing.title
 
-    if stale_campaign_id is not None:
+    if reset_campaign_id is not None:
         log.warning(
-            "Resetting stale Daily Campaign %s (%s); trusted PRT baseline is v%s.",
-            stale_campaign_id,
-            stale_title,
-            _accepted_prt_version() or "unknown",
+            "Resetting invalid Daily Campaign %s (%s): %s.",
+            reset_campaign_id,
+            reset_title,
+            reset_reason or "invalid campaign state",
         )
-        _reset_campaign_bundle(stale_campaign_id)
+        _reset_campaign_bundle(reset_campaign_id)
 
     topic = select_campaign_topic(current)
     with SessionLocal() as db:
