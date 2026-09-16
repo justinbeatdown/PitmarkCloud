@@ -68,18 +68,30 @@ def _notification_recipient() -> str:
     return (os.getenv("PRT_APPLICATION_NOTIFY_TO") or "justin@pitmarkracing.com").strip()
 
 
+def application_role_from_placement(placement: str | None) -> str:
+    role = (placement or "").strip().lower().removeprefix("quick-apply-")
+    return {
+        "league": "League / Club",
+        "broadcaster": "Broadcaster",
+        "media": "Media / Developer",
+        "driver": "Driver",
+    }.get(role, "Driver")
+
+
 def _notify_new_application(row: PrtEarlyAccessApplication) -> bool:
     recipient = _notification_recipient()
     if not recipient:
         return False
-    subject = f"[PRT Early Access] New application — {row.full_name}"
+    applicant_role = application_role_from_placement(row.placement)
+    is_driver = applicant_role == "Driver"
+    subject = f"[PRT Early Access] New {applicant_role} application — {row.full_name}"
     text = (
         "A new PRT Early Access Quick Apply was submitted.\n\n"
         f"Applicant: {row.full_name}\n"
         f"Email: {row.email}\n"
-        f"iRacing: {row.iracing_name}\n"
+        f"{'iRacing' if is_driver else 'Organization / outlet'}: {row.iracing_name}\n"
         f"Discord: {row.discord_username or 'Not provided'}\n"
-        f"Disciplines: {row.disciplines}\n"
+        f"{'Disciplines' if is_driver else 'Applicant role'}: {row.disciplines}\n"
         f"Race frequency: {row.race_frequency}\n"
         f"Current tools: {row.current_tools or 'Not provided'}\n"
         f"What would make PRT useful: {row.goals or 'Not provided'}\n\n"
@@ -147,10 +159,12 @@ def submit_application(
 
     if len(clean_name) < 2:
         raise ValueError("Enter your full name.")
+    applicant_role = application_role_from_placement(placement)
+    is_driver = applicant_role == "Driver"
     if len(clean_iracing) < 2:
-        raise ValueError("Enter your iRacing display name.")
+        raise ValueError("Enter your iRacing display name." if is_driver else "Enter your organization / outlet / project name.")
     if not clean_disciplines:
-        raise ValueError("Choose at least one iRacing discipline.")
+        raise ValueError("Choose at least one iRacing discipline." if is_driver else "Choose your PRT applicant role.")
     if not clean_frequency:
         raise ValueError("Tell us how often you race.")
     if not (can_test and bug_reports and honest_feedback and expectations_agreed):

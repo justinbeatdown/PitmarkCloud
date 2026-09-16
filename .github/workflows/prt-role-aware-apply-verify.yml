@@ -1,0 +1,25 @@
+name: PRT Role-Aware Apply Verify
+
+on:
+  pull_request:
+    paths:
+      - 'api/prt.html'
+      - 'api/prt-apply.html'
+      - 'api/prt-apply.js'
+      - 'services/prt_applications.py'
+      - 'scripts/test_prt_role_aware_apply.py'
+      - 'scripts/test_social_ops_shutdown_contract.py'
+      - '.github/workflows/prt-role-aware-apply-verify.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify role-aware PRT apply contract
+        run: python scripts/test_prt_role_aware_apply.py
+      - name: Preserve Social Operations shutdown contract
+        run: python scripts/test_social_ops_shutdown_contract.py
