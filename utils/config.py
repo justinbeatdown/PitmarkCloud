@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     pitmark_image_model: str = "gpt-image-2"
     pitmark_image_timeout_seconds: float = 90.0
     pitmark_image_size: str = "1536x1024"
-    pitmark_image_quality: str = "low"
+    pitmark_image_quality: str = "medium"
     pitmark_image_max_attempts: int = 2
     pitmark_blog_image_ttl_seconds: int = 3600
     autopilot_intelligence_enabled: bool = True
