@@ -21,6 +21,7 @@ on:
       - 'scripts/test_social_operator_logic.py'
       - 'scripts/test_prt_release_announcements.py'
       - 'scripts/test_prt_version_regression.py'
+      - 'scripts/test_prt_stale_campaign_filter.py'
       - '.github/workflows/social-operations-verify.yml'
   workflow_dispatch:
 
@@ -48,6 +49,7 @@ jobs:
             services/social_publish_worker.py \
             services/first_party_sources.py \
             services/prt_release_announcements.py \
+            services/prt_versions.py \
             services/database.py \
             utils/config.py
       - name: Run Social Operations regression tests
@@ -59,3 +61,4 @@ jobs:
           python scripts/test_social_daily_publish_guard.py
           python scripts/test_prt_release_announcements.py
           python scripts/test_prt_version_regression.py
+          python scripts/test_prt_stale_campaign_filter.py
