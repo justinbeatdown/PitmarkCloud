@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Final user-authored verification trigger after the role-aware implementation lands.
 home = Path("api/prt.html").read_text(encoding="utf-8")
 apply_html = Path("api/prt-apply.html").read_text(encoding="utf-8")
 apply_js = Path("api/prt-apply.js").read_text(encoding="utf-8")
