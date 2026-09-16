@@ -11,6 +11,9 @@ from services.database import SessionLocal
 from services.first_party_autopilot import scan_and_generate as scan_first_party_events
 from services.first_party_auto_schedule import auto_schedule_verified_first_party
 from services.discord_racing_culture_feed import sync_racing_culture_feed
+from services.social_daily_campaign import ensure_daily_campaign
+from services.social_daily_package import generate_daily_package
+from utils.config import settings
 
 log = logging.getLogger("pitmark.autopilot.multiplatform")
 
@@ -110,8 +113,9 @@ def backfill_platform_variants(limit: int = 6) -> dict:
 
 
 async def scheduler_loop():
-    # Give Pitmark Cloud and the normal intelligence scheduler time to start.
-    await asyncio.sleep(75)
+    # Start before the Social Operator gap-filler pass so the daily campaign owns
+    # today's coverage whenever it can be generated safely.
+    await asyncio.sleep(20)
     while True:
         try:
             await asyncio.to_thread(backfill_platform_variants)
@@ -130,6 +134,29 @@ async def scheduler_loop():
                 )
         except Exception:
             log.exception("First-party Autopilot scan failed")
+
+        # Social Operations owns one coherent campaign per local day. The campaign
+        # reuses verified first-party events when available and falls back to a safe
+        # community-growth concept. Repeated passes are idempotent.
+        if settings.social_daily_campaign_enabled:
+            try:
+                campaign = await asyncio.to_thread(ensure_daily_campaign)
+                daily = await asyncio.to_thread(generate_daily_package, campaign["id"])
+                progress = daily.get("progress") or {}
+                log.info(
+                    "Daily Social Campaign: id=%s topic=%s copy=%s/%s ig=%s/%s vertical=%s/%s complete=%s",
+                    campaign.get("id"),
+                    campaign.get("topic_type"),
+                    progress.get("copy_ready", 0),
+                    progress.get("copy_total", 5),
+                    progress.get("ig_assets_ready", 0),
+                    progress.get("ig_assets_total", 6),
+                    progress.get("vertical_assets_ready", 0),
+                    progress.get("vertical_assets_total", 4),
+                    progress.get("complete", False),
+                )
+            except Exception:
+                log.exception("Daily Social Campaign generation failed")
 
         # Keep the Pitmark Discord community synced with newly published Racing Culture
         # articles. This creates #racing-culture under the Racing Community category when
