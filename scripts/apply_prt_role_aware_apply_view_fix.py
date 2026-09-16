@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# One-shot branch helper; removed before merge.
 path = Path("api/prt_ui.py")
 source = path.read_text(encoding="utf-8")
 
