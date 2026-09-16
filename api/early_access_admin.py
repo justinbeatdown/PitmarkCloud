@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from services.control_auth import require_control_user
 from services.pitmark_mail_identities import send_message as send_mail
 from services.prt_application_admin import delete_application, set_application_status
-from services.prt_applications import list_applications
+from services.prt_applications import application_role_from_placement, list_applications
 from services.prt_licensing_store import create_early_access_invite, list_early_access_invites
 
 router = APIRouter()
@@ -59,9 +59,12 @@ def _gmail_compose(email: str, name: str) -> str:
     return f"https://mail.google.com/mail/?{query}"
 
 
-def _acceptance_message(name: str, code: str) -> str:
+def _acceptance_message(name: str, code: str, placement: str = "quick-apply") -> str:
     first = (name or "there").strip().split()[0]
-    return f"""Hey {first},
+    role = application_role_from_placement(placement)
+
+    if role == "Driver":
+        return f"""Hey {first},
 
 You’ve been accepted into Pitmark Racing Tools Early Access.
 
@@ -92,6 +95,88 @@ Early Access is meant to be collaborative. Things may change quickly between bui
 After you activate PRT, we’ll also automatically send you your personal Founder’s Race Hub. That gives you your referral link, standings, milestones, and everything you need if you want to recruit other racers into Early Access.
 
 Thanks for getting involved this early. We’re building PRT around actual racers instead of guessing what racers want.
+
+Welcome aboard.
+
+--
+Justin Olson
+Founder & Owner | Pitmark Racing Co.
+
+🏁 Leave your mark.
+{PRT_URL}
+"""
+
+    if role == "Broadcaster":
+        intro = (
+            "PRT is still actively being developed, and that’s exactly why we want broadcasters and production teams involved now. "
+            "You’ll be helping us test PRT in real spectator, replay, and production workflows, find bugs, and shape what the broadcast side becomes before public release.
+
+"
+            "Broadcast Studio is in development. Current Early Access lets you pressure-test the PRT foundation around overlays, race information, telemetry, spectator/replay behavior, and production reliability while helping us build Broadcast Studio around real broadcast needs."
+        )
+        use_copy = "Once you’re installed, use PRT in the same spectator, replay, and live-session workflows you actually broadcast. We especially want feedback on:"
+        feedback = """• Spectator and replay behavior
+• Overlay accuracy, readability, and responsiveness
+• Standings, race information, and useful broadcast context
+• Performance while streaming or recording
+• Setup or production-workflow friction
+• Controls, graphics, data, or automation you wish Broadcast Studio had
+• Anything confusing, broken, laggy, or just annoying"""
+        closing = "Thanks for getting involved this early. We’re building the broadcast side with real production teams instead of guessing what broadcasters need."
+    elif role == "League / Club":
+        intro = (
+            "PRT is still actively being developed, and that’s exactly why we want league and club operators involved now. "
+            "You’ll be helping us test PRT in real race-night and admin workflows, find friction, and shape what the league side becomes before public release."
+        )
+        use_copy = "Once you’re installed, use PRT around a normal league or club race night and evaluate it from the admin side. We especially want feedback on:"
+        feedback = """• Race-night setup and admin workflow
+• Overlays, standings, race information, and race cards
+• What helps or gets in the way for drivers and officials
+• Setup/install problems
+• Missing league or steward tools that would save real time
+• Anything confusing, broken, laggy, or just annoying
+• Features you wish were there"""
+        closing = "Thanks for getting involved this early. We’re building the league side with people who actually run race nights instead of guessing what admins need."
+    else:
+        intro = (
+            "PRT is still actively being developed, and that’s exactly why we want media and developers involved now. "
+            "You’ll be helping us inspect PRT in real review, evaluation, and development workflows, challenge assumptions, and shape what earns a place in the wider iRacing ecosystem."
+        )
+        use_copy = "Once you’re installed, inspect PRT the way you normally would when reviewing, evaluating, or building around a sim-racing tool. We especially want feedback on:"
+        feedback = """• Setup, onboarding, and product clarity
+• Accuracy and usefulness of the information PRT presents
+• Workflow or interoperability assumptions that do not hold up
+• Performance, reliability, and rough edges
+• Missing context, controls, or capabilities
+• Anything confusing, broken, or misleading
+• Features or integration ideas worth discussing"""
+        closing = "Thanks for getting involved this early. We’d rather have candid inspection and useful criticism than favorable coverage or polite feedback."
+
+    return f"""Hey {first},
+
+You’ve been accepted into Pitmark Racing Tools Early Access.
+
+{intro}
+
+Get started:
+{PRT_URL}
+
+Your Early Access code:
+{code}
+
+Install the latest PRT Early Access build from the link above, open PRT, go to Settings → Access & Licensing → PRT Early Access, paste the code, and choose ACTIVATE EARLY ACCESS. Your code is personal and binds to your PRT device when activated.
+
+{use_copy}
+
+{feedback}
+
+Don’t worry about giving us polished feedback. Screenshots, quick messages, bug reports, clips, or a rough list are all useful.
+
+Early Access is meant to be collaborative. Things may change quickly between builds as feedback comes in, and testers are directly influencing those changes.
+
+After you activate PRT, we’ll also automatically send you your personal Founder’s Race Hub. That gives you your referral link, standings, milestones, and everything you need if you want to recruit other testers into Early Access.
+
+{closing}
 
 Welcome aboard.
 
@@ -366,7 +451,7 @@ def send_early_access_acceptance(
         send_mail(
             to=[email],
             subject="You’re In — Welcome to PRT Early Access 🏁",
-            text=_acceptance_message(name, invite["code"]),
+            text=_acceptance_message(name, invite["code"], row.get("placement") or "quick-apply"),
             from_identity="justin",
         )
     except Exception:
