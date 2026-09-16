@@ -1,0 +1,37 @@
+name: Apply PRT Role-Aware Apply View Fix
+
+on:
+  push:
+    branches:
+      - fix/prt-role-aware-apply-view
+    paths:
+      - 'scripts/apply_prt_role_aware_apply_view_fix.py'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/prt-role-aware-apply-view
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply bounded source patch
+        run: python scripts/apply_prt_role_aware_apply_view_fix.py
+      - name: Commit source change
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add api/prt_ui.py
+          if git diff --cached --quiet; then
+            echo "No source change needed."
+            exit 0
+          fi
+          git commit -m "fix: track PRT Apply views by applicant role"
+          git push origin HEAD:fix/prt-role-aware-apply-view
