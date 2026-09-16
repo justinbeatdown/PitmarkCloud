@@ -13,7 +13,7 @@ from services.autopilot_ai import compose_with_ai
 from services.control_center import SocialPost, utcnow
 from services.database import SessionLocal
 from services.openai_image_service import generate_image
-from services.social_asset_pool import add_asset, get_uploaded_image, store_uploaded_image
+from services.social_asset_pool import add_asset, store_uploaded_image
 from services.social_daily_campaign import (
     REQUIRED_IG_SLIDES,
     REQUIRED_VERTICAL_ASSETS,
@@ -257,67 +257,6 @@ def _public_asset_url(token: str) -> str:
     return f"{base}/social-assets/{token}"
 
 
-def _stored_bytes(url: str | None) -> bytes | None:
-    marker = "/social-assets/"
-    if not url or marker not in url:
-        return None
-    token = url.split(marker, 1)[1].split("?", 1)[0].split("#", 1)[0]
-    item = get_uploaded_image(token)
-    return item.get("data") if item else None
-
-
-def _background_prompt(campaign: dict, item: dict, slot: int) -> str:
-    return (
-        visual_prompt(
-            campaign=campaign,
-            headline=item["headline"],
-            beat=item["beat"],
-            aspect="master portrait",
-        )
-        + f" This is unique master background {slot} of {REQUIRED_IG_SLIDES}; make the composition visibly distinct from the other campaign frames."
-    )
-
-
-def _ensure_background(campaign: dict, *, slot: int, prompt: str, allow_generate: bool) -> dict:
-    existing = ensure_asset_slot(
-        campaign_id=campaign["id"],
-        platform="background",
-        slot=slot,
-        aspect="master",
-        prompt=prompt,
-    )
-    if existing.get("status") == "ready" and _stored_bytes(existing.get("url")):
-        return existing
-    if not allow_generate:
-        return existing
-    try:
-        generated = generate_image(
-            prompt=prompt,
-            size="1024x1536",
-            quality=settings.pitmark_image_quality or "low",
-        )
-        stored = store_uploaded_image(
-            data=generated["data"],
-            filename=f"daily-campaign-{campaign['id']}-background-{slot}.png",
-            mime_type=generated["mime_type"],
-        )
-        return (
-            update_asset(
-                existing["id"],
-                url=_public_asset_url(stored["public_token"]),
-                status="ready",
-            )
-            or existing
-        )
-    except Exception as exc:
-        log.exception(
-            "Daily campaign background generation failed: campaign=%s slot=%s",
-            campaign["id"],
-            slot,
-        )
-        return update_asset(existing["id"], status="failed", error=str(exc)) or existing
-
-
 def _ensure_final_variant(
     campaign: dict,
     *,
@@ -333,7 +272,7 @@ def _ensure_final_variant(
         platform=platform,
         slot=slot,
         aspect=aspect,
-        prompt=f"Rendered from campaign master background {slot}.",
+        prompt=f"Rendered from unique campaign master {slot}.",
     )
     if existing.get("status") == "ready" and existing.get("url"):
         return existing
@@ -487,76 +426,101 @@ def generate_daily_package(campaign_id: int) -> dict:
                 int(getattr(settings, "social_daily_image_batch_size", 2) or 2),
             ),
         )
-        assets_before = campaign_assets(campaign_id)
-        ready_background_slots = {
-            int(asset["slot"])
-            for asset in assets_before
-            if asset.get("platform") == "background"
-            and asset.get("status") == "ready"
-            and _stored_bytes(asset.get("url"))
+        existing_assets = campaign_assets(campaign_id)
+        ready = {
+            (str(asset.get("platform") or ""), int(asset.get("slot") or 0))
+            for asset in existing_assets
+            if asset.get("status") == "ready" and asset.get("url")
         }
         generated_this_pass = 0
 
-        for slot, item in enumerate(
+        for slot, ig_item in enumerate(
             plan["instagram"][:REQUIRED_IG_SLIDES],
             start=1,
         ):
-            allow = (
-                slot in ready_background_slots
-                or generated_this_pass < batch_limit
+            need_ig = ("instagram", slot) not in ready
+            need_vertical = (
+                slot <= REQUIRED_VERTICAL_ASSETS
+                and ("tiktok_reels", slot) not in ready
             )
-            background = _ensure_background(
-                campaign,
-                slot=slot,
-                prompt=_background_prompt(campaign, item, slot),
-                allow_generate=allow,
+            if not need_ig and not need_vertical:
+                continue
+            if generated_this_pass >= batch_limit:
+                break
+
+            vertical_item = (
+                plan["vertical"][slot - 1]
+                if slot <= len(plan.get("vertical") or [])
+                else None
             )
-            if (
-                slot not in ready_background_slots
-                and background.get("status") == "ready"
-            ):
+            combined_beat = ig_item["beat"]
+            if vertical_item:
+                combined_beat += " Vertical adaptation: " + vertical_item["beat"]
+            prompt = (
+                visual_prompt(
+                    campaign=campaign,
+                    headline=ig_item["headline"],
+                    beat=combined_beat,
+                    aspect="master portrait adaptable to both 4:5 and 9:16",
+                )
+                + f" This is unique campaign master {slot} of {REQUIRED_IG_SLIDES}; "
+                "make its composition visibly distinct from every other campaign frame."
+            )
+
+            try:
+                generated = generate_image(
+                    prompt=prompt,
+                    size="1024x1536",
+                    quality=settings.pitmark_image_quality or "low",
+                )
+                source = generated["data"]
                 generated_this_pass += 1
-                ready_background_slots.add(slot)
 
-        refreshed_assets = campaign_assets(campaign_id)
-        backgrounds = {
-            int(asset["slot"]): asset
-            for asset in refreshed_assets
-            if asset.get("platform") == "background"
-            and asset.get("status") == "ready"
-        }
+                if need_ig:
+                    _ensure_final_variant(
+                        campaign,
+                        platform="instagram",
+                        slot=slot,
+                        aspect="4:5",
+                        headline=ig_item["headline"],
+                        source=source,
+                        output_size=IG_OUTPUT_SIZE,
+                    )
 
-        for slot, item in enumerate(
-            plan["instagram"][:REQUIRED_IG_SLIDES],
-            start=1,
-        ):
-            source = _stored_bytes((backgrounds.get(slot) or {}).get("url"))
-            if source:
-                _ensure_final_variant(
-                    campaign,
-                    platform="instagram",
-                    slot=slot,
-                    aspect="4:5",
-                    headline=item["headline"],
-                    source=source,
-                    output_size=IG_OUTPUT_SIZE,
+                if need_vertical and vertical_item:
+                    _ensure_final_variant(
+                        campaign,
+                        platform="tiktok_reels",
+                        slot=slot,
+                        aspect="9:16",
+                        headline=vertical_item["headline"],
+                        source=source,
+                        output_size=VERTICAL_OUTPUT_SIZE,
+                    )
+            except Exception as exc:
+                log.exception(
+                    "Daily campaign master generation failed: campaign=%s slot=%s",
+                    campaign["id"],
+                    slot,
                 )
-
-        for slot, item in enumerate(
-            plan["vertical"][:REQUIRED_VERTICAL_ASSETS],
-            start=1,
-        ):
-            source = _stored_bytes((backgrounds.get(slot) or {}).get("url"))
-            if source:
-                _ensure_final_variant(
-                    campaign,
-                    platform="tiktok_reels",
-                    slot=slot,
-                    aspect="9:16",
-                    headline=item["headline"],
-                    source=source,
-                    output_size=VERTICAL_OUTPUT_SIZE,
-                )
+                if need_ig:
+                    asset = ensure_asset_slot(
+                        campaign_id=campaign["id"],
+                        platform="instagram",
+                        slot=slot,
+                        aspect="4:5",
+                        prompt=prompt,
+                    )
+                    update_asset(asset["id"], status="failed", error=str(exc))
+                if need_vertical and vertical_item:
+                    asset = ensure_asset_slot(
+                        campaign_id=campaign["id"],
+                        platform="tiktok_reels",
+                        slot=slot,
+                        aspect="9:16",
+                        prompt=prompt,
+                    )
+                    update_asset(asset["id"], status="failed", error=str(exc))
 
     assets = campaign_assets(campaign_id)
     ig_by_slot = {
