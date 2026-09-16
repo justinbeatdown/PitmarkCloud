@@ -3,10 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 import unittest
+from unittest.mock import patch
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 
 from services import persistent_store
+from services.control_center import SocialPost
 from services.database import engine, SessionLocal
 from services.first_party_models import FirstPartyEvent, FirstPartyState
 from services.social_daily_campaign import DailyCampaign, campaign_day_key
@@ -19,6 +21,7 @@ class DailyCampaignTopicDedupeTests(unittest.TestCase):
         FirstPartyEvent.__table__.create(bind=engine, checkfirst=True)
         FirstPartyState.__table__.create(bind=engine, checkfirst=True)
         DailyCampaign.__table__.create(bind=engine, checkfirst=True)
+        SocialPost.__table__.create(bind=engine, checkfirst=True)
 
     def test_previous_day_topic_is_not_selected_again(self):
         from services.social_daily_campaign import select_campaign_topic
@@ -103,6 +106,56 @@ class DailyCampaignTopicDedupeTests(unittest.TestCase):
                         db.delete(first)
                 elif first is not None:
                     first.value = old_first_value
+                db.commit()
+
+    def test_occupied_daily_platform_slot_is_not_scheduled_twice(self):
+        from services.social_daily_package import sync_campaign_queue
+
+        occupied_source = "dailycampaign:test-occupied"
+        new_source = "dailycampaign:987654"
+        scheduled_for = "2099-01-04T11:15:00-05:00"
+        with SessionLocal() as db:
+            db.execute(delete(SocialPost).where(SocialPost.source.in_([occupied_source, new_source])))
+            db.add(SocialPost(
+                platform="facebook",
+                title="Existing daily campaign",
+                body="Existing scheduled copy",
+                source=occupied_source,
+                status="scheduled",
+                risk="low",
+                scheduled_for=scheduled_for,
+            ))
+            db.commit()
+
+        campaign = {
+            "id": 987654,
+            "title": "Different daily topic",
+            "topic_type": "blog_publish",
+        }
+        package = {"copy": {"facebook": "New daily campaign copy"}, "instagram_assets": []}
+        try:
+            with patch("services.social_daily_package._schedule_for", return_value=scheduled_for), patch(
+                "services.social_daily_package.settings.social_operator_autopublish_low_risk", True
+            ):
+                result = sync_campaign_queue(campaign, package)
+
+            facebook = result["items"]["facebook"]
+            self.assertEqual(facebook["status"], "pending")
+            self.assertIsNone(facebook["scheduled_for"])
+            with SessionLocal() as db:
+                scheduled = list(
+                    db.scalars(
+                        select(SocialPost).where(
+                            SocialPost.platform == "facebook",
+                            SocialPost.status == "scheduled",
+                            SocialPost.scheduled_for == scheduled_for,
+                        )
+                    ).all()
+                )
+                self.assertEqual(len(scheduled), 1)
+        finally:
+            with SessionLocal() as db:
+                db.execute(delete(SocialPost).where(SocialPost.source.in_([occupied_source, new_source])))
                 db.commit()
 
 
