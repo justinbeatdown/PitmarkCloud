@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import DateTime, Integer, String, Text, UniqueConstraint, select
+from sqlalchemy import DateTime, Integer, String, Text, UniqueConstraint, delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -15,6 +16,8 @@ from services.database import Base, SessionLocal
 from services.first_party_models import FirstPartyEvent, get_state
 from services.prt_versions import compare_versions, extract_version, newest_version
 from utils.config import settings
+
+log = logging.getLogger("pitmark.social.daily_campaign")
 
 REQUIRED_COPY_PLATFORMS = ("facebook", "instagram", "x", "discord", "tiktok_reels")
 REQUIRED_IG_SLIDES = 6
@@ -169,6 +172,45 @@ def _drop_stale_prt_events(rows: list[FirstPartyEvent]) -> list[FirstPartyEvent]
     return current_rows
 
 
+def _campaign_prt_version(row: DailyCampaign) -> str | None:
+    return extract_version(row.title) or extract_version(row.topic_ref)
+
+
+def _campaign_is_stale_prt_release(row: DailyCampaign) -> bool:
+    if row.topic_type != "prt_release":
+        return False
+    baseline = _accepted_prt_version()
+    campaign_version = _campaign_prt_version(row)
+    comparison = compare_versions(campaign_version, baseline)
+    return comparison is not None and comparison < 0
+
+
+def _reset_campaign_bundle(campaign_id: int) -> None:
+    from services.social_asset_pool import SocialAsset, SocialAssetUpload
+
+    source_prefix = f"dailycampaign:{campaign_id}:"
+    source = f"dailycampaign:{campaign_id}"
+    with SessionLocal() as db:
+        generated_assets = list(
+            db.scalars(select(SocialAsset).where(SocialAsset.source_ref.like(f"{source_prefix}%"))).all()
+        )
+        upload_tokens: set[str] = set()
+        for asset in generated_assets:
+            url = str(asset.url or "")
+            marker = "/social-assets/"
+            if marker in url:
+                token = url.rsplit(marker, 1)[-1].split("?", 1)[0].strip()
+                if token:
+                    upload_tokens.add(token)
+        db.execute(delete(SocialPost).where(SocialPost.source == source))
+        db.execute(delete(DailyCampaignAsset).where(DailyCampaignAsset.campaign_id == campaign_id))
+        db.execute(delete(SocialAsset).where(SocialAsset.source_ref.like(f"{source_prefix}%")))
+        if upload_tokens:
+            db.execute(delete(SocialAssetUpload).where(SocialAssetUpload.public_token.in_(upload_tokens)))
+        db.execute(delete(DailyCampaign).where(DailyCampaign.id == campaign_id))
+        db.commit()
+
+
 def select_campaign_topic(now: datetime | None = None) -> dict:
     current = _aware(now)
     cutoff = current - timedelta(hours=72)
@@ -255,10 +297,25 @@ def get_campaign(campaign_id: int) -> dict | None:
 def ensure_daily_campaign(now: datetime | None = None) -> dict:
     current = _aware(now)
     day_key = campaign_day_key(current)
+    stale_campaign_id: int | None = None
+    stale_title: str | None = None
     with SessionLocal() as db:
         existing = db.scalar(select(DailyCampaign).where(DailyCampaign.day_key == day_key))
         if existing:
-            return serialize_campaign(existing)
+            if not _campaign_is_stale_prt_release(existing):
+                return serialize_campaign(existing)
+            stale_campaign_id = existing.id
+            stale_title = existing.title
+
+    if stale_campaign_id is not None:
+        log.warning(
+            "Resetting stale Daily Campaign %s (%s); trusted PRT baseline is v%s.",
+            stale_campaign_id,
+            stale_title,
+            _accepted_prt_version() or "unknown",
+        )
+        _reset_campaign_bundle(stale_campaign_id)
+
     topic = select_campaign_topic(current)
     with SessionLocal() as db:
         row = DailyCampaign(
