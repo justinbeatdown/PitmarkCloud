@@ -16,6 +16,7 @@ from services import shopify_service
 from services.control_center import BlogDraft, OutreachContact, ShopifyPublishRecord
 from services.database import SessionLocal
 from services.first_party_models import get_state, queue_event, set_state
+from services.prt_versions import compare_versions
 from utils.config import settings
 
 log = logging.getLogger("pitmark.autopilot.first_party.sources")
@@ -68,7 +69,7 @@ def recent_products() -> tuple[list[dict], str]:
         for p in ((data.get("products") or {}).get("nodes") or []):
             image = ((((p.get("featuredMedia") or {}).get("preview") or {}).get("image") or {}).get("url") or "").strip()
             out.append({"id": p.get("id"), "title": p.get("title"), "handle": p.get("handle"), "created_at": p.get("createdAt"),
-                        "updated_at": p.get("updatedAt"), "published_at": p.get("publishedAt"), "product_type": p.get("productType"), "tags": p.get("tags") or [],
+                        "updated_at": p.get("updatedAt"), "published_at": p.get("PublishedAt"), "product_type": p.get("productType"), "tags": p.get("tags") or [],
                         "images": [{"src": image}] if image else [], "body_html": ""})
         if out: return out, "shopify_admin"
     except Exception as exc:
@@ -136,8 +137,16 @@ def scan_prt_release() -> dict:
         set_state("prt_manifest_version", version)
         if source != "r2" or not env_bool("PITMARK_FIRST_PARTY_PRT_BOOTSTRAP_DRAFT", True):
             return {"queued": 0, "version": version, "source": source, "bootstrapped": True}
-    elif previous == version:
-        return {"queued": 0, "version": version, "source": source}
+    else:
+        comparison = compare_versions(version, previous)
+        if comparison is None:
+            log.warning("Ignoring unparseable PRT manifest version %r; latest accepted is v%s.", version, previous)
+            return {"queued": 0, "version": version, "source": source, "previous": previous, "stale": True}
+        if comparison < 0:
+            log.warning("Ignoring stale PRT manifest v%s; latest accepted is v%s.", version, previous)
+            return {"queued": 0, "version": version, "source": source, "previous": previous, "stale": True}
+        if comparison == 0:
+            return {"queued": 0, "version": version, "source": source}
     _, created = queue_event(event_key=f"prt_release:{version}", event_type="prt_release", title=f"PRT v{version} released",
                              summary=notes or "A new Pitmark Racing Tools build is live for Early Access testers.",
                              url="https://prt.pitmarkracing.com", media_url="https://prt.pitmarkracing.com/prt-app-preview.png",
