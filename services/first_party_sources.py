@@ -69,7 +69,7 @@ def recent_products() -> tuple[list[dict], str]:
         for p in ((data.get("products") or {}).get("nodes") or []):
             image = ((((p.get("featuredMedia") or {}).get("preview") or {}).get("image") or {}).get("url") or "").strip()
             out.append({"id": p.get("id"), "title": p.get("title"), "handle": p.get("handle"), "created_at": p.get("createdAt"),
-                        "updated_at": p.get("updatedAt"), "published_at": p.get("PublishedAt"), "product_type": p.get("productType"), "tags": p.get("tags") or [],
+                        "updated_at": p.get("updatedAt"), "published_at": p.get("publishedAt"), "product_type": p.get("productType"), "tags": p.get("tags") or [],
                         "images": [{"src": image}] if image else [], "body_html": ""})
         if out: return out, "shopify_admin"
     except Exception as exc:
