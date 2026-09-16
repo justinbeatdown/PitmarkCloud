@@ -109,6 +109,45 @@ class AutopilotReleaseRegressionTests(unittest.TestCase):
         self.assertEqual(state_writes, [])
         self.assertEqual(queued, [])
 
+    def test_release_watcher_baseline_blocks_newer_than_stale_autopilot_state(self):
+        from services import first_party_sources as sources
+        from services import persistent_store
+        from services.database import engine
+
+        persistent_store.RuntimeStateRow.__table__.create(bind=engine, checkfirst=True)
+        key = "prt_release_last_announced_version"
+        old_runtime = persistent_store.get_runtime_state(key)
+        old_load = sources.load_manifest
+        old_get = sources.get_state
+        old_set = sources.set_state
+        old_queue = sources.queue_event
+        state_writes = []
+        queued = []
+
+        persistent_store.set_runtime_state(key, "0.16.82")
+        sources.load_manifest = lambda: (
+            {"version": "0.16.77", "notes": "Still stale."},
+            "r2",
+        )
+        sources.get_state = lambda state_key: "0.16.76"
+        sources.set_state = lambda state_key, value: state_writes.append((state_key, value))
+        sources.queue_event = lambda **kwargs: queued.append(kwargs) or (1000, True)
+        try:
+            result = sources.scan_prt_release()
+        finally:
+            sources.load_manifest = old_load
+            sources.get_state = old_get
+            sources.set_state = old_set
+            sources.queue_event = old_queue
+            if old_runtime is not None:
+                persistent_store.set_runtime_state(key, old_runtime)
+
+        self.assertEqual(result["queued"], 0)
+        self.assertTrue(result.get("stale"))
+        self.assertEqual(result.get("previous"), "0.16.82")
+        self.assertEqual(state_writes, [])
+        self.assertEqual(queued, [])
+
 
 if __name__ == "__main__":
     unittest.main()
