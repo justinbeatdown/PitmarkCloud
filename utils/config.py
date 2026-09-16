@@ -60,11 +60,12 @@ class Settings(BaseSettings):
         "OR sim racing OR motorsports"
     )
 
-    # Social Operations owns one coherent campaign per Pitmark local day, then
-    # keeps the existing gap-filler/engagement behavior as a safety net.
+    # Social Operations owns one coherent campaign per Pitmark local day.
+    # Legacy generic gap-filler posts stay available as an opt-in fallback, but
+    # are disabled by default so they cannot race or duplicate the Daily Campaign.
     social_operator_enabled: bool = True
     social_operator_auto_reply_enabled: bool = True
-    social_operator_growth_posts_enabled: bool = True
+    social_operator_growth_posts_enabled: bool = False
     social_operator_autopublish_low_risk: bool = True
     social_operator_poll_seconds: int = 300
     social_operator_min_facebook_posts_daily: int = 1
