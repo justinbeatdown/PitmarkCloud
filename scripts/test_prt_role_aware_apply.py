@@ -4,6 +4,7 @@ from pathlib import Path
 home = Path("api/prt.html").read_text(encoding="utf-8")
 apply_html = Path("api/prt-apply.html").read_text(encoding="utf-8")
 apply_js = Path("api/prt-apply.js").read_text(encoding="utf-8")
+prt_ui = Path("api/prt_ui.py").read_text(encoding="utf-8")
 backend = Path("services/prt_applications.py").read_text(encoding="utf-8")
 
 required = {
@@ -34,6 +35,14 @@ required = {
         "Organization / league / outlet / project",
         "I can test or review PRT in a real workflow and send honest feedback",
     ],
+    "prt_ui": [
+        "_apply_view_placement",
+        '"quick-apply-driver"',
+        '"quick-apply-league"',
+        '"quick-apply-broadcaster"',
+        '"quick-apply-media"',
+        'placement=_apply_view_placement(request)',
+    ],
     "backend": [
         "application_role_from_placement",
         "Organization / outlet",
@@ -45,6 +54,7 @@ texts = {
     "home": home,
     "apply_html": apply_html,
     "apply_js": apply_js,
+    "prt_ui": prt_ui,
     "backend": backend,
 }
 
