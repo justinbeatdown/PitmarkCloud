@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys
 
+# Final exact-head verification trigger for the guarded Applicant Center identity edit.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sqlalchemy import create_engine
