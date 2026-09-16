@@ -202,6 +202,41 @@ def _has_invite_for_email(email: str) -> bool:
     )
 
 
+def _application_card_labels(placement: str | None) -> dict[str, str]:
+    role = application_role_from_placement(placement)
+    if role == "Broadcaster":
+        return {
+            "identity": "BROADCAST / PRODUCTION",
+            "frequency": "PRODUCTION FREQUENCY",
+            "role": "APPLICANT ROLE",
+            "tools": "BROADCAST TOOLS",
+            "goals": "WHAT WOULD MAKE PRT USEFUL TO YOUR BROADCAST?",
+        }
+    if role == "League / Club":
+        return {
+            "identity": "LEAGUE / CLUB",
+            "frequency": "RACE-NIGHT FREQUENCY",
+            "role": "APPLICANT ROLE",
+            "tools": "ADMIN TOOLS",
+            "goals": "WHAT WOULD MAKE PRT USEFUL TO YOUR LEAGUE / CLUB?",
+        }
+    if role == "Media / Developer":
+        return {
+            "identity": "OUTLET / PROJECT",
+            "frequency": "WORKFLOW FREQUENCY",
+            "role": "APPLICANT ROLE",
+            "tools": "WORKFLOW TOOLS",
+            "goals": "WHAT WOULD YOU LIKE TO INSPECT / TEST / DISCUSS?",
+        }
+    return {
+        "identity": "iRACING",
+        "frequency": "RACES",
+        "role": "DISCIPLINES",
+        "tools": "CURRENT TOOLS",
+        "goals": "WHAT WOULD MAKE PRT USEFUL?",
+    }
+
+
 def _application_cards(rows: list[dict]) -> str:
     if not rows:
         return """
@@ -232,6 +267,7 @@ def _application_cards(rows: list[dict]) -> str:
         status_class = _status_class(status)
         source_label = source if not asset else f"{source} · {asset}"
         gmail_url = escape(_gmail_compose(raw_email, row.get("full_name") or "there"), quote=True)
+        labels = _application_card_labels(row.get("placement") or "quick-apply")
         acceptance_action = ""
         if raw_status == "accepted":
             acceptance_action = f"""
@@ -255,19 +291,19 @@ def _application_cards(rows: list[dict]) -> str:
               </div>
 
               <div class="app-grid">
-                <section><span class="label">iRACING</span><strong>{iracing}</strong></section>
+                <section><span class="label">{labels['identity']}</span><strong>{iracing}</strong></section>
                 <section><span class="label">DISCORD</span><strong>{discord}</strong></section>
-                <section><span class="label">RACES</span><strong>{frequency}</strong></section>
+                <section><span class="label">{labels['frequency']}</span><strong>{frequency}</strong></section>
                 <section><span class="label">SOURCE</span><strong>{source_label}</strong></section>
               </div>
 
               <div class="detail-grid">
-                <section><span class="label">DISCIPLINES</span><p>{disciplines}</p></section>
-                <section><span class="label">CURRENT TOOLS</span><p>{tools}</p></section>
+                <section><span class="label">{labels['role']}</span><p>{disciplines}</p></section>
+                <section><span class="label">{labels['tools']}</span><p>{tools}</p></section>
               </div>
 
               <section class="goal-box">
-                <span class="label">WHAT WOULD MAKE PRT USEFUL?</span>
+                <span class="label">{labels['goals']}</span>
                 <p>{goals}</p>
               </section>
 
