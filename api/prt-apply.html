@@ -39,14 +39,24 @@
       <p class="apply-intro"><b>About 60 seconds.</b> No Google sign-in. No purchase. We review applications ourselves and contact accepted testers by email or Discord.</p>
 
       <form id="quickApplyForm" class="apply-form" novalidate>
+        <fieldset style="border:0;padding:0;margin:0">
+          <legend class="field-label">I’M HERE AS</legend>
+          <div class="choice-grid" role="radiogroup" aria-label="PRT applicant role">
+            <label class="choice-pill"><input type="radio" name="applicant_role" value="driver" checked> Driver</label>
+            <label class="choice-pill"><input type="radio" name="applicant_role" value="league"> League or Club</label>
+            <label class="choice-pill"><input type="radio" name="applicant_role" value="broadcaster"> Broadcaster</label>
+            <label class="choice-pill"><input type="radio" name="applicant_role" value="media"> Media or Developer</label>
+          </div>
+        </fieldset>
+
         <div class="field-grid">
           <label>FULL NAME<input name="full_name" type="text" maxlength="120" autocomplete="name" required></label>
           <label>EMAIL<input name="email" type="email" maxlength="200" autocomplete="email" required></label>
-          <label>iRACING DISPLAY NAME<input name="iracing_name" type="text" maxlength="120" autocomplete="off" required></label>
+          <label><span id="iracingNameLabel">iRACING DISPLAY NAME</span><input name="iracing_name" type="text" maxlength="120" autocomplete="off" required></label>
           <label>DISCORD USERNAME <span style="color:#737a7a;font-weight:700">(OPTIONAL)</span><input name="discord_username" type="text" maxlength="100" autocomplete="off"></label>
         </div>
 
-        <fieldset style="border:0;padding:0;margin:0">
+        <fieldset id="disciplinesFieldset" style="border:0;padding:0;margin:0">
           <legend class="field-label">WHAT DO YOU RACE ON iRACING? <span style="color:#737a7a;font-weight:700">(PICK AT LEAST ONE)</span></legend>
           <div class="choice-grid">
             <label class="choice-pill"><input type="checkbox" name="disciplines" value="Asphalt Oval"> Asphalt Oval</label>
@@ -59,7 +69,7 @@
         </fieldset>
 
         <div class="field-grid">
-          <label>HOW OFTEN DO YOU RACE?
+          <label><span id="raceFrequencyLabel">HOW OFTEN DO YOU RACE?</span>
             <select name="race_frequency" required>
               <option value="">Choose one</option>
               <option>Almost every day</option>
@@ -69,15 +79,15 @@
               <option>Less often / special events</option>
             </select>
           </label>
-          <label>CURRENT RACING TOOLS <span style="color:#737a7a;font-weight:700">(OPTIONAL)</span><input name="current_tools" type="text" maxlength="320" placeholder="RaceLab, iOverlay, Crew Chief, Garage61…"></label>
+          <label><span id="currentToolsLabel">CURRENT RACING TOOLS</span> <span style="color:#737a7a;font-weight:700">(OPTIONAL)</span><input name="current_tools" type="text" maxlength="320" placeholder="RaceLab, iOverlay, Crew Chief, Garage61…"></label>
         </div>
 
-        <label>WHAT WOULD MAKE PRT GENUINELY USEFUL TO YOU? <span style="color:#737a7a;font-weight:700">(OPTIONAL)</span>
+        <label><span id="goalsLabel">WHAT WOULD MAKE PRT GENUINELY USEFUL TO YOU?</span> <span style="color:#737a7a;font-weight:700">(OPTIONAL)</span>
           <textarea name="goals" maxlength="1200" placeholder="One or two sentences is plenty — or leave this blank."></textarea>
         </label>
 
         <div class="expectation-box compact-agreement">
-          <label><input type="checkbox" name="tester_agreement" required> I can test PRT in real iRacing sessions and send honest bug/feature feedback. I understand Early Access is active development, and I agree to the <a href="https://pitmarkracing.com/pages/prt-early-access-terms" target="_blank" rel="noopener noreferrer">PRT Early Access Tester Agreement</a>, <a href="https://pitmarkracing.com/pages/prt-terms" target="_blank" rel="noopener noreferrer">PRT Software License &amp; Terms</a>, and <a href="https://pitmarkracing.com/pages/prt-privacy" target="_blank" rel="noopener noreferrer">PRT Privacy Notice</a>.</label>
+          <label><input type="checkbox" name="tester_agreement" required> <span id="testerAgreementCopy">I can test PRT in real iRacing sessions and send honest bug/feature feedback.</span> I understand Early Access is active development, and I agree to the <a href="https://pitmarkracing.com/pages/prt-early-access-terms" target="_blank" rel="noopener noreferrer">PRT Early Access Tester Agreement</a>, <a href="https://pitmarkracing.com/pages/prt-terms" target="_blank" rel="noopener noreferrer">PRT Software License &amp; Terms</a>, and <a href="https://pitmarkracing.com/pages/prt-privacy" target="_blank" rel="noopener noreferrer">PRT Privacy Notice</a>.</label>
         </div>
 
         <label class="hp-field" aria-hidden="true">LEAVE THIS EMPTY<input name="company_website" type="text" tabindex="-1" autocomplete="off"></label>
@@ -94,6 +104,6 @@
   <span><a href="https://pitmarkracing.com/pages/prt-terms" target="_blank" rel="noopener noreferrer">PRT Terms</a> · <a href="https://pitmarkracing.com/pages/prt-privacy" target="_blank" rel="noopener noreferrer">Privacy</a> · <a href="https://pitmarkracing.com/pages/legal" target="_blank" rel="noopener noreferrer">Legal</a> · PRT Cloud v{{PITMARK_VERSION}}</span>
 </footer>
 <script src="/prt-growth.js?v=02146" defer></script>
-<script src="/prt-apply.js?v=02148" defer></script>
+<script src="/prt-apply.js?v=02150" defer></script>
 </body>
 </html>
