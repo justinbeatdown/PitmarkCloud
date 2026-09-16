@@ -272,6 +272,12 @@ async def sync_racing_culture_feed() -> dict[str, Any]:
                 and article["published_at"] >= created_at
             ][-3:]
 
+        candidates = [
+            article
+            for article in candidates
+            if str(article.get("image") or "").strip()
+        ]
+
         posted = 0
         for article in candidates:
             response = await client.post(
