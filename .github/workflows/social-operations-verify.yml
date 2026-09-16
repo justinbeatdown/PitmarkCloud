@@ -1,0 +1,52 @@
+name: Social Operations Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'api/social_operator.py'
+      - 'api/control_social_daily_campaign.js'
+      - 'api/control_social_daily_campaign.css'
+      - 'services/social_daily_campaign.py'
+      - 'services/social_daily_package.py'
+      - 'services/autopilot_multiplatform.py'
+      - 'services/social_publish_worker.py'
+      - 'services/database.py'
+      - 'utils/config.py'
+      - 'requirements.txt'
+      - 'scripts/test_social_daily_*.py'
+      - 'scripts/test_social_operator_logic.py'
+      - '.github/workflows/social-operations-verify.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Compile changed Python modules
+        run: |
+          python -m py_compile \
+            api/social_operator.py \
+            services/social_daily_campaign.py \
+            services/social_daily_package.py \
+            services/autopilot_multiplatform.py \
+            services/social_publish_worker.py \
+            services/database.py \
+            utils/config.py
+      - name: Run Social Operations regression tests
+        run: |
+          python scripts/test_social_operator_logic.py
+          python scripts/test_social_daily_campaign_contract.py
+          python scripts/test_social_daily_package_contract.py
+          python scripts/test_social_daily_ui_contract.py
+          python scripts/test_social_daily_publish_guard.py

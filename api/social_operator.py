@@ -13,6 +13,8 @@ from services.control_auth import require_control_user
 from services.control_center import SocialPost
 from services.database import SessionLocal
 from services.meta_publish_service import _page_token, reply_facebook_comment, reply_instagram_comment
+from services.social_daily_campaign import campaign_status, ensure_daily_campaign
+from services.social_daily_package import generate_daily_package
 from services.social_operator import (
     SocialEngagementEvent,
     operator_status,
@@ -145,12 +147,26 @@ def _meta_permission_diagnostics() -> dict:
     return result
 
 
-# Run once when the service starts so permission failures can be diagnosed from
-# server output even when no Control Center browser is currently open.
 try:
     print(f"META_PERMISSION_STARTUP_DIAGNOSTIC {_meta_permission_diagnostics()}", flush=True)
 except Exception as exc:
     print(f"META_PERMISSION_STARTUP_DIAGNOSTIC_FAILED {type(exc).__name__}: {exc}", flush=True)
+
+
+def _build_daily_campaign_once() -> dict:
+    if not settings.social_daily_campaign_enabled:
+        return {"ok": False, "enabled": False, "error": "Daily Campaign is disabled."}
+    campaign = ensure_daily_campaign()
+    result = generate_daily_package(campaign["id"])
+    current = campaign_status() or result.get("campaign") or campaign
+    return {
+        "ok": bool(result.get("ok")),
+        "enabled": True,
+        "campaign": current,
+        "progress": current.get("progress") or result.get("progress") or {},
+        "queue": current.get("queue") or result.get("queue") or {},
+        "image_batch_size": settings.social_daily_image_batch_size,
+    }
 
 
 @router.get("/status")
@@ -159,17 +175,24 @@ def get_operator_status(request: Request, x_pitmark_admin_key: str | None = Head
     payload = operator_status()
     payload["paused"] = _operator_paused
     payload["facebook_permissions"] = _meta_permission_diagnostics()
+    payload["daily_campaign"] = campaign_status()
+    payload["daily_campaign_enabled"] = settings.social_daily_campaign_enabled
 
     now = datetime.now(timezone.utc)
     with SessionLocal() as db:
         rows = list(
             db.scalars(
                 select(SocialPost).where(
-                    SocialPost.source == "operator:growth-loop",
                     SocialPost.status.in_(["scheduled", "published"]),
                 )
             ).all()
         )
+    rows = [
+        row
+        for row in rows
+        if row.source == "operator:growth-loop"
+        or str(row.source or "").startswith("dailycampaign:")
+    ]
     today_rows = [
         row
         for row in rows
@@ -189,10 +212,44 @@ def get_operator_status(request: Request, x_pitmark_admin_key: str | None = Head
     return payload
 
 
+@router.get("/daily-campaign/status")
+def get_daily_campaign_status(
+    request: Request,
+    x_pitmark_admin_key: str | None = Header(default=None),
+):
+    auth(request, x_pitmark_admin_key)
+    return {
+        "enabled": settings.social_daily_campaign_enabled,
+        "image_generation_enabled": settings.social_daily_image_generation_enabled,
+        "image_batch_size": settings.social_daily_image_batch_size,
+        "campaign": campaign_status(),
+    }
+
+
+@router.post("/daily-campaign/run")
+def run_daily_campaign(
+    request: Request,
+    x_pitmark_admin_key: str | None = Header(default=None),
+):
+    auth(request, x_pitmark_admin_key)
+    return _build_daily_campaign_once()
+
+
 @router.post("/run")
 def run_operator(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
-    return run_operator_once()
+    daily = None
+    if settings.social_daily_campaign_enabled:
+        try:
+            daily = _build_daily_campaign_once()
+        except Exception as exc:
+            log.exception("Manual Daily Campaign pass failed")
+            daily = {"ok": False, "error": str(exc)}
+    result = run_operator_once()
+    result["daily_campaign"] = (daily or {}).get("campaign")
+    result["daily_progress"] = (daily or {}).get("progress")
+    result["daily_error"] = (daily or {}).get("error")
+    return result
 
 
 @router.post("/pause")
@@ -223,7 +280,12 @@ def list_engagement(
     with SessionLocal() as db:
         query = select(SocialEngagementEvent).order_by(SocialEngagementEvent.id.desc()).limit(100)
         if status:
-            query = select(SocialEngagementEvent).where(SocialEngagementEvent.action_status == status).order_by(SocialEngagementEvent.id.desc()).limit(100)
+            query = (
+                select(SocialEngagementEvent)
+                .where(SocialEngagementEvent.action_status == status)
+                .order_by(SocialEngagementEvent.id.desc())
+                .limit(100)
+            )
         rows = list(db.scalars(query).all())
     return {
         "items": [
@@ -276,6 +338,7 @@ def reply_to_engagement(
         event.action_status = "replied"
         event.response = message
         from services.control_center import utcnow
+
         event.updated_at = utcnow()
         db.commit()
     return {"ok": True, "publish": result}
@@ -294,40 +357,63 @@ def dismiss_engagement(
             raise HTTPException(404, "Engagement event not found.")
         event.action_status = "dismissed"
         from services.control_center import utcnow
+
         event.updated_at = utcnow()
         db.commit()
     return {"ok": True}
 
 
 def _install_control_center_operator_assets() -> None:
-    """Layer Social Operator UI onto the already-loaded v202 Control Center bundle."""
+    """Layer Social Operations UI onto the already-loaded v202 Control Center bundle."""
     try:
         from api import control_center_ui
 
-        for path, media_type, base_name, operator_name in (
-            ("/control-center-v202.js", "application/javascript", "control_center_v202.js", "control_social_operator.js"),
-            ("/control-center-v202.css", "text/css", "control_center_v202.css", "control_social_operator.css"),
+        for path, media_type, base_name, extra_names in (
+            (
+                "/control-center-v202.js",
+                "application/javascript",
+                "control_center_v202.js",
+                ("control_social_operator.js", "control_social_daily_campaign.js"),
+            ),
+            (
+                "/control-center-v202.css",
+                "text/css",
+                "control_center_v202.css",
+                ("control_social_operator.css", "control_social_daily_campaign.css"),
+            ),
         ):
             control_center_ui.router.routes[:] = [
-                route for route in control_center_ui.router.routes if getattr(route, "path", None) != path
+                route
+                for route in control_center_ui.router.routes
+                if getattr(route, "path", None) != path
             ]
 
             def layered_asset(
                 _base_name: str = base_name,
-                _operator_name: str = operator_name,
+                _extra_names: tuple[str, ...] = extra_names,
                 _media_type: str = media_type,
             ) -> Response:
-                base = (control_center_ui.ASSET_DIR / _base_name).read_text(encoding="utf-8")
-                operator = (control_center_ui.ASSET_DIR / _operator_name).read_text(encoding="utf-8")
+                pieces = [
+                    (control_center_ui.ASSET_DIR / _base_name).read_text(encoding="utf-8")
+                ]
+                pieces.extend(
+                    (control_center_ui.ASSET_DIR / name).read_text(encoding="utf-8")
+                    for name in _extra_names
+                )
                 return Response(
-                    base + "\n\n" + operator,
+                    "\n\n".join(pieces),
                     media_type=_media_type,
                     headers={"Cache-Control": "no-store"},
                 )
 
-            control_center_ui.router.add_api_route(path, layered_asset, methods=["GET"], include_in_schema=False)
+            control_center_ui.router.add_api_route(
+                path,
+                layered_asset,
+                methods=["GET"],
+                include_in_schema=False,
+            )
     except Exception:
-        pass
+        log.exception("Could not install Social Operations Control Center assets")
 
 
 _install_control_center_operator_assets()

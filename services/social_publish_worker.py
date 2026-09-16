@@ -62,6 +62,16 @@ def publish_due_posts() -> int:
             due = _scheduled_time(post.scheduled_for)
             if due is None or due > now:
                 continue
+
+            # Daily Campaign Instagram rows represent a six-slide carousel package.
+            # The existing Meta publisher only supports one image, so never collapse
+            # the campaign into a misleading single-image post. Social Operations
+            # keeps the carousel ready for manual publishing until a real carousel
+            # publishing path is added.
+            if platform == "instagram" and str(post.source or "").startswith("dailycampaign:"):
+                log.info("Keeping Daily Campaign Instagram carousel %s ready for manual publishing", post.id)
+                continue
+
             if (post.source or "").startswith("intelligence:"):
                 try:
                     from services.control_center import OpportunitySourceMeta

@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     pitmark_image_model: str = "gpt-image-2"
     pitmark_image_timeout_seconds: float = 90.0
     pitmark_image_size: str = "1536x1024"
-    pitmark_image_quality: str = "low"
+    pitmark_image_quality: str = "medium"
     pitmark_image_max_attempts: int = 2
     pitmark_blog_image_ttl_seconds: int = 3600
     autopilot_intelligence_enabled: bool = True
@@ -60,16 +60,20 @@ class Settings(BaseSettings):
         "OR sim racing OR motorsports"
     )
 
-    # Social Operator: fills quiet posting gaps and keeps safe comment threads alive.
-    # It deliberately does not automate Facebook Group sharing or invite-to-follow.
+    # Social Operations owns one coherent campaign per Pitmark local day.
+    # Legacy generic gap-filler posts stay available as an opt-in fallback, but
+    # are disabled by default so they cannot race or duplicate the Daily Campaign.
     social_operator_enabled: bool = True
     social_operator_auto_reply_enabled: bool = True
-    social_operator_growth_posts_enabled: bool = True
+    social_operator_growth_posts_enabled: bool = False
     social_operator_autopublish_low_risk: bool = True
     social_operator_poll_seconds: int = 300
     social_operator_min_facebook_posts_daily: int = 1
     social_operator_min_instagram_posts_daily: int = 1
     social_operator_min_x_posts_daily: int = 1
+    social_daily_campaign_enabled: bool = True
+    social_daily_image_generation_enabled: bool = True
+    social_daily_image_batch_size: int = 2
 
     meta_app_id: str = ""
     meta_app_secret: str = ""
@@ -80,6 +84,7 @@ class Settings(BaseSettings):
     meta_graph_version: str = "v26.0"
     pitmark_timezone: str = "America/New_York"
     pitmark_public_store_url: str = "https://pitmarkracing.com"
+    pitmark_cloud_public_url: str = "https://pcc.pitmarkracing.com"
     prt_early_access_form_url: str = ""
     # Cloudflare R2 public-download rollout. No R2 credentials are stored in Pitmark Cloud;
     # Cloud only redirects the heavy installer to the configured public/custom-domain URL.
