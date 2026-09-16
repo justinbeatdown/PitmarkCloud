@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Contract: audience messaging must coexist with the existing apply/download entry points.
 html = Path("api/prt.html").read_text(encoding="utf-8")
 
 required = [
