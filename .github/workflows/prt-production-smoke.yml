@@ -1,0 +1,26 @@
+name: PRT Production Smoke
+
+on:
+  push:
+    branches:
+      - growth/prt-audience-fit
+    paths:
+      - '.github/workflows/prt-production-smoke.yml'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify public PRT audience-fit response
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 \
+            -H 'Cache-Control: no-cache' \
+            'https://prt.pitmarkracing.com/prt?production_smoke=e83a04ee' \
+            -o /tmp/prt.html
+          grep -F 'Where do you fit?' /tmp/prt.html
+          grep -F 'data-prt-funnel-link="audience-broadcast-apply"' /tmp/prt.html
+          grep -F 'data-prt-funnel-link="hero-apply"' /tmp/prt.html
+          grep -F 'data-prt-download="prt-home-accepted"' /tmp/prt.html
+          grep -F 'Broadcast Studio is in development' /tmp/prt.html
+          echo 'Public PRT production audience-fit smoke OK'
