@@ -6,6 +6,7 @@ on:
       - 'api/prt.html'
       - 'api/prt-apply.html'
       - 'api/prt-apply.js'
+      - 'api/prt_ui.py'
       - 'services/prt_applications.py'
       - 'scripts/test_prt_role_aware_apply.py'
       - 'scripts/test_social_ops_shutdown_contract.py'

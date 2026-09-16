@@ -70,6 +70,17 @@ def _request_campaign_context(request: Request) -> tuple[str, str, str]:
     )
 
 
+def _apply_view_placement(request: Request) -> str:
+    role = (request.query_params.get("role", "") or "").strip().lower()
+    placements = {
+        "driver": "quick-apply-driver",
+        "league": "quick-apply-league",
+        "broadcaster": "quick-apply-broadcaster",
+        "media": "quick-apply-media",
+    }
+    return placements.get(role, "quick-apply")
+
+
 @router.get("/prt", response_class=HTMLResponse, include_in_schema=False)
 def prt_home():
     return _html("prt.html")
@@ -87,7 +98,7 @@ def prt_apply(request: Request):
         try:
             record_funnel_event(
                 stage="apply_view",
-                placement="quick-apply",
+                placement=_apply_view_placement(request),
                 campaign=campaign,
                 source=source,
                 asset=asset,
