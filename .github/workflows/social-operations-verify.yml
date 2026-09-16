@@ -19,6 +19,7 @@ on:
       - 'requirements.txt'
       - 'scripts/test_social_daily_*.py'
       - 'scripts/test_social_operator_logic.py'
+      - 'scripts/test_first_party_live_racing_culture.py'
       - 'scripts/test_prt_release_announcements.py'
       - 'scripts/test_prt_version_regression.py'
       - 'scripts/test_prt_stale_campaign_filter.py'
@@ -60,6 +61,7 @@ jobs:
           python scripts/test_social_daily_ui_contract.py
           python scripts/test_social_daily_publish_guard.py
           python scripts/test_social_daily_campaign_topic_dedupe.py
+          python scripts/test_first_party_live_racing_culture.py
           python scripts/test_prt_release_announcements.py
           python scripts/test_prt_version_regression.py
           python scripts/test_prt_stale_campaign_filter.py
