@@ -12,11 +12,11 @@ from typing import Any
 import httpx
 from sqlalchemy import func, select
 
-from services import shopify_service
+from services import persistent_store, shopify_service
 from services.control_center import BlogDraft, OutreachContact, ShopifyPublishRecord
 from services.database import SessionLocal
 from services.first_party_models import get_state, queue_event, set_state
-from services.prt_versions import compare_versions
+from services.prt_versions import compare_versions, newest_version
 from utils.config import settings
 
 log = logging.getLogger("pitmark.autopilot.first_party.sources")
@@ -129,10 +129,21 @@ def load_manifest() -> tuple[dict, str]:
     return json.loads(local.read_text(encoding="utf-8-sig")), "local"
 
 
+def _accepted_prt_version(local_previous: str | None) -> str | None:
+    try:
+        announced = persistent_store.get_runtime_state("prt_release_last_announced_version")
+    except Exception as exc:
+        log.warning("Unable to read accepted PRT release baseline: %s", exc)
+        announced = None
+    return newest_version(local_previous, announced)
+
+
 def scan_prt_release() -> dict:
     manifest, source = load_manifest(); version = clean(str(manifest.get("version") or ""), 40)
     if not version: return {"queued": 0, "source": source}
-    previous = get_state("prt_manifest_version"); notes = clean(str(manifest.get("notes") or ""), 1200)
+    local_previous = get_state("prt_manifest_version")
+    previous = _accepted_prt_version(local_previous)
+    notes = clean(str(manifest.get("notes") or ""), 1200)
     if previous is None:
         set_state("prt_manifest_version", version)
         if source != "r2" or not env_bool("PITMARK_FIRST_PARTY_PRT_BOOTSTRAP_DRAFT", True):
@@ -146,7 +157,9 @@ def scan_prt_release() -> dict:
             log.warning("Ignoring stale PRT manifest v%s; latest accepted is v%s.", version, previous)
             return {"queued": 0, "version": version, "source": source, "previous": previous, "stale": True}
         if comparison == 0:
-            return {"queued": 0, "version": version, "source": source}
+            if local_previous != previous:
+                set_state("prt_manifest_version", previous)
+            return {"queued": 0, "version": version, "source": source, "previous": previous}
     _, created = queue_event(event_key=f"prt_release:{version}", event_type="prt_release", title=f"PRT v{version} released",
                              summary=notes or "A new Pitmark Racing Tools build is live for Early Access testers.",
                              url="https://prt.pitmarkracing.com", media_url="https://prt.pitmarkracing.com/prt-app-preview.png",
