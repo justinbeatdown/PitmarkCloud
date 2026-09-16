@@ -13,7 +13,7 @@ from services.autopilot_ai import compose_with_ai
 from services.control_center import SocialPost, utcnow
 from services.database import SessionLocal
 from services.openai_image_service import generate_image
-from services.social_asset_pool import add_asset, store_uploaded_image
+from services.social_asset_pool import add_asset, get_uploaded_image, store_uploaded_image
 from services.social_daily_campaign import (
     REQUIRED_IG_SLIDES,
     REQUIRED_VERTICAL_ASSETS,
@@ -51,7 +51,8 @@ def _campaign_context(campaign: dict) -> str:
         f"Title: {campaign.get('title')}\n"
         f"Details: {campaign.get('summary') or 'No additional details.'}\n"
         f"Public URL: {url}\n"
-        "Use only these supplied facts. Do not invent results, people, dates, car numbers, partnerships, discounts, or product specifications."
+        "Use only these supplied facts. Do not invent results, people, dates, car numbers, "
+        "partnerships, discounts, or product specifications."
     )
 
 
@@ -68,7 +69,7 @@ def _fallback_copy(campaign: dict, platform: str) -> str:
     if platform == "x":
         return base[:25000]
     if platform == "discord":
-        return f"## 🏁 {title}\n\n{summary}{f'\n\n{url}' if url else ''}"
+        return f"## 🏁 {title}\n\n{summary}" + (f"\n\n{url}" if url else "")
     if platform == "tiktok_reels":
         return f"{title} 🏁 {summary}"[:300]
     return base
@@ -79,9 +80,9 @@ def compose_platform_copy(campaign: dict, platform: str) -> str:
     goal = "community" if campaign.get("topic_type") == "community_growth" else "authority"
     prompt = (
         "Create the finished daily Pitmark Racing Co. campaign copy for this verified topic. "
-        "This is one platform variant in a coordinated daily package, so preserve the same core story while writing natively for the platform. "
-        "Do not label the output or mention that it is automated. "
-        + _campaign_context(campaign)
+        "This is one platform variant in a coordinated daily package, so preserve the same core "
+        "story while writing natively for the platform. Do not label the output or mention that it "
+        "is automated. " + _campaign_context(campaign)
     )
     if platform == "discord":
         prompt += "\nUse concise Discord Markdown with a natural community tone."
@@ -98,11 +99,14 @@ def visual_prompt(*, campaign: dict, headline: str, beat: str, aspect: str) -> s
     return (
         f"Create a distinct editorial motorsports background for a Pitmark Racing Co. social {aspect} asset. "
         f"Campaign: {campaign.get('title')}. Story beat: {beat}. "
-        "Authentic race-track, garage, pits, grandstands, sim-racing rig, tools, helmets, crews, or racing-atmosphere imagery is preferred when supported by the supplied topic. "
-        "Do not invent a real person's likeness, a car number, team livery, sponsor, race result, racing class, or specific vehicle that is not supplied. "
-        "Do not draw, recreate, approximate, distort, or include the Pitmark logo or wordmark in the generated image; the official Pitmark logo is overlaid later by code. "
-        "Do not render readable text in the image. Leave strong text-safe negative space for an exact headline overlay and branding. "
-        f"Headline that will be overlaid later: {headline}. "
+        "Authentic race-track, garage, pits, grandstands, sim-racing rig, tools, helmets, crews, "
+        "or racing-atmosphere imagery is preferred when supported by the supplied topic. "
+        "Do not invent a real person's likeness, a car number, team livery, sponsor, race result, "
+        "racing class, or specific vehicle that is not supplied. "
+        "Do not draw, recreate, approximate, distort, or include the Pitmark logo or wordmark in the "
+        "generated image; the official Pitmark logo is overlaid later by code. "
+        "Do not render readable text in the image. Leave strong text-safe negative space for an exact "
+        f"headline overlay and branding. Headline that will be overlaid later: {headline}. "
         + _campaign_context(campaign)
     )
 
@@ -126,9 +130,13 @@ def build_slide_plan(campaign: dict) -> dict:
         {"headline": "Leave Your Mark.", "beat": f"Vertical closing frame with clean CTA-safe space. Destination: {url or 'Pitmark links/site'}."},
     ]
     for item in ig:
-        item["visual_prompt"] = visual_prompt(campaign=campaign, headline=item["headline"], beat=item["beat"], aspect="4:5")
+        item["visual_prompt"] = visual_prompt(
+            campaign=campaign, headline=item["headline"], beat=item["beat"], aspect="4:5"
+        )
     for item in vertical:
-        item["visual_prompt"] = visual_prompt(campaign=campaign, headline=item["headline"], beat=item["beat"], aspect="9:16")
+        item["visual_prompt"] = visual_prompt(
+            campaign=campaign, headline=item["headline"], beat=item["beat"], aspect="9:16"
+        )
     return {"instagram": ig[:REQUIRED_IG_SLIDES], "vertical": vertical[:REQUIRED_VERTICAL_ASSETS]}
 
 
@@ -137,7 +145,9 @@ def _font(size: int, *, bold: bool = False):
 
     candidates = [
         "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        if bold
+        else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     ]
     for candidate in candidates:
         try:
@@ -189,14 +199,22 @@ def render_final_asset(*, source: bytes, output_size: tuple[int, int], headline:
             logo = Image.open(logo_path).convert("RGBA")
             max_logo_w = int(w * 0.38)
             scale = max_logo_w / max(1, logo.width)
-            logo = logo.resize((max_logo_w, max(1, int(logo.height * scale))), Image.Resampling.LANCZOS)
+            logo = logo.resize(
+                (max_logo_w, max(1, int(logo.height * scale))),
+                Image.Resampling.LANCZOS,
+            )
             overlay.alpha_composite(logo, (int(w * 0.055), int(h * 0.055)))
         except Exception:
             pass
 
     kicker_font = _font(max(24, int(w * 0.027)), bold=True)
     kicker = (topic_type or "PITMARK").replace("_", " ").upper()
-    draw.text((int(w * 0.06), int(h * 0.62)), kicker, font=kicker_font, fill=(255, 85, 0, 255))
+    draw.text(
+        (int(w * 0.06), int(h * 0.62)),
+        kicker,
+        font=kicker_font,
+        fill=(255, 85, 0, 255),
+    )
 
     font, lines, line_height = _fit_text(
         draw,
@@ -207,11 +225,23 @@ def render_final_asset(*, source: bytes, output_size: tuple[int, int], headline:
     )
     y = int(h * 0.675)
     for line in lines:
-        draw.text((int(w * 0.06), y), line, font=font, fill=(255, 255, 255, 255), stroke_width=2, stroke_fill=(0, 0, 0, 210))
+        draw.text(
+            (int(w * 0.06), y),
+            line,
+            font=font,
+            fill=(255, 255, 255, 255),
+            stroke_width=2,
+            stroke_fill=(0, 0, 0, 210),
+        )
         y += line_height
 
     footer_font = _font(max(24, int(w * 0.026)), bold=True)
-    draw.text((int(w * 0.06), int(h * 0.94)), "LEAVE YOUR MARK.", font=footer_font, fill=(255, 255, 255, 235))
+    draw.text(
+        (int(w * 0.06), int(h * 0.94)),
+        "LEAVE YOUR MARK.",
+        font=footer_font,
+        fill=(255, 255, 255, 235),
+    )
 
     final = Image.alpha_composite(canvas, overlay).convert("RGB")
     out = io.BytesIO()
@@ -220,19 +250,45 @@ def render_final_asset(*, source: bytes, output_size: tuple[int, int], headline:
 
 
 def _public_asset_url(token: str) -> str:
-    base = (getattr(settings, "pitmark_cloud_public_url", "") or "https://pcc.pitmarkracing.com").rstrip("/")
+    base = (
+        getattr(settings, "pitmark_cloud_public_url", "")
+        or "https://pcc.pitmarkracing.com"
+    ).rstrip("/")
     return f"{base}/social-assets/{token}"
 
 
-def _generate_asset(campaign: dict, *, platform: str, slot: int, aspect: str, headline: str, prompt: str) -> dict:
+def _stored_bytes(url: str | None) -> bytes | None:
+    marker = "/social-assets/"
+    if not url or marker not in url:
+        return None
+    token = url.split(marker, 1)[1].split("?", 1)[0].split("#", 1)[0]
+    item = get_uploaded_image(token)
+    return item.get("data") if item else None
+
+
+def _background_prompt(campaign: dict, item: dict, slot: int) -> str:
+    return (
+        visual_prompt(
+            campaign=campaign,
+            headline=item["headline"],
+            beat=item["beat"],
+            aspect="master portrait",
+        )
+        + f" This is unique master background {slot} of {REQUIRED_IG_SLIDES}; make the composition visibly distinct from the other campaign frames."
+    )
+
+
+def _ensure_background(campaign: dict, *, slot: int, prompt: str, allow_generate: bool) -> dict:
     existing = ensure_asset_slot(
         campaign_id=campaign["id"],
-        platform=platform,
+        platform="background",
         slot=slot,
-        aspect=aspect,
+        aspect="master",
         prompt=prompt,
     )
-    if existing.get("status") == "ready" and existing.get("url"):
+    if existing.get("status") == "ready" and _stored_bytes(existing.get("url")):
+        return existing
+    if not allow_generate:
         return existing
     try:
         generated = generate_image(
@@ -240,9 +296,50 @@ def _generate_asset(campaign: dict, *, platform: str, slot: int, aspect: str, he
             size="1024x1536",
             quality=settings.pitmark_image_quality or "low",
         )
-        output_size = IG_OUTPUT_SIZE if platform == "instagram" else VERTICAL_OUTPUT_SIZE
+        stored = store_uploaded_image(
+            data=generated["data"],
+            filename=f"daily-campaign-{campaign['id']}-background-{slot}.png",
+            mime_type=generated["mime_type"],
+        )
+        return (
+            update_asset(
+                existing["id"],
+                url=_public_asset_url(stored["public_token"]),
+                status="ready",
+            )
+            or existing
+        )
+    except Exception as exc:
+        log.exception(
+            "Daily campaign background generation failed: campaign=%s slot=%s",
+            campaign["id"],
+            slot,
+        )
+        return update_asset(existing["id"], status="failed", error=str(exc)) or existing
+
+
+def _ensure_final_variant(
+    campaign: dict,
+    *,
+    platform: str,
+    slot: int,
+    aspect: str,
+    headline: str,
+    source: bytes,
+    output_size: tuple[int, int],
+) -> dict:
+    existing = ensure_asset_slot(
+        campaign_id=campaign["id"],
+        platform=platform,
+        slot=slot,
+        aspect=aspect,
+        prompt=f"Rendered from campaign master background {slot}.",
+    )
+    if existing.get("status") == "ready" and existing.get("url"):
+        return existing
+    try:
         final = render_final_asset(
-            source=generated["data"],
+            source=source,
             output_size=output_size,
             headline=headline,
             topic_type=campaign.get("topic_type") or "pitmark",
@@ -258,11 +355,22 @@ def _generate_asset(campaign: dict, *, platform: str, slot: int, aspect: str, he
             title=f"{campaign.get('title') or 'Pitmark daily campaign'} — {platform} {slot}",
             source="daily_campaign",
             source_ref=f"dailycampaign:{campaign['id']}:{platform}:{slot}",
-            tags=["pitmark", "daily-campaign", platform, aspect, campaign.get("topic_type") or "community"],
+            tags=[
+                "pitmark",
+                "daily-campaign",
+                platform,
+                aspect,
+                campaign.get("topic_type") or "community",
+            ],
         )
         return update_asset(existing["id"], url=url, status="ready") or existing
     except Exception as exc:
-        log.exception("Daily campaign asset generation failed: campaign=%s platform=%s slot=%s", campaign["id"], platform, slot)
+        log.exception(
+            "Daily campaign render failed: campaign=%s platform=%s slot=%s",
+            campaign["id"],
+            platform,
+            slot,
+        )
         return update_asset(existing["id"], status="failed", error=str(exc)) or existing
 
 
@@ -277,30 +385,44 @@ def _schedule_for(platform: str) -> str | None:
     hour, minute = _PLATFORM_SLOTS[platform]
     candidate = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
     if candidate <= now + timedelta(minutes=15):
-        candidate = (now + timedelta(days=1)).replace(hour=hour, minute=minute, second=0, microsecond=0)
+        candidate = (now + timedelta(days=1)).replace(
+            hour=hour, minute=minute, second=0, microsecond=0
+        )
     return candidate.isoformat()
 
 
 def sync_campaign_queue(campaign: dict, package: dict) -> dict:
     source = f"dailycampaign:{campaign['id']}"
     copy = package.get("copy") or {}
-    lead_image = next((x for x in package.get("instagram_assets") or [] if x), None)
+    lead_image = next(
+        (x for x in package.get("instagram_assets") or [] if x),
+        None,
+    )
     created = 0
     with SessionLocal() as db:
         existing = {
             row.platform: row
-            for row in db.scalars(select(SocialPost).where(SocialPost.source == source)).all()
+            for row in db.scalars(
+                select(SocialPost).where(SocialPost.source == source)
+            ).all()
         }
         for platform in QUEUE_PLATFORMS:
             body = str(copy.get(platform) or "").strip()
             if not body or platform in existing:
                 continue
-            autopublish = bool(settings.social_operator_autopublish_low_risk and platform in _PLATFORM_SLOTS)
+            autopublish = bool(
+                settings.social_operator_autopublish_low_risk
+                and platform in _PLATFORM_SLOTS
+            )
             post = SocialPost(
                 platform=platform,
                 title=(campaign.get("title") or "Pitmark daily campaign")[:180],
                 body=body,
-                content_type="community" if campaign.get("topic_type") == "community_growth" else "authority",
+                content_type=(
+                    "community"
+                    if campaign.get("topic_type") == "community_growth"
+                    else "authority"
+                ),
                 source=source,
                 risk="copy_only" if platform == "discord" else "low",
                 status="scheduled" if autopublish else "pending",
@@ -311,7 +433,16 @@ def sync_campaign_queue(campaign: dict, package: dict) -> dict:
             created += 1
         if created:
             db.commit()
-        rows = list(db.scalars(select(SocialPost).where(SocialPost.source == source)).all())
+
+        instagram = existing.get("instagram")
+        if instagram and not (instagram.media_url or "").strip() and lead_image:
+            instagram.media_url = lead_image
+            instagram.updated_at = utcnow()
+            db.commit()
+
+        rows = list(
+            db.scalars(select(SocialPost).where(SocialPost.source == source)).all()
+        )
     return {
         "created": created,
         "items": {
@@ -330,6 +461,7 @@ def generate_daily_package(campaign_id: int) -> dict:
     campaign = get_campaign(campaign_id)
     if not campaign:
         return {"ok": False, "campaign_id": campaign_id, "error": "campaign not found"}
+
     package = dict(campaign.get("package") or {})
     copy = dict(package.get("copy") or {})
     for platform in COPY_PLATFORMS:
@@ -337,46 +469,124 @@ def generate_daily_package(campaign_id: int) -> dict:
             copy[platform] = compose_platform_copy(campaign, platform)
     package["copy"] = copy
 
-    plan = package.get("slide_plan") if isinstance(package.get("slide_plan"), dict) else build_slide_plan(campaign)
+    plan = (
+        package.get("slide_plan")
+        if isinstance(package.get("slide_plan"), dict)
+        else build_slide_plan(campaign)
+    )
     package["slide_plan"] = plan
 
-    image_enabled = bool(getattr(settings, "social_daily_image_generation_enabled", True))
+    image_enabled = bool(
+        getattr(settings, "social_daily_image_generation_enabled", True)
+    )
     if image_enabled:
-        ig_urls: list[str | None] = [None] * REQUIRED_IG_SLIDES
-        for index, item in enumerate(plan["instagram"][:REQUIRED_IG_SLIDES], start=1):
-            asset = _generate_asset(
-                campaign,
-                platform="instagram",
-                slot=index,
-                aspect="4:5",
-                headline=item["headline"],
-                prompt=item["visual_prompt"],
-            )
-            ig_urls[index - 1] = asset.get("url") if asset.get("status") == "ready" else None
-        vertical_urls: list[str | None] = [None] * REQUIRED_VERTICAL_ASSETS
-        for index, item in enumerate(plan["vertical"][:REQUIRED_VERTICAL_ASSETS], start=1):
-            asset = _generate_asset(
-                campaign,
-                platform="tiktok_reels",
-                slot=index,
-                aspect="9:16",
-                headline=item["headline"],
-                prompt=item["visual_prompt"],
-            )
-            vertical_urls[index - 1] = asset.get("url") if asset.get("status") == "ready" else None
-    else:
-        assets = campaign_assets(campaign_id)
-        ig_urls = [a.get("url") for a in assets if a.get("platform") == "instagram" and a.get("status") == "ready"]
-        vertical_urls = [a.get("url") for a in assets if a.get("platform") == "tiktok_reels" and a.get("status") == "ready"]
+        batch_limit = max(
+            1,
+            min(
+                REQUIRED_IG_SLIDES,
+                int(getattr(settings, "social_daily_image_batch_size", 2) or 2),
+            ),
+        )
+        assets_before = campaign_assets(campaign_id)
+        ready_background_slots = {
+            int(asset["slot"])
+            for asset in assets_before
+            if asset.get("platform") == "background"
+            and asset.get("status") == "ready"
+            and _stored_bytes(asset.get("url"))
+        }
+        generated_this_pass = 0
 
-    package["instagram_assets"] = ig_urls
-    package["vertical_assets"] = vertical_urls
+        for slot, item in enumerate(
+            plan["instagram"][:REQUIRED_IG_SLIDES],
+            start=1,
+        ):
+            allow = (
+                slot in ready_background_slots
+                or generated_this_pass < batch_limit
+            )
+            background = _ensure_background(
+                campaign,
+                slot=slot,
+                prompt=_background_prompt(campaign, item, slot),
+                allow_generate=allow,
+            )
+            if (
+                slot not in ready_background_slots
+                and background.get("status") == "ready"
+            ):
+                generated_this_pass += 1
+                ready_background_slots.add(slot)
+
+        refreshed_assets = campaign_assets(campaign_id)
+        backgrounds = {
+            int(asset["slot"]): asset
+            for asset in refreshed_assets
+            if asset.get("platform") == "background"
+            and asset.get("status") == "ready"
+        }
+
+        for slot, item in enumerate(
+            plan["instagram"][:REQUIRED_IG_SLIDES],
+            start=1,
+        ):
+            source = _stored_bytes((backgrounds.get(slot) or {}).get("url"))
+            if source:
+                _ensure_final_variant(
+                    campaign,
+                    platform="instagram",
+                    slot=slot,
+                    aspect="4:5",
+                    headline=item["headline"],
+                    source=source,
+                    output_size=IG_OUTPUT_SIZE,
+                )
+
+        for slot, item in enumerate(
+            plan["vertical"][:REQUIRED_VERTICAL_ASSETS],
+            start=1,
+        ):
+            source = _stored_bytes((backgrounds.get(slot) or {}).get("url"))
+            if source:
+                _ensure_final_variant(
+                    campaign,
+                    platform="tiktok_reels",
+                    slot=slot,
+                    aspect="9:16",
+                    headline=item["headline"],
+                    source=source,
+                    output_size=VERTICAL_OUTPUT_SIZE,
+                )
+
+    assets = campaign_assets(campaign_id)
+    ig_by_slot = {
+        int(asset["slot"]): asset.get("url")
+        for asset in assets
+        if asset.get("platform") == "instagram"
+        and asset.get("status") == "ready"
+        and asset.get("url")
+    }
+    vertical_by_slot = {
+        int(asset["slot"]): asset.get("url")
+        for asset in assets
+        if asset.get("platform") == "tiktok_reels"
+        and asset.get("status") == "ready"
+        and asset.get("url")
+    }
+    package["instagram_assets"] = [
+        ig_by_slot.get(slot) for slot in range(1, REQUIRED_IG_SLIDES + 1)
+    ]
+    package["vertical_assets"] = [
+        vertical_by_slot.get(slot)
+        for slot in range(1, REQUIRED_VERTICAL_ASSETS + 1)
+    ]
     package["tiktok_reels_publish_mode"] = "ready_to_post"
+
     progress = summarize_package_progress(package)
     package["progress"] = progress
-
-    state = "ready" if progress["complete"] else "partial"
+    state = "ready" if progress["complete"] else "building"
     update_campaign_package(campaign_id, package, status=state)
+
     queue = sync_campaign_queue(campaign, package)
     latest = get_campaign(campaign_id) or campaign
     return {
