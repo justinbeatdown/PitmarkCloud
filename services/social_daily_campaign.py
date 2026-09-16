@@ -224,7 +224,13 @@ def select_campaign_topic(now: datetime | None = None) -> dict:
                 )
             ).all()
         )
+        used_topic_refs = set(
+            db.scalars(
+                select(DailyCampaign.topic_ref).where(DailyCampaign.topic_ref.is_not(None))
+            ).all()
+        )
     rows = _drop_stale_prt_events(rows)
+    rows = [row for row in rows if f"firstparty:{row.id}" not in used_topic_refs]
     if not rows:
         return fallback_topic(campaign_day_key(current))
     rows.sort(

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from utils.config import settings
@@ -49,6 +49,58 @@ if not DATABASE_URL.startswith("sqlite"):
 
 engine = create_engine(DATABASE_URL, **_engine_options)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+@event.listens_for(SessionLocal, "before_flush")
+def _guard_daily_campaign_schedule_collisions(session, flush_context, instances) -> None:
+    """Never persist two Daily Campaign posts into the same platform/time slot.
+
+    A late-running campaign can legitimately roll its scheduled time into the next
+    calendar day. If the next day's campaign is then generated after midnight, its
+    normal slot may already be occupied. Keep the newer Daily Campaign item pending
+    instead of silently double-booking the publishing worker.
+    """
+    reserved: set[tuple[str, str]] = set()
+    candidates = list(session.new) + list(session.dirty)
+    for obj in candidates:
+        table = getattr(getattr(obj, "__table__", None), "name", None)
+        if table != "autopilot_social_posts":
+            continue
+        source = str(getattr(obj, "source", "") or "")
+        if not source.startswith("dailycampaign:"):
+            continue
+        if str(getattr(obj, "status", "") or "") != "scheduled":
+            continue
+        platform = str(getattr(obj, "platform", "") or "").strip()
+        scheduled_for = str(getattr(obj, "scheduled_for", "") or "").strip()
+        if not platform or not scheduled_for:
+            continue
+
+        key = (platform, scheduled_for)
+        collision = key in reserved
+        if not collision:
+            model = type(obj)
+            stmt = select(model.id).where(
+                model.platform == platform,
+                model.scheduled_for == scheduled_for,
+                model.status.in_(["scheduled", "published"]),
+            )
+            current_id = getattr(obj, "id", None)
+            if current_id is not None:
+                stmt = stmt.where(model.id != current_id)
+            collision = session.scalar(stmt.limit(1)) is not None
+
+        if collision:
+            obj.status = "pending"
+            obj.scheduled_for = None
+            log.warning(
+                "Daily Campaign schedule collision avoided: source=%s platform=%s slot=%s; left pending.",
+                source,
+                platform,
+                scheduled_for,
+            )
+            continue
+        reserved.add(key)
 
 
 def init_database() -> None:

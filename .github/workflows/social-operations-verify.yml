@@ -59,6 +59,7 @@ jobs:
           python scripts/test_social_daily_package_contract.py
           python scripts/test_social_daily_ui_contract.py
           python scripts/test_social_daily_publish_guard.py
+          python scripts/test_social_daily_campaign_topic_dedupe.py
           python scripts/test_prt_release_announcements.py
           python scripts/test_prt_version_regression.py
           python scripts/test_prt_stale_campaign_filter.py
