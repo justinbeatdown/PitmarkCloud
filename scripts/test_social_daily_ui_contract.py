@@ -24,6 +24,12 @@ class SocialDailyUiContractTests(unittest.TestCase):
         ):
             self.assertIn(token, text)
 
+    def test_daily_campaign_preview_uses_same_origin_asset_path(self):
+        text = (ROOT / "api" / "control_social_daily_campaign.js").read_text(encoding="utf-8")
+        self.assertIn("function previewAssetUrl", text)
+        self.assertIn("previewAssetUrl(item.url)", text)
+        self.assertIn("/social-assets/", text)
+
     def test_daily_campaign_assets_are_layered_into_control_center(self):
         text = (ROOT / "api" / "social_operator.py").read_text(encoding="utf-8")
         self.assertIn("control_social_daily_campaign.js", text)

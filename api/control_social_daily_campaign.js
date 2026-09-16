@@ -3,6 +3,13 @@
   const esc = (v='') => String(v).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const label = (v='') => String(v || '').replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
 
+  function previewAssetUrl(url='') {
+    const raw = String(url || '').trim();
+    const marker = '/social-assets/';
+    const index = raw.indexOf(marker);
+    return index >= 0 ? raw.slice(index) : raw;
+  }
+
   function mount() {
     const panel = document.getElementById('socialOperatorPanel');
     if (!panel) return false;
@@ -66,11 +73,14 @@
       box.innerHTML = '<div class="so-daily-empty">Visual assets are being built in small batches so Social Operations does not hammer the server or image API.</div>';
       return;
     }
-    box.innerHTML = cards.map(item => `
-      <a class="so-daily-asset" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer" title="Open ${esc(item.kind)} asset">
-        <img src="${esc(item.url)}" alt="${esc(item.kind)} campaign asset" loading="lazy" />
+    box.innerHTML = cards.map(item => {
+      const previewUrl = previewAssetUrl(item.url);
+      return `
+      <a class="so-daily-asset" href="${esc(previewUrl)}" target="_blank" rel="noopener noreferrer" title="Open ${esc(item.kind)} asset">
+        <img src="${esc(previewAssetUrl(item.url))}" alt="${esc(item.kind)} campaign asset" loading="lazy" />
         <span>${esc(item.kind)}</span>
-      </a>`).join('');
+      </a>`;
+    }).join('');
   }
 
   function renderQueue(campaign) {
