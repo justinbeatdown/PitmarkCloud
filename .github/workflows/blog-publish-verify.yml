@@ -1,0 +1,34 @@
+name: Blog Publish Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'api/blog_publish_guard.py'
+      - 'services/racing_culture_conversion.py'
+      - 'scripts/test_racing_culture_conversion_cta.py'
+      - 'scripts/test_social_ops_shutdown_contract.py'
+      - '.github/workflows/blog-publish-verify.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Compile publisher modules
+        run: |
+          python -m py_compile api/blog_publish_guard.py services/racing_culture_conversion.py
+      - name: Run Racing Culture conversion regression
+        run: |
+          python scripts/test_racing_culture_conversion_cta.py
+          python scripts/test_social_ops_shutdown_contract.py
