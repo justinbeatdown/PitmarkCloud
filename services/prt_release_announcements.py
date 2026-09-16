@@ -9,6 +9,7 @@ import discord
 import httpx
 
 from services import persistent_store
+from services.prt_versions import compare_versions
 from utils.config import settings
 
 log = logging.getLogger("pitmark.discord.prt_release")
@@ -211,7 +212,22 @@ async def run_once(
         log.info("Bootstrapped PRT release announcement baseline at v%s.", version)
         return "bootstrapped"
 
-    if previous == version or version in _unpersisted_announced_versions:
+    comparison = compare_versions(version, previous)
+    if comparison is None:
+        log.warning(
+            "Ignoring unparseable PRT release manifest version %r; latest accepted is v%s.",
+            version,
+            previous,
+        )
+        return "stale"
+    if comparison < 0:
+        log.warning(
+            "Ignoring stale PRT release manifest v%s; latest accepted is v%s.",
+            version,
+            previous,
+        )
+        return "stale"
+    if comparison == 0 or version in _unpersisted_announced_versions:
         return "unchanged"
 
     guild = _hq_guild(bot)
