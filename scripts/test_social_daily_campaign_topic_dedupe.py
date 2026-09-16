@@ -257,9 +257,13 @@ class DailyCampaignTopicDedupeTests(unittest.TestCase):
             self.assertEqual(campaign["day_key"], current_day)
             self.assertEqual(campaign["topic_type"], "blog_publish")
             self.assertEqual(campaign["title"], "Replacement Racing Culture Story")
-            self.assertNotEqual(campaign["id"], duplicate_id)
             with SessionLocal() as db:
-                self.assertIsNone(db.get(DailyCampaign, duplicate_id))
+                current_rows = list(
+                    db.scalars(select(DailyCampaign).where(DailyCampaign.day_key == current_day)).all()
+                )
+                self.assertEqual(len(current_rows), 1)
+                self.assertEqual(current_rows[0].topic_type, "blog_publish")
+                self.assertEqual(current_rows[0].title, "Replacement Racing Culture Story")
                 duplicate_posts = list(
                     db.scalars(select(SocialPost).where(SocialPost.source == f"dailycampaign:{duplicate_id}")).all()
                 )
