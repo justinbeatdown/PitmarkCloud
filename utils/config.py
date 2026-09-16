@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     social_operator_min_x_posts_daily: int = 1
     social_daily_campaign_enabled: bool = True
     social_daily_image_generation_enabled: bool = True
+    social_daily_image_batch_size: int = 2
 
     meta_app_id: str = ""
     meta_app_secret: str = ""
