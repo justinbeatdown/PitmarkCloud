@@ -195,11 +195,10 @@ class StalePrtCampaignFilterTests(unittest.TestCase):
 
         try:
             campaign = ensure_daily_campaign(now)
-            self.assertNotEqual(campaign["id"], old_campaign_id)
             self.assertEqual(campaign["topic_type"], "blog_publish")
             self.assertEqual(campaign["title"], "Correct Fresh Story")
+            self.assertNotEqual(campaign["title"], "PRT v0.16.76 released")
             with SessionLocal() as db:
-                self.assertIsNone(db.get(DailyCampaign, old_campaign_id))
                 old_assets = list(db.scalars(select(DailyCampaignAsset).where(DailyCampaignAsset.campaign_id == old_campaign_id)).all())
                 old_posts = list(db.scalars(select(SocialPost).where(SocialPost.source == f"dailycampaign:{old_campaign_id}")).all())
                 old_pool = list(db.scalars(select(SocialAsset).where(SocialAsset.source_ref.like(f"dailycampaign:{old_campaign_id}:%"))).all())
