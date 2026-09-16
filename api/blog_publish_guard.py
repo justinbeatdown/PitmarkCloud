@@ -10,6 +10,7 @@ from services.blog_image_service import generate_and_stage_blog_image, resolve_s
 from services.control_auth import require_control_user
 from services.control_center import BlogDraft, ShopifyPublishRecord, serialize, utcnow
 from services.database import SessionLocal
+from services.racing_culture_conversion import append_racing_culture_conversion_cta
 
 router = APIRouter()
 FIELDS = "id title handle isPublished image { originalSrc }"
@@ -102,7 +103,11 @@ def guarded_publish(draft_id: int, request: Request, x_pitmark_admin_key: str | 
             except Exception as exc: raise HTTPException(502, f"Hero image generation failed. Article not published: {exc}")
         article = None
         try:
-            b = _blog(); article = _create(b["id"], d.title, d.body_html, image_url)
+            b = _blog()
+            body_html = d.body_html
+            if (b.get("handle") or "").lower() == "racing-culture":
+                body_html = append_racing_culture_conversion_cta(d.body_html, d.title)
+            article = _create(b["id"], d.title, body_html, image_url)
             durable = _image(article)
             if not _durable(durable): raise RuntimeError("Shopify did not ingest a durable hero image")
             article = _update(article["id"], publish=True)
