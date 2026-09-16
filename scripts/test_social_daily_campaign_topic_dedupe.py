@@ -1,0 +1,110 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+import json
+import unittest
+
+from sqlalchemy import delete
+
+from services import persistent_store
+from services.database import engine, SessionLocal
+from services.first_party_models import FirstPartyEvent, FirstPartyState
+from services.social_daily_campaign import DailyCampaign, campaign_day_key
+
+
+class DailyCampaignTopicDedupeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        persistent_store.RuntimeStateRow.__table__.create(bind=engine, checkfirst=True)
+        FirstPartyEvent.__table__.create(bind=engine, checkfirst=True)
+        FirstPartyState.__table__.create(bind=engine, checkfirst=True)
+        DailyCampaign.__table__.create(bind=engine, checkfirst=True)
+
+    def test_previous_day_topic_is_not_selected_again(self):
+        from services.social_daily_campaign import select_campaign_topic
+
+        now = datetime(2099, 1, 4, 17, 0, tzinfo=timezone.utc)
+        previous_day = campaign_day_key(datetime(2099, 1, 3, 17, 0, tzinfo=timezone.utc))
+        runtime_key = "prt_release_last_announced_version"
+        first_party_key = "prt_manifest_version"
+        release_key = "test:dedupe:prt_release:0.16.82"
+        blog_key = "test:dedupe:blog:fresh"
+
+        with SessionLocal() as db:
+            old_runtime = db.get(persistent_store.RuntimeStateRow, runtime_key)
+            old_runtime_value = old_runtime.value if old_runtime else None
+            old_first = db.get(FirstPartyState, first_party_key)
+            old_first_value = old_first.value if old_first else None
+            db.execute(delete(DailyCampaign).where(DailyCampaign.day_key == previous_day))
+            db.execute(delete(FirstPartyEvent).where(FirstPartyEvent.event_key.in_([release_key, blog_key])))
+            db.commit()
+
+        persistent_store.set_runtime_state(runtime_key, "0.16.82")
+        with SessionLocal() as db:
+            state = db.get(FirstPartyState, first_party_key)
+            if state is None:
+                db.add(FirstPartyState(state_key=first_party_key, value="0.16.82"))
+            else:
+                state.value = "0.16.82"
+
+            release_event = FirstPartyEvent(
+                event_key=release_key,
+                event_type="prt_release",
+                title="PRT v0.16.82 released",
+                summary="Current release.",
+                url="https://prt.pitmarkracing.com",
+                payload_json=json.dumps({"version": "0.16.82"}),
+                status="processed",
+                created_at=now,
+                updated_at=now,
+            )
+            blog_event = FirstPartyEvent(
+                event_key=blog_key,
+                event_type="blog_publish",
+                title="Fresh Racing Culture Story",
+                summary="A fresh verified story.",
+                url="https://pitmarkracing.com/blogs/racing-culture/fresh-dedupe-test",
+                payload_json="{}",
+                status="processed",
+                created_at=now,
+                updated_at=now,
+            )
+            db.add_all([release_event, blog_event])
+            db.flush()
+            db.add(DailyCampaign(
+                day_key=previous_day,
+                topic_type="prt_release",
+                topic_ref=f"firstparty:{release_event.id}",
+                title="PRT v0.16.82 released",
+                summary="Yesterday's campaign.",
+                url="https://prt.pitmarkracing.com",
+                status="ready",
+                package_json="{}",
+            ))
+            db.commit()
+
+        try:
+            topic = select_campaign_topic(now)
+            self.assertEqual(topic["topic_type"], "blog_publish")
+            self.assertEqual(topic["title"], "Fresh Racing Culture Story")
+        finally:
+            with SessionLocal() as db:
+                db.execute(delete(DailyCampaign).where(DailyCampaign.day_key == previous_day))
+                db.execute(delete(FirstPartyEvent).where(FirstPartyEvent.event_key.in_([release_key, blog_key])))
+                runtime = db.get(persistent_store.RuntimeStateRow, runtime_key)
+                if old_runtime_value is None:
+                    if runtime is not None:
+                        db.delete(runtime)
+                elif runtime is not None:
+                    runtime.value = old_runtime_value
+                first = db.get(FirstPartyState, first_party_key)
+                if old_first_value is None:
+                    if first is not None:
+                        db.delete(first)
+                elif first is not None:
+                    first.value = old_first_value
+                db.commit()
+
+
+if __name__ == "__main__":
+    unittest.main()
