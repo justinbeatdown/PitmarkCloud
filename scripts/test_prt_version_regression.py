@@ -3,6 +3,20 @@ from __future__ import annotations
 import unittest
 
 
+class VersionComparisonTests(unittest.TestCase):
+    def test_numeric_version_order_does_not_use_string_sorting(self):
+        from services.prt_versions import compare_versions
+
+        self.assertGreater(compare_versions("0.16.100", "0.16.99"), 0)
+        self.assertLess(compare_versions("v0.16.76", "0.16.82"), 0)
+        self.assertEqual(compare_versions("0.16.82", "v0.16.82"), 0)
+
+    def test_invalid_version_is_not_treated_as_newer(self):
+        from services.prt_versions import compare_versions
+
+        self.assertIsNone(compare_versions("latest", "0.16.82"))
+
+
 class FakeChannel:
     def __init__(self):
         self.name = "prt-announcements"
