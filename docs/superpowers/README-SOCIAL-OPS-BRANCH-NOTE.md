@@ -1,0 +1,1 @@
+Social Operations daily campaign implementation work is developed on the feature branch `feature/social-operations-daily-campaign`. This file is documentation only; production code changes must stay off `main` until reviewed.
