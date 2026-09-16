@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from services.control_auth import require_control_user
 from services.pitmark_mail_identities import send_message as send_mail
-from services.prt_application_admin import delete_application, set_application_status
+from services.prt_application_admin import delete_application, set_application_status, update_application_identity
 from services.prt_applications import application_role_from_placement, list_applications
 from services.prt_licensing_store import create_early_access_invite, list_early_access_invites
 
@@ -276,6 +276,23 @@ def _application_cards(rows: list[dict]) -> str:
               </form>
             """
 
+        identity_edit_action = ""
+        if raw_status in {"new", "hold"}:
+            identity_edit_action = f"""
+              <details class="delete-menu">
+                <summary>CORRECT NAME / EMAIL</summary>
+                <div class="delete-popover">
+                  <strong>Correct applicant identity</strong>
+                  <p>Available only before acceptance. Duplicate or invalid emails are rejected.</p>
+                  <form method="post" action="/control/early-access/{application_id}/identity">
+                    <label style="display:block;margin:8px 0;color:#98a0a6;font-size:8px;font-weight:900;letter-spacing:.07em">NAME<input style="display:block;width:100%;margin-top:5px;padding:9px;border-radius:7px;border:1px solid rgba(255,255,255,.12);background:#0b0e12;color:#eef0f1" type="text" name="full_name" value="{name}" maxlength="120" required></label>
+                    <label style="display:block;margin:8px 0;color:#98a0a6;font-size:8px;font-weight:900;letter-spacing:.07em">EMAIL<input style="display:block;width:100%;margin-top:5px;padding:9px;border-radius:7px;border:1px solid rgba(255,255,255,.12);background:#0b0e12;color:#eef0f1" type="email" name="email" value="{email}" maxlength="200" required></label>
+                    <button class="action-btn neutral" type="submit">SAVE CORRECTION</button>
+                  </form>
+                </div>
+              </details>
+            """
+
         cards.append(
             f"""
             <article class="app-card">
@@ -320,6 +337,7 @@ def _application_cards(rows: list[dict]) -> str:
               <div class="app-footer">
                 <a href="mailto:{email}">{email}</a>
                 <div class="footer-tools">
+                  {identity_edit_action}
                   <span>APPLICATION #{application_id}</span>
                   <details class="delete-menu">
                     <summary>DELETE</summary>
@@ -354,6 +372,12 @@ def early_access_admin(
     notice = ""
     if request.query_params.get("sent") == "1":
         notice = '<div class="notice good">Acceptance email sent and a fresh PRT Early Access code was issued.</div>'
+    elif request.query_params.get("identity-updated") == "1":
+        notice = '<div class="notice good">Applicant name and email were corrected. Review the updated identity before accepting.</div>'
+    elif request.query_params.get("error") == "identity":
+        notice = '<div class="notice bad">Applicant identity was not changed. Corrections are limited to New / On Hold applications and must use a valid, non-duplicate email.</div>'
+    elif request.query_params.get("error") == "missing":
+        notice = '<div class="notice bad">The requested application could not be found.</div>'
     elif request.query_params.get("error") == "invite-exists":
         notice = '<div class="notice bad">This applicant already has an active Early Access invite. No second code or duplicate email was sent.</div>'
     elif request.query_params.get("error") == "mail":
@@ -452,6 +476,24 @@ def update_early_access_status(
     except (ValueError, LookupError):
         return RedirectResponse(url="/control/early-access?error=status", status_code=303)
     return RedirectResponse(url="/control/early-access?updated=1", status_code=303)
+
+
+@router.post("/control/early-access/{application_id}/identity", include_in_schema=False)
+def update_early_access_identity(
+    application_id: int,
+    request: Request,
+    full_name: str = Form(...),
+    email: str = Form(...),
+    x_pitmark_admin_key: str | None = Header(default=None),
+):
+    require_control_user(request, x_pitmark_admin_key)
+    try:
+        update_application_identity(application_id, full_name, email)
+    except LookupError:
+        return RedirectResponse(url="/control/early-access?error=missing", status_code=303)
+    except ValueError:
+        return RedirectResponse(url="/control/early-access?error=identity", status_code=303)
+    return RedirectResponse(url="/control/early-access?identity-updated=1", status_code=303)
 
 
 @router.post("/control/early-access/{application_id}/send-acceptance", include_in_schema=False)
