@@ -9,9 +9,11 @@ from sqlalchemy import DateTime, Integer, String, Text, UniqueConstraint, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, mapped_column
 
+from services import persistent_store
 from services.control_center import SocialPost, utcnow
 from services.database import Base, SessionLocal
-from services.first_party_models import FirstPartyEvent
+from services.first_party_models import FirstPartyEvent, get_state
+from services.prt_versions import compare_versions, extract_version, newest_version
 from utils.config import settings
 
 REQUIRED_COPY_PLATFORMS = ("facebook", "instagram", "x", "discord", "tiktok_reels")
@@ -131,6 +133,42 @@ def _event_payload(row: FirstPartyEvent) -> dict:
     }
 
 
+def _accepted_prt_version() -> str | None:
+    local = get_state("prt_manifest_version")
+    try:
+        announced = persistent_store.get_runtime_state("prt_release_last_announced_version")
+    except Exception:
+        announced = None
+    return newest_version(local, announced)
+
+
+def _prt_event_version(row: FirstPartyEvent) -> str | None:
+    try:
+        payload = json.loads(row.payload_json or "{}")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        payload = {}
+    if isinstance(payload, dict):
+        version = str(payload.get("version") or "").strip()
+        if version:
+            return version.lstrip("vV")
+    return extract_version(row.event_key) or extract_version(row.title)
+
+
+def _drop_stale_prt_events(rows: list[FirstPartyEvent]) -> list[FirstPartyEvent]:
+    baseline = _accepted_prt_version()
+    if not baseline:
+        return rows
+    current_rows: list[FirstPartyEvent] = []
+    for row in rows:
+        if row.event_type != "prt_release":
+            current_rows.append(row)
+            continue
+        comparison = compare_versions(_prt_event_version(row), baseline)
+        if comparison is not None and comparison >= 0:
+            current_rows.append(row)
+    return current_rows
+
+
 def select_campaign_topic(now: datetime | None = None) -> dict:
     current = _aware(now)
     cutoff = current - timedelta(hours=72)
@@ -144,6 +182,7 @@ def select_campaign_topic(now: datetime | None = None) -> dict:
                 )
             ).all()
         )
+    rows = _drop_stale_prt_events(rows)
     if not rows:
         return fallback_topic(campaign_day_key(current))
     rows.sort(

@@ -1,0 +1,153 @@
+from __future__ import annotations
+
+import unittest
+
+
+class VersionComparisonTests(unittest.TestCase):
+    def test_numeric_version_order_does_not_use_string_sorting(self):
+        from services.prt_versions import compare_versions
+
+        self.assertGreater(compare_versions("0.16.100", "0.16.99"), 0)
+        self.assertLess(compare_versions("v0.16.76", "0.16.82"), 0)
+        self.assertEqual(compare_versions("0.16.82", "v0.16.82"), 0)
+
+    def test_invalid_version_is_not_treated_as_newer(self):
+        from services.prt_versions import compare_versions
+
+        self.assertIsNone(compare_versions("latest", "0.16.82"))
+
+
+class FakeChannel:
+    def __init__(self):
+        self.name = "prt-announcements"
+        self.type = "text"
+        self.sent = []
+
+    async def send(self, **kwargs):
+        self.sent.append(kwargs)
+        return object()
+
+
+class FakeGuild:
+    def __init__(self, channel: FakeChannel):
+        self.id = 123
+        self.channels = [channel]
+
+
+class FakeBot:
+    def __init__(self, channel: FakeChannel):
+        self.guilds = [FakeGuild(channel)]
+
+
+class DiscordReleaseRegressionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_older_manifest_is_ignored_without_state_downgrade(self):
+        from services import prt_release_announcements as service
+
+        channel = FakeChannel()
+        bot = FakeBot(channel)
+        state = {service.STATE_KEY: "0.16.82"}
+        old_hq = service.settings.discord_hq_guild_id
+        old_guild = service.settings.discord_guild_id
+        old_channel = service.settings.prt_release_announcement_channel
+        service.settings.discord_hq_guild_id = "123"
+        service.settings.discord_guild_id = ""
+        service.settings.prt_release_announcement_channel = "prt-announcements"
+
+        async def fetch_stale():
+            return {
+                "version": "0.16.76",
+                "summary": "Stale manifest.",
+                "changes": ["Old build."],
+            }
+
+        try:
+            status = await service.run_once(
+                bot,
+                fetcher=fetch_stale,
+                get_state=lambda key: state.get(key),
+                set_state=lambda key, value: state.__setitem__(key, value),
+            )
+        finally:
+            service.settings.discord_hq_guild_id = old_hq
+            service.settings.discord_guild_id = old_guild
+            service.settings.prt_release_announcement_channel = old_channel
+
+        self.assertEqual(status, "stale")
+        self.assertEqual(state[service.STATE_KEY], "0.16.82")
+        self.assertEqual(channel.sent, [])
+
+
+class AutopilotReleaseRegressionTests(unittest.TestCase):
+    def test_older_manifest_does_not_queue_release_or_downgrade_state(self):
+        from services import first_party_sources as sources
+
+        old_load = sources.load_manifest
+        old_get = sources.get_state
+        old_set = sources.set_state
+        old_queue = sources.queue_event
+        state_writes = []
+        queued = []
+
+        sources.load_manifest = lambda: (
+            {"version": "0.16.76", "notes": "Stale manifest."},
+            "r2",
+        )
+        sources.get_state = lambda key: "0.16.82"
+        sources.set_state = lambda key, value: state_writes.append((key, value))
+        sources.queue_event = lambda **kwargs: queued.append(kwargs) or (999, True)
+        try:
+            result = sources.scan_prt_release()
+        finally:
+            sources.load_manifest = old_load
+            sources.get_state = old_get
+            sources.set_state = old_set
+            sources.queue_event = old_queue
+
+        self.assertEqual(result["queued"], 0)
+        self.assertTrue(result.get("stale"))
+        self.assertEqual(result.get("previous"), "0.16.82")
+        self.assertEqual(state_writes, [])
+        self.assertEqual(queued, [])
+
+    def test_release_watcher_baseline_blocks_newer_than_stale_autopilot_state(self):
+        from services import first_party_sources as sources
+        from services import persistent_store
+        from services.database import engine
+
+        persistent_store.RuntimeStateRow.__table__.create(bind=engine, checkfirst=True)
+        key = "prt_release_last_announced_version"
+        old_runtime = persistent_store.get_runtime_state(key)
+        old_load = sources.load_manifest
+        old_get = sources.get_state
+        old_set = sources.set_state
+        old_queue = sources.queue_event
+        state_writes = []
+        queued = []
+
+        persistent_store.set_runtime_state(key, "0.16.82")
+        sources.load_manifest = lambda: (
+            {"version": "0.16.77", "notes": "Still stale."},
+            "r2",
+        )
+        sources.get_state = lambda state_key: "0.16.76"
+        sources.set_state = lambda state_key, value: state_writes.append((state_key, value))
+        sources.queue_event = lambda **kwargs: queued.append(kwargs) or (1000, True)
+        try:
+            result = sources.scan_prt_release()
+        finally:
+            sources.load_manifest = old_load
+            sources.get_state = old_get
+            sources.set_state = old_set
+            sources.queue_event = old_queue
+            if old_runtime is not None:
+                persistent_store.set_runtime_state(key, old_runtime)
+
+        self.assertEqual(result["queued"], 0)
+        self.assertTrue(result.get("stale"))
+        self.assertEqual(result.get("previous"), "0.16.82")
+        self.assertEqual(state_writes, [])
+        self.assertEqual(queued, [])
+
+
+if __name__ == "__main__":
+    unittest.main()
