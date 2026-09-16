@@ -10,6 +10,7 @@ from services import persistent_store
 from services.control_center import SocialPost
 from services.database import engine, SessionLocal
 from services.first_party_models import FirstPartyEvent, FirstPartyState
+from services.social_asset_pool import SocialAsset, SocialAssetUpload
 from services.social_daily_campaign import DailyCampaign, DailyCampaignAsset, campaign_day_key
 
 
@@ -20,6 +21,8 @@ class StalePrtCampaignFilterTests(unittest.TestCase):
         FirstPartyEvent.__table__.create(bind=engine, checkfirst=True)
         FirstPartyState.__table__.create(bind=engine, checkfirst=True)
         SocialPost.__table__.create(bind=engine, checkfirst=True)
+        SocialAsset.__table__.create(bind=engine, checkfirst=True)
+        SocialAssetUpload.__table__.create(bind=engine, checkfirst=True)
         DailyCampaign.__table__.create(bind=engine, checkfirst=True)
         DailyCampaignAsset.__table__.create(bind=engine, checkfirst=True)
 
@@ -99,6 +102,7 @@ class StalePrtCampaignFilterTests(unittest.TestCase):
         first_party_key = "prt_manifest_version"
         stale_key = "test:reset:prt_release:0.16.76"
         blog_key = "test:reset:blog:fresh"
+        upload_token = "test-stale-campaign-upload"
 
         with SessionLocal() as db:
             old_runtime = db.get(persistent_store.RuntimeStateRow, runtime_key)
@@ -106,6 +110,7 @@ class StalePrtCampaignFilterTests(unittest.TestCase):
             old_first = db.get(FirstPartyState, first_party_key)
             old_first_value = old_first.value if old_first else None
             db.execute(delete(DailyCampaign).where(DailyCampaign.day_key == day_key))
+            db.execute(delete(SocialAssetUpload).where(SocialAssetUpload.public_token == upload_token))
             db.commit()
 
         persistent_store.set_runtime_state(runtime_key, "0.16.82")
@@ -154,13 +159,14 @@ class StalePrtCampaignFilterTests(unittest.TestCase):
             db.add(stale_campaign)
             db.flush()
             old_campaign_id = stale_campaign.id
+            old_asset_url = f"https://pcc.pitmarkracing.com/social-assets/{upload_token}"
             db.add(DailyCampaignAsset(
                 campaign_id=old_campaign_id,
                 platform="instagram",
                 slot=1,
                 aspect="4:5",
                 prompt="old",
-                url="https://example.invalid/old.png",
+                url=old_asset_url,
                 status="ready",
             ))
             db.add(SocialPost(
@@ -169,6 +175,21 @@ class StalePrtCampaignFilterTests(unittest.TestCase):
                 body="bad old copy",
                 source=f"dailycampaign:{old_campaign_id}",
                 status="scheduled",
+            ))
+            db.add(SocialAssetUpload(
+                public_token=upload_token,
+                filename="old.png",
+                mime_type="image/png",
+                data=b"old",
+            ))
+            db.add(SocialAsset(
+                url=old_asset_url,
+                title="old",
+                source="daily_campaign",
+                source_ref=f"dailycampaign:{old_campaign_id}:instagram:1",
+                asset_type="image",
+                tags="pitmark,daily-campaign",
+                active=True,
             ))
             db.commit()
 
@@ -181,12 +202,18 @@ class StalePrtCampaignFilterTests(unittest.TestCase):
                 self.assertIsNone(db.get(DailyCampaign, old_campaign_id))
                 old_assets = list(db.scalars(select(DailyCampaignAsset).where(DailyCampaignAsset.campaign_id == old_campaign_id)).all())
                 old_posts = list(db.scalars(select(SocialPost).where(SocialPost.source == f"dailycampaign:{old_campaign_id}")).all())
+                old_pool = list(db.scalars(select(SocialAsset).where(SocialAsset.source_ref.like(f"dailycampaign:{old_campaign_id}:%"))).all())
+                old_upload = db.scalar(select(SocialAssetUpload).where(SocialAssetUpload.public_token == upload_token))
                 self.assertEqual(old_assets, [])
                 self.assertEqual(old_posts, [])
+                self.assertEqual(old_pool, [])
+                self.assertIsNone(old_upload)
         finally:
             with SessionLocal() as db:
-                db.execute(delete(SocialPost).where(SocialPost.source.like("dailycampaign:%")))
+                db.execute(delete(SocialPost).where(SocialPost.source == f"dailycampaign:{old_campaign_id}"))
                 db.execute(delete(DailyCampaignAsset).where(DailyCampaignAsset.campaign_id == old_campaign_id))
+                db.execute(delete(SocialAsset).where(SocialAsset.source_ref.like(f"dailycampaign:{old_campaign_id}:%")))
+                db.execute(delete(SocialAssetUpload).where(SocialAssetUpload.public_token == upload_token))
                 db.execute(delete(DailyCampaign).where(DailyCampaign.day_key == day_key))
                 db.execute(delete(FirstPartyEvent).where(FirstPartyEvent.event_key.in_([stale_key, blog_key])))
                 runtime = db.get(persistent_store.RuntimeStateRow, runtime_key)
