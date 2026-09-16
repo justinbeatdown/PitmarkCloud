@@ -1,0 +1,31 @@
+name: Apply PRT Role-Aware Flow
+
+on:
+  push:
+    branches:
+      - fix/prt-role-aware-apply
+    paths:
+      - '.github/workflows/apply-prt-role-aware.yml'
+      - 'scripts/apply_prt_role_aware_change.py'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/prt-role-aware-apply
+      - name: Apply approved role-aware application change
+        run: python scripts/apply_prt_role_aware_change.py
+      - name: Commit production files and remove one-shot helpers
+        run: |
+          rm scripts/apply_prt_role_aware_change.py
+          rm .github/workflows/apply-prt-role-aware.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add api/prt.html api/prt-apply.html api/prt-apply.js services/prt_applications.py scripts/apply_prt_role_aware_change.py .github/workflows/apply-prt-role-aware.yml
+          git commit -m "feat: make PRT Early Access role-aware"
+          git push origin HEAD:fix/prt-role-aware-apply
