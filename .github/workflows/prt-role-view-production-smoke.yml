@@ -1,0 +1,24 @@
+name: PRT Role View Production Smoke
+
+on:
+  push:
+    branches:
+      - verify/prt-role-view-prod
+    paths:
+      - '.github/workflows/prt-role-view-production-smoke.yml'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit public role-specific Apply URLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for role in driver league broadcaster media; do
+            url="https://prt.pitmarkracing.com/prt/apply?role=${role}"
+            code=$(curl --fail --silent --show-error --location --user-agent 'PitmarkProductionSmoke/1.0' --output "/tmp/${role}.html" --write-out '%{http_code}' "$url")
+            test "$code" = "200"
+            grep -q 'quickApplyForm' "/tmp/${role}.html"
+            echo "$role $code"
+          done
