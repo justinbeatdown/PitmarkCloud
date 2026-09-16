@@ -109,9 +109,7 @@ Founder & Owner | Pitmark Racing Co.
     if role == "Broadcaster":
         intro = (
             "PRT is still actively being developed, and that’s exactly why we want broadcasters and production teams involved now. "
-            "You’ll be helping us test PRT in real spectator, replay, and production workflows, find bugs, and shape what the broadcast side becomes before public release.
-
-"
+            "You’ll be helping us test PRT in real spectator, replay, and production workflows, find bugs, and shape what the broadcast side becomes before public release.\n\n"
             "Broadcast Studio is in development. Current Early Access lets you pressure-test the PRT foundation around overlays, race information, telemetry, spectator/replay behavior, and production reliability while helping us build Broadcast Studio around real broadcast needs."
         )
         use_copy = "Once you’re installed, use PRT in the same spectator, replay, and live-session workflows you actually broadcast. We especially want feedback on:"
