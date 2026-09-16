@@ -37,6 +37,15 @@ def _platform_ready(platform: str) -> bool:
     return facebook_configured() if platform == "facebook" else instagram_configured() if platform == "instagram" else x_configured() if platform == "x" else False
 
 
+def _automatic_social_source(source: str | None) -> bool:
+    raw = str(source or "")
+    return (
+        raw == "operator:growth-loop"
+        or raw.startswith("dailycampaign:")
+        or raw.startswith("firstparty:")
+    )
+
+
 def _asset_for(post: SocialPost) -> str | None:
     if (post.media_url or "").strip():
         return post.media_url.strip()
@@ -56,6 +65,10 @@ def publish_due_posts() -> int:
     with SessionLocal() as db:
         rows = list(db.scalars(select(SocialPost).where(SocialPost.status == "scheduled", SocialPost.platform.in_(["facebook", "instagram", "x"])).order_by(SocialPost.id.asc())).all())
         for post in rows:
+            if not settings.social_operator_enabled and _automatic_social_source(post.source):
+                log.info("Skipping automatic social post %s because Social Operations is disabled", post.id)
+                continue
+
             platform = (post.platform or "").strip().lower()
             if not _platform_ready(platform):
                 continue
