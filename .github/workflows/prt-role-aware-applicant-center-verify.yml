@@ -5,7 +5,9 @@ on:
     paths:
       - 'api/early_access_admin.py'
       - 'services/prt_applications.py'
+      - 'services/prt_application_admin.py'
       - 'scripts/test_prt_role_aware_applicant_center.py'
+      - 'scripts/test_prt_applicant_identity_edit.py'
       - 'scripts/test_social_ops_shutdown_contract.py'
       - '.github/workflows/prt-role-aware-applicant-center-verify.yml'
 
@@ -21,5 +23,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Verify role-aware Applicant Center contract
         run: python scripts/test_prt_role_aware_applicant_center.py
+      - name: Verify safe applicant identity edit contract
+        run: python scripts/test_prt_applicant_identity_edit.py
       - name: Preserve Social Operations shutdown contract
         run: python scripts/test_social_ops_shutdown_contract.py
