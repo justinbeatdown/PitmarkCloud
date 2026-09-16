@@ -117,6 +117,11 @@ async def scheduler_loop():
     # today's coverage whenever it can be generated safely.
     await asyncio.sleep(20)
     while True:
+        if not settings.social_operator_enabled:
+            log.info("Social Operations disabled; skipping autonomous social pass")
+            await asyncio.sleep(300)
+            continue
+
         try:
             await asyncio.to_thread(backfill_platform_variants)
         except Exception:
