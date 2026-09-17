@@ -8,10 +8,6 @@ import time
 from typing import Any
 from urllib.parse import quote
 
-import httpx
-
-from services.google_workspace_auth import authorization_headers, workspace_credentials_configured
-
 SPREADSHEET_ID = "18k0Lnc4Dh8WsWssLDbOobE5lCXIQO1FjlAEKcHJ-UtI"
 SHEET_NAME = "Master Checklist"
 READ_RANGE = "'Master Checklist'!A7:H1000"
@@ -115,7 +111,17 @@ def bucket_for(item: dict[str, Any]) -> str:
     return "other"
 
 
+def _google_runtime():
+    # Keep parsing/classification lightweight and testable without importing the
+    # HTTP/OAuth stack until an actual Google request is made.
+    import httpx
+    from services.google_workspace_auth import authorization_headers, workspace_credentials_configured
+
+    return httpx, authorization_headers, workspace_credentials_configured
+
+
 def _sheet_values() -> list[list[Any]]:
+    httpx, authorization_headers, workspace_credentials_configured = _google_runtime()
     if not workspace_credentials_configured():
         raise RuntimeError("Google Workspace credentials are not configured.")
     encoded = quote(READ_RANGE, safe="")
@@ -155,12 +161,12 @@ def _summary(items: list[dict[str, Any]]) -> dict[str, int]:
 
 def _build_snapshot(rows: list[list[Any]]) -> dict[str, Any]:
     # A7:H includes the row-7 header. Data begins on row 8.
-    data_rows = rows[1:] if rows and any(str(cell).strip().lower() == "status" for cell in rows[0]) else rows
-    first_row_number = 8 if data_rows is not rows else 7
+    has_header = bool(rows) and any(str(cell).strip().lower() == "status" for cell in rows[0])
+    data_rows = rows[1:] if has_header else rows
+    first_row_number = 8 if has_header else 7
     items: list[dict[str, Any]] = []
     for offset, row in enumerate(data_rows):
         item = normalize_row(row, row_number=first_row_number + offset)
-        # Ignore structurally empty rows. Do not invent missing tasks.
         if not item["task"] and not item["area"] and not item["status"]:
             continue
         item["bucket"] = bucket_for(item)
@@ -216,6 +222,8 @@ def update_item(row_number: int, updates: dict[str, Any]) -> dict[str, Any]:
     unknown = sorted(set(updates) - set(_ALLOWED_UPDATES))
     if unknown:
         raise ValueError(f"Unsupported Master Checklist fields: {', '.join(unknown)}")
+
+    httpx, authorization_headers, workspace_credentials_configured = _google_runtime()
     if not workspace_credentials_configured():
         raise RuntimeError("Google Workspace credentials are not configured.")
 
