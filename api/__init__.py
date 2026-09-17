@@ -17,7 +17,13 @@ prt_ui.router.include_router(control_center_2026.router)
 
 
 def _gmail_compose_direct(email: str, name: str) -> str:
-    """Open a compose draft without depending on Gmail web-account redirects."""
+    """Open a compose draft without depending on Gmail web-account redirects.
+
+    Google Workspace/multi-account browser sessions can redirect mail.google.com
+    through accounts.google.com and hit ERR_TOO_MANY_REDIRECTS. A mailto link hands
+    the compose request to the user's configured mail handler instead and keeps the
+    applicant address, subject, and greeting prefilled.
+    """
     query = urlencode(
         {
             "subject": "Pitmark Racing Tools Early Access",
