@@ -18,12 +18,14 @@ class ControlCenterPwaRetirementContract(unittest.TestCase):
         self.assertNotIn("control-mobile-blog.js", sw)
         self.assertNotIn("pitmark-mobile-v0.21.42", sw)
 
-    def test_recovery_route_sits_outside_old_worker_scope(self):
+    def test_recovery_route_is_direct_server_redirect(self):
         recovery = self.read("api/control_center_recovery.py")
         self.assertIn("@router.get('/control-reset'", recovery)
-        self.assertIn("navigator.serviceWorker.getRegistrations", recovery)
-        self.assertIn("caches.keys", recovery)
+        self.assertIn("RedirectResponse", recovery)
+        self.assertIn("status_code=302", recovery)
         self.assertIn("/control/mobile?fresh=", recovery)
+        self.assertNotIn("<script>", recovery)
+        self.assertNotIn("HTMLResponse", recovery)
 
         init_text = self.read("api/__init__.py")
         self.assertIn("control_center_recovery", init_text)
