@@ -10,6 +10,9 @@ from services.master_checklist import bucket_for, normalize_row
 
 
 class MasterChecklistContract(unittest.TestCase):
+    def read(self, relative):
+        return (ROOT / relative).read_text(encoding='utf-8')
+
     def test_normalizes_live_sheet_row_without_shadow_state(self):
         row = [
             'FALSE',
@@ -88,6 +91,20 @@ class MasterChecklistContract(unittest.TestCase):
     def test_done_checkbox_wins_over_stale_status(self):
         item = normalize_row(['TRUE', 'Monitoring', 'P1', 'Control Center', 'Old item'], row_number=40)
         self.assertEqual(bucket_for(item), 'completed')
+
+    def test_sheets_auth_is_not_reused_from_gmail_only_token(self):
+        auth = self.read('services/google_workspace_auth.py')
+        env_example = self.read('.env.example')
+        self.assertIn('GOOGLE_WORKSPACE_REFRESH_TOKEN', auth)
+        self.assertIn('GOOGLE_WORKSPACE_REFRESH_TOKEN', env_example)
+        self.assertNotIn('from services.google_gmail import _token', auth)
+        self.assertIn('https://www.googleapis.com/auth/spreadsheets', env_example)
+
+    def test_hq_does_not_report_clear_or_live_when_checklist_failed(self):
+        views = self.read('api/control_center_views.js')
+        self.assertIn('Checklist disconnected', views)
+        self.assertIn('Work source needs attention.', views)
+        self.assertIn('modules.work?.ok === true', views)
 
 
 if __name__ == '__main__':
