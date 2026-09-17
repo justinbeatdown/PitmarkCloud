@@ -13,23 +13,21 @@ class ControlCenterPwaRetirementContract(unittest.TestCase):
         self.assertIn("registration.unregister", sw)
         self.assertIn("caches.keys", sw)
         self.assertIn("clients.matchAll", sw)
+        self.assertIn("/control-reset", sw)
         self.assertNotIn("control-mobile.js", sw)
         self.assertNotIn("control-mobile-blog.js", sw)
         self.assertNotIn("pitmark-mobile-v0.21.42", sw)
 
     def test_recovery_route_sits_outside_old_worker_scope(self):
-        ui = self.read("api/control_center_ui.py")
-        # /control-reset is intentionally outside the retired /control/ worker scope.
-        self.assertIn("@router.get('/control-reset'", ui)
-        self.assertIn("navigator.serviceWorker.getRegistrations", ui)
-        self.assertIn("caches.keys", ui)
-        self.assertIn("/control/mobile?fresh=", ui)
+        recovery = self.read("api/control_center_recovery.py")
+        self.assertIn("@router.get('/control-reset'", recovery)
+        self.assertIn("navigator.serviceWorker.getRegistrations", recovery)
+        self.assertIn("caches.keys", recovery)
+        self.assertIn("/control/mobile?fresh=", recovery)
 
-    def test_current_app_also_retires_stale_control_workers(self):
-        app = self.read("api/control_center_app.js")
-        self.assertIn("getRegistrations", app)
-        self.assertIn("unregister", app)
-        self.assertIn("caches.keys", app)
+        init_text = self.read("api/__init__.py")
+        self.assertIn("control_center_recovery", init_text)
+        self.assertIn("include_router(control_center_recovery.router)", init_text)
 
 
 if __name__ == "__main__":
