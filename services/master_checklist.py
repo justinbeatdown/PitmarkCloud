@@ -120,10 +120,16 @@ def _google_runtime():
     return httpx, authorization_headers, workspace_credentials_configured
 
 
+def _authorization_error() -> RuntimeError:
+    return RuntimeError(
+        "Master Checklist is disconnected from Google Sheets. A Sheets-capable Google Workspace authorization is required."
+    )
+
+
 def _sheet_values() -> list[list[Any]]:
     httpx, authorization_headers, workspace_credentials_configured = _google_runtime()
     if not workspace_credentials_configured():
-        raise RuntimeError("Google Workspace credentials are not configured.")
+        raise _authorization_error()
     encoded = quote(READ_RANGE, safe="")
     url = f"{SHEETS_API}/{SPREADSHEET_ID}/values/{encoded}"
     with httpx.Client(timeout=20.0) as client:
@@ -133,8 +139,9 @@ def _sheet_values() -> list[list[Any]]:
             params={"majorDimension": "ROWS", "valueRenderOption": "FORMATTED_VALUE"},
         )
     if response.status_code >= 400:
-        detail = response.text[:1000]
-        raise RuntimeError(f"Master Checklist read failed ({response.status_code}): {detail}")
+        if response.status_code in {401, 403}:
+            raise _authorization_error()
+        raise RuntimeError(f"Master Checklist read failed ({response.status_code}).")
     payload = response.json()
     rows = payload.get("values") if isinstance(payload, dict) else []
     return rows if isinstance(rows, list) else []
@@ -225,7 +232,7 @@ def update_item(row_number: int, updates: dict[str, Any]) -> dict[str, Any]:
 
     httpx, authorization_headers, workspace_credentials_configured = _google_runtime()
     if not workspace_credentials_configured():
-        raise RuntimeError("Google Workspace credentials are not configured.")
+        raise _authorization_error()
 
     data: list[dict[str, Any]] = []
     for field, value in updates.items():
@@ -258,7 +265,9 @@ def update_item(row_number: int, updates: dict[str, Any]) -> dict[str, Any]:
     with httpx.Client(timeout=20.0) as client:
         response = client.post(url, headers=authorization_headers(), json=body)
     if response.status_code >= 400:
-        raise RuntimeError(f"Master Checklist update failed ({response.status_code}): {response.text[:1000]}")
+        if response.status_code in {401, 403}:
+            raise _authorization_error()
+        raise RuntimeError(f"Master Checklist update failed ({response.status_code}).")
 
     invalidate_cache()
     snapshot = list_items(force=True)
