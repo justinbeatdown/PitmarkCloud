@@ -72,6 +72,28 @@ class ControlCenter2026Contract(unittest.TestCase):
             self.assertIn(endpoint, js)
         self.assertIn("window.addEventListener('load'", js)
 
+    def test_authenticated_routes_do_not_inject_legacy_bundles(self):
+        ui = self.read("api/control_center_ui.py")
+        legacy_assets = (
+            '/control.js',
+            '/control-mobile.js',
+            'control-center-v19',
+            'control-center-v191',
+            'control-center-v195',
+            'control-center-v201',
+            'control-center-v202',
+            'control-runtime-v194',
+            'control-mail-client',
+            'control-email.js',
+        )
+        route_source = ui.split("@router.get('/control'", 1)[1].split("@router.get('/control.css'", 1)[0]
+        mobile_source = ui.split("@router.get('/control/mobile'", 1)[1].split("@router.get('/control-mobile.css'", 1)[0]
+        for asset in legacy_assets:
+            self.assertNotIn(asset, route_source)
+            self.assertNotIn(asset, mobile_source)
+        self.assertIn("filename = 'control_center.html' if user_from_request(request) else 'control_login.html'", route_source)
+        self.assertIn("filename = 'control_center.html' if user_from_request(request) else 'control_mobile_login.html'", mobile_source)
+
 
 if __name__ == "__main__":
     unittest.main()
