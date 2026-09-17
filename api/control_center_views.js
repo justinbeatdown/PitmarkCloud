@@ -50,29 +50,30 @@ function failure(module, fallback) { return module?.ok === false ? module.error 
 async function renderHQ(root, ctx) {
   const payload = await api.hq({ maxAge: ctx.force ? 0 : 15000 });
   const modules = payload?.modules || {};
-  const workOk = modules.work?.ok === true;
+  const workConnected = modules.work?.ok === true;
   const work = unwrap(modules.work); const prt = unwrap(modules.prt); const content = unwrap(modules.content); const relationships = unwrap(modules.relationships); const systems = unwrap(modules.systems); const notifications = unwrap(modules.notifications);
   const attention = work?.attention || [];
   const wait = work?.waiting || [];
   const summary = work?.summary || {};
   const p = prt || {}; const c = content || {};
-  const headline = !workOk ? 'Work source needs attention.' : attention.length ? `${attention.length} thing${attention.length === 1 ? '' : 's'} deserve your attention.` : 'Pitmark is clear for the moment.';
-  const sub = !workOk ? 'Master Checklist is disconnected from Google Sheets. Other Pitmark systems are still live.' : work?.stale ? 'Master Checklist is showing cached data while the live source reconnects.' : `Live operations across work, PRT, content, relationships, and systems.`;
-  const checklistBadge = !workOk ? '<span class="pm-badge bad">Checklist disconnected</span>' : work?.stale ? '<span class="pm-badge warn">Checklist cached</span>' : '<span class="pm-badge good">Checklist live</span>';
+  const headline = workConnected ? (attention.length ? `${attention.length} thing${attention.length === 1 ? '' : 's'} deserve your attention.` : 'Pitmark is clear for the moment.') : 'Pitmark HQ is online.';
+  const sub = workConnected ? (work?.stale ? 'Master Checklist is showing cached data while the live source reconnects.' : 'Live operations across work, PRT, content, relationships, and systems.') : 'PRT, content, relationships, and systems are live. Work sync is temporarily unavailable.';
+  const checklistBadge = workConnected ? (work?.stale ? '<span class="pm-badge warn">Checklist cached</span>' : '<span class="pm-badge good">Checklist live</span>') : '<span class="pm-badge warn">Checklist unavailable</span>';
+  const hqGridClass = workConnected ? 'pm-grid pm-grid-hq' : 'pm-grid';
   root.innerHTML = `
     <section class="pm-brief"><div><span class="eyebrow">TODAY AT PITMARK</span><h2>${esc(headline)}</h2><p>${esc(sub)}</p></div><div class="pm-brief-meta">${checklistBadge}<span class="pm-badge">v${esc(payload?.version || systems?.app_version || '—')}</span></div></section>
     <div class="pm-metric-strip">
-      <div class="pm-metric"><span>Needs attention</span><strong>${workOk ? n(attention.length) : '—'}</strong><small>${workOk ? 'P0/P1, blockers, active work' : 'Checklist unavailable'}</small></div>
-      <div class="pm-metric"><span>Waiting</span><strong>${workOk ? n(summary.waiting) : '—'}</strong><small>${workOk ? 'External or pending items' : 'Checklist unavailable'}</small></div>
+      ${workConnected ? `<div class="pm-metric"><span>Needs attention</span><strong>${n(attention.length)}</strong><small>P0/P1, blockers, active work</small></div><div class="pm-metric"><span>Waiting</span><strong>${n(summary.waiting)}</strong><small>External or pending items</small></div>` : ''}
       <div class="pm-metric"><span>PRT applications</span><strong>${n(p.applications?.new)}</strong><small>New applications</small></div>
       <div class="pm-metric"><span>Content approvals</span><strong>${n(c.autopilot?.pending)}</strong><small>Generated posts waiting</small></div>
       <div class="pm-metric"><span>Relationships</span><strong>${n(relationships?.total)}</strong><small>${n(relationships?.waiting_follow_up)} follow-ups tracked</small></div>
+      ${workConnected ? '' : `<div class="pm-metric"><span>PRT feedback</span><strong>${n(p.feedback?.open ?? p.feedback?.total ?? 0)}</strong><small>Open tester feedback</small></div><div class="pm-metric"><span>Signals</span><strong>${n(notifications?.unread)}</strong><small>Unread operational signals</small></div>`}
     </div>
-    <div class="pm-grid pm-grid-hq">
-      ${panel('Needs Attention','Operator Queue', workOk ? (attention.length ? `<div class="pm-row-list">${attention.map(workRow).join('')}</div>` : empty('Nothing urgent is sitting in the queue.')) : moduleError('Master Checklist', 'Google Sheets authorization needs to be renewed.', 'hq'), `<button class="pm-button pm-button-ghost" data-go="work">Open Work</button>`)}
+    <div class="${hqGridClass}">
+      ${workConnected ? panel('Needs Attention','Operator Queue', attention.length ? `<div class="pm-row-list">${attention.map(workRow).join('')}</div>` : empty('Nothing urgent is sitting in the queue.'), `<button class="pm-button pm-button-ghost" data-go="work">Open Work</button>`) : ''}
       ${panel('Pitmark Pulse','Company State', `
         <div class="pm-pulse-grid">
-          ${workOk ? `<div class="pm-pulse"><header><span>Work</span>${summary.blocked ? '<b class="pm-danger-text">Blocked</b>' : '<b class="pm-good-text">Moving</b>'}</header><strong>${n(summary.open)}</strong><p>open items · ${n(summary.completed)} completed</p><div class="pm-progress"><span style="width:${Math.min(100, (Number(summary.completed||0) / Math.max(1, Number(summary.total||1))) * 100)}%"></span></div></div>` : '<div class="pm-pulse"><header><span>Work</span><b class="pm-danger-text">Disconnected</b></header><strong>—</strong><p>Master Checklist unavailable</p></div>'}
+          ${workConnected ? `<div class="pm-pulse"><header><span>Work</span>${summary.blocked ? '<b class="pm-danger-text">Blocked</b>' : '<b class="pm-good-text">Moving</b>'}</header><strong>${n(summary.open)}</strong><p>open items · ${n(summary.completed)} completed</p><div class="pm-progress"><span style="width:${Math.min(100, (Number(summary.completed||0) / Math.max(1, Number(summary.total||1))) * 100)}%"></span></div></div>` : ''}
           <div class="pm-pulse"><header><span>PRT</span><b>${n(p.testers?.redeemed)} testers</b></header><strong>${n(p.feedback?.open ?? p.feedback?.total ?? 0)}</strong><p>feedback items open · ${n(p.founders_race?.pending)} race referrals pending</p></div>
           <div class="pm-pulse"><header><span>Content</span><b>${n(c.autopilot?.scheduled)} scheduled</b></header><strong>${n(c.autopilot?.pending)}</strong><p>social approvals · ${n(c.editorial?.drafts)} editorial drafts</p></div>
           <div class="pm-pulse"><header><span>Partners</span><b>${n(relationships?.total)}</b></header><strong>${n(relationships?.waiting_follow_up)}</strong><p>records with a follow-up</p></div>
@@ -80,10 +81,7 @@ async function renderHQ(root, ctx) {
           <div class="pm-pulse"><header><span>Signals</span><b>Unread</b></header><strong>${n(notifications?.unread)}</strong><p>operational notifications</p></div>
         </div>`, '')}
     </div>
-    <div class="pm-grid pm-grid-2" style="margin-top:12px">
-      ${panel('Waiting','External Dependencies', workOk ? (wait.length ? `<div class="pm-row-list">${wait.slice(0,6).map(workRow).join('')}</div>` : empty('Nothing is waiting right now.')) : moduleError('Waiting queue', 'Unavailable while Master Checklist is disconnected.'), '')}
-      ${panel('Recent Progress','Momentum', workOk ? ((work?.recently_completed || []).length ? `<div class="pm-row-list">${work.recently_completed.slice(0,6).map(workRow).join('')}</div>` : empty('Completed work will show here.')) : moduleError('Progress', 'Unavailable while Master Checklist is disconnected.'), '')}
-    </div>`;
+    ${workConnected ? `<div class="pm-grid pm-grid-2" style="margin-top:12px">${panel('Waiting','External Dependencies', wait.length ? `<div class="pm-row-list">${wait.slice(0,6).map(workRow).join('')}</div>` : empty('Nothing is waiting right now.'), '')}${panel('Recent Progress','Momentum', (work?.recently_completed || []).length ? `<div class="pm-row-list">${work.recently_completed.slice(0,6).map(workRow).join('')}</div>` : empty('Completed work will show here.'), '')}</div>` : ''}`;
   bindWorkOpeners(root, ctx);
 }
 

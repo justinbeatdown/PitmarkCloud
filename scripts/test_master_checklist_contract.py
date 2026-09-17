@@ -100,11 +100,13 @@ class MasterChecklistContract(unittest.TestCase):
         self.assertNotIn('from services.google_gmail import _token', auth)
         self.assertIn('https://www.googleapis.com/auth/spreadsheets', env_example)
 
-    def test_hq_does_not_report_clear_or_live_when_checklist_failed(self):
+    def test_hq_reports_checklist_outage_without_taking_over_the_dashboard(self):
         views = self.read('api/control_center_views.js')
-        self.assertIn('Checklist disconnected', views)
-        self.assertIn('Work source needs attention.', views)
         self.assertIn('modules.work?.ok === true', views)
+        self.assertIn('Checklist unavailable', views)
+        self.assertIn('Pitmark HQ is online.', views)
+        self.assertNotIn('Work source needs attention.', views)
+        self.assertNotIn('Checklist disconnected</span>', views)
 
 
 if __name__ == '__main__':

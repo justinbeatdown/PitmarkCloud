@@ -138,6 +138,14 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("renderCurrent(false);", app_js)
         self.assertIn("bootstrapStatus();", app_js)
 
+    def test_hq_degrades_gracefully_when_master_checklist_is_offline(self):
+        views = self.read("api/control_center_views.js")
+        self.assertIn("const workConnected = modules.work?.ok === true;", views)
+        self.assertIn("Checklist unavailable", views)
+        self.assertIn("workConnected ? panel('Needs Attention'", views)
+        self.assertNotIn("Work source needs attention.", views)
+        self.assertNotIn("Checklist disconnected</span>", views)
+
     def test_authenticated_routes_do_not_inject_legacy_bundles(self):
         ui = self.read("api/control_center_ui.py")
         legacy_assets = (
