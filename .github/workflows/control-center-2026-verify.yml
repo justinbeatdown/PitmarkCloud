@@ -1,0 +1,36 @@
+name: Control Center 2026 Verify
+
+on:
+  pull_request:
+    paths:
+      - 'api/control_center_2026.py'
+      - 'api/control_center.html'
+      - 'api/control_mobile.html'
+      - 'api/control_center_overhaul.css'
+      - 'api/control_center_overhaul.js'
+      - 'api/__init__.py'
+      - 'scripts/test_control_center_2026_contract.py'
+  push:
+    branches: [main]
+    paths:
+      - 'api/control_center_2026.py'
+      - 'api/control_center.html'
+      - 'api/control_mobile.html'
+      - 'api/control_center_overhaul.css'
+      - 'api/control_center_overhaul.js'
+      - 'api/__init__.py'
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run Control Center contract tests
+        run: python scripts/test_control_center_2026_contract.py -v
+      - name: Compile new API
+        run: python -m py_compile api/control_center_2026.py api/__init__.py
+      - name: Check JavaScript syntax
+        run: node --check api/control_center_overhaul.js
