@@ -13,11 +13,13 @@ on:
       - 'api/control_center_app.js'
       - 'api/control_center_api.js'
       - 'api/control_center_views.js'
+      - 'api/control_sw.js'
       - 'api/__init__.py'
       - 'services/google_workspace_auth.py'
       - 'services/google_gmail.py'
       - 'services/master_checklist.py'
       - 'scripts/test_control_center_2026_contract.py'
+      - 'scripts/test_control_center_pwa_retirement.py'
       - 'scripts/test_master_checklist_contract.py'
   push:
     branches: [main]
@@ -32,11 +34,13 @@ on:
       - 'api/control_center_app.js'
       - 'api/control_center_api.js'
       - 'api/control_center_views.js'
+      - 'api/control_sw.js'
       - 'api/__init__.py'
       - 'services/google_workspace_auth.py'
       - 'services/google_gmail.py'
       - 'services/master_checklist.py'
       - 'scripts/test_control_center_2026_contract.py'
+      - 'scripts/test_control_center_pwa_retirement.py'
       - 'scripts/test_master_checklist_contract.py'
 
 jobs:
@@ -49,6 +53,8 @@ jobs:
           python-version: '3.12'
       - name: Run Control Center contract tests
         run: python scripts/test_control_center_2026_contract.py -v
+      - name: Run Control Center PWA retirement tests
+        run: python scripts/test_control_center_pwa_retirement.py -v
       - name: Run Master Checklist contract tests
         run: python scripts/test_master_checklist_contract.py -v
       - name: Compile Control Center APIs
@@ -63,3 +69,4 @@ jobs:
           if [ -f api/control_center_app.js ]; then node --check api/control_center_app.js; fi
           if [ -f api/control_center_api.js ]; then node --check api/control_center_api.js; fi
           if [ -f api/control_center_views.js ]; then node --check api/control_center_views.js; fi
+          if [ -f api/control_sw.js ]; then node --check api/control_sw.js; fi
