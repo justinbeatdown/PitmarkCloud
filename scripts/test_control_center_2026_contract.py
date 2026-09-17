@@ -56,6 +56,21 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("type=\"module\"", html)
         self.assertIn("filename = 'control_center.html' if user_from_request(request) else 'control_mobile_login.html'", ui)
 
+    def test_current_hq_module_graph_is_served_by_control_center_ui(self):
+        ui = self.read("api/control_center_ui.py")
+        expected_routes = {
+            "/control-center-app.js": "control_center_app.js",
+            "/control-center-api.js": "control_center_api.js",
+            "/control-center-views.js": "control_center_views.js",
+        }
+        for route, filename in expected_routes.items():
+            self.assertIn(f"@router.get('{route}'", ui)
+            self.assertIn(f"_text_asset('{filename}', 'application/javascript')", ui)
+
+        app_js = self.read("api/control_center_app.js")
+        self.assertIn("'./control-center-api.js'", app_js)
+        self.assertIn("'./control-center-views.js'", app_js)
+
     def test_shell_has_current_operating_domains_and_no_email_or_finance_product(self):
         html = self.read("api/control_center.html")
         for domain in (
