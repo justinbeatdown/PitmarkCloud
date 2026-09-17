@@ -111,7 +111,10 @@ const query = (base, params = {}) => {
 
 export const api = Object.freeze({
   endpoints: ENDPOINTS,
-  hq: (options = {}) => request(ENDPOINTS.hq, { scope: 'hq', maxAge: 15000, ...options }),
+  // HQ is read in parallel by the initial view and the rail status. Do not give
+  // those identical reads a shared abort scope or the second call cancels the
+  // first render before anything reaches the screen.
+  hq: (options = {}) => request(ENDPOINTS.hq, { maxAge: 15000, ...options }),
   work: (view = 'now', options = {}) => request(query(ENDPOINTS.work, { view }), { scope: 'work', maxAge: 12000, ...options }),
   updateWork: (rowNumber, body) => request(`${ENDPOINTS.work}/${encodeURIComponent(rowNumber)}`, { method: 'PATCH', body }),
   search: (q) => request(query(ENDPOINTS.search, { q }), { scope: 'search' }),
