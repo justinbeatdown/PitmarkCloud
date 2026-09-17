@@ -4,16 +4,17 @@ from api import early_access_admin as early_access_admin
 from api import founders_race as founders_race
 from api import prt_ui as prt_ui
 from api import control_center_2026 as control_center_2026
+from api import control_center_hq as control_center_hq
 from services import founders_race_activation as founders_race_activation  # noqa: F401
 
 # Keep Founder's Race inside the existing PRT surface without creating a
 # separate application or deployment. main.py already mounts prt_ui.router.
 prt_ui.router.include_router(founders_race.router)
 
-# The 2026 Control Center operations API rides the same already-mounted router,
-# avoiding a second app/deployment while keeping the PRT-specific data surface
-# isolated from the older Control Center modules.
+# Current Control Center APIs share the same mounted application/router. Domain
+# services remain authoritative; these routers expose operator-focused views.
 prt_ui.router.include_router(control_center_2026.router)
+prt_ui.router.include_router(control_center_hq.router)
 
 
 def _gmail_compose_direct(email: str, name: str) -> str:
