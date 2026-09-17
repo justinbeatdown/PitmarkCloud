@@ -56,16 +56,20 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("type=\"module\"", html)
         self.assertIn("filename = 'control_center.html' if user_from_request(request) else 'control_mobile_login.html'", ui)
 
-    def test_current_hq_module_graph_is_served_by_control_center_ui(self):
-        ui = self.read("api/control_center_ui.py")
+    def test_current_hq_module_graph_is_served(self):
+        assets = self.read("api/control_center_assets.py")
         expected_routes = {
             "/control-center-app.js": "control_center_app.js",
             "/control-center-api.js": "control_center_api.js",
             "/control-center-views.js": "control_center_views.js",
         }
         for route, filename in expected_routes.items():
-            self.assertIn(f"@router.get('{route}'", ui)
-            self.assertIn(f"_text_asset('{filename}', 'application/javascript')", ui)
+            self.assertIn(f'@router.get("{route}"', assets)
+            self.assertIn(f'return _javascript("{filename}")', assets)
+
+        init_text = self.read("api/__init__.py")
+        self.assertIn("control_center_assets", init_text)
+        self.assertIn("include_router(control_center_assets.router)", init_text)
 
         app_js = self.read("api/control_center_app.js")
         self.assertIn("'./control-center-api.js'", app_js)
