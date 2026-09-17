@@ -130,6 +130,14 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("addEventListener", app_js)
         self.assertIn("AbortController", api_js)
 
+    def test_hq_boot_does_not_self_abort(self):
+        api_js = self.read("api/control_center_api.js")
+        hq_line = next(line for line in api_js.splitlines() if line.strip().startswith("hq: (options"))
+        self.assertNotIn("scope: 'hq'", hq_line)
+        app_js = self.read("api/control_center_app.js")
+        self.assertIn("renderCurrent(false);", app_js)
+        self.assertIn("bootstrapStatus();", app_js)
+
     def test_authenticated_routes_do_not_inject_legacy_bundles(self):
         ui = self.read("api/control_center_ui.py")
         legacy_assets = (
