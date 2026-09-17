@@ -78,13 +78,13 @@ class ControlCenter2026Contract(unittest.TestCase):
 
     def test_css_is_responsive_accessible_and_tokenized(self):
         css = self.read("api/control_center_overhaul.css")
-        self.assertIn("#pitmark-control", css)
+        self.assertIn(".pm-app", css)
         self.assertIn(":root", css)
         self.assertIn("--pm-orange", css)
         self.assertIn("env(safe-area-inset-bottom)", css)
         self.assertRegex(css, r"@media\s*\(max-width:\s*8[0-9]{2}px\)")
         self.assertIn("@media (prefers-reduced-motion: reduce)", css)
-        self.assertIn("min-height: 44px", css)
+        self.assertIn("min-height:44px", css.replace(" ", ""))
 
     def test_new_module_client_uses_real_control_center_endpoints(self):
         api_js = self.read("api/control_center_api.js")
