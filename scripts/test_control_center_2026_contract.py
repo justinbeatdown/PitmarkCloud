@@ -29,6 +29,24 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("control_center_2026", init_text)
         self.assertIn("include_router(control_center_2026.router)", init_text)
 
+    def test_hq_api_uses_master_checklist_without_shadow_task_model(self):
+        text = self.read("api/control_center_hq.py")
+        for route in (
+            "/api/control/hq/overview",
+            "/api/control/work",
+            "/api/control/work/{row_number}",
+            "/api/control/search",
+        ):
+            self.assertIn(route, text)
+        self.assertIn("require_control_user", text)
+        self.assertIn("services.master_checklist", text)
+        self.assertIn("list_items", text)
+        self.assertIn("update_item", text)
+        self.assertNotRegex(text, r"class\s+(Task|ChecklistItem)\s*\(")
+        init_text = self.read("api/__init__.py")
+        self.assertIn("control_center_hq", init_text)
+        self.assertIn("include_router(control_center_hq.router)", init_text)
+
     def test_desktop_and_mobile_share_the_2026_bundle(self):
         for filename in ("api/control_center.html", "api/control_mobile.html"):
             text = self.read(filename)
