@@ -6,18 +6,20 @@ from api import prt_ui as prt_ui
 from api import control_center_2026 as control_center_2026
 from api import control_center_hq as control_center_hq
 from api import control_center_assets as control_center_assets
+from api import control_center_recovery as control_center_recovery
 from services import founders_race_activation as founders_race_activation  # noqa: F401
 
 # Keep Founder's Race inside the existing PRT surface without creating a
 # separate application or deployment. main.py already mounts prt_ui.router.
 prt_ui.router.include_router(founders_race.router)
 
-# Current Control Center APIs and module assets share the same mounted
-# application/router. Domain services remain authoritative; these routers
-# expose operator-focused views and the current ES-module graph.
+# Current Control Center APIs, module assets, and recovery path share the same
+# mounted application/router. Domain services remain authoritative; these
+# routers expose operator-focused views and the current ES-module graph.
 prt_ui.router.include_router(control_center_2026.router)
 prt_ui.router.include_router(control_center_hq.router)
 prt_ui.router.include_router(control_center_assets.router)
+prt_ui.router.include_router(control_center_recovery.router)
 
 
 def _gmail_compose_direct(email: str, name: str) -> str:
