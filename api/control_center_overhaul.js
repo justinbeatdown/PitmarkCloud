@@ -1,97 +1,36 @@
-(() => {
-  const get = id => document.getElementById(id);
-
-  async function json(url) {
-    const r = await fetch(url, {credentials:'same-origin'});
-    const t = await r.text();
-    let d;
-    try { d = JSON.parse(t); } catch { d = t; }
-    if (!r.ok) throw Error((d && d.detail) || t || 'Request failed');
-    return d;
-  }
-
-  function dueNow(value) {
-    if (!value) return false;
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return true;
-    return parsed.getTime() <= Date.now();
-  }
-
-  function actionableOutreach(rows) {
-    const closed = new Set([
-      'closed','declined','inactive','archived','published','alumni',
-      'active_partner','partnered','complete','completed'
-    ]);
-    return (rows || []).filter(row => {
-      const stage = String(row.stage || '').trim().toLowerCase();
-      return !closed.has(stage) && dueNow(row.next_follow_up);
-    });
-  }
-
-  async function syncOutreachCards() {
-    const desktop = get('statOutreach');
-    const mobile = get('mOutreach');
-    if (!desktop && !mobile) return;
-    try {
-      const rows = await json('/api/control/outreach');
-      const actionable = actionableOutreach(rows);
-      const total = rows.length;
-      if (desktop) {
-        desktop.textContent = String(actionable.length);
-        const card = desktop.closest('.stat-card');
-        card?.classList.toggle('attention', actionable.length > 0);
-        card?.setAttribute('title', `${total} total outreach contact${total === 1 ? '' : 's'} · ${actionable.length} follow-up${actionable.length === 1 ? '' : 's'} due`);
-        const label = card?.querySelector('span');
-        if (label) label.textContent = 'Outreach Follow-ups';
-      }
-      if (mobile) {
-        mobile.textContent = String(actionable.length);
-        const card = mobile.closest('.m-stat, .m-card, button, article, div');
-        card?.classList.toggle('attention', actionable.length > 0);
-      }
-    } catch (err) {
-      console.warn('Outreach attention sync failed:', err);
-    }
-  }
-
-  function simplifyDesktopDashboard() {
-    const dashboard = document.querySelector('[data-view-section="dashboard"]');
-    if (!dashboard) return;
-    dashboard.classList.add('pm-dashboard-clean');
-
-    const quickPanel = [...dashboard.querySelectorAll('.panel')].find(panel =>
-      panel.querySelector('h2')?.textContent.trim().toLowerCase() === 'quick actions'
-    );
-    if (quickPanel) quickPanel.classList.add('pm-redundant-dashboard');
-
-    const count = get('notificationCount');
-    const notifications = dashboard.querySelector('.notification-center');
-    const applyNotificationState = () => {
-      const n = parseInt(String(count?.textContent || '0'), 10) || 0;
-      notifications?.classList.toggle('pm-clear', n === 0);
-    };
-    applyNotificationState();
-    if (count) new MutationObserver(applyNotificationState).observe(count, {childList:true, characterData:true, subtree:true});
-
-    const title = dashboard.querySelector('.view-heading p');
-    if (title) title.textContent = 'What needs you now — everything else stays out of the way.';
-  }
-
-  function hookRefreshes() {
-    ['refreshDashboardBtn','mRefresh','mHomeRefresh'].forEach(id => {
-      get(id)?.addEventListener('click', () => setTimeout(syncOutreachCards, 250));
-    });
-    document.addEventListener('click', e => {
-      if (e.target.closest?.('[data-view="dashboard"], [data-mnav="home"], [data-mgo="home"]')) {
-        setTimeout(syncOutreachCards, 200);
-      }
-    }, true);
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    simplifyDesktopDashboard();
-    hookRefreshes();
-    setTimeout(syncOutreachCards, 250);
-    setTimeout(syncOutreachCards, 1200);
-  });
+(()=>{'use strict';
+const S={view:'home',filter:'new',apps:[],invites:[]},$=id=>document.getElementById(id),$$=s=>[...document.querySelectorAll(s)],E=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),meta={home:['OPERATIONS','Pitmark Control Center','What needs you now — everything else stays out of the way.'],prt:['PRT OPERATIONS','Pitmark Racing Tools','Applicants, active testers, Founder’s Race, feedback and activation.'],content:['CONTENT OPERATIONS','Content','Social approvals, editorial work and fast publishing controls.'],comms:['COMMUNICATIONS','Comms','Pitmark Mail and the conversations that need a response.'],relationships:['RELATIONSHIPS','Tracks, leagues & partners','One clean view of Pitmark’s real-world and sim-racing relationships.'],systems:['SYSTEMS','Command & infrastructure','Command brief, notifications and quick access to core services.']};
+const txt=(id,v)=>{const e=$(id);if(e)e.textContent=String(v??'—')},hide=(id,v=true)=>{const e=$(id);if(e)e.hidden=v},strip=v=>{const d=new DOMParser().parseFromString(String(v||''),'text/html');return(d.body.textContent||'').trim()},rel=v=>{if(!v)return'No recent activity';const d=new Date(v);if(isNaN(d))return'Recently';const m=Math.floor(Math.max(0,Date.now()-d)/6e4);return m<1?'Just now':m<60?`${m}m ago`:m<1440?`${Math.floor(m/60)}h ago`:m<43200?`${Math.floor(m/1440)}d ago`:d.toLocaleDateString([], {month:'short',day:'numeric'})},when=v=>{const d=new Date(v);return isNaN(d)?'—':d.toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})};
+async function api(url,o={}){let b=o.body,h={...(o.headers||{})};if(b!=null&&typeof b!=='string'&&!(b instanceof FormData)){h['Content-Type']='application/json';b=JSON.stringify(b)}const r=await fetch(url,{credentials:'same-origin',...o,body:b,headers:h}),t=await r.text();let d;try{d=t?JSON.parse(t):{}}catch{d=t}if(r.status===401){location.assign('/control');throw Error('Session expired.')}if(!r.ok)throw Error((d&&d.detail)||t||`HTTP ${r.status}`);return d}
+function toast(m,bad=false){const e=$('pm26-toast');if(!e)return;e.textContent=m;e.hidden=false;e.className=`pm26-toast is-visible ${bad?'is-error':'is-success'}`;clearTimeout(toast.t);toast.t=setTimeout(()=>{e.hidden=true;e.className='pm26-toast'},3000)}
+function busy(on,err=false){const d=$('pm26-sync-dot');if(d)d.className=err?'is-error':on?'is-busy':'';txt('pm26-sync-label',err?'Needs attention':on?'Syncing…':'Live')}
+const cls=s=>['accepted','active','redeemed','published','approved','completed','partner','supporter','healthy'].includes(String(s).toLowerCase())?'is-good':['hold','pending','issued','scheduled','reviewing','attention'].includes(String(s).toLowerCase())?'is-warn':['declined','revoked','expired','failed','blocker','critical'].includes(String(s).toLowerCase())?'is-bad':'';
+function row(t,m='',d='',s='',a=''){return`<article class="pm26-row"><div class="pm26-row-main"><div><div class="pm26-row-meta">${m?`<span>${E(m)}</span>`:''}${s?`<span class="pm26-pill ${cls(s)}">${E(s)}</span>`:''}</div><strong>${E(t)}</strong>${d?`<p>${E(d)}</p>`:''}</div></div>${a?`<div class="pm26-row-actions">${a}</div>`:''}</article>`}
+const btn=(label,attrs='',primary=false)=>`<button class="pm26-button ${primary?'pm26-button-primary':'pm26-button-dark'}" ${attrs}>${E(label)}</button>`,link=(label,href)=>`<a class="pm26-button pm26-button-dark" href="${E(href)}">${E(label)}</a>`;
+function notify(items,n=6){return(items||[]).slice(0,n).map(x=>row(x.title||'Pitmark notification',`${x.module||'Pitmark'} · ${rel(x.created_at)}`,x.detail||x.reason||'',x.priority||x.status||'',x.action_view&&meta[x.action_view]?btn('Open',`data-pm26-nav="${E(x.action_view)}"`):'')).join('')||'<div class="pm26-empty">No new notifications.</div>'}
+function brief(b,n=10){const q=b?.sections||{},a=[...(q.critical||[]),...(q.action||[]),...(q.opportunities||[]),...(q.info||[])].slice(0,n);return a.map(x=>row(x.title||'Pitmark update',x.module||'Pitmark',x.detail||'',x.priority||'',x.action_view&&meta[x.action_view]?btn('Open',`data-pm26-nav="${E(x.action_view)}"`):'')).join('')||'<div class="pm26-empty">Pitmark is caught up.</div>'}
+function closeMore(){hide('pm26-more-sheet');hide('pm26-sheet-backdrop')}function page(v){const m=meta[v]||meta.home;txt('pm26-eyebrow',m[0]);txt('pm26-title',m[1]);txt('pm26-subtitle',m[2])}
+async function go(v,focus='',push=true){v=meta[v]?v:'home';S.view=v;$$('.pm26-view').forEach(e=>e.classList.toggle('is-active',e.dataset.pm26View===v));$$('[data-pm26-nav]').forEach(e=>e.classList.toggle('is-active',e.dataset.pm26Nav===v));page(v);closeMore();hide('pm26-account-menu');if(push)history.replaceState(null,'',`#${v}`);try{busy(true);await load(v);busy(false);txt('pm26-last-refresh',new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}))}catch(e){console.error(e);busy(false,true);toast(e.message,true)}if(focus){const id={applications:'pm26-applications-section',founders:'pm26-founders-section',feedback:'pm26-feedback-section'}[focus];setTimeout(()=>$(id)?.scrollIntoView({behavior:'smooth',block:'start'}),80)}document.querySelector('.pm26-workspace')?.scrollTo({top:0,behavior:'auto'})}
+const load=v=>v==='home'?home():v==='prt'?prt():v==='content'?content():v==='comms'?comms():v==='relationships'?relationships():systems();
+async function home(){const r=await Promise.allSettled([api('/api/control/ops/overview'),api('/api/control/status'),api('/api/control/brief'),api('/api/control/notifications'),api('/api/control/autopilot/posts?status=pending')]),o=r[0].value||{},st=r[1].value||{},b=r[2].value||{},ns=r[3].value?.items||[],posts=r[4].value||[],apps=+o.applications?.new||0,open=+o.feedback?.open||0,block=+o.feedback?.blockers||0,q=+o.founders_race?.qualified||0,pend=+o.founders_race?.pending||0,p=+st.social_pending||posts.length||0;txt('pm26-version',o.version||'Cloud');txt('pm26-home-version',o.version||'Cloud');txt('pm26-session-user',st.username||'Owner');txt('pm26-account-name',st.username||'Owner');txt('pm26-kpi-apps',apps);txt('pm26-kpi-feedback',open);txt('pm26-kpi-blockers',block?`${block} blocker${block===1?'':'s'}`:'No blockers');txt('pm26-kpi-race',q);txt('pm26-kpi-race-sub',`${pend} pending referral${pend===1?'':'s'}`);txt('pm26-kpi-content',p);const bd=$('pm26-nav-prt-badge');if(bd){bd.textContent=apps+block;bd.hidden=!(apps+block)}const total=apps+open+p;txt('pm26-home-headline',total?`${total} thing${total===1?'':'s'} need you`:'Pitmark is caught up');txt('pm26-home-copy',total?'Review the queue below, then get back to building and racing.':'No urgent approvals are waiting. Your operating picture is clean.');const h=$('pm26-health-pill');txt('pm26-health-pill',b.status==='attention'?'ATTENTION':'HEALTHY');if(h)h.className=`pm26-pill ${b.status==='attention'?'is-warn':'is-good'}`;let a=[];if(block)a.push(row(`${block} PRT blocker${block===1?'':'s'}`,'PRT · Tester feedback','Review release-blocking tester reports.','critical',btn('Review','data-pm26-nav="prt" data-pm26-focus="feedback"',true)));if(apps)a.push(row(`${apps} new tester application${apps===1?'':'s'}`,'PRT · Early Access','Review applicants and move strong fits into onboarding.','action',btn('Review','data-pm26-nav="prt" data-pm26-focus="applications"')));if(p)a.push(row(`${p} social approval${p===1?'':'s'} waiting`,'Content','Approve, reject or refine queued content.','action',btn('Review','data-pm26-nav="content"')));if(pend)a.push(row(`${pend} Founder’s Race referral${pend===1?'':'s'} pending`,'PRT · Founder’s Race','Still moving through approval or activation.','pending',btn('Standings','data-pm26-nav="prt" data-pm26-focus="founders"')));$('pm26-action-list').innerHTML=a.join('')||'<div class="pm26-empty">Nothing urgent. Pitmark is operating normally.</div>';txt('pm26-notification-count',`${ns.filter(x=>x.status==='unread').length} unread`);$('pm26-home-notifications').innerHTML=notify(ns,4)}
+function apps(){const a=S.filter==='new'?S.apps.filter(x=>(x.status||'new')==='new'):S.apps,t=$('pm26-applications');t.innerHTML=a.slice(0,40).map(x=>{let ac=[];if(['new','hold'].includes(x.status||'new')){ac.push(btn('Accept',`data-app-status="accepted" data-id="${x.id}"`,true),btn('Hold',`data-app-status="hold" data-id="${x.id}"`),btn('Decline',`data-app-status="declined" data-id="${x.id}"`))}ac.push(link('Full record','/control/early-access'));return row(x.full_name||'Applicant',`${x.role||'Driver'} · ${rel(x.created_at)}`,`${x.iracing_name||'No iRacing / organization name'}${x.email?` · ${x.email}`:''}`,x.status||'new',ac.join(''))}).join('')||`<div class="pm26-empty">${S.filter==='new'?'No new applications waiting.':'No PRT applications found.'}</div>`}
+function race(d){const a=d.leaderboard||[];txt('pm26-race-total',`${d.summary?.qualified||0} qualified`);$('pm26-founders').innerHTML=a.slice(0,12).map(x=>`<article class="pm26-race-row"><div class="pm26-race-pos">P${x.position||0}</div><div class="pm26-race-name"><strong>${E(x.display_name||'PRT Tester')}</strong><small>${E(x.milestone||x.email||'Founding tester')}</small></div><div class="pm26-race-score"><b>${x.qualified||0}</b><small>${x.pending||0} pending</small></div></article>`).join('')||'<div class="pm26-empty">Founder’s Race grid is still forming.</div>'}
+function feedback(d){const a=(d.items||[]).filter(x=>x.status!=='resolved');txt('pm26-feedback-count',`${d.summary?.open||0} open`);$('pm26-feedback').innerHTML=a.slice(0,30).map(x=>{let ac=x.status==='open'?btn('Reviewing',`data-feedback-status="reviewing" data-id="${x.id}"`):'';ac+=btn('Resolve',`data-feedback-status="resolved" data-id="${x.id}"`,true);return row(x.title||'Tester feedback',`${x.kind||'feedback'} · ${x.tester_name||x.tester_email||'PRT tester'} · ${rel(x.created_at)}`,x.detail||'',x.severity||x.status,ac)}).join('')||'<div class="pm26-empty">No open PRT feedback. Tester queue is clean.</div>'}
+function roster(d){S.invites=d.invites||[];const a=S.invites.filter(x=>x.status==='redeemed'||['active','completed'].includes(x.tester_status));$('pm26-testers').innerHTML=a.slice(0,30).map(x=>row(x.applicant_name||x.email||'PRT tester',`${x.tester_status||x.status} · ${rel(x.last_seen_at||x.redeemed_at)}`,x.email||x.bound_device_id||'Early Access tester',x.tester_status||x.status)).join('')||`<div class="pm26-empty">No activated testers yet. ${d.counts?.issued||d.tester_summary?.issued||0} invite(s) issued.</div>`}
+async function prt(){const[o,t,r,f]=await Promise.all([api('/api/control/ops/overview'),api('/api/control/ops/testers'),api('/api/control/ops/founders-race'),api('/api/control/ops/feedback')]);S.apps=t.applications||[];txt('pm26-prt-new',o.applications?.new||0);txt('pm26-prt-active',o.testers?.active||0);txt('pm26-prt-qualified',o.founders_race?.qualified||0);txt('pm26-prt-pending',o.founders_race?.pending||0);txt('pm26-prt-blockers',o.feedback?.blockers||0);apps();race(r);feedback(f);roster(t)}
+function posts(a){txt('pm26-post-count',a.length);$('pm26-posts').innerHTML=a.slice(0,30).map(x=>row(x.title||`${String(x.platform||'Social').toUpperCase()} post`,`${x.platform||'social'} · ${x.content_type||'community'} · ${rel(x.created_at)}`,String(x.body||'').replace(/\s+/g,' ').slice(0,180),x.status||'pending',x.status==='pending'?btn('Approve',`data-post="approve" data-id="${x.id}"`,true)+btn('Reject',`data-post="reject" data-id="${x.id}"`):'')).join('')||'<div class="pm26-empty">No working social posts.</div>'}
+function blogs(a){txt('pm26-blog-count',a.length);$('pm26-blogs').innerHTML=a.slice(0,30).map(x=>row(x.title||'Untitled article',`${x.content_type||'article'} · ${rel(x.created_at)}`,x.seo_description||strip(x.body_html||'').slice(0,180),x.status||'draft')).join('')||'<div class="pm26-empty">No blog drafts.</div>'}
+async function content(){const[p,b]=await Promise.all([api('/api/control/autopilot/posts'),api('/api/control/blog/drafts')]);posts(Array.isArray(p)?p:[]);blogs(Array.isArray(b)?b:[])}
+async function genPost(){const q=$('pm26-compose-topic').value.trim();if(!q)return toast('Tell Pitmark what the post should be about.',true);txt('pm26-compose-message','Generating…');try{const d=await api('/api/control/autopilot/composer/generate',{method:'POST',body:{platform:$('pm26-compose-platform').value,goal:$('pm26-compose-goal').value,topic:q,prompt:q,tone:'pitmark',use_context:true}});$('pm26-compose-draft').value=d.body||'';txt('pm26-compose-message','Draft ready.')}catch(e){toast(e.message,true)}}
+async function savePost(){const b=$('pm26-compose-draft').value.trim();if(!b)return toast('Write or generate the post first.',true);await api('/api/control/autopilot/posts',{method:'POST',body:{platform:$('pm26-compose-platform').value,body:b,content_type:$('pm26-compose-goal').value,source:'manual',risk:'low'}});$('pm26-compose-topic').value='';$('pm26-compose-draft').value='';hide('pm26-post-composer');toast('Post saved to approval queue.');content()}
+function mailItem(x){const t=x.thread||{},sender=x.from||(t.participants||[])[0]||'Unknown sender',subject=t.subject||x.subject||'(no subject)',snip=strip(x.text||x.html||'').replace(/\s+/g,' ').slice(0,110);return`<button class="pm26-mail-item" data-thread="${x.thread_id||t.id||0}"><div class="pm26-mail-avatar">${E(sender.slice(0,1).toUpperCase())}</div><div class="pm26-mail-copy"><strong>${E(subject)}</strong><b>${E(sender)}</b><small>${E(snip||'Open conversation')}</small></div><time>${E(rel(x.created_at||t.last_message_at))}</time></button>`}
+async function comms(){const[st,a]=await Promise.all([api('/api/control/email/status'),api('/api/control/email/threads?folder=inbox&limit=60')]);txt('pm26-mail-status',st.mailbox_connected||st.sending_configured?'CONNECTED':'ATTENTION');$('pm26-mail-status').className=`pm26-pill ${st.mailbox_connected||st.sending_configured?'is-good':'is-warn'}`;$('pm26-mail-list').innerHTML=(a||[]).map(mailItem).join('')||'<div class="pm26-empty">Inbox is clear.</div>'}
+async function thread(id){const d=await api(`/api/control/email/threads/${id}`),t=d.thread||{};$('pm26-mail-reader').innerHTML=`<div class="pm26-mail-thread-head"><div><span>CONVERSATION</span><h3>${E(t.subject||'(no subject)')}</h3><p>${E((t.participants||[]).join(' · '))}</p></div></div><div class="pm26-stack">${(d.messages||[]).map(m=>`<article class="pm26-message"><div class="pm26-message-head"><strong>${E(m.from||'Pitmark')}</strong><span>${E(when(m.created_at))}</span></div><div class="pm26-message-body">${E(m.text||strip(m.html||'')||'(No message body)')}</div></article>`).join('')}</div>`}
+async function sendMail(){const to=$('pm26-mail-to').value.trim(),subject=$('pm26-mail-subject').value.trim(),body=$('pm26-mail-body').value.trim();if(!to||!subject||!body)return toast('To, subject, and message are required.',true);await api('/api/control/email/send',{method:'POST',body:{to:[to],cc:[],bcc:[],reply_to:[],from_identity:'',subject,text:body,html:''}});['pm26-mail-to','pm26-mail-subject','pm26-mail-body'].forEach(i=>$(i).value='');hide('pm26-mail-composer');toast('Email sent.');comms()}
+async function relationships(){const a=await api('/api/control/outreach'),closed=new Set(['closed','declined','inactive','archived','published','alumni','active_partner','partnered','complete','completed']),due=a.filter(x=>!closed.has(String(x.stage||'').toLowerCase())&&x.next_follow_up&&new Date(x.next_follow_up)<=new Date()),partners=a.filter(x=>['partner','partnered','active_partner'].includes(String(x.stage||'').toLowerCase())),support=a.filter(x=>x.stage==='supporter'||x.supporter_status==='verified');txt('pm26-rel-total',a.length);txt('pm26-rel-due',due.length);txt('pm26-rel-partners',partners.length);txt('pm26-rel-supporters',support.length);$('pm26-outreach').innerHTML=a.slice(0,50).map(x=>row(x.organization||x.name||'Pitmark contact',`${x.contact_type||'relationship'}${x.next_follow_up?` · Follow-up ${rel(x.next_follow_up)}`:''}`,[x.name&&x.organization?x.name:'',x.email||'',x.notes||''].filter(Boolean).join(' · ').slice(0,220),x.stage||'prospect')).join('')||'<div class="pm26-empty">No relationship records yet.</div>'}
+async function systems(){const[b,n]=await Promise.all([api('/api/control/brief'),api('/api/control/notifications')]);txt('pm26-brief-state',String(b.status||'live').toUpperCase());$('pm26-brief').innerHTML=brief(b);txt('pm26-systems-notification-count',`${(n.items||[]).filter(x=>x.status==='unread').length} unread`);$('pm26-notifications').innerHTML=notify(n.items||[],12)}
+async function logout(){try{await api('/api/control/auth/logout',{method:'POST'})}finally{location.assign('/control')}}
+function bind(){document.addEventListener('click',async e=>{const n=e.target.closest?.('[data-pm26-nav]');if(n){e.preventDefault();return go(n.dataset.pm26Nav,n.dataset.pm26Focus||'')}const a=e.target.closest?.('[data-app-status]');if(a){try{await api(`/api/control/ops/testers/${a.dataset.id}/status`,{method:'PATCH',body:{status:a.dataset.appStatus}});toast(`Application moved to ${a.dataset.appStatus}.`);prt()}catch(x){toast(x.message,true)}return}const f=e.target.closest?.('[data-feedback-status]');if(f){try{await api(`/api/control/ops/feedback/${f.dataset.id}/status`,{method:'PATCH',body:{status:f.dataset.feedbackStatus}});toast(`Feedback marked ${f.dataset.feedbackStatus}.`);prt()}catch(x){toast(x.message,true)}return}const p=e.target.closest?.('[data-post]');if(p){try{await api(`/api/control/autopilot/posts/${p.dataset.id}/decision`,{method:'POST',body:{action:p.dataset.post}});toast(`Post ${p.dataset.post}d.`);content()}catch(x){toast(x.message,true)}return}const t=e.target.closest?.('[data-thread]');if(t){try{await thread(t.dataset.thread)}catch(x){toast(x.message,true)}}});$$('[data-pm26-app-filter]').forEach(b=>b.onclick=()=>{S.filter=b.dataset.pm26AppFilter;$$('[data-pm26-app-filter]').forEach(x=>x.classList.toggle('is-active',x===b));apps()});$('pm26-refresh').onclick=()=>go(S.view,'',false);$('pm26-mobile-refresh').onclick=()=>go(S.view,'',false);$('pm26-more').onclick=()=>{hide('pm26-more-sheet',false);hide('pm26-sheet-backdrop',false)};$('pm26-close-more').onclick=closeMore;$('pm26-sheet-backdrop').onclick=closeMore;$('pm26-account').onclick=()=>hide('pm26-account-menu',!$('pm26-account-menu').hidden);$('pm26-logout').onclick=logout;$('pm26-account-logout').onclick=logout;$('pm26-new-post').onclick=()=>{hide('pm26-post-composer',false);$('pm26-post-composer').scrollIntoView({behavior:'smooth'})};$('pm26-generate-post').onclick=genPost;$('pm26-save-post').onclick=savePost;$('pm26-compose-mail').onclick=()=>{hide('pm26-mail-composer',false);$('pm26-mail-to').focus()};$('pm26-send-mail').onclick=sendMail;$$('[data-pm26-close]').forEach(b=>b.onclick=()=>hide(b.dataset.pm26Close==='mail'?'pm26-mail-composer':'pm26-post-composer'));window.addEventListener('hashchange',()=>{const v=location.hash.slice(1);if(meta[v]&&v!==S.view)go(v,'',false)})}
+async function init(){if(!$('pm26-root'))return;document.body.style.margin='0';document.body.style.overflow='hidden';bind();const v=location.hash.slice(1);await go(meta[v]?v:'home','',false)}
+window.addEventListener('load',init);
 })();
