@@ -19,6 +19,7 @@ class ControlCenterPwaRetirementContract(unittest.TestCase):
 
     def test_recovery_route_sits_outside_old_worker_scope(self):
         ui = self.read("api/control_center_ui.py")
+        # /control-reset is intentionally outside the retired /control/ worker scope.
         self.assertIn("@router.get('/control-reset'", ui)
         self.assertIn("navigator.serviceWorker.getRegistrations", ui)
         self.assertIn("caches.keys", ui)
