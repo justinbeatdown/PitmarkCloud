@@ -91,6 +91,8 @@ class ControlCenter2026Contract(unittest.TestCase):
             self.assertIn(f'data-domain="{domain}"', html)
         self.assertIn('id="global-command"', html)
         self.assertIn('id="mobile-nav"', html)
+        self.assertIn('id="mobile-page-title"', html)
+        self.assertIn('id="mobile-page-kicker"', html)
         self.assertIn('id="detail-sheet"', html)
         self.assertNotRegex(html, r">\s*(Comms|Email|Inbox|Mail)\s*<")
         self.assertNotRegex(html, r">\s*(Finance|Banking|Transactions|Budget)\s*<")
@@ -129,6 +131,20 @@ class ControlCenter2026Contract(unittest.TestCase):
         app_js = self.read("api/control_center_app.js")
         self.assertIn("addEventListener", app_js)
         self.assertIn("AbortController", api_js)
+
+    def test_hq_stays_actionable_without_checklist(self):
+        views = self.read("api/control_center_views.js")
+        self.assertIn("Operational Queue", views)
+        self.assertIn("Live Company Actions", views)
+        self.assertIn("Recent Signals", views)
+        self.assertIn("Quick Access", views)
+        self.assertIn('data-go="prt"', views)
+        self.assertIn('data-go="content"', views)
+        css = self.read("api/control_center_overhaul.css")
+        self.assertIn(".pm-quick-grid", css)
+        app_js = self.read("api/control_center_app.js")
+        self.assertIn("mobilePageTitle", app_js)
+        self.assertIn("mobilePageKicker", app_js)
 
     def test_hq_boot_does_not_self_abort(self):
         api_js = self.read("api/control_center_api.js")
