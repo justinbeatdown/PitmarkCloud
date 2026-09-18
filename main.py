@@ -113,6 +113,12 @@ async def lifespan(app: FastAPI):
     loop.set_default_executor(executor)
 
     init_database()
+    if settings.astra_director_self_test:
+        try:
+            from services.astra_director import startup_self_test
+            await asyncio.to_thread(startup_self_test)
+        except Exception:
+            log.exception("Astra startup self-test crashed")
     try:
         seeded_bans = prt_access_bans.seed_from_environment()
         if seeded_bans:
