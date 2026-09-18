@@ -23,9 +23,13 @@ class ControlCenterPwaRetirementContract(unittest.TestCase):
         self.assertIn("@router.get('/control-reset'", recovery)
         self.assertIn("RedirectResponse", recovery)
         self.assertIn("status_code=302", recovery)
-        self.assertIn("/control/mobile?fresh=", recovery)
+        self.assertIn("/control?fresh=", recovery)
+        self.assertIn("Clear-Site-Data", recovery)
         self.assertNotIn("<script>", recovery)
         self.assertNotIn("HTMLResponse", recovery)
+
+        manifest = self.read("api/control.webmanifest")
+        self.assertIn("/control-reset?source=pwa-20260918", manifest)
 
         init_text = self.read("api/__init__.py")
         self.assertIn("control_center_recovery", init_text)
