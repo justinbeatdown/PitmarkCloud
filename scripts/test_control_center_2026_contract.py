@@ -146,6 +146,17 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("mobilePageTitle", app_js)
         self.assertIn("mobilePageKicker", app_js)
 
+    def test_operating_tables_stack_cleanly_on_mobile(self):
+        views = self.read("api/control_center_views.js")
+        self.assertIn('data-label="Applicant"', views)
+        self.assertIn('data-label="Tester state"', views)
+        self.assertIn('data-label="Milestone"', views)
+        self.assertIn('data-label="Next follow-up"', views)
+        css = self.read("api/control_center_overhaul.css")
+        self.assertIn("content:attr(data-label)", css)
+        self.assertIn(".pm-table thead{display:none}", css)
+        self.assertIn(".pm-table tbody{display:grid;gap:9px}", css)
+
     def test_hq_boot_does_not_self_abort(self):
         api_js = self.read("api/control_center_api.js")
         hq_line = next(line for line in api_js.splitlines() if line.strip().startswith("hq: (options"))
