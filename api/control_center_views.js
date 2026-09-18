@@ -56,32 +56,63 @@ async function renderHQ(root, ctx) {
   const wait = work?.waiting || [];
   const summary = work?.summary || {};
   const p = prt || {}; const c = content || {};
+  const signalItems = notifications?.items || [];
+  const feedbackOpen = Number(p.feedback?.open ?? p.feedback?.total ?? 0);
+  const appCount = Number(p.applications?.new || 0);
+  const approvalCount = Number(c.autopilot?.pending || 0);
+  const followUpCount = Number(relationships?.waiting_follow_up || 0);
+  const unreadCount = Number(notifications?.unread || 0);
   const headline = workConnected ? (attention.length ? `${attention.length} thing${attention.length === 1 ? '' : 's'} deserve your attention.` : 'Pitmark is clear for the moment.') : 'Pitmark HQ is online.';
   const sub = workConnected ? (work?.stale ? 'Master Checklist is showing cached data while the live source reconnects.' : 'Live operations across work, PRT, content, relationships, and systems.') : 'PRT, content, relationships, and systems are live. Work sync is temporarily unavailable.';
   const checklistBadge = workConnected ? (work?.stale ? '<span class="pm-badge warn">Checklist cached</span>' : '<span class="pm-badge good">Checklist live</span>') : '<span class="pm-badge warn">Checklist unavailable</span>';
-  const hqGridClass = workConnected ? 'pm-grid pm-grid-hq' : 'pm-grid';
+
+  const operatingQueue = [
+    appCount ? { domain:'prt', kicker:'PRT · Intake', title:`${appCount} new tester application${appCount === 1 ? '' : 's'}`, copy:'Review applicants and keep Early Access moving.' } : null,
+    feedbackOpen ? { domain:'prt', kicker:'PRT · Feedback', title:`${feedbackOpen} tester feedback item${feedbackOpen === 1 ? '' : 's'} open`, copy:'Review product feedback and release-impacting reports.' } : null,
+    approvalCount ? { domain:'content', kicker:'Content · Approval', title:`${approvalCount} generated post${approvalCount === 1 ? '' : 's'} waiting`, copy:'Review, edit, approve, schedule, or archive social copy.' } : null,
+    followUpCount ? { domain:'partnerships', kicker:'Relationships', title:`${followUpCount} follow-up${followUpCount === 1 ? '' : 's'} tracked`, copy:'Open the partnership pipeline and move conversations forward.' } : null,
+    unreadCount ? { domain:'systems', kicker:'Systems · Signals', title:`${unreadCount} unread operational signal${unreadCount === 1 ? '' : 's'}`, copy:'Review current platform and automation notifications.' } : null,
+  ].filter(Boolean);
+
+  const queueBody = operatingQueue.length ? `<div class="pm-row-list">${operatingQueue.map(item => `<button class="pm-row" type="button" data-go="${item.domain}"><div class="pm-row-main"><div class="pm-row-meta"><span class="pm-badge orange">${esc(item.kicker)}</span></div><strong>${esc(item.title)}</strong><p>${esc(item.copy)}</p></div><div class="pm-row-side"><span>Open</span><span>›</span></div></button>`).join('')}</div>` : empty('No cross-company actions are waiting right now.');
+
+  const signalsBody = signalItems.length ? `<div class="pm-row-list">${signalItems.slice(0,7).map(item => `<div class="pm-row"><div class="pm-row-main"><div class="pm-row-meta">${statusBadge(item.priority || item.status || 'info')}<span class="pm-badge">${esc(item.module || 'Pitmark')}</span></div><strong>${esc(item.title || 'Operational signal')}</strong><p>${esc(compact(item.detail || item.reason || 'No additional detail.', 150))}</p></div><div class="pm-row-side"><span class="pm-muted">${esc(age(item.created_at))}</span></div></div>`).join('')}</div>` : empty('No current operational signals.');
+
+  const quickAccess = `<div class="pm-quick-grid">
+    <button type="button" data-go="prt"><span>P</span><strong>PRT</strong><small>Testers, feedback, Founder’s Race</small></button>
+    <button type="button" data-go="content"><span>▤</span><strong>Content</strong><small>Generated, approvals, editorial</small></button>
+    <button type="button" data-go="partnerships"><span>↔</span><strong>Partnerships</strong><small>Tracks, leagues, follow-ups</small></button>
+    <button type="button" data-go="store"><span>◇</span><strong>Store & Brand</strong><small>Commerce and brand work</small></button>
+    <button type="button" data-go="systems"><span>⌁</span><strong>Systems</strong><small>Cloud, automation, signals</small></button>
+    <button type="button" data-go="insights"><span>↗</span><strong>Insights</strong><small>Operating momentum</small></button>
+  </div>`;
+
   root.innerHTML = `
     <section class="pm-brief"><div><span class="eyebrow">TODAY AT PITMARK</span><h2>${esc(headline)}</h2><p>${esc(sub)}</p></div><div class="pm-brief-meta">${checklistBadge}<span class="pm-badge">v${esc(payload?.version || systems?.app_version || '—')}</span></div></section>
     <div class="pm-metric-strip">
       ${workConnected ? `<div class="pm-metric"><span>Needs attention</span><strong>${n(attention.length)}</strong><small>P0/P1, blockers, active work</small></div><div class="pm-metric"><span>Waiting</span><strong>${n(summary.waiting)}</strong><small>External or pending items</small></div>` : ''}
-      <div class="pm-metric"><span>PRT applications</span><strong>${n(p.applications?.new)}</strong><small>New applications</small></div>
-      <div class="pm-metric"><span>Content approvals</span><strong>${n(c.autopilot?.pending)}</strong><small>Generated posts waiting</small></div>
-      <div class="pm-metric"><span>Relationships</span><strong>${n(relationships?.total)}</strong><small>${n(relationships?.waiting_follow_up)} follow-ups tracked</small></div>
-      ${workConnected ? '' : `<div class="pm-metric"><span>PRT feedback</span><strong>${n(p.feedback?.open ?? p.feedback?.total ?? 0)}</strong><small>Open tester feedback</small></div><div class="pm-metric"><span>Signals</span><strong>${n(notifications?.unread)}</strong><small>Unread operational signals</small></div>`}
+      <div class="pm-metric"><span>PRT applications</span><strong>${n(appCount)}</strong><small>New applications</small></div>
+      <div class="pm-metric"><span>Content approvals</span><strong>${n(approvalCount)}</strong><small>Generated posts waiting</small></div>
+      <div class="pm-metric"><span>Relationships</span><strong>${n(relationships?.total)}</strong><small>${n(followUpCount)} follow-ups tracked</small></div>
+      ${workConnected ? '' : `<div class="pm-metric"><span>PRT feedback</span><strong>${n(feedbackOpen)}</strong><small>Open tester feedback</small></div><div class="pm-metric"><span>Signals</span><strong>${n(unreadCount)}</strong><small>Unread operational signals</small></div>`}
     </div>
-    <div class="${hqGridClass}">
-      ${workConnected ? panel('Needs Attention','Operator Queue', attention.length ? `<div class="pm-row-list">${attention.map(workRow).join('')}</div>` : empty('Nothing urgent is sitting in the queue.'), `<button class="pm-button pm-button-ghost" data-go="work">Open Work</button>`) : ''}
+    <div class="pm-grid pm-grid-hq">
+      ${workConnected ? panel('Needs Attention','Operator Queue', attention.length ? `<div class="pm-row-list">${attention.map(workRow).join('')}</div>` : empty('Nothing urgent is sitting in the queue.'), `<button class="pm-button pm-button-ghost" data-go="work">Open Work</button>`) : panel('Operational Queue','Live Company Actions',queueBody,'')}
       ${panel('Pitmark Pulse','Company State', `
         <div class="pm-pulse-grid">
           ${workConnected ? `<div class="pm-pulse"><header><span>Work</span>${summary.blocked ? '<b class="pm-danger-text">Blocked</b>' : '<b class="pm-good-text">Moving</b>'}</header><strong>${n(summary.open)}</strong><p>open items · ${n(summary.completed)} completed</p><div class="pm-progress"><span style="width:${Math.min(100, (Number(summary.completed||0) / Math.max(1, Number(summary.total||1))) * 100)}%"></span></div></div>` : ''}
-          <div class="pm-pulse"><header><span>PRT</span><b>${n(p.testers?.redeemed)} testers</b></header><strong>${n(p.feedback?.open ?? p.feedback?.total ?? 0)}</strong><p>feedback items open · ${n(p.founders_race?.pending)} race referrals pending</p></div>
-          <div class="pm-pulse"><header><span>Content</span><b>${n(c.autopilot?.scheduled)} scheduled</b></header><strong>${n(c.autopilot?.pending)}</strong><p>social approvals · ${n(c.editorial?.drafts)} editorial drafts</p></div>
-          <div class="pm-pulse"><header><span>Partners</span><b>${n(relationships?.total)}</b></header><strong>${n(relationships?.waiting_follow_up)}</strong><p>records with a follow-up</p></div>
+          <div class="pm-pulse"><header><span>PRT</span><b>${n(p.testers?.redeemed)} testers</b></header><strong>${n(feedbackOpen)}</strong><p>feedback items open · ${n(p.founders_race?.pending)} race referrals pending</p></div>
+          <div class="pm-pulse"><header><span>Content</span><b>${n(c.autopilot?.scheduled)} scheduled</b></header><strong>${n(approvalCount)}</strong><p>social approvals · ${n(c.editorial?.drafts)} editorial drafts</p></div>
+          <div class="pm-pulse"><header><span>Partners</span><b>${n(relationships?.total)}</b></header><strong>${n(followUpCount)}</strong><p>records with a follow-up</p></div>
           <div class="pm-pulse"><header><span>Systems</span><b>${systems?.database?.durable_for_render ? 'Durable' : 'Check DB'}</b></header><strong>${modules.systems?.ok ? 'OK' : '!'}</strong><p>${esc(systems?.environment || 'system state unavailable')}</p></div>
-          <div class="pm-pulse"><header><span>Signals</span><b>Unread</b></header><strong>${n(notifications?.unread)}</strong><p>operational notifications</p></div>
+          <div class="pm-pulse"><header><span>Signals</span><b>Unread</b></header><strong>${n(unreadCount)}</strong><p>operational notifications</p></div>
         </div>`, '')}
     </div>
-    ${workConnected ? `<div class="pm-grid pm-grid-2" style="margin-top:12px">${panel('Waiting','External Dependencies', wait.length ? `<div class="pm-row-list">${wait.slice(0,6).map(workRow).join('')}</div>` : empty('Nothing is waiting right now.'), '')}${panel('Recent Progress','Momentum', (work?.recently_completed || []).length ? `<div class="pm-row-list">${work.recently_completed.slice(0,6).map(workRow).join('')}</div>` : empty('Completed work will show here.'), '')}</div>` : ''}`;
+    ${workConnected ? `<div class="pm-grid pm-grid-2 pm-hq-lower">${panel('Waiting','External Dependencies', wait.length ? `<div class="pm-row-list">${wait.slice(0,6).map(workRow).join('')}</div>` : empty('Nothing is waiting right now.'), '')}${panel('Recent Progress','Momentum', (work?.recently_completed || []).length ? `<div class="pm-row-list">${work.recently_completed.slice(0,6).map(workRow).join('')}</div>` : empty('Completed work will show here.'), '')}</div>` : ''}
+    <div class="pm-grid pm-grid-2 pm-hq-lower">
+      ${panel('Recent Signals','Operations Feed',signalsBody,`<button class="pm-button pm-button-ghost" data-go="systems">Open Systems</button>`)}
+      ${panel('Quick Access','Company Areas',quickAccess,'')}
+    </div>`;
   bindWorkOpeners(root, ctx);
 }
 
