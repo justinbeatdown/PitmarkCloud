@@ -451,13 +451,29 @@ async function renderStore(root,ctx){const results=await Promise.allSettled(['ac
 
 async function renderPeople(root,ctx){const [testersResult,outreachResult,raceResult]=await Promise.allSettled([api.prtTesters(),api.outreach(),api.foundersRace()]);const testers=testersResult.status==='fulfilled'?(testersResult.value.invites||[]):[];const outreach=outreachResult.status==='fulfilled'?outreachResult.value:[];const race=raceResult.status==='fulfilled'?(raceResult.value.leaderboard||[]):[];root.innerHTML=`${viewHeader('Pitmark Network','People','Testers and relationship contacts without duplicating their source systems.')}<div class="pm-grid pm-grid-2">${panel('PRT Testers','Product Community',testers.length?`<div class="pm-row-list">${testers.slice(0,30).map(r=>`<div class="pm-row"><div class="pm-row-main"><strong>${esc(titleOf(r,'Tester'))}</strong><p>${esc(r.email||r.hub_email||'')} · ${esc(r.tester_status||r.status||'unknown')}</p></div><div class="pm-row-side">${statusBadge(r.status)}</div></div>`).join('')}</div>`:empty('No testers loaded.'))}${panel('Relationships','Business Network',outreach.length?`<div class="pm-row-list">${outreach.slice(0,30).map(r=>`<div class="pm-row"><div class="pm-row-main"><strong>${esc(r.organization||r.name)}</strong><p>${esc(r.contact_type||'Other')} · ${esc(r.stage||'unknown')}</p></div><div class="pm-row-side">${statusBadge(r.stage)}</div></div>`).join('')}</div>`:empty('No relationships loaded.'))}</div>${panel("Founder’s Race",'Community Competition',race.length?`<div class="pm-row-list">${race.slice(0,12).map(r=>`<div class="pm-row"><div class="pm-row-main"><strong>#${esc(r.position||'—')} ${esc(titleOf(r,'Participant'))}</strong><p>${n(r.qualified)} qualified · ${n(r.pending)} pending referrals</p></div><div class="pm-row-side"><span class="pm-badge orange">${esc(r.referral_code||'Racing')}</span></div></div>`).join('')}</div>`:empty('No race participants loaded.'))}`;}
 
+function renderCommandBrief(brief){
+  const sections=brief?.sections||{};
+  const important=[...(sections.critical||[]),...(sections.action||[]),...(sections.opportunities||[])].slice(0,6);
+  const counts=brief?.counts||{};
+  const countLine=[
+    Number(counts.critical||0)?`${counts.critical} critical`:'',
+    Number(counts.action||0)?`${counts.action} action`:'',
+    Number(counts.opportunities||0)?`${counts.opportunities} opportunities`:'',
+  ].filter(Boolean).join(' · ');
+  return `<div class="pm-command-summary">
+    <div class="pm-command-head"><strong>${esc(brief?.headline||'Pitmark operating brief')}</strong>${countLine?`<span>${esc(countLine)}</span>`:''}</div>
+    ${important.length?`<div class="pm-row-list">${important.map(item=>`<div class="pm-row"><div class="pm-row-main"><div class="pm-row-meta">${statusBadge(item.priority||'info')}<span class="pm-badge">${esc(item.module||'Pitmark')}</span></div><strong>${esc(item.title||'Operational item')}</strong><p>${esc(compact(item.detail||'',150))}</p></div></div>`).join('')}</div>`:'<div class="pm-empty">Nothing needs attention right now.</div>'}
+  </div>`;
+}
+
 async function renderSystems(root,ctx){
   const [statusResult,briefResult,notifyResult,hqResult,workspaceResult]=await Promise.allSettled([
     api.status(),api.brief(),api.notifications(),api.hq(),api.workspaceStatus()
   ]);
   const status=statusResult.status==='fulfilled'?statusResult.value:null;
   const brief=briefResult.status==='fulfilled'?briefResult.value:null;
-  const notifications=notifyResult.status==='fulfilled'?notifyResult.value:[];
+  const notificationPayload=notifyResult.status==='fulfilled'?notifyResult.value:null;
+  const notifications=Array.isArray(notificationPayload)?notificationPayload:(notificationPayload?.items||[]);
   const systemModule=hqResult.status==='fulfilled'?unwrap(hqResult.value?.modules?.systems):null;
   const workspace=workspaceResult.status==='fulfilled'?workspaceResult.value:null;
   const workspaceBody=workspace
@@ -477,8 +493,8 @@ async function renderSystems(root,ctx){
       ${panel('Google Sheets','Workspace',workspaceBody)}
     </div>
     <div class="pm-grid pm-grid-2 pm-hq-lower">
-      ${panel('Command Brief','Operations',brief?`<div class="pm-detail-block"><p>${esc(compact(brief.summary||brief.brief||brief.message||JSON.stringify(brief),900))}</p></div>`:moduleError('Command brief',briefResult.reason?.message))}
-      ${panel('Signals','Notifications',Array.isArray(notifications)?(notifications.length?`<div class="pm-row-list">${notifications.slice(0,8).map(r=>`<div class="pm-row"><div class="pm-row-main"><strong>${esc(r.title||r.module||'Signal')}</strong><p>${esc(compact(r.detail||r.reason||'',120))}</p></div><div class="pm-row-side">${statusBadge(r.priority||r.status||'info')}</div></div>`).join('')}</div>`:empty('No current signals.')):empty('Signals unavailable.'))}
+      ${panel('Command Brief','Operations',brief?renderCommandBrief(brief):moduleError('Command brief',briefResult.reason?.message))}
+      ${panel('Signals','Notifications',notifications.length?`<div class="pm-row-list">${notifications.slice(0,8).map(r=>`<div class="pm-row"><div class="pm-row-main"><strong>${esc(r.title||r.module||'Signal')}</strong><p>${esc(compact(r.detail||r.reason||'',120))}</p></div><div class="pm-row-side">${statusBadge(r.priority||r.status||'info')}</div></div>`).join('')}</div>`:empty('No current operational signals.'))}
     </div>`;
   root.onclick=(event)=>{
     if(event.target.closest('[data-workspace-connect]')) openWorkspaceConnect(ctx);
