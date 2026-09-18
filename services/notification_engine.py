@@ -28,10 +28,24 @@ def sync_from_ecosystem() -> dict:
         unread=len(db.scalars(select(EcosystemNotification).where(EcosystemNotification.status=='unread')).all())
     return {'created':created,'unread':unread,'brief_status':brief['status']}
 
+def _control_center_visible(row: EcosystemNotification) -> bool:
+    module = str(row.module or "").strip().lower()
+    title = str(row.title or "").strip().lower()
+    # Mail/Shield continues to run server-side, but Control Center is not an inbox.
+    if module in {"shield", "mail", "gmail", "email"}:
+        return False
+    if title in {"protected message needs review", "mail needs review", "email needs review"}:
+        return False
+    return True
+
+
 def list_notifications(limit:int=40):
     with SessionLocal() as db:
-        rows=db.scalars(select(EcosystemNotification).order_by(EcosystemNotification.created_at.desc()).limit(limit)).all()
-        return [{'id':r.id,'priority':r.priority,'module':r.module,'title':r.title,'detail':r.detail,'action_view':r.action_view,'reason':r.reason,'status':r.status,'delivery':r.delivery,'created_at':r.created_at.isoformat() if r.created_at else None} for r in rows]
+        # Pull a wider window because legacy mail/Shield rows are intentionally
+        # hidden from the Control Center operational feed.
+        rows=db.scalars(select(EcosystemNotification).order_by(EcosystemNotification.created_at.desc()).limit(max(limit * 5, 100))).all()
+        visible=[r for r in rows if _control_center_visible(r)][:limit]
+        return [{'id':r.id,'priority':r.priority,'module':r.module,'title':r.title,'detail':r.detail,'action_view':r.action_view,'reason':r.reason,'status':r.status,'delivery':r.delivery,'created_at':r.created_at.isoformat() if r.created_at else None} for r in visible]
 
 def mark_read(notification_id:int):
     with SessionLocal() as db:
