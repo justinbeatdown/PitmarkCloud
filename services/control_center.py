@@ -8,6 +8,13 @@ from services.database import Base, SessionLocal
 
 def utcnow(): return datetime.now(timezone.utc)
 
+class SecureSetting(Base):
+    __tablename__ = "pitmark_secure_settings"
+    key: Mapped[str] = mapped_column(String(120), primary_key=True)
+    value_encrypted: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class SocialPost(Base):
     __tablename__ = "autopilot_social_posts"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
