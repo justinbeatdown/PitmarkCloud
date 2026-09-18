@@ -10,7 +10,7 @@ import httpx
 
 from utils.config import settings
 from services.discord_hq_common import log_named
-from services import discord_hq_moderation, prt_release_announcements
+from services import discord_hq_moderation, discord_racing_culture_feed, prt_release_announcements
 
 log = logging.getLogger("pitmark.discord.gateway")
 DISCORD_API = "https://discord.com/api/v10"
@@ -67,6 +67,7 @@ def _official_links_payload(guild_id: str, support_channel_id: str | None) -> di
                 "description": (
                     "Everything official, in one place — no mystery downloads, no random DMs, no sketchy mirrors.\n\n"
                     "🏁 **Pitmark Racing Co.**\nhttps://pitmarkracing.com/\n\n"
+                    "📰 **Racing News & Culture**\nhttps://pitmarkracing.com/blogs/racing-culture\n\n"
                     "🧰 **Pitmark Racing Tools**\nhttps://prt.pitmarkracing.com/\n\n"
                     "🧪 **PRT Early Access**\nhttps://prt.pitmarkracing.com/prt/apply\n\n"
                     "🔗 **Pitmark Links Hub**\nhttps://links.pitmarkracing.com/links\n\n"
@@ -106,6 +107,7 @@ def _official_links_payload(guild_id: str, support_channel_id: str | None) -> di
             {
                 "type": 1,
                 "components": [
+                    _link_button("Racing Culture", "https://pitmarkracing.com/blogs/racing-culture", "📰"),
                     _link_button("Discord", "https://discord.gg/jP6fQuW7dr", "💬"),
                 ],
             },
@@ -259,9 +261,25 @@ def _staff_exempt(member: discord.Member) -> bool:
     )
 
 
+async def _watch_racing_culture_feed() -> None:
+    """Continuously sync newly published Racing Culture articles to Discord."""
+    while True:
+        try:
+            result = await discord_racing_culture_feed.sync_racing_culture_feed()
+            posted = int(result.get("posted") or 0)
+            if posted:
+                log.info("Racing Culture feed posted %s new article(s).", posted)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("Racing Culture Discord feed sync failed.")
+
+        await asyncio.sleep(600)
+
+
 class PitmarkPresenceClient(discord.Client):
     async def on_ready(self) -> None:
-        global _release_watcher_task
+        global _release_watcher_task, _racing_culture_feed_task
 
         await self.change_presence(
             status=discord.Status.online,
@@ -279,6 +297,15 @@ class PitmarkPresenceClient(discord.Client):
             _release_watcher_task = asyncio.create_task(
                 prt_release_announcements.watch(self),
                 name="pitmark-prt-release-announcements",
+            )
+
+        if (
+            discord_racing_culture_feed.configured()
+            and (_racing_culture_feed_task is None or _racing_culture_feed_task.done())
+        ):
+            _racing_culture_feed_task = asyncio.create_task(
+                _watch_racing_culture_feed(),
+                name="pitmark-racing-culture-feed",
             )
 
         try:
@@ -425,6 +452,7 @@ class PitmarkPresenceClient(discord.Client):
 _client: PitmarkPresenceClient | None = None
 _task: asyncio.Task | None = None
 _release_watcher_task: asyncio.Task | None = None
+_racing_culture_feed_task: asyncio.Task | None = None
 
 
 async def start() -> None:
@@ -458,7 +486,7 @@ async def start() -> None:
 
 
 async def stop() -> None:
-    global _client, _task, _release_watcher_task
+    global _client, _task, _release_watcher_task, _racing_culture_feed_task
 
     if _release_watcher_task:
         if not _release_watcher_task.done():
@@ -470,6 +498,17 @@ async def stop() -> None:
         except Exception:
             pass
         _release_watcher_task = None
+
+    if _racing_culture_feed_task:
+        if not _racing_culture_feed_task.done():
+            _racing_culture_feed_task.cancel()
+        try:
+            await _racing_culture_feed_task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            pass
+        _racing_culture_feed_task = None
 
     if _client and not _client.is_closed():
         try:
