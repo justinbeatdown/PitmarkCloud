@@ -216,7 +216,7 @@ def startup_self_test() -> dict[str, Any]:
     payload = {
         "model": settings.astra_director_model,
         "input": "Reply with exactly OK.",
-        "max_output_tokens": 8,
+        "max_output_tokens": 16,
     }
     headers = {
         "Authorization": f"Bearer {settings.openai_api_key.strip()}",
