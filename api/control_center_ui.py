@@ -106,6 +106,16 @@ def control_center_overhaul_css():
     return _text_asset('control_center_overhaul.css', 'text/css')
 
 
+@router.get('/control-director.js', include_in_schema=False)
+def control_director_js():
+    return _text_asset('control_director.js', 'application/javascript')
+
+
+@router.get('/control-director.css', include_in_schema=False)
+def control_director_css():
+    return _text_asset('control_director.css', 'text/css')
+
+
 # Login/PWA assets still used by the current authentication entry points.
 @router.get('/control.css', include_in_schema=False)
 def control_css():
