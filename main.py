@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from utils.security import SecurityHeadersMiddleware, security_summary
 
-from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_v19, control_center_v195, control_access_v191, control_center_ui, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, prt_testimonial_asset, early_access_admin
+from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_v19, control_center_v195, control_access_v191, control_center_ui, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, prt_testimonial_asset, early_access_admin, astra_director
 from utils.config import settings
 from utils.logger import configure_logging
 from services import discord_gateway_service, prt_access_bans
@@ -279,7 +279,7 @@ app.include_router(shopify.router, prefix="/api/shopify", tags=["shopify"])
 app.include_router(control_access_v191.router, prefix="/api/control", tags=["control-access-v191"])
 app.include_router(control_center_v19.router, prefix="/api/control", tags=["control-center-v19"])
 app.include_router(control_center_v195.router, prefix="/api/control", tags=["control-center-v195"])
-app.include_router(control_center.router, prefix="/api/control", tags=["control-center"])
+app.include_router(control_center.router, prefix="/api/control", tags=["control-center"])\napp.include_router(astra_director.router, prefix="/api/control/director", tags=["astra-director"])
 app.include_router(social_context_v191.router, prefix="/api/control/social", tags=["social-context-v191"])
 app.include_router(social_publish.router, prefix="/api/control/social", tags=["social-publishing"])
 app.include_router(social_operator.router, prefix="/api/control/social/operator", tags=["social-operator"])
