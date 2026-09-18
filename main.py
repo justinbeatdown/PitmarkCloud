@@ -183,7 +183,7 @@ async def _prt_access_identity(request: Request) -> tuple[str, str]:
 
     if path.startswith("/api/entitlements/current/"):
         device_id = path.rsplit("/", 1)[-1].strip()
-    elif path.startswith("/api/discord/"):
+    elif path.startswith("/api/discord/") or path.startswith("/api/prt/mobile/"):
         device_id = str(request.query_params.get("device_id") or "").strip()
 
     if (
