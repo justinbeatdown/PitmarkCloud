@@ -179,9 +179,131 @@ async function mutateFeedback(button,ctx){button.disabled=true;try{await api.set
 function openPrtDetail(kind,id,data,ctx){let row;if(kind==='application')row=(data.testers?.applications||[]).find(x=>String(x.id)===String(id));if(kind==='tester')row=(data.testers?.invites||[]).find(x=>String(x.id)===String(id));if(kind==='founders')row=(data.race?.leaderboard||[]).find(x=>String(x.tester_id||x.id)===String(id));if(kind==='feedback')row=(data.feedback?.items||[]).find(x=>String(x.id)===String(id));if(!row)return;ctx.openSheet({kicker:kind,title:titleOf(row,kind),body:`${details(Object.entries(row).filter(([k])=>!['notes','body','description'].includes(k)).slice(0,14))}${row.notes||row.body||row.description?`<div class="pm-detail-block"><h4>Details</h4><p>${esc(row.notes||row.body||row.description)}</p></div>`:''}`,actions:[{label:'Close',tone:'ghost',run:ctx.closeSheet}]});}
 
 const CONTENT_TABS = ['generated','approval','approved','scheduled','published','archived','editorial'];
-async function renderContent(root,ctx){const tab=ctx.state.contentTab||'generated';let rows=[];let editorial=[];try{if(tab==='editorial'){editorial=await api.blogDrafts();}else if(tab==='generated'){rows=await api.posts();}else if(tab==='approval'){rows=await api.posts('pending');}else if(tab==='archived'){const [a,b]=await Promise.all([api.posts('archived'),api.posts('rejected')]);rows=[...a,...b];}else{rows=await api.posts(tab);}}catch(e){root.innerHTML=moduleError('Content',e.message,'content');return;}const tabs=`<div class="pm-tabs">${CONTENT_TABS.map(key=>`<button class="pm-tab ${tab===key?'is-active':''}" type="button" data-content-tab="${key}">${key==='approval'?'Needs Approval':key[0].toUpperCase()+key.slice(1)}</button>`).join('')}</div>`;root.innerHTML=`${viewHeader('Social Manager','Content operations without image generation.','Review generated copy, approve or schedule posts, and keep editorial separate.',`<button class="pm-button pm-button-primary" type="button" data-compose>New post</button>`)}${tabs}${tab==='editorial'?renderEditorial(editorial):renderPosts(rows,tab)}`;root.onclick=(event)=>{const t=event.target.closest('[data-content-tab]');if(t){ctx.state.contentTab=t.dataset.contentTab;ctx.refresh();return;}if(event.target.closest('[data-compose]')){openComposer(ctx);return;}const p=event.target.closest('[data-post-id]');if(p)openPost(rows.find(x=>String(x.id)===p.dataset.postId),ctx);const b=event.target.closest('[data-blog-id]');if(b)openBlog(editorial.find(x=>String(x.id)===b.dataset.blogId),ctx);};}
-function renderPosts(rows,tab){return panel(tab==='approval'?'Needs Approval':'Autopilot Posts','Generated Social',rows.length?`<div class="pm-row-list">${rows.map(row=>`<button class="pm-row" type="button" data-post-id="${row.id}"><div class="pm-row-main"><div class="pm-row-meta"><span class="pm-badge orange">${esc(row.platform||'social')}</span>${statusBadge(row.status)}${row.media_url?'<span class="pm-badge">Media</span>':''}</div><strong>${esc(row.title||compact(row.body,80)||'Generated post')}</strong><p>${esc(compact(row.body,170))}</p></div><div class="pm-row-side"><span class="pm-muted">${esc(row.scheduled_for?dateText(row.scheduled_for):age(row.created_at))}</span><span>›</span></div></button>`).join('')}</div>`:empty('No posts in this view.'))}
+
+function selectedContentIds(ctx){
+  return new Set((ctx.state.contentSelection || []).map(String));
+}
+
+function storeContentSelection(ctx, selected){
+  ctx.state.contentSelection = [...selected];
+}
+
+function syncContentSelection(root, rows, ctx){
+  const selected = selectedContentIds(ctx);
+  root.querySelectorAll('[data-post-select]').forEach(input => {
+    input.checked = selected.has(String(input.value));
+    input.closest('.pm-content-select-row')?.classList.toggle('is-selected', input.checked);
+  });
+  const visible = rows.map(row => String(row.id));
+  const selectedVisible = visible.filter(id => selected.has(id)).length;
+  const selectAll = root.querySelector('[data-select-all]');
+  if(selectAll){
+    selectAll.checked = visible.length > 0 && selectedVisible === visible.length;
+    selectAll.indeterminate = selectedVisible > 0 && selectedVisible < visible.length;
+  }
+  const count = root.querySelector('[data-selected-count]');
+  if(count) count.textContent = String(selectedVisible);
+  root.querySelectorAll('[data-bulk-action]').forEach(button => { button.disabled = selectedVisible === 0; });
+}
+
+function contentBulkBar(rows, selected){
+  if(!rows.length) return '';
+  const allSelected = rows.every(row => selected.has(String(row.id)));
+  return `<div class="pm-bulk-bar">
+    <label class="pm-bulk-select-all">
+      <input type="checkbox" data-select-all ${allSelected ? 'checked' : ''}>
+      <span>Select all</span>
+    </label>
+    <strong><span data-selected-count>${rows.filter(row => selected.has(String(row.id))).length}</span> selected</strong>
+    <div class="pm-bulk-actions">
+      <button class="pm-button pm-button-ghost" type="button" data-bulk-action="edit">Edit</button>
+      <button class="pm-button pm-button-ghost" type="button" data-bulk-action="approve">Approve</button>
+      <button class="pm-button pm-button-primary" type="button" data-bulk-action="publish">Publish</button>
+      <button class="pm-button pm-button-danger" type="button" data-bulk-action="delete">Delete</button>
+    </div>
+  </div>`;
+}
+
+async function renderContent(root,ctx){
+  const tab=ctx.state.contentTab||'generated';
+  let rows=[];let editorial=[];
+  try{
+    if(tab==='editorial'){editorial=await api.blogDrafts();}
+    else if(tab==='generated'){rows=await api.posts();}
+    else if(tab==='approval'){rows=await api.posts('pending');}
+    else if(tab==='archived'){const [a,b]=await Promise.all([api.posts('archived'),api.posts('rejected')]);rows=[...a,...b];}
+    else{rows=await api.posts(tab);}
+  }catch(e){root.innerHTML=moduleError('Content',e.message,'content');return;}
+
+  const visibleIds=new Set(rows.map(row=>String(row.id)));
+  const selected=selectedContentIds(ctx);
+  for(const id of [...selected]) if(!visibleIds.has(id)) selected.delete(id);
+  storeContentSelection(ctx,selected);
+
+  const tabs=`<div class="pm-tabs">${CONTENT_TABS.map(key=>`<button class="pm-tab ${tab===key?'is-active':''}" type="button" data-content-tab="${key}">${key==='approval'?'Needs Approval':key[0].toUpperCase()+key.slice(1)}</button>`).join('')}</div>`;
+  root.innerHTML=`${viewHeader('Social Manager','Content operations without image generation.','Review generated copy, approve or schedule posts, and keep editorial separate.',`<button class="pm-button pm-button-primary" type="button" data-compose>New post</button>`)}${tabs}${tab==='editorial'?renderEditorial(editorial):renderPosts(rows,tab,selected)}`;
+
+  root.onclick=(event)=>{
+    const t=event.target.closest('[data-content-tab]');
+    if(t){
+      ctx.state.contentTab=t.dataset.contentTab;
+      ctx.state.contentSelection=[];
+      ctx.refresh();
+      return;
+    }
+    if(event.target.closest('[data-compose]')){openComposer(ctx);return;}
+    const action=event.target.closest('[data-bulk-action]');
+    if(action){bulkContentAction(action.dataset.bulkAction,rows,ctx);return;}
+    const p=event.target.closest('[data-post-id]');
+    if(p)openPost(rows.find(x=>String(x.id)===p.dataset.postId),ctx);
+    const b=event.target.closest('[data-blog-id]');
+    if(b)openBlog(editorial.find(x=>String(x.id)===b.dataset.blogId),ctx);
+  };
+  root.onchange=(event)=>{
+    const one=event.target.closest('[data-post-select]');
+    if(one){
+      const next=selectedContentIds(ctx);
+      if(one.checked) next.add(String(one.value)); else next.delete(String(one.value));
+      storeContentSelection(ctx,next);
+      syncContentSelection(root,rows,ctx);
+      return;
+    }
+    const all=event.target.closest('[data-select-all]');
+    if(all){
+      const next=selectedContentIds(ctx);
+      for(const row of rows){
+        const id=String(row.id);
+        if(all.checked) next.add(id); else next.delete(id);
+      }
+      storeContentSelection(ctx,next);
+      syncContentSelection(root,rows,ctx);
+    }
+  };
+  syncContentSelection(root,rows,ctx);
+}
+
+function renderPosts(rows,tab,selected=new Set()){
+  const tools=contentBulkBar(rows,selected);
+  const title=tab==='approval'?'Needs Approval':tab==='approved'?'Approved & Ready':'Autopilot Posts';
+  return panel(title,'Generated Social',
+    `${tools}${rows.length?`<div class="pm-row-list pm-content-row-list">${rows.map(row=>`<div class="pm-content-select-row ${selected.has(String(row.id))?'is-selected':''}">
+      <label class="pm-content-check" title="Select post">
+        <input type="checkbox" data-post-select value="${row.id}" ${selected.has(String(row.id))?'checked':''}>
+        <span aria-hidden="true"></span>
+      </label>
+      <button class="pm-row" type="button" data-post-id="${row.id}">
+        <div class="pm-row-main">
+          <div class="pm-row-meta"><span class="pm-badge orange">${esc(row.platform||'social')}</span>${statusBadge(row.status)}${row.media_url?'<span class="pm-badge">Media</span>':''}</div>
+          <strong>${esc(row.title||compact(row.body,80)||'Generated post')}</strong>
+          <p>${esc(compact(row.body,170))}</p>
+        </div>
+        <div class="pm-row-side"><span class="pm-muted">${esc(row.scheduled_for?dateText(row.scheduled_for):age(row.created_at))}</span><span>›</span></div>
+      </button>
+    </div>`).join('')}</div>`:empty('No posts in this view.')}`);
+}
+
 function renderEditorial(rows){return panel('Editorial','Blog & News',rows.length?`<div class="pm-row-list">${rows.map(row=>`<button class="pm-row" type="button" data-blog-id="${row.id}"><div class="pm-row-main"><div class="pm-row-meta"><span class="pm-badge">${esc(row.content_type||'article')}</span>${statusBadge(row.status)}</div><strong>${esc(row.title)}</strong><p>${esc(compact(String(row.body_html||'').replace(/<[^>]+>/g,' '),150))}</p></div><div class="pm-row-side"><span class="pm-muted">${esc(age(row.updated_at||row.created_at))}</span><span>›</span></div></button>`).join('')}</div>`:empty('No editorial drafts found.'))}
+
 function openPost(row,ctx){
   if(!row)return;
   const titleId=`post-title-${row.id}`,bodyId=`post-body-${row.id}`;
@@ -211,8 +333,114 @@ function openPost(row,ctx){
     actions
   });
 }
+
 async function postDecision(id,action,ctx){try{await api.decidePost(id,action);clearCache('/api/control/autopilot/posts');if(action==='approve')ctx.state.contentTab='approved';ctx.toast(action==='approve'?'Post approved — ready to publish.':`Post ${action}d.`,'good');ctx.closeSheet();ctx.refresh();}catch(e){ctx.toast(e.message,'bad');}}
 async function publishPost(row,ctx){try{const result=await api.publishPost(row.id);clearCache('/api/control/autopilot/posts');ctx.state.contentTab='published';ctx.toast(result?.warning?`Published live. ${result.warning}`:`Published live to ${row.platform||'social'}.`,'good');ctx.closeSheet();ctx.refresh();}catch(e){ctx.toast(e.message,'bad');}}
+
+function selectedRows(rows,ctx){
+  const selected=selectedContentIds(ctx);
+  return rows.filter(row=>selected.has(String(row.id)));
+}
+
+async function runBulk(items,runner){
+  let ok=0;const errors=[];
+  for(const item of items){
+    try{await runner(item);ok+=1;}catch(error){errors.push(error?.message||'Unknown error');}
+  }
+  return {ok,failed:errors.length,errors};
+}
+
+async function bulkContentAction(action,rows,ctx){
+  const selected=selectedRows(rows,ctx);
+  if(!selected.length){ctx.toast('Select at least one post first.','bad');return;}
+  if(action==='edit'){openBulkEdit(selected,ctx);return;}
+
+  if(action==='approve'){
+    const eligible=selected.filter(row=>low(row.status)==='pending');
+    if(!eligible.length){ctx.toast('None of the selected posts are waiting for approval.','bad');return;}
+    const result=await runBulk(eligible,row=>api.decidePost(row.id,'approve'));
+    clearCache('/api/control/autopilot/posts');
+    ctx.state.contentSelection=[];
+    ctx.state.contentTab='approved';
+    ctx.toast(result.failed?`${result.ok} approved; ${result.failed} failed.`:`${result.ok} post${result.ok===1?'':'s'} approved.`,result.failed?'bad':'good');
+    ctx.refresh();
+    return;
+  }
+
+  if(action==='publish'){
+    const eligible=selected.filter(row=>['approved','scheduled'].includes(low(row.status))&&['facebook','instagram','x'].includes(low(row.platform)));
+    if(!eligible.length){ctx.toast('Select approved or scheduled Facebook, Instagram, or X posts to publish.','bad');return;}
+    if(!window.confirm(`Publish ${eligible.length} selected post${eligible.length===1?'':'s'} live now?`))return;
+    const result=await runBulk(eligible,row=>api.publishPost(row.id));
+    clearCache('/api/control/autopilot/posts');
+    ctx.state.contentSelection=[];
+    ctx.state.contentTab='published';
+    ctx.toast(result.failed?`${result.ok} published; ${result.failed} failed. ${result.errors[0]||''}`:`${result.ok} post${result.ok===1?'':'s'} published live.`,result.failed?'bad':'good');
+    ctx.refresh();
+    return;
+  }
+
+  if(action==='delete'){
+    if(!window.confirm(`Permanently delete ${selected.length} selected post${selected.length===1?'':'s'}? This cannot be undone.`))return;
+    const result=await runBulk(selected,row=>api.deletePost(row.id));
+    clearCache('/api/control/autopilot/posts');
+    ctx.state.contentSelection=[];
+    ctx.toast(result.failed?`${result.ok} deleted; ${result.failed} failed.`:`${result.ok} post${result.ok===1?'':'s'} deleted.`,result.failed?'bad':'good');
+    ctx.refresh();
+  }
+}
+
+function openBulkEdit(rows,ctx){
+  const findId='bulk-find',replaceId='bulk-replace',prependId='bulk-prepend',appendId='bulk-append',platformId='bulk-platform',titlesId='bulk-titles';
+  ctx.openSheet({
+    kicker:'Bulk Content Edit',
+    title:`Edit ${rows.length} selected post${rows.length===1?'':'s'}`,
+    body:`<div class="pm-form">
+      <div class="pm-field"><label>Change platform</label><select class="pm-select" id="${platformId}"><option value="">Keep each post's platform</option><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="x">X</option><option value="tiktok">TikTok</option><option value="discord">Discord</option></select></div>
+      <div class="pm-form-grid">
+        <div class="pm-field"><label>Find text</label><input class="pm-input" id="${findId}" placeholder="Optional text to replace"></div>
+        <div class="pm-field"><label>Replace with</label><input class="pm-input" id="${replaceId}" placeholder="Replacement text"></div>
+      </div>
+      <div class="pm-field"><label>Prepend to every post</label><textarea class="pm-textarea" id="${prependId}" style="min-height:80px" placeholder="Optional text added before each post"></textarea></div>
+      <div class="pm-field"><label>Append to every post</label><textarea class="pm-textarea" id="${appendId}" style="min-height:80px" placeholder="Optional text added after each post"></textarea></div>
+      <label class="pm-check-line"><input type="checkbox" id="${titlesId}"><span>Also apply find/replace to post titles</span></label>
+      <div class="pm-callout"><div><strong>Safe bulk edit</strong><p>Blank fields leave that part unchanged. Prepend/append affects post copy only.</p></div></div>
+    </div>`,
+    actions:[
+      {label:'Cancel',tone:'ghost',run:ctx.closeSheet},
+      {label:'Apply to selected',tone:'primary',run:async()=>{
+        const platform=document.getElementById(platformId)?.value||'';
+        const find=document.getElementById(findId)?.value||'';
+        const replace=document.getElementById(replaceId)?.value||'';
+        const prepend=document.getElementById(prependId)?.value||'';
+        const append=document.getElementById(appendId)?.value||'';
+        const titles=Boolean(document.getElementById(titlesId)?.checked);
+        if(!platform&&!find&&!prepend&&!append){ctx.toast('Choose at least one bulk edit.','bad');return;}
+        const transform=(value)=>{
+          let out=String(value||'');
+          if(find) out=out.split(find).join(replace);
+          return out;
+        };
+        const result=await runBulk(rows,row=>{
+          const patch={};
+          let body=transform(row.body||'');
+          if(prepend) body=`${prepend}${body}`;
+          if(append) body=`${body}${append}`;
+          if(find||prepend||append) patch.body=body;
+          if(platform) patch.platform=platform;
+          if(titles&&find) patch.title=transform(row.title||'');
+          return api.updatePost(row.id,patch);
+        });
+        clearCache('/api/control/autopilot/posts');
+        ctx.state.contentSelection=[];
+        ctx.toast(result.failed?`${result.ok} updated; ${result.failed} failed.`:`${result.ok} post${result.ok===1?'':'s'} updated.`,result.failed?'bad':'good');
+        ctx.closeSheet();
+        ctx.refresh();
+      }}
+    ]
+  });
+}
+
 function openComposer(ctx){const topic='composer-topic',platform='composer-platform',body='composer-body';ctx.openSheet({kicker:'Autopilot Composer',title:'Create social copy',body:`<div class="pm-form"><div class="pm-form-grid"><div class="pm-field"><label>Platform</label><select class="pm-select" id="${platform}"><option>facebook</option><option>instagram</option><option>x</option><option>tiktok</option><option>discord</option></select></div><div class="pm-field"><label>Goal</label><select class="pm-select" id="composer-goal"><option value="community">Community</option><option value="authority">Authority</option><option value="education">Education</option><option value="product">Product</option></select></div></div><div class="pm-field"><label>Topic / prompt</label><textarea class="pm-textarea" id="${topic}" placeholder="What should Pitmark talk about?"></textarea></div><div class="pm-field"><label>Generated copy</label><textarea class="pm-textarea" id="${body}" placeholder="Generate first, then edit here."></textarea></div></div>`,actions:[{label:'Generate',tone:'ghost',run:async()=>{try{const result=await api.compose({platform:document.getElementById(platform).value,goal:document.getElementById('composer-goal').value,topic:document.getElementById(topic).value,prompt:document.getElementById(topic).value,tone:'pitmark',use_context:true});document.getElementById(body).value=result.body||'';ctx.toast('Copy generated.','good');}catch(e){ctx.toast(e.message,'bad');}}},{label:'Save to queue',tone:'primary',run:async()=>{try{await api.savePost({platform:document.getElementById(platform).value,title:compact(document.getElementById(topic).value,160),body:document.getElementById(body).value,content_type:'community',source:'control_center',risk:'low'});clearCache('/api/control/autopilot/posts');ctx.toast('Post saved to approval queue.','good');ctx.closeSheet();ctx.refresh();}catch(e){ctx.toast(e.message,'bad');}}}]});}
 function openBlog(row,ctx){if(!row)return;ctx.openSheet({kicker:`Editorial · ${row.status||'draft'}`,title:row.title,body:`${details([['Type',row.content_type],['Status',row.status],['Updated',dateText(row.updated_at)],['Scheduled',dateText(row.scheduled_for)]])}<div class="pm-detail-block"><h4>Draft</h4><p>${esc(String(row.body_html||'').replace(/<[^>]+>/g,' '))}</p></div>`,actions:[{label:'Archive',tone:'ghost',run:async()=>{await api.decideBlog(row.id,'archive');clearCache('/api/control/blog/drafts');ctx.toast('Draft archived.','good');ctx.closeSheet();ctx.refresh();}},{label:'Approve',tone:'primary',run:async()=>{await api.decideBlog(row.id,'approve');clearCache('/api/control/blog/drafts');ctx.toast('Draft approved.','good');ctx.closeSheet();ctx.refresh();}}]});}
 
