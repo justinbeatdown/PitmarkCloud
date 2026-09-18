@@ -8,6 +8,8 @@ const viewRoot = document.getElementById('view-root');
 const pageTitle = document.getElementById('page-title');
 const pageKicker = document.getElementById('page-kicker');
 const pageContext = document.getElementById('page-context');
+const mobilePageTitle = document.getElementById('mobile-page-title');
+const mobilePageKicker = document.getElementById('mobile-page-kicker');
 const commandPalette = document.getElementById('command-palette');
 const commandInput = document.getElementById('command-input');
 const commandResults = document.getElementById('command-results');
@@ -47,6 +49,8 @@ function setDocumentState(domain) {
   pageTitle.textContent = meta.title;
   pageKicker.textContent = meta.kicker;
   pageContext.textContent = meta.context;
+  if (mobilePageTitle) mobilePageTitle.textContent = meta.title;
+  if (mobilePageKicker) mobilePageKicker.textContent = meta.kicker;
   document.title = `${meta.title} · Pitmark Control Center`;
 
   document.querySelectorAll('[data-domain]').forEach((button) => {
