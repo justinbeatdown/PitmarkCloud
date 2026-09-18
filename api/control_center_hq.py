@@ -11,6 +11,13 @@ from services.control_auth import require_control_user
 from services.database import SessionLocal, database_status
 from services.founders_race import leaderboard
 from services.master_checklist import bucket_for, list_items, update_item
+from services.google_workspace_auth import (
+    WorkspaceAuthorizationRequired,
+    begin_authorization,
+    complete_authorization,
+    credential_source,
+    workspace_credentials_configured,
+)
 from services.prt_applications import application_role_from_placement, list_applications
 from services.prt_feedback import list_feedback, summary as feedback_summary
 from services.prt_licensing_store import list_early_access_invites
@@ -18,6 +25,10 @@ from services.control_center import BlogDraft, OutreachContact, SocialPost
 from utils.config import settings
 
 router = APIRouter()
+
+
+class WorkspaceOAuthComplete(BaseModel):
+    callback_url: str = Field(min_length=20, max_length=8000)
 
 
 class WorkUpdate(BaseModel):
@@ -211,6 +222,57 @@ def _notifications_hq() -> dict[str, Any]:
     rows = list_notifications()
     unread = [row for row in rows if str(row.get("status") or "unread").lower() == "unread"]
     return {"unread": len(unread), "items": unread[:8]}
+
+
+@router.get("/api/control/workspace/status")
+def workspace_status(request: Request):
+    _auth(request)
+    configured = workspace_credentials_configured()
+    connected = False
+    error = None
+    if configured:
+        try:
+            list_items(force=True)
+            connected = True
+        except Exception as exc:
+            error = str(exc)[:600]
+    return {
+        "configured": configured,
+        "connected": connected,
+        "credential_source": credential_source(),
+        "spreadsheet_id": "18k0Lnc4Dh8WsWssLDbOobE5lCXIQO1FjlAEKcHJ-UtI",
+        "sheet_name": "Master Checklist",
+        "error": error,
+    }
+
+
+@router.post("/api/control/workspace/oauth/start")
+def workspace_oauth_start(request: Request):
+    user = _auth(request)
+    user_key = user.username if user else "admin"
+    try:
+        return begin_authorization(user_key)
+    except WorkspaceAuthorizationRequired as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.post("/api/control/workspace/oauth/complete")
+def workspace_oauth_complete(payload: WorkspaceOAuthComplete, request: Request):
+    user = _auth(request)
+    user_key = user.username if user else "admin"
+    try:
+        complete_authorization(payload.callback_url, user_key)
+        snapshot = list_items(force=True)
+    except WorkspaceAuthorizationRequired as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    return {
+        "ok": True,
+        "connected": True,
+        "summary": snapshot.get("summary") or {},
+        "fetched_at": snapshot.get("fetched_at"),
+    }
 
 
 @router.get("/api/control/hq/overview")

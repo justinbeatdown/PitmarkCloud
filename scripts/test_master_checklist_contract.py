@@ -100,6 +100,21 @@ class MasterChecklistContract(unittest.TestCase):
         self.assertNotIn('from services.google_gmail import _token', auth)
         self.assertIn('https://www.googleapis.com/auth/spreadsheets', env_example)
 
+    def test_sheets_auth_can_be_connected_from_control_center_securely(self):
+        auth = self.read('services/google_workspace_auth.py')
+        model = self.read('services/control_center.py')
+        hq = self.read('api/control_center_hq.py')
+        self.assertIn('SecureSetting', model)
+        self.assertIn('pitmark_secure_settings', model)
+        self.assertIn('Fernet', auth)
+        self.assertIn('begin_authorization', auth)
+        self.assertIn('complete_authorization', auth)
+        self.assertIn('https://www.googleapis.com/auth/spreadsheets', auth)
+        self.assertIn('/api/control/workspace/oauth/start', hq)
+        self.assertIn('/api/control/workspace/oauth/complete', hq)
+        self.assertIn('/api/control/workspace/status', hq)
+        self.assertNotIn('value_encrypted = refresh_token', auth)
+
     def test_hq_reports_checklist_outage_without_taking_over_the_dashboard(self):
         views = self.read('api/control_center_views.js')
         self.assertIn('modules.work?.ok === true', views)

@@ -127,6 +127,9 @@ class ControlCenter2026Contract(unittest.TestCase):
             "/api/control/status",
             "/api/control/brief",
             "/api/control/notifications",
+            "/api/control/workspace/status",
+            "/api/control/workspace/oauth/start",
+            "/api/control/workspace/oauth/complete",
             "/api/control/auth/logout",
         ):
             self.assertIn(endpoint, api_js)
@@ -156,6 +159,18 @@ class ControlCenter2026Contract(unittest.TestCase):
         css = self.read("api/control_center_overhaul.css")
         self.assertIn(".pm-bulk-bar", css)
         self.assertIn(".pm-content-check", css)
+
+    def test_systems_can_connect_google_sheets(self):
+        views = self.read("api/control_center_views.js")
+        api_js = self.read("api/control_center_api.js")
+        self.assertIn("Connect Google Sheets", views)
+        self.assertIn("openWorkspaceConnect", views)
+        self.assertIn("workspaceOAuthStart", views)
+        self.assertIn("workspaceOAuthComplete", views)
+        self.assertIn("Google Sheets connected. Master Checklist is live.", views)
+        self.assertIn("workspaceStatus:", api_js)
+        self.assertIn("workspaceOAuthStart:", api_js)
+        self.assertIn("workspaceOAuthComplete:", api_js)
 
     def test_content_approved_posts_can_publish_live(self):
         api_js = self.read("api/control_center_api.js")

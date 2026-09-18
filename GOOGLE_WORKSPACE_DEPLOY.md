@@ -87,3 +87,30 @@ thread to verify two-way Gmail actions and Shield classification.
 The old `RESEND_API_KEY`, `RESEND_INBOUND_API_KEY`, `RESEND_WEBHOOK_SECRET` and
 `mail.pitmarkracing.com` records are no longer read by Pitmark Cloud. Remove
 them only after the Gmail connection test passes.
+
+
+## Control Center Google Sheets connection
+
+The Pitmark Master Checklist uses a separate Sheets-capable OAuth refresh token.
+Gmail's existing refresh token is intentionally not reused because OAuth scopes
+cannot be added during refresh.
+
+The preferred production path is now **Control Center > Systems > Google Sheets**:
+
+1. Select **Connect Google Sheets**.
+2. Sign in as `justin@pitmarkracing.com` and approve the
+   `https://www.googleapis.com/auth/spreadsheets` scope.
+3. Google redirects the Desktop OAuth client to
+   `http://127.0.0.1:8765/`. A browser "can't connect" page is expected because
+   no local listener is required for this setup.
+4. Copy the full localhost callback URL from the address bar and paste it into
+   the Control Center connection sheet.
+5. Select **Complete connection**.
+
+Pitmark Cloud verifies the signed OAuth state, exchanges the one-time code using
+the server-side OAuth client secret, encrypts the refresh token with the Pitmark
+signing secret, and stores only the ciphertext in PostgreSQL. The token is never
+returned to the browser.
+
+`GOOGLE_WORKSPACE_REFRESH_TOKEN` remains supported as an environment-variable
+fallback for emergency/manual provisioning.
