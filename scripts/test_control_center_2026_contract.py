@@ -132,6 +132,25 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("addEventListener", app_js)
         self.assertIn("AbortController", api_js)
 
+    def test_content_approved_posts_can_publish_live(self):
+        api_js = self.read("api/control_center_api.js")
+        self.assertIn("/api/control/social/posts", api_js)
+        self.assertIn("publishPost:", api_js)
+        views = self.read("api/control_center_views.js")
+        self.assertIn("'approved'", views)
+        self.assertIn("Publish Now", views)
+        self.assertIn("api.publishPost", views)
+        self.assertIn("Post approved — ready to publish.", views)
+        self.assertIn("ctx.state.contentTab='published'", views)
+
+    def test_legacy_mobile_mail_shell_is_retired(self):
+        legacy_html = self.read("api/control_mobile.html")
+        legacy_js = self.read("api/control_center_overhaul.js")
+        self.assertIn("/control-reset?source=legacy-template", legacy_html)
+        self.assertNotIn("Pitmark Mail", legacy_html)
+        self.assertNotIn("data-pm26-nav=\"comms\"", legacy_html)
+        self.assertIn("/control-reset?source=legacy-ui", legacy_js)
+
     def test_hq_stays_actionable_without_checklist(self):
         views = self.read("api/control_center_views.js")
         self.assertIn("Operational Queue", views)
