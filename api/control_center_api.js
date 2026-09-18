@@ -128,6 +128,7 @@ export const api = Object.freeze({
   posts: (status = '', options = {}) => request(query(ENDPOINTS.posts, { status }), { scope: 'content-posts', maxAge: 8000, ...options }),
   savePost: (body) => request(ENDPOINTS.posts, { method: 'POST', body }),
   updatePost: (id, body) => request(`${ENDPOINTS.posts}/${encodeURIComponent(id)}`, { method: 'PATCH', body }),
+  deletePost: (id) => request(`${ENDPOINTS.posts}/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   decidePost: (id, action, scheduledFor = null) => request(`${ENDPOINTS.posts}/${encodeURIComponent(id)}/decision`, { method: 'POST', body: { action, scheduled_for: scheduledFor } }),
   publishPost: (id) => request(`${ENDPOINTS.socialPublish}/${encodeURIComponent(id)}/publish`, { method: 'POST' }),
   compose: (body) => request(ENDPOINTS.compose, { method: 'POST', body }),
