@@ -204,3 +204,37 @@ def recent_runs(limit: int = 10) -> list[dict[str, Any]]:
             "owner_needed": result.get("owner_needed") or [],
         })
     return out
+
+
+def startup_self_test() -> dict[str, Any]:
+    """Tiny, opt-in Astra entitlement probe. Never runs unless explicitly enabled."""
+    if not settings.astra_director_self_test:
+        return {"enabled": False}
+    if not settings.openai_api_key.strip():
+        log.error("ASTRA_SELF_TEST failed: OPENAI_API_KEY is not configured")
+        return {"enabled": True, "ok": False, "error": "missing_openai_api_key"}
+    payload = {
+        "model": settings.astra_director_model,
+        "input": "Reply with exactly OK.",
+        "max_output_tokens": 8,
+    }
+    headers = {
+        "Authorization": f"Bearer {settings.openai_api_key.strip()}",
+        "Content-Type": "application/json",
+    }
+    try:
+        with httpx.Client(timeout=min(settings.astra_director_timeout_seconds, 30.0)) as client:
+            response = client.post("https://api.openai.com/v1/responses", headers=headers, json=payload)
+            response.raise_for_status()
+            text = _extract_output_text(response.json())
+        log.info("ASTRA_SELF_TEST ok model=%s output=%s", settings.astra_director_model, text[:40] or "<empty>")
+        return {"enabled": True, "ok": True, "model": settings.astra_director_model}
+    except Exception as exc:
+        detail = str(exc)
+        if isinstance(exc, httpx.HTTPStatusError):
+            try:
+                detail = exc.response.json().get("error", {}).get("message") or detail
+            except Exception:
+                pass
+        log.error("ASTRA_SELF_TEST failed model=%s error=%s", settings.astra_director_model, detail[:500])
+        return {"enabled": True, "ok": False, "model": settings.astra_director_model, "error": detail[:500]}
