@@ -14,6 +14,9 @@ const ENDPOINTS = Object.freeze({
   status: '/api/control/status',
   brief: '/api/control/brief',
   notifications: '/api/control/notifications',
+  workspaceStatus: '/api/control/workspace/status',
+  workspaceOAuthStart: '/api/control/workspace/oauth/start',
+  workspaceOAuthComplete: '/api/control/workspace/oauth/complete',
   logout: '/api/control/auth/logout',
 });
 
@@ -139,5 +142,8 @@ export const api = Object.freeze({
   status: (options = {}) => request(ENDPOINTS.status, { scope: 'systems-status', maxAge: 15000, ...options }),
   brief: (options = {}) => request(ENDPOINTS.brief, { scope: 'systems-brief', maxAge: 15000, ...options }),
   notifications: (options = {}) => request(ENDPOINTS.notifications, { scope: 'notifications', maxAge: 10000, ...options }),
+  workspaceStatus: (options = {}) => request(ENDPOINTS.workspaceStatus, { scope: 'workspace-status', maxAge: 5000, ...options }),
+  workspaceOAuthStart: () => request(ENDPOINTS.workspaceOAuthStart, { method: 'POST' }),
+  workspaceOAuthComplete: (callbackUrl) => request(ENDPOINTS.workspaceOAuthComplete, { method: 'POST', body: { callback_url: callbackUrl } }),
   logout: () => request(ENDPOINTS.logout, { method: 'POST' }),
 });
