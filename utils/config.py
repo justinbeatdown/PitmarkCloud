@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     pitmark_ai_model: str = "gpt-5.6-luna"
     pitmark_ai_timeout_seconds: float = 30.0
     openai_api_key: str = ""
+    astra_director_enabled: bool = True
+    astra_director_model: str = "gpt-6-astra"
+    astra_director_mode: str = "operator"
+    astra_director_reasoning_effort: str = "medium"
+    astra_director_max_output_tokens: int = 1800
+    astra_director_timeout_seconds: float = 90.0
     pitmark_image_model: str = "gpt-image-2"
     pitmark_image_timeout_seconds: float = 90.0
     pitmark_image_size: str = "1536x1024"
