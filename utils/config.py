@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     astra_director_reasoning_effort: str = "medium"
     astra_director_max_output_tokens: int = 1800
     astra_director_timeout_seconds: float = 90.0
+    astra_director_self_test: bool = False
     pitmark_image_model: str = "gpt-image-2"
     pitmark_image_timeout_seconds: float = 90.0
     pitmark_image_size: str = "1536x1024"
