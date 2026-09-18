@@ -451,7 +451,75 @@ async function renderStore(root,ctx){const results=await Promise.allSettled(['ac
 
 async function renderPeople(root,ctx){const [testersResult,outreachResult,raceResult]=await Promise.allSettled([api.prtTesters(),api.outreach(),api.foundersRace()]);const testers=testersResult.status==='fulfilled'?(testersResult.value.invites||[]):[];const outreach=outreachResult.status==='fulfilled'?outreachResult.value:[];const race=raceResult.status==='fulfilled'?(raceResult.value.leaderboard||[]):[];root.innerHTML=`${viewHeader('Pitmark Network','People','Testers and relationship contacts without duplicating their source systems.')}<div class="pm-grid pm-grid-2">${panel('PRT Testers','Product Community',testers.length?`<div class="pm-row-list">${testers.slice(0,30).map(r=>`<div class="pm-row"><div class="pm-row-main"><strong>${esc(titleOf(r,'Tester'))}</strong><p>${esc(r.email||r.hub_email||'')} · ${esc(r.tester_status||r.status||'unknown')}</p></div><div class="pm-row-side">${statusBadge(r.status)}</div></div>`).join('')}</div>`:empty('No testers loaded.'))}${panel('Relationships','Business Network',outreach.length?`<div class="pm-row-list">${outreach.slice(0,30).map(r=>`<div class="pm-row"><div class="pm-row-main"><strong>${esc(r.organization||r.name)}</strong><p>${esc(r.contact_type||'Other')} · ${esc(r.stage||'unknown')}</p></div><div class="pm-row-side">${statusBadge(r.stage)}</div></div>`).join('')}</div>`:empty('No relationships loaded.'))}</div>${panel("Founder’s Race",'Community Competition',race.length?`<div class="pm-row-list">${race.slice(0,12).map(r=>`<div class="pm-row"><div class="pm-row-main"><strong>#${esc(r.position||'—')} ${esc(titleOf(r,'Participant'))}</strong><p>${n(r.qualified)} qualified · ${n(r.pending)} pending referrals</p></div><div class="pm-row-side"><span class="pm-badge orange">${esc(r.referral_code||'Racing')}</span></div></div>`).join('')}</div>`:empty('No race participants loaded.'))}`;}
 
-async function renderSystems(root,ctx){const [statusResult,briefResult,notifyResult,hqResult]=await Promise.allSettled([api.status(),api.brief(),api.notifications(),api.hq()]);const status=statusResult.status==='fulfilled'?statusResult.value:null;const brief=briefResult.status==='fulfilled'?briefResult.value:null;const notifications=notifyResult.status==='fulfilled'?notifyResult.value:[];const systemModule=hqResult.status==='fulfilled'?unwrap(hqResult.value?.modules?.systems):null;root.innerHTML=`${viewHeader('Platform Operations','Systems','Human-readable Pitmark Cloud health and current operating signals.')}<div class="pm-grid pm-grid-3">${panel('Pitmark Cloud','Runtime',status?`${details([['Version',systemModule?.app_version||'—'],['Environment',systemModule?.environment||'—'],['Autopilot service',status.autopilot?'Available':'Unavailable'],['Outreach records',status.outreach_contacts],['Blog drafts',status.blog_drafts]])}`:moduleError('Status',statusResult.reason?.message))}${panel('Command Brief','Operations',brief?`<div class="pm-detail-block"><p>${esc(compact(brief.summary||brief.brief||brief.message||JSON.stringify(brief),900))}</p></div>`:moduleError('Command brief',briefResult.reason?.message))}${panel('Signals','Notifications',Array.isArray(notifications)?(notifications.length?`<div class="pm-row-list">${notifications.slice(0,8).map(r=>`<div class="pm-row"><div class="pm-row-main"><strong>${esc(r.title||r.module||'Signal')}</strong><p>${esc(compact(r.detail||r.reason||'',120))}</p></div><div class="pm-row-side">${statusBadge(r.priority||r.status||'info')}</div></div>`).join('')}</div>`:empty('No current signals.')):empty('Signals unavailable.'))}</div>`;}
+async function renderSystems(root,ctx){
+  const [statusResult,briefResult,notifyResult,hqResult,workspaceResult]=await Promise.allSettled([
+    api.status(),api.brief(),api.notifications(),api.hq(),api.workspaceStatus()
+  ]);
+  const status=statusResult.status==='fulfilled'?statusResult.value:null;
+  const brief=briefResult.status==='fulfilled'?briefResult.value:null;
+  const notifications=notifyResult.status==='fulfilled'?notifyResult.value:[];
+  const systemModule=hqResult.status==='fulfilled'?unwrap(hqResult.value?.modules?.systems):null;
+  const workspace=workspaceResult.status==='fulfilled'?workspaceResult.value:null;
+  const workspaceBody=workspace
+    ? `<div class="pm-detail-list">
+        <div class="pm-detail-pair"><span>Status</span><strong>${workspace.connected?'Connected':'Needs authorization'}</strong></div>
+        <div class="pm-detail-pair"><span>Source</span><strong>Pitmark Master Checklist</strong></div>
+        <div class="pm-detail-pair"><span>Credential</span><strong>${esc(workspace.credential_source||'none')}</strong></div>
+      </div>
+      ${workspace.error?`<div class="pm-callout is-warn"><div><strong>Google Sheets is not available to Pitmark Cloud</strong><p>${esc(workspace.error)}</p></div></div>`:''}
+      ${workspace.connected
+        ? '<div class="pm-callout"><div><strong>Master Checklist live</strong><p>Work, HQ priorities, waiting items, recent progress, and Work Momentum can read and update the Google Sheet.</p></div></div>'
+        : '<button class="pm-button pm-button-primary" type="button" data-workspace-connect>Connect Google Sheets</button>'}`
+    : moduleError('Google Sheets',workspaceResult.reason?.message||'Connection status unavailable.');
+  root.innerHTML=`${viewHeader('Platform Operations','Systems','Human-readable Pitmark Cloud health and current operating signals.')}
+    <div class="pm-grid pm-grid-2">
+      ${panel('Pitmark Cloud','Runtime',status?`${details([['Version',systemModule?.app_version||'—'],['Environment',systemModule?.environment||'—'],['Autopilot service',status.autopilot?'Available':'Unavailable'],['Outreach records',status.outreach_contacts],['Blog drafts',status.blog_drafts]])}`:moduleError('Status',statusResult.reason?.message))}
+      ${panel('Google Sheets','Workspace',workspaceBody)}
+    </div>
+    <div class="pm-grid pm-grid-2 pm-hq-lower">
+      ${panel('Command Brief','Operations',brief?`<div class="pm-detail-block"><p>${esc(compact(brief.summary||brief.brief||brief.message||JSON.stringify(brief),900))}</p></div>`:moduleError('Command brief',briefResult.reason?.message))}
+      ${panel('Signals','Notifications',Array.isArray(notifications)?(notifications.length?`<div class="pm-row-list">${notifications.slice(0,8).map(r=>`<div class="pm-row"><div class="pm-row-main"><strong>${esc(r.title||r.module||'Signal')}</strong><p>${esc(compact(r.detail||r.reason||'',120))}</p></div><div class="pm-row-side">${statusBadge(r.priority||r.status||'info')}</div></div>`).join('')}</div>`:empty('No current signals.')):empty('Signals unavailable.'))}
+    </div>`;
+  root.onclick=(event)=>{
+    if(event.target.closest('[data-workspace-connect]')) openWorkspaceConnect(ctx);
+  };
+}
+
+async function openWorkspaceConnect(ctx){
+  let popup=null;
+  try{
+    popup=window.open('about:blank','pitmark-google-sheets');
+    const start=await api.workspaceOAuthStart();
+    if(popup) popup.location.href=start.authorization_url;
+    else window.open(start.authorization_url,'_blank','noopener');
+    const inputId='workspace-oauth-callback';
+    ctx.openSheet({
+      kicker:'Google Workspace',
+      title:'Connect Pitmark Master Checklist',
+      body:`<div class="pm-form">
+        <div class="pm-callout"><div><strong>One-time Google authorization</strong><p>Sign in as justin@pitmarkracing.com and approve Google Sheets access. Google will then try to open ${esc(start.redirect_uri)}. That localhost page may say it cannot connect — that is expected.</p></div></div>
+        <div class="pm-detail-block"><h4>Finish the connection</h4><p>On the localhost error page, copy the full URL from the browser address bar. Return here and paste it below. Pitmark Cloud will exchange the one-time code securely; the Google refresh token is encrypted in the Pitmark database and is never shown in Control Center.</p></div>
+        <div class="pm-field"><label>Google localhost callback URL</label><textarea class="pm-textarea" id="${inputId}" style="min-height:110px" placeholder="http://127.0.0.1:8765/?state=...&code=..."></textarea></div>
+      </div>`,
+      actions:[
+        {label:'Cancel',tone:'ghost',run:ctx.closeSheet},
+        {label:'Complete connection',tone:'primary',run:async()=>{
+          const callbackUrl=document.getElementById(inputId)?.value?.trim()||'';
+          if(!callbackUrl){ctx.toast('Paste the full Google localhost callback URL first.','bad');return;}
+          const result=await api.workspaceOAuthComplete(callbackUrl);
+          clearCache('/api/control/hq/overview');
+          clearCache('/api/control/work');
+          ctx.toast(result?.connected?'Google Sheets connected. Master Checklist is live.':'Google Sheets connection needs attention.',result?.connected?'good':'bad');
+          ctx.closeSheet();
+          ctx.refresh(true);
+        }}
+      ]
+    });
+  }catch(e){
+    try{popup?.close();}catch{}
+    ctx.toast(e.message||'Google Sheets connection could not start.','bad');
+  }
+}
 
 async function renderInsights(root,ctx){const payload=await api.hq();const m=payload.modules||{};const work=unwrap(m.work)||{};const prt=unwrap(m.prt)||{};const content=unwrap(m.content)||{};const rel=unwrap(m.relationships)||{};const s=work.summary||{};root.innerHTML=`${viewHeader('Operating Intelligence','Insights','Current operational momentum from real Pitmark sources—not vanity metrics.')}<div class="pm-metric-strip"><div class="pm-metric"><span>Open work</span><strong>${n(s.open)}</strong><small>${n(s.p1)} P1 · ${n(s.blocked)} blocked</small></div><div class="pm-metric"><span>Completed</span><strong>${n(s.completed)}</strong><small>Master Checklist history</small></div><div class="pm-metric"><span>PRT testers</span><strong>${n(prt.testers?.redeemed)}</strong><small>${n(prt.applications?.new)} new applications</small></div><div class="pm-metric"><span>Content queue</span><strong>${n(content.autopilot?.pending)}</strong><small>${n(content.autopilot?.scheduled)} scheduled</small></div><div class="pm-metric"><span>Relationships</span><strong>${n(rel.total)}</strong><small>${n(rel.waiting_follow_up)} follow-ups</small></div></div><div class="pm-grid pm-grid-2">${panel('Work Momentum','Source of Truth',`<div class="pm-pulse-grid"><div class="pm-pulse"><header><span>Active</span></header><strong>${n(s.active)}</strong><p>currently moving</p></div><div class="pm-pulse"><header><span>Monitoring</span></header><strong>${n(s.monitoring)}</strong><p>being watched</p></div><div class="pm-pulse"><header><span>Waiting</span></header><strong>${n(s.waiting)}</strong><p>external dependencies</p></div><div class="pm-pulse"><header><span>Roadmap</span></header><strong>${n(s.roadmap)}</strong><p>future work</p></div></div>`)}${panel('Growth Activity','Operational Snapshot',`<div class="pm-detail-list"><div class="pm-detail-pair"><span>Founder’s Race pending</span><strong>${n(prt.founders_race?.pending)}</strong></div><div class="pm-detail-pair"><span>PRT feedback</span><strong>${n(prt.feedback?.open??prt.feedback?.total)}</strong></div><div class="pm-detail-pair"><span>Editorial drafts</span><strong>${n(content.editorial?.drafts)}</strong></div><div class="pm-detail-pair"><span>Published social</span><strong>${n(content.autopilot?.published)}</strong></div></div>`)}</div>`;}
 
