@@ -123,6 +123,7 @@ class Decision(BaseModel):
 class PostUpdate(BaseModel):
     body: str | None = None
     title: str | None = None
+    platform: str | None = None
     content_type: str | None = None
     scheduled_for: str | None = None
     media_url: str | None = None
@@ -480,6 +481,18 @@ def update_post(post_id: int, req: PostUpdate, request: Request, x_pitmark_admin
             setattr(p, key, value)
         p.updated_at = utcnow(); db.commit(); db.refresh(p)
         return serialize(p)
+
+
+@router.delete('/autopilot/posts/{post_id}')
+def delete_post(post_id: int, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    with SessionLocal() as db:
+        p = db.get(SocialPost, post_id)
+        if not p:
+            raise HTTPException(404, 'Post not found')
+        db.delete(p)
+        db.commit()
+        return {'ok': True, 'deleted_id': post_id}
 
 
 @router.post('/autopilot/posts/{post_id}/decision')
