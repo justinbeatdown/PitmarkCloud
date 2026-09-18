@@ -90,11 +90,11 @@ async function renderHQ(root, ctx) {
   root.innerHTML = `
     <section class="pm-brief"><div><span class="eyebrow">TODAY AT PITMARK</span><h2>${esc(headline)}</h2><p>${esc(sub)}</p></div><div class="pm-brief-meta">${checklistBadge}<span class="pm-badge">v${esc(payload?.version || systems?.app_version || '—')}</span></div></section>
     <div class="pm-metric-strip">
-      ${workConnected ? `<div class="pm-metric"><span>Needs attention</span><strong>${n(attention.length)}</strong><small>P0/P1, blockers, active work</small></div><div class="pm-metric"><span>Waiting</span><strong>${n(summary.waiting)}</strong><small>External or pending items</small></div>` : ''}
-      <div class="pm-metric"><span>PRT applications</span><strong>${n(appCount)}</strong><small>New applications</small></div>
-      <div class="pm-metric"><span>Content approvals</span><strong>${n(approvalCount)}</strong><small>Generated posts waiting</small></div>
-      <div class="pm-metric"><span>Relationships</span><strong>${n(relationships?.total)}</strong><small>${n(followUpCount)} follow-ups tracked</small></div>
-      ${workConnected ? '' : `<div class="pm-metric"><span>PRT feedback</span><strong>${n(feedbackOpen)}</strong><small>Open tester feedback</small></div><div class="pm-metric"><span>Signals</span><strong>${n(unreadCount)}</strong><small>Unread operational signals</small></div>`}
+      ${workConnected ? `<button type="button" class="pm-metric pm-metric-action" data-hq-action="attention" aria-label="Open work needing attention"><span>Needs attention</span><strong>${n(attention.length)}</strong><small>P0/P1, blockers, active work</small><i aria-hidden="true">›</i></button><button type="button" class="pm-metric pm-metric-action" data-hq-action="waiting" aria-label="Open waiting work"><span>Waiting</span><strong>${n(summary.waiting)}</strong><small>External or pending items</small><i aria-hidden="true">›</i></button>` : ''}
+      <button type="button" class="pm-metric pm-metric-action" data-hq-action="applications" aria-label="Open PRT applications"><span>PRT applications</span><strong>${n(appCount)}</strong><small>New applications</small><i aria-hidden="true">›</i></button>
+      <button type="button" class="pm-metric pm-metric-action" data-hq-action="approvals" aria-label="Open content approvals"><span>Content approvals</span><strong>${n(approvalCount)}</strong><small>Generated posts waiting</small><i aria-hidden="true">›</i></button>
+      <button type="button" class="pm-metric pm-metric-action" data-hq-action="relationships" aria-label="Open relationships"><span>Relationships</span><strong>${n(relationships?.total)}</strong><small>${n(followUpCount)} follow-ups tracked</small><i aria-hidden="true">›</i></button>
+      ${workConnected ? '' : `<button type="button" class="pm-metric pm-metric-action" data-hq-action="feedback"><span>PRT feedback</span><strong>${n(feedbackOpen)}</strong><small>Open tester feedback</small><i aria-hidden="true">›</i></button><button type="button" class="pm-metric pm-metric-action" data-hq-action="signals"><span>Signals</span><strong>${n(unreadCount)}</strong><small>Unread operational signals</small><i aria-hidden="true">›</i></button>`}
     </div>
     <div class="pm-grid pm-grid-hq">
       ${workConnected ? panel('Needs Attention','Operator Queue', attention.length ? `<div class="pm-row-list">${attention.map(workRow).join('')}</div>` : empty('Nothing urgent is sitting in the queue.'), `<button class="pm-button pm-button-ghost" data-go="work">Open Work</button>`) : panel('Operational Queue','Live Company Actions',queueBody,'')}
@@ -134,6 +134,17 @@ async function renderWork(root, ctx) {
 
 function bindWorkOpeners(root, ctx) {
   root.onclick = (event) => {
+    const metric = event.target.closest('[data-hq-action]');
+    if (metric) {
+      const action = metric.dataset.hqAction;
+      if (action === 'attention') { ctx.state.workView = 'now'; ctx.navigate('work'); return; }
+      if (action === 'waiting') { ctx.state.workView = 'waiting'; ctx.navigate('work'); return; }
+      if (action === 'applications') { ctx.state.prtTab = 'applications'; ctx.navigate('prt'); return; }
+      if (action === 'approvals') { ctx.state.contentTab = 'generated'; ctx.navigate('content'); return; }
+      if (action === 'relationships') { ctx.navigate('partnerships'); return; }
+      if (action === 'feedback') { ctx.state.prtTab = 'feedback'; ctx.navigate('prt'); return; }
+      if (action === 'signals') { ctx.navigate('systems'); return; }
+    }
     const go = event.target.closest('[data-go]'); if (go) { ctx.navigate(go.dataset.go); return; }
     const row = event.target.closest('[data-open-work]');
     if (row) { ctx.navigate('work', { workRow: Number(row.dataset.openWork) }); }
