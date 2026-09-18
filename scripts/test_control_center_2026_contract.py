@@ -54,7 +54,9 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("/control-center-overhaul.css", html)
         self.assertIn("/control-center-app.js", html)
         self.assertIn("type=\"module\"", html)
-        self.assertIn("filename = 'control_center.html' if user_from_request(request) else 'control_mobile_login.html'", ui)
+        self.assertIn("RedirectResponse", ui)
+        self.assertIn("/control-reset?source=mobile-retired-20260918", ui)
+        self.assertIn("control_mobile_login.html", ui)
 
     def test_current_hq_module_graph_is_served(self):
         assets = self.read("api/control_center_assets.py")
@@ -118,6 +120,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             "/api/control/ops/founders-race",
             "/api/control/ops/feedback",
             "/api/control/autopilot/posts",
+            "/api/control/social/posts",
             "/api/control/autopilot/composer/generate",
             "/api/control/blog/drafts",
             "/api/control/outreach",
@@ -131,6 +134,28 @@ class ControlCenter2026Contract(unittest.TestCase):
         app_js = self.read("api/control_center_app.js")
         self.assertIn("addEventListener", app_js)
         self.assertIn("AbortController", api_js)
+
+    def test_content_supports_bulk_select_edit_approve_publish_and_delete(self):
+        api_py = self.read("api/control_center.py")
+        self.assertIn("@router.delete('/autopilot/posts/{post_id}')", api_py)
+        self.assertIn("platform: str | None = None", api_py)
+        api_js = self.read("api/control_center_api.js")
+        self.assertIn("deletePost:", api_js)
+        views = self.read("api/control_center_views.js")
+        for token in (
+            "data-post-select",
+            "data-select-all",
+            'data-bulk-action="edit"',
+            'data-bulk-action="approve"',
+            'data-bulk-action="publish"',
+            'data-bulk-action="delete"',
+            "openBulkEdit",
+            "runBulk",
+        ):
+            self.assertIn(token, views)
+        css = self.read("api/control_center_overhaul.css")
+        self.assertIn(".pm-bulk-bar", css)
+        self.assertIn(".pm-content-check", css)
 
     def test_content_approved_posts_can_publish_live(self):
         api_js = self.read("api/control_center_api.js")
@@ -212,7 +237,8 @@ class ControlCenter2026Contract(unittest.TestCase):
             self.assertNotIn(asset, route_source)
             self.assertNotIn(asset, mobile_source)
         self.assertIn("filename = 'control_center.html' if user_from_request(request) else 'control_login.html'", route_source)
-        self.assertIn("filename = 'control_center.html' if user_from_request(request) else 'control_mobile_login.html'", mobile_source)
+        self.assertIn("/control-reset?source=mobile-retired-20260918", mobile_source)
+        self.assertIn("control_mobile_login.html", mobile_source)
 
 
 if __name__ == "__main__":

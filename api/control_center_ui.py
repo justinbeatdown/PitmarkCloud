@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi import APIRouter, Request
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 
 from services.control_auth import user_from_request
 
@@ -73,12 +73,18 @@ def control(request: Request):
     return _guarded_html(filename, guard=filename == 'control_center.html')
 
 
-@router.get('/control/mobile', response_class=HTMLResponse, include_in_schema=False)
+@router.get('/control/mobile', include_in_schema=False)
 def control_mobile(request: Request):
-    # Mobile and desktop intentionally run the same authenticated app. Responsive
-    # presentation belongs to one feature registry rather than a second product.
-    filename = 'control_center.html' if user_from_request(request) else 'control_mobile_login.html'
-    return _guarded_html(filename, guard=filename == 'control_center.html')
+    # The old mobile product contained the retired Comms/Mail surface. Authenticated
+    # users are forced through the recovery route so stale PWA/cache state cannot
+    # keep resurrecting it. Unauthenticated users still get the mobile login.
+    if user_from_request(request):
+        return RedirectResponse(
+            url='/control-reset?source=mobile-retired-20260918',
+            status_code=302,
+            headers={'Cache-Control': 'no-store, max-age=0', 'Pragma': 'no-cache'},
+        )
+    return _guarded_html('control_mobile_login.html', guard=False)
 
 
 def _text_asset(filename: str, media_type: str, *, cache: str = 'no-store') -> Response:
