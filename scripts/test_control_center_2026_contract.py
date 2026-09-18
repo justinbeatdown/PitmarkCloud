@@ -172,6 +172,17 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("workspaceOAuthStart:", api_js)
         self.assertIn("workspaceOAuthComplete:", api_js)
 
+    def test_systems_render_human_readable_brief_and_non_mail_signals(self):
+        views = self.read("api/control_center_views.js")
+        notifications = self.read("services/notification_engine.py")
+        self.assertIn("renderCommandBrief", views)
+        self.assertIn("notificationPayload?.items", views)
+        self.assertIn("No current operational signals.", views)
+        self.assertNotIn("JSON.stringify(brief)", views)
+        self.assertIn("_control_center_visible", notifications)
+        self.assertIn('"shield", "mail", "gmail", "email"', notifications)
+        self.assertIn("Control Center is not an inbox", notifications)
+
     def test_content_approved_posts_can_publish_live(self):
         api_js = self.read("api/control_center_api.js")
         self.assertIn("/api/control/social/posts", api_js)
