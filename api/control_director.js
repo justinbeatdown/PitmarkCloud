@@ -21,8 +21,11 @@
     const owner=(result.owner_needed||[]).map(x =>
       '<article class="pmd-owner"><strong>'+esc(x.title||'Owner action')+'</strong><p>'+esc(x.reason||'')+'</p><span>'+esc(x.urgency||'later')+'</span></article>'
     ).join('');
+    const stateLabel = typeof result.state === 'string'
+      ? result.state
+      : (result.state?.scope ? 'Operating review' : 'Working');
     target.innerHTML =
-      '<div class="pmd-state">'+esc(String(result.state||'working').toUpperCase())+'</div>'+
+      '<div class="pmd-state">'+esc(String(stateLabel).toUpperCase())+'</div>'+
       '<h2>'+esc(result.headline||'Pitmark Director')+'</h2>'+
       '<p class="pmd-summary">'+esc(result.executive_summary||'')+'</p>'+
       (actions?'<h3>Priority stack</h3><div class="pmd-stack">'+actions+'</div>':'')+
