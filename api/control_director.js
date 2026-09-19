@@ -16,7 +16,7 @@
     const target=document.getElementById('pitmark-director-result');
     if(!target) return;
     const actions=(result.top_actions||[]).map(x =>
-      '<article class="pmd-card"><div class="pmd-rank">'+esc(x.rank||'•')+'</div><div><strong>'+esc(x.title||'Action')+'</strong><p>'+esc(x.why||'')+'</p><small>'+esc(x.area||'Pitmark')+' · '+esc(x.execution||'review')+'</small><b>'+esc(x.next_step||'')+'</b></div></article>'
+      '<article class="pmd-card"><div class="pmd-rank">'+esc(x.rank||'•')+'</div><div><strong>'+esc(x.title||'Action')+'</strong><p>'+esc(x.why||'')+'</p><small>'+esc(x.area||'Pitmark')+' · '+esc(typeof x.execution==='object' ? (x.execution?.status||'prepared') : (x.execution||'review'))+'</small><b>'+esc(x.next_step||'')+'</b></div></article>'
     ).join('');
     const owner=(result.owner_needed||[]).map(x =>
       '<article class="pmd-owner"><strong>'+esc(x.title||'Owner action')+'</strong><p>'+esc(x.reason||'')+'</p><span>'+esc(x.urgency||'later')+'</span></article>'
