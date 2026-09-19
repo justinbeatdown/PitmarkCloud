@@ -10,10 +10,11 @@ from sqlalchemy import DateTime, Integer, String, Text, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from services.database import Base, SessionLocal
-from services.master_checklist import list_items
+from services.master_checklist import list_items, update_item
 from services.command_brief import build_command_brief
-from services.autonomy_control import list_policies, mode_for
+from services.autonomy_control import list_policies, mode_for, effective_mode
 from services.control_center import SocialPost
+from services.first_party_auto_schedule import auto_schedule_verified_first_party
 from utils.config import settings
 
 log = logging.getLogger("pitmark.astra_director")
@@ -71,10 +72,14 @@ Execution object schema:
 - status: short string
 - notes: short string
 - drafts: array of zero or more objects with platform, title, and body
-- internal_action: optional short machine-readable action name
+- internal_action: optional object with type and payload
 If no draft exists, drafts must be [].
 Supported draft platforms are facebook, instagram, x, and discord.
 Draft titles are customer-facing approval labels, not internal task names. Make them concise, natural, and specific to the post hook/topic.
+Supported internal_action types are ONLY:
+1) master_checklist_update with payload {row_number, status?, priority?, next_action?, notes?}
+2) auto_schedule_verified_first_party with payload {}
+If an action would publish reactive/manual social, send outreach, publish a blog, spend money, alter credentials/security, or do anything outside that whitelist, do not request an internal_action; put it in owner_needed or next_step instead.
 Each owner_needed item must include title, reason, urgency.
 Each delegate item must include worker and task.
 
@@ -123,6 +128,35 @@ def _trim_checklist(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _content_queue_snapshot() -> dict[str, Any]:
+    with SessionLocal() as db:
+        rows = list(db.scalars(
+            select(SocialPost)
+            .where(SocialPost.status.in_(["pending", "approved", "scheduled"]))
+            .order_by(SocialPost.created_at.desc())
+            .limit(30)
+        ).all())
+    return {
+        "count": len(rows),
+        "items": [
+            {
+                "id": row.id,
+                "platform": row.platform,
+                "title": row.title,
+                "body": row.body[:1200],
+                "content_type": row.content_type,
+                "source": row.source,
+                "risk": row.risk,
+                "status": row.status,
+                "media_url": row.media_url,
+                "scheduled_for": row.scheduled_for,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+            for row in rows
+        ],
+    }
+
+
 def director_state() -> dict[str, Any]:
     try:
         checklist = _trim_checklist(list_items())
@@ -145,6 +179,7 @@ def director_state() -> dict[str, Any]:
         },
         "master_checklist": checklist,
         "command_brief": brief,
+        "content_queue": _content_queue_snapshot(),
         "autonomy": list_policies(),
     }
 
@@ -312,6 +347,176 @@ def _save_social_drafts_from_result(result: dict[str, Any], run_id: int) -> list
     return created
 
 
+def _audit_director_action(
+    *,
+    run_id: int,
+    action_type: str,
+    capability: str,
+    status: str,
+    payload: dict[str, Any] | None = None,
+    result: dict[str, Any] | None = None,
+    error: str | None = None,
+) -> None:
+    with SessionLocal() as db:
+        db.add(AstraDirectorAction(
+            run_id=run_id,
+            action_type=action_type[:50],
+            capability=capability[:80],
+            status=status[:30],
+            payload_json=json.dumps(payload or {}, ensure_ascii=False, default=str),
+            result_json=json.dumps(result or {}, ensure_ascii=False, default=str),
+            error=(error or "")[:1000] or None,
+        ))
+        db.commit()
+
+
+def _dispatch_internal_actions(result: dict[str, Any], run_id: int) -> list[dict[str, Any]]:
+    dispatched: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+
+    for action in result.get("top_actions") or []:
+        if not isinstance(action, dict):
+            continue
+        execution = action.get("execution")
+        if not isinstance(execution, dict):
+            continue
+        spec = execution.get("internal_action")
+        if not isinstance(spec, dict):
+            continue
+
+        action_type = str(spec.get("type") or "").strip()
+        payload = spec.get("payload") if isinstance(spec.get("payload"), dict) else {}
+        dedupe = (action_type, json.dumps(payload, sort_keys=True, default=str))
+        if dedupe in seen:
+            continue
+        seen.add(dedupe)
+
+        try:
+            if action_type == "master_checklist_update":
+                mode = effective_mode("master_checklist_update", uncertainty=0.05, fallback="approval")
+                if mode != "auto":
+                    outcome = {
+                        "type": action_type,
+                        "status": "approval_required" if mode == "approval" else "blocked",
+                        "capability": "master_checklist_update",
+                        "mode": mode,
+                        "payload": payload,
+                    }
+                    _audit_director_action(
+                        run_id=run_id,
+                        action_type=action_type,
+                        capability="master_checklist_update",
+                        status=outcome["status"],
+                        payload=payload,
+                        result={"mode": mode},
+                    )
+                    dispatched.append(outcome)
+                    continue
+
+                row_number = int(payload.get("row_number") or action.get("checklist_row") or 0)
+                updates = {
+                    key: payload[key]
+                    for key in ("status", "priority", "next_action", "notes")
+                    if key in payload and payload[key] is not None
+                }
+                if row_number < 8 or not updates:
+                    raise ValueError("Checklist update needs a valid row_number and at least one supported field.")
+                updated = update_item(row_number, updates)
+                outcome = {
+                    "type": action_type,
+                    "status": "completed",
+                    "capability": "master_checklist_update",
+                    "row_number": row_number,
+                    "updates": updates,
+                    "task": updated.get("task"),
+                }
+                _audit_director_action(
+                    run_id=run_id,
+                    action_type=action_type,
+                    capability="master_checklist_update",
+                    status="completed",
+                    payload=payload,
+                    result=outcome,
+                )
+                dispatched.append(outcome)
+                continue
+
+            if action_type == "auto_schedule_verified_first_party":
+                mode = effective_mode("first_party_social_publish", uncertainty=0.05, fallback="auto")
+                if mode != "auto":
+                    outcome = {
+                        "type": action_type,
+                        "status": "approval_required" if mode == "approval" else "blocked",
+                        "capability": "first_party_social_publish",
+                        "mode": mode,
+                    }
+                    _audit_director_action(
+                        run_id=run_id,
+                        action_type=action_type,
+                        capability="first_party_social_publish",
+                        status=outcome["status"],
+                        payload=payload,
+                        result={"mode": mode},
+                    )
+                    dispatched.append(outcome)
+                    continue
+                scheduled = auto_schedule_verified_first_party()
+                outcome = {
+                    "type": action_type,
+                    "status": "completed",
+                    "capability": "first_party_social_publish",
+                    "scheduled_campaigns": scheduled.get("scheduled_campaigns", 0),
+                    "scheduled_posts": scheduled.get("scheduled_posts", 0),
+                    "assignments": scheduled.get("assignments") or [],
+                    "reason": scheduled.get("reason"),
+                }
+                _audit_director_action(
+                    run_id=run_id,
+                    action_type=action_type,
+                    capability="first_party_social_publish",
+                    status="completed",
+                    payload=payload,
+                    result=scheduled,
+                )
+                dispatched.append(outcome)
+                continue
+
+            outcome = {
+                "type": action_type or "unknown_internal_action",
+                "status": "blocked",
+                "capability": str(action.get("capability") or "unknown"),
+                "reason": "Action type is not on Astra's execution whitelist.",
+            }
+            _audit_director_action(
+                run_id=run_id,
+                action_type=outcome["type"],
+                capability=outcome["capability"],
+                status="blocked",
+                payload=payload,
+                result={"reason": outcome["reason"]},
+            )
+            dispatched.append(outcome)
+        except Exception as exc:
+            log.exception("Astra internal action failed: %s", action_type)
+            outcome = {
+                "type": action_type or "unknown_internal_action",
+                "status": "failed",
+                "capability": str(action.get("capability") or "internal"),
+                "error": str(exc)[:300],
+            }
+            _audit_director_action(
+                run_id=run_id,
+                action_type=outcome["type"],
+                capability=outcome["capability"],
+                status="failed",
+                payload=payload,
+                error=str(exc),
+            )
+            dispatched.append(outcome)
+
+    return dispatched
+
+
 def _execute_safe_internal_actions(result: dict[str, Any], run_id: int) -> dict[str, Any]:
     actions: list[dict[str, Any]] = []
     try:
@@ -331,6 +536,7 @@ def _execute_safe_internal_actions(result: dict[str, Any], run_id: int) -> dict[
                 "items": drafts,
                 "approval_required_to_publish": mode_for("social_publish", "approval") != "auto",
             })
+        actions.extend(_dispatch_internal_actions(result, run_id))
     except Exception as exc:
         log.exception("Astra safe execution failed")
         with SessionLocal() as db:
