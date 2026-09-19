@@ -134,7 +134,7 @@ def _content_queue_snapshot() -> dict[str, Any]:
             select(SocialPost)
             .where(SocialPost.status.in_(["pending", "approved", "scheduled"]))
             .order_by(SocialPost.created_at.desc())
-            .limit(30)
+            .limit(12)
         ).all())
     return {
         "count": len(rows),
@@ -158,6 +158,10 @@ def _content_queue_snapshot() -> dict[str, Any]:
 
 
 def director_state() -> dict[str, Any]:
+    try:
+        _repair_legacy_astra_draft_titles()
+    except Exception:
+        log.exception("Could not repair legacy Astra draft titles")
     try:
         checklist = _trim_checklist(list_items())
     except Exception as exc:
