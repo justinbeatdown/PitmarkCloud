@@ -10,6 +10,7 @@ DEFAULTS = [
     ('outreach_send','approval','Send first-contact or relationship outreach.','external'),
     ('social_publish','approval','Publish social content to connected platforms.','external'),
     ('first_party_social_publish','auto','Auto-schedule verified Pitmark first-party posts only; excludes reactive news, manual posts, TikTok, and Discord.','external'),
+    ('master_checklist_update','auto','Update Pitmark Master Checklist status, next action, priority, or notes for clearly identified work.','standard'),
     ('blog_publish','approval','Publish blog content to connected platforms.','external'),
     ('shield_monitoring','auto','Monitor ecosystem security and communications.','security'),
     ('shield_response','approval','Apply non-destructive security response actions.','security'),
