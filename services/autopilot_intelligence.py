@@ -11,9 +11,10 @@ from utils.config import settings
 from services.x_publish_service import search_recent as x_search_recent
 log=logging.getLogger('pitmark.autopilot.intelligence')
 FEED='https://news.google.com/rss/search?q={}&hl=en-US&gl=US&ceid=US:en'
-TERMS=('racing','race','motorsport','speedway','nascar','indycar','imsa','sprint car','late model','modified','sim racing','iracing','dirt','short track','kart','league')
-COMMUNITY=('grassroots','local','short track','dirt','speedway','sprint','late model','modified','kart','sim racing','iracing','league','rookie','first season','track','club')
-MAJOR=('nascar.com','formula 1','f1','indycar','cup series','motogp')
+TERMS=('racing','race','motorsport','speedway','nascar','indycar','imsa','formula 1','f1','nhra','motogp','world of outlaws','lucas oil late model','usac','dirtcar','sprint car','late model','modified','sim racing','iracing','dirt','short track','kart','league')
+COMMUNITY=('grassroots','local','short track','dirt','speedway','sprint','late model','modified','kart','sim racing','iracing','league','rookie','first season','track','club','world of outlaws','lucas oil late model','usac','dirtcar')
+MAJOR=('nascar.com','formula 1','f1','indycar','cup series','motogp','imsa','nhra')
+COVERAGE_SERIES=('nascar','indycar','imsa','formula 1','f1','nhra','motogp','world of outlaws','lucas oil late model dirt series','usac','dirtcar','modified','sprint car','late model','short track','iracing','sim racing')
 LOW_SIGNAL=('farm and dairy','drag bike news')
 X_STRONG_RACING=('nascar','indycar','imsa','iracing','motorsport','motorsports','speedway','raceway','sprint car','late model','short track','dirt track','modified racing','stock car racing','karting','sim racing')
 X_REJECT_CONTEXT=('white race','human race','race relations','racial','racist','race war','master race','genetics','ancestry','ethnicity','army','navy','air force','military','politics','election','government')
@@ -27,11 +28,12 @@ def _story_key(title:str)->str:
 
 def _quality(title:str, description:str)->tuple[int,str]:
  text=(title+' '+description).lower(); community=sum(x in text for x in COMMUNITY); major=sum(x in text for x in MAJOR); low=sum(x in text for x in LOW_SIGNAL)
- score=community*18 - major*12 - low*25
+ coverage=sum(x in text for x in COVERAGE_SERIES)
+ score=community*18 + coverage*8 - major*4 - low*25
  if 'rookie' in text or 'first season' in text: score+=30
  if 'iracing' in text or 'sim racing' in text or 'league' in text: score+=24
  if any(x in text for x in ('local','grassroots','short track','dirt','speedway')): score+=18
- reason='strong Pitmark community fit' if score>=45 else ('possible community fit; verify relevance' if score>=20 else 'broad motorsports signal; low Pitmark fit')
+ reason='strong Pitmark community fit' if score>=45 else ('useful motorsports coverage; verify relevance' if score>=20 else 'broad motorsports signal; low Pitmark fit')
  return score,reason
 
 
@@ -66,7 +68,15 @@ def scan_now():
  with SessionLocal() as db: db.add(run); db.commit(); db.refresh(run); rid=run.id
  found=queued=filtered=duplicates=0
  try:
-  queries=[f'{settings.autopilot_scan_query} when:1d','(rookie racer OR first season racing OR local speedway OR short track racing) when:1d','(iRacing league OR sim racing league OR grassroots motorsports) when:1d']
+  queries=[
+   f'{settings.autopilot_scan_query} when:1d',
+   '(rookie racer OR first season racing OR local speedway OR short track racing) when:1d',
+   '(World of Outlaws OR Lucas Oil Late Model Dirt Series OR USAC OR DIRTcar OR sprint car OR dirt late model OR modified racing) when:1d',
+   '(IndyCar OR IMSA OR Formula 1 OR F1 OR NHRA OR MotoGP) racing when:1d',
+   '(NASCAR OR Cup Series OR Xfinity Series OR Truck Series) racing when:1d',
+   '(iRacing league OR sim racing league OR grassroots motorsports) when:1d',
+   '(local track OR local speedway OR regional racing OR short track) motorsports when:1d',
+  ]
   raws=[]
   with httpx.Client(timeout=20,follow_redirects=True,headers={'User-Agent':'PitmarkAutopilot/0.12.9'}) as c:
    for q in queries:
@@ -131,7 +141,7 @@ def scan_now():
      except Exception as e: log.warning('AI candidate failed: %s',e)
    # Paid X intelligence reads are intentionally disabled from scheduled scans.
    # X publishing remains enabled; paid X reads will be exposed only through an explicit on-demand action.
-   db.commit(); rr=db.get(AutopilotRun,rid); rr.status='completed'; rr.found_count=found; rr.queued_count=queued; rr.note=f'Pitmark Intelligence V3.1 free-auto: filtered={filtered}; story_duplicates={duplicates}; rss_queries={len(queries)}; paid_x_reads=disabled'; db.commit()
+   db.commit(); rr=db.get(AutopilotRun,rid); rr.status='completed'; rr.found_count=found; rr.queued_count=queued; rr.note=f'Pitmark Intelligence V3.2 wide-coverage: filtered={filtered}; story_duplicates={duplicates}; rss_queries={len(queries)}; paid_x_reads=disabled'; db.commit()
   return {'ok':True,'found':found,'queued':queued,'filtered':filtered,'duplicates':duplicates}
  except Exception as e:
   with SessionLocal() as db: rr=db.get(AutopilotRun,rid); rr.status='failed'; rr.note=str(e)[:400]; db.commit()
@@ -139,7 +149,7 @@ def scan_now():
 
 def status():
  with SessionLocal() as db:
-  r=db.scalar(select(AutopilotRun).order_by(AutopilotRun.id.desc()).limit(1)); return {'enabled':settings.autopilot_intelligence_enabled,'interval_hours':settings.autopilot_scan_hours,'interval_minutes':settings.autopilot_scan_minutes,'version':'v3.1-free-auto','last_run':None if not r else {'status':r.status,'found':r.found_count,'queued':r.queued_count,'note':r.note,'created_at':r.created_at.isoformat()}}
+  r=db.scalar(select(AutopilotRun).order_by(AutopilotRun.id.desc()).limit(1)); return {'enabled':settings.autopilot_intelligence_enabled,'interval_hours':settings.autopilot_scan_hours,'interval_minutes':settings.autopilot_scan_minutes,'version':'v3.2-wide-coverage','last_run':None if not r else {'status':r.status,'found':r.found_count,'queued':r.queued_count,'note':r.note,'created_at':r.created_at.isoformat()}}
 async def scheduler_loop():
  await asyncio.sleep(30)
  while True:
