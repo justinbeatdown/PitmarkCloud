@@ -86,15 +86,23 @@ private val PitmarkScheme = darkColorScheme(
 )
 
 class MainActivity : ComponentActivity() {
+    private var incomingPairCode by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        incomingPairCode = intent?.data?.getQueryParameter("code")
         setContent {
             MaterialTheme(colorScheme = PitmarkScheme) {
                 Surface(modifier = Modifier.fillMaxSize(), color = PitmarkBlack) {
-                    PrtApp()
+                    PrtApp(initialPairCode = incomingPairCode)
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        incomingPairCode = intent.data?.getQueryParameter("code")
     }
 }
 
@@ -124,6 +132,23 @@ private class CredentialStore(application: Application) {
             .apply()
     }
 
+    fun ensure(): PrtCredentials {
+        read()?.let { return it }
+        val id = UUID.randomUUID().toString().replace("-", "")
+        val bytes = ByteArray(32)
+        SecureRandom().nextBytes(bytes)
+        val token = bytes.joinToString("") { "%02x".format(it) }
+        val created = PrtCredentials(id, token)
+        save(created)
+        return created
+    }
+
+    fun isPaired(): Boolean = prefs.getBoolean("paired", false)
+
+    fun markPaired(value: Boolean) {
+        prefs.edit().putBoolean("paired", value).apply()
+    }
+
     fun clear() {
         prefs.edit().clear().apply()
     }
@@ -133,7 +158,9 @@ class PrtViewModel(application: Application) : AndroidViewModel(application) {
     private val api = PrtApi()
     private val store = CredentialStore(application)
 
-    var credentials by mutableStateOf(store.read())
+    var credentials by mutableStateOf<PrtCredentials?>(store.ensure())
+        private set
+    var paired by mutableStateOf(store.isPaired())
         private set
     var dashboard by mutableStateOf<DashboardPayload?>(null)
         private set
@@ -147,19 +174,49 @@ class PrtViewModel(application: Application) : AndroidViewModel(application) {
         private set
 
     init {
-        if (credentials != null) refreshAll()
+        registerPhone()
+        if (paired) refreshAll()
     }
 
-    fun saveCredentials(deviceId: String, token: String) {
-        val clean = PrtCredentials(deviceId.trim(), token.trim())
-        store.save(clean)
-        credentials = clean
-        refreshAll()
+    private fun registerPhone() {
+        val auth = credentials ?: return
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) { api.registerDevice(auth) }
+            } catch (t: Throwable) {
+                error = t.message ?: "Could not register this phone with Pitmark Cloud."
+            }
+        }
+    }
+
+    fun claimPairing(code: String) {
+        val auth = credentials ?: return
+        val clean = code.filter { it.isDigit() }
+        if (clean.length != 6) {
+            error = "Enter the 6-digit code shown in desktop PRT."
+            return
+        }
+        viewModelScope.launch {
+            loading = true
+            error = null
+            try {
+                val name = withContext(Dispatchers.IO) { api.claimPairing(auth, clean) }
+                store.markPaired(true)
+                paired = true
+                notice = "Paired with " + name
+                refreshAll()
+            } catch (t: Throwable) {
+                error = t.message ?: "Could not pair this phone."
+            } finally {
+                loading = false
+            }
+        }
     }
 
     fun disconnect() {
         store.clear()
-        credentials = null
+        credentials = store.ensure()
+        paired = false
         dashboard = null
         sessions = emptyList()
         error = null
@@ -205,7 +262,7 @@ class PrtViewModel(application: Application) : AndroidViewModel(application) {
 }
 
 @Composable
-private fun PrtApp(vm: PrtViewModel = viewModel()) {
+private fun PrtApp(initialPairCode: String? = null, vm: PrtViewModel = viewModel()) {
     var tab by remember { mutableIntStateOf(0) }
     var showSettings by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
@@ -221,9 +278,17 @@ private fun PrtApp(vm: PrtViewModel = viewModel()) {
         }
     }
 
-    if (vm.credentials == null) {
+    LaunchedEffect(initialPairCode, vm.paired) {
+        if (!vm.paired && !initialPairCode.isNullOrBlank()) {
+            vm.claimPairing(initialPairCode)
+        }
+    }
+
+    if (!vm.paired) {
         PairingScreen(
-            onSave = vm::saveCredentials
+            initialCode = initialPairCode.orEmpty(),
+            loading = vm.loading,
+            onPair = vm::claimPairing
         )
         return
     }
