@@ -54,6 +54,17 @@ Return valid JSON only with keys: headline, state, executive_summary, top_action
 Each top_actions item must include rank, title, why, area, execution, capability, checklist_row, next_step.
 Each owner_needed item must include title, reason, urgency.
 Each delegate item must include worker and task.
+
+STRICT OUTPUT BUDGET
+- Return one complete JSON object only. No markdown fences, prose before/after, or comments.
+- Keep the entire response under about 1200 output tokens so it cannot be truncated.
+- top_actions: maximum 3 items.
+- owner_needed: maximum 3 items.
+- delegate: maximum 3 items.
+- risks: maximum 3 concise items.
+- executive_summary: maximum 120 words.
+- Keep why, execution, capability, next_step, reason, and task concise; next_step should be no more than 35 words.
+- If there is more context than fits, prioritize only the highest-impact information rather than expanding the response.
 """
 
 
@@ -116,17 +127,38 @@ def director_state() -> dict[str, Any]:
 
 
 def _safe_json(text: str) -> dict[str, Any]:
-    candidate = text.strip()
-    try:
-        data = json.loads(candidate)
-    except json.JSONDecodeError:
-        start, end = candidate.find("{"), candidate.rfind("}")
-        if start < 0 or end <= start:
-            raise RuntimeError("Astra returned non-JSON output.")
-        data = json.loads(candidate[start:end + 1])
-    if not isinstance(data, dict):
-        raise RuntimeError("Astra returned an unexpected response shape.")
-    return data
+    candidate = (text or "").strip()
+    if not candidate:
+        raise RuntimeError("Astra returned an empty response.")
+
+    attempts = [candidate]
+    start, end = candidate.find("{"), candidate.rfind("}")
+    if start >= 0 and end > start:
+        extracted = candidate[start:end + 1]
+        if extracted != candidate:
+            attempts.append(extracted)
+
+    last_error: json.JSONDecodeError | None = None
+    for attempt in attempts:
+        try:
+            data = json.loads(attempt)
+        except json.JSONDecodeError as exc:
+            last_error = exc
+            continue
+        if not isinstance(data, dict):
+            raise RuntimeError("Astra returned an unexpected response shape.")
+        return data
+
+    if last_error is not None:
+        log.warning(
+            "Astra Director returned malformed/truncated JSON: %s; chars=%s",
+            last_error,
+            len(candidate),
+        )
+    raise RuntimeError(
+        "Astra's response was cut off before the JSON finished. "
+        "The Director output has been tightened; run it again."
+    )
 
 
 def run_director(request_text: str = "", *, mode: str | None = None) -> dict[str, Any]:
@@ -158,6 +190,15 @@ def run_director(request_text: str = "", *, mode: str | None = None) -> dict[str
         response = client.post("https://api.openai.com/v1/responses", headers=headers, json=payload)
         response.raise_for_status()
         body = response.json()
+
+    if body.get("status") == "incomplete":
+        details = body.get("incomplete_details") or {}
+        reason = details.get("reason") if isinstance(details, dict) else None
+        log.warning("Astra Director response incomplete: %s", reason or "unknown")
+        raise RuntimeError(
+            "Astra hit its response limit before finishing. "
+            "The Director output has been tightened; run it again."
+        )
 
     result = _safe_json(_extract_output_text(body))
     result["_meta"] = {
