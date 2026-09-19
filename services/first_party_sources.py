@@ -169,30 +169,127 @@ def scan_prt_release() -> dict:
 
 
 def article_details(article_id: str) -> dict:
-    data = shopify_service.graphql("""query P($id:ID!){node(id:$id){... on Article{id title handle blog{handle} image{originalSrc}}}}""", {"id": article_id})
+    data = shopify_service.graphql("""query P($id:ID!){node(id:$id){... on Article{id title handle blog{handle} image{url}}}}""", {"id": article_id})
     node = data.get("node"); return node if isinstance(node, dict) else {}
+
+
+def recent_articles() -> tuple[list[dict], str]:
+    """Read recent published articles directly from Shopify Admin.
+
+    This keeps First-Party Autopilot independent of where the article was
+    created (Control Center, Shopify admin, or another approved publisher).
+    """
+    try:
+        data = shopify_service.graphql("""
+        query PitmarkAutopilotRecentArticles {
+          articles(first: 60, sortKey: PUBLISHED_AT, reverse: true, query: "published_status:published") {
+            nodes {
+              id title handle summary body publishedAt updatedAt isPublished
+              blog { handle title }
+              image { url }
+            }
+          }
+        }""")
+        out = []
+        for a in ((data.get("articles") or {}).get("nodes") or []):
+            if not a.get("isPublished"):
+                continue
+            blog = a.get("blog") or {}
+            image = ((a.get("image") or {}).get("url") or "").strip()
+            out.append({
+                "id": a.get("id"),
+                "title": a.get("title"),
+                "handle": a.get("handle"),
+                "summary": a.get("summary"),
+                "body": a.get("body"),
+                "published_at": a.get("publishedAt"),
+                "updated_at": a.get("updatedAt"),
+                "blog_handle": blog.get("handle"),
+                "blog_title": blog.get("title"),
+                "media_url": image or None,
+            })
+        if out:
+            return out, "shopify_admin"
+    except Exception as exc:
+        log.warning("Admin article scan failed; Control Center fallback: %s", exc)
+    return [], "control_center"
 
 
 def scan_blogs() -> dict:
     hours = env_int("PITMARK_FIRST_PARTY_BLOG_BACKFILL_HOURS", 72, 1, 336)
-    with SessionLocal() as db: rows = list(db.scalars(select(BlogDraft).where(BlogDraft.status == "published").order_by(BlogDraft.id.desc()).limit(30)).all())
+    base = (settings.pitmark_public_store_url or "https://pitmarkracing.com").rstrip("/")
+
+    articles, source = recent_articles()
+    if articles:
+        queued = 0
+        for a in articles:
+            when = a.get("published_at") or a.get("updated_at")
+            if not recent(when, hours):
+                continue
+            article_id = str(a.get("id") or "").strip()
+            title = clean(a.get("title"), 240)
+            blog_handle = str(a.get("blog_handle") or "").strip()
+            handle = str(a.get("handle") or "").strip()
+            if not article_id or not title or not blog_handle or not handle:
+                continue
+            url = f"{base}/blogs/{blog_handle}/{handle}"
+            _, created = queue_event(
+                event_key=f"blog_publish:shopify:{article_id}",
+                event_type="blog_publish",
+                title=title,
+                summary=clean(a.get("summary") or a.get("body"), 700),
+                url=url,
+                media_url=(a.get("media_url") or None),
+                payload={
+                    "shopify_article_id": article_id,
+                    "handle": handle,
+                    "blog_handle": blog_handle,
+                    "published_at": when,
+                    "catalog_source": source,
+                },
+            )
+            queued += int(created)
+        return {"scanned": len(articles), "queued": queued, "source": source, "window_hours": hours}
+
+    # Safe fallback for stores where the Admin article query is unavailable.
+    with SessionLocal() as db:
+        rows = list(db.scalars(
+            select(BlogDraft)
+            .where(BlogDraft.status == "published")
+            .order_by(BlogDraft.id.desc())
+            .limit(30)
+        ).all())
     queued = 0
     for d in rows:
-        if not recent(d.updated_at, hours): continue
-        with SessionLocal() as db: rec = db.scalar(select(ShopifyPublishRecord).where(ShopifyPublishRecord.draft_id == d.id))
-        if not rec: continue
+        if not recent(d.updated_at, hours):
+            continue
+        with SessionLocal() as db:
+            rec = db.scalar(select(ShopifyPublishRecord).where(ShopifyPublishRecord.draft_id == d.id))
+        if not rec:
+            continue
         url, media = (rec.url or "").strip() or None, (d.featured_image_url or "").strip() or None
         if (not url or not media) and rec.shopify_article_id:
             try:
-                a = article_details(rec.shopify_article_id); bh = ((a.get("blog") or {}).get("handle") or "").strip(); ah = (a.get("handle") or "").strip()
-                if not url and bh and ah: url = f"{(settings.pitmark_public_store_url or 'https://pitmarkracing.com').rstrip('/')}/blogs/{bh}/{ah}"
-                if not media: media = (((a.get("image") or {}).get("originalSrc") or "").strip() or None)
-            except Exception as exc: log.warning("Blog URL/image resolve failed: %s", exc)
-        _, created = queue_event(event_key=f"blog_publish:{d.id}", event_type="blog_publish", title=d.title,
-                                 summary=clean(d.seo_description or d.body_html, 700), url=url, media_url=media,
-                                 payload={"draft_id": d.id, "shopify_article_id": rec.shopify_article_id})
+                a = article_details(rec.shopify_article_id)
+                bh = ((a.get("blog") or {}).get("handle") or "").strip()
+                ah = (a.get("handle") or "").strip()
+                if not url and bh and ah:
+                    url = f"{base}/blogs/{bh}/{ah}"
+                if not media:
+                    media = (((a.get("image") or {}).get("url") or "").strip() or None)
+            except Exception as exc:
+                log.warning("Blog URL/image resolve failed: %s", exc)
+        _, created = queue_event(
+            event_key=f"blog_publish:{d.id}",
+            event_type="blog_publish",
+            title=d.title,
+            summary=clean(d.seo_description or d.body_html, 700),
+            url=url,
+            media_url=media,
+            payload={"draft_id": d.id, "shopify_article_id": rec.shopify_article_id},
+        )
         queued += int(created)
-    return {"scanned": len(rows), "queued": queued, "window_hours": hours}
+    return {"scanned": len(rows), "queued": queued, "source": source, "window_hours": hours}
 
 
 def is_street(row: OutreachContact) -> bool:
