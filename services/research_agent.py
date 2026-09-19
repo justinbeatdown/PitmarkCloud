@@ -22,7 +22,8 @@ DDG_HTML = 'https://html.duckduckgo.com/html/?q={}'
 BING_RSS = 'https://www.bing.com/search?format=rss&q={}'
 RACING_TERMS = (
     'racing','race','racer','speedway','motorsport','motorsports','iracing','sim racing',
-    'late model','sprint car','modified','stock car','kart','nascar','indycar','imsa','dirt','oval','road course'
+    'late model','sprint car','modified','stock car','kart','nascar','indycar','imsa','formula 1','f1','nhra','motogp',
+    'world of outlaws','lucas oil late model','usac','dirtcar','dirt','oval','road course'
 )
 
 
