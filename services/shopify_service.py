@@ -122,6 +122,32 @@ def connection_test() -> dict[str, Any]:
     }
 
 
+def commerce_snapshot() -> dict[str, Any]:
+    snapshot: dict[str, Any] = {"connection": {}, "products": {"count": None, "items": [], "error": None}, "collections": {"count": None, "items": [], "error": None}, "orders": {"count": None, "has_sale": None, "latest": None, "error": None}}
+    try:
+        snapshot["connection"] = connection_test()
+    except Exception as exc:
+        snapshot["connection"] = {"configured": configured(), "authenticated": False, "error": str(exc)[:300]}
+    try:
+        data = graphql("query PitmarkStoreProducts { products(first: 12, sortKey: UPDATED_AT, reverse: true) { nodes { id title handle status updatedAt featuredMedia { preview { image { url } } } variants(first: 1) { nodes { price } } } pageInfo { hasNextPage } } }")
+        nodes = list(((data.get("products") or {}).get("nodes") or []))
+        snapshot["products"] = {"count": len(nodes), "has_more": bool((data.get("products") or {}).get("pageInfo", {}).get("hasNextPage")), "items": [{"id": i.get("id"), "title": i.get("title"), "handle": i.get("handle"), "status": i.get("status"), "updated_at": i.get("updatedAt"), "image_url": (((i.get("featuredMedia") or {}).get("preview") or {}).get("image") or {}).get("url"), "price": ((((i.get("variants") or {}).get("nodes") or [{}])[0]).get("price"))} for i in nodes], "error": None}
+    except Exception as exc:
+        snapshot["products"]["error"] = str(exc)[:300]
+    try:
+        data = graphql("query PitmarkCollections { collections(first: 20, sortKey: UPDATED_AT, reverse: true) { nodes { id title handle updatedAt productsCount { count } } pageInfo { hasNextPage } } }")
+        nodes = list(((data.get("collections") or {}).get("nodes") or []))
+        snapshot["collections"] = {"count": len(nodes), "has_more": bool((data.get("collections") or {}).get("pageInfo", {}).get("hasNextPage")), "items": [{"id": i.get("id"), "title": i.get("title"), "handle": i.get("handle"), "updated_at": i.get("updatedAt"), "product_count": ((i.get("productsCount") or {}).get("count"))} for i in nodes], "error": None}
+    except Exception as exc:
+        snapshot["collections"]["error"] = str(exc)[:300]
+    try:
+        data = graphql("query PitmarkRecentOrders { orders(first: 1, sortKey: CREATED_AT, reverse: true) { nodes { id name createdAt displayFinancialStatus displayFulfillmentStatus currentTotalPriceSet { shopMoney { amount currencyCode } } } } }")
+        nodes = list(((data.get("orders") or {}).get("nodes") or [])); latest = nodes[0] if nodes else None
+        snapshot["orders"] = {"count": len(nodes), "has_sale": bool(nodes), "latest": ({"id": latest.get("id"), "name": latest.get("name"), "created_at": latest.get("createdAt"), "financial_status": latest.get("displayFinancialStatus"), "fulfillment_status": latest.get("displayFulfillmentStatus"), "amount": (((latest.get("currentTotalPriceSet") or {}).get("shopMoney") or {}).get("amount")), "currency": (((latest.get("currentTotalPriceSet") or {}).get("shopMoney") or {}).get("currencyCode"))} if latest else None), "error": None}
+    except Exception as exc:
+        snapshot["orders"]["error"] = str(exc)[:300]
+    return snapshot
+
 def verify_webhook(body: bytes, supplied_hmac: str) -> bool:
     secret = (settings.shopify_webhook_secret or settings.shopify_client_secret or "").encode("utf-8")
     if not secret or not supplied_hmac:
