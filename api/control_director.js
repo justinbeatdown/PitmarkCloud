@@ -21,6 +21,10 @@
     const owner=(result.owner_needed||[]).map(x =>
       '<article class="pmd-owner"><strong>'+esc(x.title||'Owner action')+'</strong><p>'+esc(x.reason||'')+'</p><span>'+esc(x.urgency||'later')+'</span></article>'
     ).join('');
+    const executed=(result.execution_result?.actions||[]).map(x => {
+      if(x.type==='social_drafts_saved') return '<article class="pmd-owner"><strong>Saved '+esc(x.count||0)+' social draft'+(Number(x.count||0)===1?'':'s')+'</strong><p>Added to Content approvals. Nothing was published automatically.</p><span>COMPLETED</span></article>';
+      return '<article class="pmd-owner"><strong>'+esc(x.type||'Execution')+'</strong><p>'+esc(x.error||'')+'</p><span>'+esc(x.status||'')+'</span></article>';
+    }).join('');
     const stateLabel = typeof result.state === 'string'
       ? result.state
       : (result.state?.scope ? 'Operating review' : 'Working');
@@ -29,6 +33,7 @@
       '<h2>'+esc(result.headline||'Pitmark Director')+'</h2>'+
       '<p class="pmd-summary">'+esc(result.executive_summary||'')+'</p>'+
       (actions?'<h3>Priority stack</h3><div class="pmd-stack">'+actions+'</div>':'')+
+      (executed?'<h3>Astra completed</h3><div class="pmd-stack">'+executed+'</div>':'')+
       (owner?'<h3>You are needed</h3><div class="pmd-stack">'+owner+'</div>':'<div class="pmd-clear">Nothing currently requires you.</div>');
   }
   function open(){
