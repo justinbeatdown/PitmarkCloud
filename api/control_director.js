@@ -21,11 +21,17 @@
     const owner=(result.owner_needed||[]).map(x =>
       '<article class="pmd-owner"><strong>'+esc(x.title||'Owner action')+'</strong><p>'+esc(x.reason||'')+'</p><span>'+esc(x.urgency||'later')+'</span></article>'
     ).join('');
-    const executed=(result.execution_result?.actions||[]).map(x => {
+    const executionItems=(result.execution_result?.actions||[]);
+    const executed=executionItems.filter(x=>x.status==='completed').map(x => {
       if(x.type==='social_drafts_saved') return '<article class="pmd-owner"><strong>Saved '+esc(x.count||0)+' social draft'+(Number(x.count||0)===1?'':'s')+'</strong><p>Added to Content approvals. Nothing was published automatically.</p><span>COMPLETED</span></article>';
       if(x.type==='social_draft_titles_repaired') return '<article class="pmd-owner"><strong>Repaired '+esc(x.count||0)+' social draft title'+(Number(x.count||0)===1?'':'s')+'</strong><p>Replaced internal Director task labels with human-facing content titles.</p><span>COMPLETED</span></article>';
-      return '<article class="pmd-owner"><strong>'+esc(x.type||'Execution')+'</strong><p>'+esc(x.error||'')+'</p><span>'+esc(x.status||'')+'</span></article>';
+      if(x.type==='master_checklist_update') return '<article class="pmd-owner"><strong>Updated Master Checklist</strong><p>'+esc(x.task||('Row '+(x.row_number||'')))+'</p><span>COMPLETED</span></article>';
+      if(x.type==='auto_schedule_verified_first_party') return '<article class="pmd-owner"><strong>Ran verified first-party scheduler</strong><p>'+esc(x.scheduled_posts||0)+' post'+(Number(x.scheduled_posts||0)===1?'':'s')+' scheduled across '+esc(x.scheduled_campaigns||0)+' campaign'+(Number(x.scheduled_campaigns||0)===1?'':'s')+'.'+(x.reason?' '+esc(x.reason):'')+'</p><span>COMPLETED</span></article>';
+      return '<article class="pmd-owner"><strong>'+esc(x.type||'Execution')+'</strong><p>'+esc(x.error||x.reason||'Completed successfully.')+'</p><span>COMPLETED</span></article>';
     }).join('');
+    const gated=executionItems.filter(x=>x.status==='approval_required'||x.status==='blocked'||x.status==='failed').map(x =>
+      '<article class="pmd-owner"><strong>'+esc((x.type||'Action').replaceAll('_',' '))+'</strong><p>'+esc(x.error||x.reason||('Policy mode: '+(x.mode||x.status)))+'</p><span>'+esc(String(x.status||'').toUpperCase())+'</span></article>'
+    ).join('');
     const stateLabel = typeof result.state === 'string'
       ? result.state
       : (result.state?.scope ? 'Operating review' : 'Working');
@@ -35,6 +41,7 @@
       '<p class="pmd-summary">'+esc(result.executive_summary||'')+'</p>'+
       (actions?'<h3>Priority stack</h3><div class="pmd-stack">'+actions+'</div>':'')+
       (executed?'<h3>Astra completed</h3><div class="pmd-stack">'+executed+'</div>':'')+
+      (gated?'<h3>Policy gated</h3><div class="pmd-stack">'+gated+'</div>':'')+
       (owner?'<h3>You are needed</h3><div class="pmd-stack">'+owner+'</div>':'<div class="pmd-clear">Nothing currently requires you.</div>');
   }
   function open(){
