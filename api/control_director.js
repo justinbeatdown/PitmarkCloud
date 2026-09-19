@@ -23,6 +23,7 @@
     ).join('');
     const executed=(result.execution_result?.actions||[]).map(x => {
       if(x.type==='social_drafts_saved') return '<article class="pmd-owner"><strong>Saved '+esc(x.count||0)+' social draft'+(Number(x.count||0)===1?'':'s')+'</strong><p>Added to Content approvals. Nothing was published automatically.</p><span>COMPLETED</span></article>';
+      if(x.type==='social_draft_titles_repaired') return '<article class="pmd-owner"><strong>Repaired '+esc(x.count||0)+' social draft title'+(Number(x.count||0)===1?'':'s')+'</strong><p>Replaced internal Director task labels with human-facing content titles.</p><span>COMPLETED</span></article>';
       return '<article class="pmd-owner"><strong>'+esc(x.type||'Execution')+'</strong><p>'+esc(x.error||'')+'</p><span>'+esc(x.status||'')+'</span></article>';
     }).join('');
     const stateLabel = typeof result.state === 'string'
