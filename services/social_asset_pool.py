@@ -134,11 +134,38 @@ def _words(text: str) -> set[str]:
     return {x for x in re.findall(r"[a-z0-9]+", (text or "").lower()) if len(x) >= 3}
 
 
+def _explicit_product_intent(*, body: str = "", content_type: str = "") -> bool:
+    kind = (content_type or "").strip().lower()
+    if kind in {"product", "merch", "commerce", "shop", "drop", "sale"}:
+        return True
+    text = (body or "").lower()
+    return bool(re.search(
+        r"\\b(shop|store|merch|merchandise|shirt|tee|t-shirt|hoodie|hat|cap|apparel|collection|drop|sale|buy now|shop now|available now|product)\\b",
+        text,
+    ))
+
+
+def _is_product_asset(asset: SocialAsset) -> bool:
+    source = (asset.source or "").strip().lower()
+    ref = (asset.source_ref or "").strip().lower()
+    tags = {x.strip().lower() for x in (asset.tags or "").split(",") if x.strip()}
+    return source == "shopify" or ref.startswith("product:") or "product" in tags or "shopify" in tags
+
+
 def choose_asset(*, body: str = "", content_type: str = "", platform: str = "instagram") -> dict | None:
+    allow_product_assets = _explicit_product_intent(body=body, content_type=content_type)
     with SessionLocal() as db:
         rows = list(db.scalars(select(SocialAsset).where(SocialAsset.active.is_(True), SocialAsset.asset_type == "image").order_by(SocialAsset.id.desc())).all())
         if not rows:
             return None
+
+        # Product/store imagery is opt-in. Editorial, race-news, community, PRT,
+        # partnership, and authority posts must never fall back to Shopify merch.
+        if not allow_product_assets:
+            rows = [asset for asset in rows if not _is_product_asset(asset)]
+            if not rows:
+                return None
+
         target = _words(body + " " + content_type + " " + platform)
         ranked = []
         for asset in rows:
