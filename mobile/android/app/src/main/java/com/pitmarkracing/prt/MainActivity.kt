@@ -352,10 +352,6 @@ private fun PrtApp(initialPairCode: String? = null, vm: PrtViewModel = viewModel
         SettingsDialog(
             credentials = vm.credentials,
             onDismiss = { showSettings = false },
-            onSave = { id, token ->
-                vm.saveCredentials(id, token)
-                showSettings = false
-            },
             onDisconnect = {
                 showSettings = false
                 vm.disconnect()
