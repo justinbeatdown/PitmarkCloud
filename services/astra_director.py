@@ -70,10 +70,11 @@ The execution field MUST ALWAYS be an object, never a string.
 Execution object schema:
 - status: short string
 - notes: short string
-- drafts: array of zero or more objects with platform and body
+- drafts: array of zero or more objects with platform, title, and body
 - internal_action: optional short machine-readable action name
 If no draft exists, drafts must be [].
 Supported draft platforms are facebook, instagram, x, and discord.
+Draft titles are customer-facing approval labels, not internal task names. Make them concise, natural, and specific to the post hook/topic.
 Each owner_needed item must include title, reason, urgency.
 Each delegate item must include worker and task.
 
@@ -183,6 +184,47 @@ def _safe_json(text: str) -> dict[str, Any]:
     )
 
 
+def _human_draft_title(body: str, fallback: str = "Pitmark social post") -> str:
+    text = " ".join(str(body or "").split()).strip()
+    if not text:
+        return fallback[:180]
+    # Use the opening hook instead of an internal Director task label.
+    first = text.split("\n", 1)[0].strip()
+    for sep in (". ", "? ", "! "):
+        if sep in first:
+            first = first.split(sep, 1)[0] + sep.strip()
+            break
+    first = first.strip(" -—:;|")
+    if len(first) < 8:
+        first = text[:90].strip()
+    return first[:180] or fallback[:180]
+
+
+def _repair_legacy_astra_draft_titles() -> int:
+    repaired = 0
+    with SessionLocal() as db:
+        rows = list(db.scalars(
+            select(SocialPost).where(
+                SocialPost.source.like("astra:%"),
+                SocialPost.status.in_(["pending", "approved", "scheduled"]),
+            )
+        ).all())
+        for row in rows:
+            current = str(row.title or "").strip()
+            internalish = (
+                not current
+                or current.lower().startswith(("move ", "use ", "prepare ", "review ", "check ", "run "))
+                or "toward scheduling" in current.lower()
+                or "owner unlock" in current.lower()
+            )
+            if internalish:
+                row.title = _human_draft_title(row.body, "Pitmark social post")
+                repaired += 1
+        if repaired:
+            db.commit()
+    return repaired
+
+
 def _save_social_drafts_from_result(result: dict[str, Any], run_id: int) -> list[dict[str, Any]]:
     """Persist Astra-prepared social copy as approval-queue drafts only.
 
@@ -206,20 +248,25 @@ def _save_social_drafts_from_result(result: dict[str, Any], run_id: int) -> list
                 if legacy:
                     copies[platform] = legacy
 
+            draft_titles: dict[str, str] = {}
             for draft in execution.get("drafts") or []:
                 if not isinstance(draft, dict):
                     continue
                 platform = str(draft.get("platform") or "").strip().lower()
                 body = str(draft.get("body") or "").strip()
+                title = str(draft.get("title") or "").strip()
                 if platform in platform_keys and body:
                     copies[platform] = body
+                    if title:
+                        draft_titles[platform] = title[:180]
 
             if not copies:
                 continue
 
-            title = str(action.get("title") or "Astra prepared content")[:180]
+            fallback_title = str(action.get("title") or "Astra prepared content")[:180]
             source = f"astra:{run_id}"
             for platform, body in copies.items():
+                title = draft_titles.get(platform) or _human_draft_title(body, fallback_title)
                 exists = db.scalar(
                     select(SocialPost.id).where(
                         SocialPost.platform == platform,
@@ -268,6 +315,13 @@ def _save_social_drafts_from_result(result: dict[str, Any], run_id: int) -> list
 def _execute_safe_internal_actions(result: dict[str, Any], run_id: int) -> dict[str, Any]:
     actions: list[dict[str, Any]] = []
     try:
+        repaired = _repair_legacy_astra_draft_titles()
+        if repaired:
+            actions.append({
+                "type": "social_draft_titles_repaired",
+                "status": "completed",
+                "count": repaired,
+            })
         drafts = _save_social_drafts_from_result(result, run_id)
         if drafts:
             actions.append({
