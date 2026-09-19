@@ -12,7 +12,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from services.database import Base, SessionLocal
 from services.master_checklist import list_items
 from services.command_brief import build_command_brief
-from services.autonomy_control import list_policies
+from services.autonomy_control import list_policies, mode_for
+from services.control_center import SocialPost
 from utils.config import settings
 
 log = logging.getLogger("pitmark.astra_director")
@@ -30,6 +31,19 @@ class AstraDirectorRun(Base):
     request_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     result_json: Mapped[str] = mapped_column(Text, default="{}")
     model: Mapped[str] = mapped_column(String(80), default="gpt-6-astra")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class AstraDirectorAction(Base):
+    __tablename__ = "pitmark_astra_director_actions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[int] = mapped_column(Integer, index=True)
+    action_type: Mapped[str] = mapped_column(String(50), index=True)
+    capability: Mapped[str] = mapped_column(String(80), default="internal_prepare")
+    status: Mapped[str] = mapped_column(String(30), default="completed", index=True)
+    payload_json: Mapped[str] = mapped_column(Text, default="{}")
+    result_json: Mapped[str] = mapped_column(Text, default="{}")
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -161,6 +175,107 @@ def _safe_json(text: str) -> dict[str, Any]:
     )
 
 
+def _save_social_drafts_from_result(result: dict[str, Any], run_id: int) -> list[dict[str, Any]]:
+    """Persist Astra-prepared social copy as approval-queue drafts only.
+
+    This never publishes or schedules. It is intentionally narrower than the
+    social_publish capability and exists only to turn already-prepared copy into
+    internal reviewable work.
+    """
+    created: list[dict[str, Any]] = []
+    platform_keys = ("facebook", "instagram", "x", "discord")
+    with SessionLocal() as db:
+        for action in result.get("top_actions") or []:
+            if not isinstance(action, dict):
+                continue
+            execution = action.get("execution")
+            if not isinstance(execution, dict):
+                continue
+            copies = {
+                platform: str(execution.get(platform) or "").strip()
+                for platform in platform_keys
+                if str(execution.get(platform) or "").strip()
+            }
+            if not copies:
+                continue
+
+            title = str(action.get("title") or "Astra prepared content")[:180]
+            source = f"astra:{run_id}"
+            for platform, body in copies.items():
+                exists = db.scalar(
+                    select(SocialPost.id).where(
+                        SocialPost.platform == platform,
+                        SocialPost.body == body,
+                        SocialPost.status.in_(["pending", "approved", "scheduled"]),
+                    )
+                )
+                if exists:
+                    continue
+                row = SocialPost(
+                    platform=platform,
+                    title=title,
+                    body=body,
+                    content_type="authority",
+                    source=source,
+                    risk="low",
+                    status="pending",
+                    media_url=None,
+                )
+                db.add(row)
+                db.flush()
+                created.append({
+                    "post_id": row.id,
+                    "platform": platform,
+                    "status": "pending",
+                    "source": source,
+                })
+
+        if created:
+            db.commit()
+
+        audit = AstraDirectorAction(
+            run_id=run_id,
+            action_type="prepare_social_drafts",
+            capability="internal_prepare",
+            status="completed",
+            payload_json=json.dumps({"source": f"astra:{run_id}"}, ensure_ascii=False),
+            result_json=json.dumps({"created": created}, ensure_ascii=False),
+        )
+        db.add(audit)
+        db.commit()
+
+    return created
+
+
+def _execute_safe_internal_actions(result: dict[str, Any], run_id: int) -> dict[str, Any]:
+    actions: list[dict[str, Any]] = []
+    try:
+        drafts = _save_social_drafts_from_result(result, run_id)
+        if drafts:
+            actions.append({
+                "type": "social_drafts_saved",
+                "status": "completed",
+                "count": len(drafts),
+                "items": drafts,
+                "approval_required_to_publish": mode_for("social_publish", "approval") != "auto",
+            })
+    except Exception as exc:
+        log.exception("Astra safe execution failed")
+        with SessionLocal() as db:
+            db.add(AstraDirectorAction(
+                run_id=run_id,
+                action_type="safe_execution",
+                capability="internal_prepare",
+                status="failed",
+                payload_json="{}",
+                result_json="{}",
+                error=str(exc)[:1000],
+            ))
+            db.commit()
+        actions.append({"type": "safe_execution", "status": "failed", "error": str(exc)[:300]})
+    return {"actions": actions, "executed_count": sum(1 for x in actions if x.get("status") == "completed")}
+
+
 def run_director(request_text: str = "", *, mode: str | None = None) -> dict[str, Any]:
     if not settings.astra_director_enabled:
         raise RuntimeError("Pitmark Director is disabled.")
@@ -220,6 +335,15 @@ def run_director(request_text: str = "", *, mode: str | None = None) -> dict[str
         db.commit()
         db.refresh(row)
         result["_meta"]["run_id"] = row.id
+        run_id = row.id
+
+    result["execution_result"] = _execute_safe_internal_actions(result, run_id)
+
+    with SessionLocal() as db:
+        stored = db.get(AstraDirectorRun, run_id)
+        if stored:
+            stored.result_json = json.dumps(result, ensure_ascii=False, default=str)
+            db.commit()
     return result
 
 
