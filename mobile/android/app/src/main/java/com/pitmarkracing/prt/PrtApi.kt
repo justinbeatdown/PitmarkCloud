@@ -72,6 +72,43 @@ class PrtApi(
     private val baseUrl: String = "https://prt.pitmarkracing.com",
     private val client: OkHttpClient = OkHttpClient()
 ) {
+
+    fun registerDevice(credentials: PrtCredentials) {
+        val body = JSONObject()
+            .put("device_id", credentials.deviceId)
+            .put("device_secret", credentials.token)
+            .toString()
+            .toRequestBody("application/json".toMediaType())
+        val request = Request.Builder()
+            .url(baseUrl + "/api/device/register")
+            .post(body)
+            .build()
+        client.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful && response.code != 409) {
+                throw IOException(messageFrom(raw, response.code))
+            }
+        }
+    }
+
+    fun claimPairing(credentials: PrtCredentials, code: String): String {
+        val body = JSONObject()
+            .put("code", code)
+            .toString()
+            .toRequestBody("application/json".toMediaType())
+        val request = Request.Builder()
+            .url(baseUrl + "/api/prt/mobile/pair/claim?device_id=" + credentials.deviceId)
+            .header("X-Pitmark-Device-Token", credentials.token)
+            .post(body)
+            .build()
+        client.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw IOException(messageFrom(raw, response.code))
+            val json = JSONObject(raw)
+            return json.optString("display_name", "Pitmark Racer")
+        }
+    }
+
     fun dashboard(credentials: PrtCredentials): DashboardPayload {
         val json = get("/api/prt/mobile/dashboard", credentials)
         val driver = json.optJSONObject("driver") ?: JSONObject()
