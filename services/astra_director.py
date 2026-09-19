@@ -66,6 +66,14 @@ OPERATING RULES
 
 Return valid JSON only with keys: headline, state, executive_summary, top_actions, owner_needed, delegate, risks, done_when.
 Each top_actions item must include rank, title, why, area, execution, capability, checklist_row, next_step.
+The execution field MUST ALWAYS be an object, never a string.
+Execution object schema:
+- status: short string
+- notes: short string
+- drafts: array of zero or more objects with platform and body
+- internal_action: optional short machine-readable action name
+If no draft exists, drafts must be [].
+Supported draft platforms are facebook, instagram, x, and discord.
 Each owner_needed item must include title, reason, urgency.
 Each delegate item must include worker and task.
 
@@ -191,11 +199,21 @@ def _save_social_drafts_from_result(result: dict[str, Any], run_id: int) -> list
             execution = action.get("execution")
             if not isinstance(execution, dict):
                 continue
-            copies = {
-                platform: str(execution.get(platform) or "").strip()
-                for platform in platform_keys
-                if str(execution.get(platform) or "").strip()
-            }
+
+            copies: dict[str, str] = {}
+            for platform in platform_keys:
+                legacy = str(execution.get(platform) or "").strip()
+                if legacy:
+                    copies[platform] = legacy
+
+            for draft in execution.get("drafts") or []:
+                if not isinstance(draft, dict):
+                    continue
+                platform = str(draft.get("platform") or "").strip().lower()
+                body = str(draft.get("body") or "").strip()
+                if platform in platform_keys and body:
+                    copies[platform] = body
+
             if not copies:
                 continue
 
