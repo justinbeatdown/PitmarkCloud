@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from utils.security import SecurityHeadersMiddleware, security_summary
 
-from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_v19, control_center_v195, control_access_v191, control_center_ui, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, prt_testimonial_asset, early_access_admin, astra_director
+from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_v19, control_center_v195, control_access_v191, control_center_ui, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, prt_testimonial_asset, early_access_admin, astra_director, prt_mobile
 from utils.config import settings
 from utils.logger import configure_logging
 from services import discord_gateway_service, prt_access_bans
@@ -183,7 +183,7 @@ async def _prt_access_identity(request: Request) -> tuple[str, str]:
 
     if path.startswith("/api/entitlements/current/"):
         device_id = path.rsplit("/", 1)[-1].strip()
-    elif path.startswith("/api/discord/"):
+    elif path.startswith("/api/discord/") or path.startswith("/api/prt/mobile/"):
         device_id = str(request.query_params.get("device_id") or "").strip()
 
     if (
@@ -294,6 +294,7 @@ app.include_router(social_publish.public_router, tags=["public-social-assets"])
 app.include_router(email_center_v19.router, prefix="/api/control/email", tags=["email-v19"])
 app.include_router(email_center.router, prefix="/api/control/email", tags=["email"])
 app.include_router(prt_analytics_v191.router, prefix="/api/prt/analytics", tags=["prt-analytics-v191"])
+app.include_router(prt_mobile.router, prefix="/api/prt/mobile", tags=["prt-mobile"])
 app.include_router(content_tools.router, prefix="/api/control/content", tags=["content-tools"])
 app.include_router(control_center_ui.router)
 app.include_router(prt_ui.router)

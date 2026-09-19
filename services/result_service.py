@@ -50,7 +50,7 @@ def get_latest_for_discord_user(discord_user_id: str) -> dict[str, Any] | None:
 
 def get_recent_for_discord_user(discord_user_id: str, limit: int = 5) -> list[dict[str, Any]]:
     if not discord_user_id: return []
-    return persistent_store.recent_results(discord_user_id, max(1, min(10, int(limit))))
+    return persistent_store.recent_results(discord_user_id, max(1, min(50, int(limit))))
 
 
 def get_driver_summary(discord_user_id: str) -> dict[str, Any]:
