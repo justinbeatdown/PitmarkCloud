@@ -25,7 +25,7 @@ from utils.config import settings
 from utils.security import enforce_rate_limit
 from services.autopilot_intelligence import scan_now, status as intelligence_status_data
 from services.autonomy_control import enforce as enforce_autonomy
-from services.shopify_service import connection_test as shopify_connection_test, list_blogs as shopify_list_blogs, publish_article as shopify_publish_article
+from services.shopify_service import connection_test as shopify_connection_test, list_blogs as shopify_list_blogs, publish_article as shopify_publish_article, commerce_snapshot as shopify_commerce_snapshot
 
 router = APIRouter()
 
@@ -992,6 +992,19 @@ def autopilot_planner_run(request: Request, x_admin_key: str | None = Header(def
     from services.autopilot_planner import build_plan
     return build_plan(save=True)
 
+
+@router.get('/store/overview')
+def store_overview(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    try:
+        commerce = shopify_commerce_snapshot()
+    except Exception as exc:
+        commerce = {'connection': {'authenticated': False, 'error': str(exc)[:300]}, 'products': {'count': None, 'items': [], 'error': str(exc)[:300]}, 'collections': {'count': None, 'items': [], 'error': str(exc)[:300]}, 'orders': {'count': None, 'has_sale': None, 'latest': None, 'error': str(exc)[:300]}}
+    with SessionLocal() as db:
+        pending_posts = len(list(db.scalars(select(SocialPost.id).where(SocialPost.status == 'pending')).all()))
+        product_posts = len(list(db.scalars(select(SocialPost.id).where(SocialPost.status.in_(['pending','approved','scheduled']), SocialPost.content_type == 'product')).all()))
+        blog_drafts = len(list(db.scalars(select(BlogDraft.id).where(BlogDraft.status == 'draft')).all()))
+    return {'commerce': commerce, 'content': {'pending_posts': pending_posts, 'product_posts': product_posts, 'blog_drafts': blog_drafts}}
 
 @router.get('/shopify/connection')
 def control_shopify_connection(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
