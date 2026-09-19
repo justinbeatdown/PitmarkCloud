@@ -1,5 +1,5 @@
-import { api, abortScope, clearCache } from './control-center-api.js';
-import { DOMAIN_META, renderDomain } from './control-center-views.js?v=20260918metrics1';
+import { api, abortScope, clearCache } from './control-center-api.js?v=20260919store1';
+import { DOMAIN_META, renderDomain } from './control-center-views.js?v=20260919store1';
 
 const VALID_DOMAINS = new Set(Object.keys(DOMAIN_META));
 const root = document.getElementById('pitmark-control');
