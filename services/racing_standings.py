@@ -1358,9 +1358,23 @@ def _official_metadata_from_tables(
 ) -> tuple[dict[str, dict[str, str | None]], str | None]:
     """Read optional identity columns from the series' own official page only."""
     url = str(config.get("metadata_url") or _series_url(config, season))
+    tables: list[tuple[list[str], list[list[str]]]] = []
     try:
-        tables = _html_table_rows(url)
+        tables.extend(_html_table_rows(url))
     except Exception:
+        pass
+    # Some official standings are rendered client-side. The reader fallback
+    # converts the same official URL into tables without changing provenance.
+    try:
+        reader_tables = _reader_table_rows(url)
+        existing = {(tuple(header), tuple(tuple(row) for row in rows)) for header, rows in tables}
+        for header, rows in reader_tables:
+            key = (tuple(header), tuple(tuple(row) for row in rows))
+            if key not in existing:
+                tables.append((header, rows))
+    except Exception:
+        pass
+    if not tables:
         return {}, None
 
     best: tuple[list[str], list[list[str]], dict[str, int | None]] | None = None
