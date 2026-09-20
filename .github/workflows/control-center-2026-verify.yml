@@ -3,6 +3,7 @@ name: Control Center 2026 Verify
 on:
   pull_request:
     paths:
+      - 'api/control_center.py'
       - 'api/control_center_2026.py'
       - 'api/control_center_hq.py'
       - 'api/control_center_ui.py'
@@ -19,6 +20,7 @@ on:
       - 'services/google_gmail.py'
       - 'services/master_checklist.py'
       - 'scripts/test_control_center_2026_contract.py'
+      - 'scripts/test_control_center_lowrisk_runtime.py'
       - 'scripts/test_control_center_pwa_retirement.py'
       - 'scripts/test_master_checklist_contract.py'
       - 'scripts/test_workspace_focus_frame.py'
@@ -55,6 +57,8 @@ jobs:
           python-version: '3.12'
       - name: Run Control Center contract tests
         run: python scripts/test_control_center_2026_contract.py -v
+      - name: Run low-risk Control Center scheduler runtime test
+        run: python scripts/test_control_center_lowrisk_runtime.py -v
       - name: Run Control Center PWA retirement tests
         run: python scripts/test_control_center_pwa_retirement.py -v
       - name: Run Master Checklist contract tests
@@ -63,7 +67,7 @@ jobs:
         run: python scripts/test_workspace_focus_frame.py -v
       - name: Compile Control Center APIs
         run: |
-          python -m py_compile api/control_center_2026.py api/control_center_ui.py api/__init__.py
+          python -m py_compile api/control_center.py api/control_center_2026.py api/control_center_ui.py api/__init__.py
           if [ -f api/control_center_hq.py ]; then python -m py_compile api/control_center_hq.py; fi
           if [ -f services/google_workspace_auth.py ]; then python -m py_compile services/google_workspace_auth.py; fi
           if [ -f services/master_checklist.py ]; then python -m py_compile services/master_checklist.py; fi
