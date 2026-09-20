@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import io
 import hashlib
 import json
 import logging
@@ -9,10 +10,11 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 from bs4 import BeautifulSoup
+from pypdf import PdfReader
 from sqlalchemy import DateTime, Integer, String, Text, UniqueConstraint, select
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -166,10 +168,11 @@ SERIES: tuple[dict[str, Any], ...] = (
         "source_name": "ARCA official standings",
         "name_headers": ("driver",),
         "points_headers": ("points", "pts"),
-        "position_headers": ("pos", "position", "rank"),
+        "position_headers": ("pos", "position", "rank", "column 1"),
         "behind_headers": ("diff", "behind"),
         "wins_headers": ("wins", "win"),
         "starts_headers": ("races", "starts"),
+        "fallback_urls": ("https://theconwaybulletin.com/league/arca/standings/",),
     },
     {
         "key": "cars-tour-lmsc",
@@ -190,28 +193,22 @@ SERIES: tuple[dict[str, Any], ...] = (
         "name": "ASA STARS National Tour",
         "short_name": "ASA STARS",
         "group": "Short Track",
-        "provider": "official_table",
-        "official_url": "https://starsnationaltour.com/standings/",
+        "provider": "linked_pdf",
+        "official_url": "https://starsnationaltour.com/stats/standings/",
         "source_name": "ASA STARS official standings",
-        "name_headers": ("driver",),
-        "points_headers": ("points", "pts"),
-        "position_headers": ("pos", "position", "rank"),
-        "behind_headers": ("gap", "behind"),
-        "wins_headers": ("wins",),
+        "pdf_link_text": "Driver Standings",
+        "pdf_format": "asa_stars",
     },
     {
         "key": "smart-modified",
         "name": "SMART Modified Tour",
         "short_name": "SMART Mods",
         "group": "Short Track",
-        "provider": "official_table",
+        "provider": "linked_pdf",
         "official_url": "https://smartmodifiedtour.com/standings",
         "source_name": "SMART Modified Tour official standings",
-        "name_headers": ("driver",),
-        "points_headers": ("points", "pts"),
-        "position_headers": ("pos", "position", "rank"),
-        "behind_headers": ("gap", "behind"),
-        "wins_headers": ("wins",),
+        "pdf_link_text": "Click to Download PDF",
+        "pdf_format": "smart_modified",
     },
     {
         "key": "nhra-top-fuel",
@@ -343,6 +340,9 @@ SERIES: tuple[dict[str, Any], ...] = (
         "behind_headers": ("gap",),
         "team_headers": ("team",),
         "manufacturer_headers": ("bike",),
+        "fallback_url_templates": (
+            "https://www.motogp.com/en/world-standing/{season}/motogp/team-standings",
+        ),
     },
 )
 
@@ -704,6 +704,143 @@ def _html_table_rows(url: str) -> list[tuple[list[str], list[list[str]]]]:
         ) from reader_error
 
 
+
+def _linked_pdf_url(config: dict[str, Any], season: int) -> str:
+    landing_url = _series_url(config, season)
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    with httpx.Client(timeout=16.0, follow_redirects=True, headers=headers) as client:
+        response = client.get(landing_url)
+        response.raise_for_status()
+    soup = BeautifulSoup(response.text, "html.parser")
+    wanted = str(config.get("pdf_link_text") or "").strip().lower()
+    fallback: str | None = None
+    for anchor in soup.find_all("a", href=True):
+        href = str(anchor.get("href") or "").strip()
+        if not href:
+            continue
+        text = " ".join(anchor.get_text(" ", strip=True).split()).lower()
+        absolute = urljoin(landing_url, href)
+        looks_pdf = ".pdf" in absolute.lower() or "pdf" in text
+        if not looks_pdf:
+            continue
+        if fallback is None:
+            fallback = absolute
+        if wanted and wanted in text:
+            return absolute
+    if fallback:
+        return fallback
+    raise RuntimeError("standings PDF link was not found on the official page")
+
+
+def _pdf_text(url: str) -> str:
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "application/pdf,*/*;q=0.5",
+    }
+    with httpx.Client(timeout=24.0, follow_redirects=True, headers=headers) as client:
+        response = client.get(url)
+        response.raise_for_status()
+    reader = PdfReader(io.BytesIO(response.content))
+    text = "\n".join((page.extract_text() or "") for page in reader.pages)
+    if not text.strip():
+        raise RuntimeError("standings PDF contained no extractable text")
+    return text
+
+
+def _parse_asa_stars_pdf(text: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for raw in text.splitlines():
+        line = " ".join(raw.split())
+        parts = line.split()
+        if len(parts) < 8 or not parts[0].isdigit():
+            continue
+        # Position, car number, driver..., bonus, stage, race, total, difference.
+        tail = parts[-5:]
+        if not all(_num(value) is not None for value in tail[:4]):
+            continue
+        name = " ".join(parts[2:-5]).strip()
+        if not name:
+            continue
+        points = _clean_points(tail[-2])
+        if points is None:
+            continue
+        rows.append(
+            {
+                "position": int(parts[0]),
+                "name": name.rstrip("*").strip(),
+                "team": None,
+                "manufacturer": None,
+                "points": points,
+                "behind": _clean_points(tail[-1]) if _num(tail[-1]) is not None else None,
+                "wins": None,
+                "starts": None,
+            }
+        )
+    return rows
+
+
+def _parse_smart_modified_pdf(text: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for raw in text.splitlines():
+        line = " ".join(raw.split())
+        parts = line.split()
+        if len(parts) < 5 or not parts[0].isdigit():
+            continue
+        point_index: int | None = None
+        for index in range(2, len(parts)):
+            if _num(parts[index]) is not None:
+                point_index = index
+                break
+        if point_index is None or point_index <= 2:
+            continue
+        name = " ".join(parts[2:point_index]).strip()
+        points = _clean_points(parts[point_index])
+        if not name or points is None:
+            continue
+        behind = None
+        if point_index + 1 < len(parts):
+            candidate = parts[point_index + 1].replace("−", "-")
+            if candidate.startswith("-") and _num(candidate) is not None:
+                behind = _clean_points(candidate)
+        rows.append(
+            {
+                "position": int(parts[0]),
+                "name": name,
+                "team": None,
+                "manufacturer": None,
+                "points": points,
+                "behind": behind,
+                "wins": None,
+                "starts": None,
+            }
+        )
+    return rows
+
+
+def _fetch_linked_pdf(config: dict[str, Any], season: int) -> dict[str, Any]:
+    pdf_url = _linked_pdf_url(config, season)
+    text = _pdf_text(pdf_url)
+    fmt = str(config.get("pdf_format") or "").strip().lower()
+    if fmt == "asa_stars":
+        entries = _parse_asa_stars_pdf(text)
+    elif fmt == "smart_modified":
+        entries = _parse_smart_modified_pdf(text)
+    else:
+        raise RuntimeError(f"Unknown standings PDF format: {fmt}")
+    if len(entries) < 3:
+        raise RuntimeError(f"standings PDF rows could not be parsed ({len(entries)} rows)")
+    entries.sort(key=lambda item: item["position"])
+    return {
+        "entries": entries,
+        "source_name": str(config.get("source_name") or "Official standings"),
+        "provider_url": pdf_url,
+    }
+
+
 def _page_tokens(url: str) -> list[str]:
     headers = {
         "User-Agent": USER_AGENT,
@@ -870,7 +1007,30 @@ def _parse_position(value: Any) -> int | None:
 
 
 def _fetch_official_table(config: dict[str, Any], season: int) -> dict[str, Any]:
-    url = _series_url(config, season)
+    urls = [_series_url(config, season)]
+    for fallback in config.get("fallback_urls") or ():
+        value = str(fallback or "").strip()
+        if value:
+            urls.append(value.format(season=season, fe_season=max(1, season - 2014)))
+    for template in config.get("fallback_url_templates") or ():
+        value = str(template or "").strip()
+        if value:
+            urls.append(value.format(season=season, fe_season=max(1, season - 2014)))
+
+    errors: list[str] = []
+    seen: set[str] = set()
+    for url in urls:
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        try:
+            return _fetch_official_table_url(config, url)
+        except Exception as exc:
+            errors.append(f"{url}: {exc}")
+    raise RuntimeError(" ; ".join(errors) or "official standings unavailable")
+
+
+def _fetch_official_table_url(config: dict[str, Any], url: str) -> dict[str, Any]:
     tables = _html_table_rows(url)
     best: tuple[list[str], list[list[str]], dict[str, int | None]] | None = None
     best_score = -1
@@ -1038,6 +1198,8 @@ def _fetch_series(config: dict[str, Any], season: int) -> dict[str, Any]:
         return _fetch_wec(config, season)
     if provider == "official_table":
         return _fetch_official_table(config, season)
+    if provider == "linked_pdf":
+        return _fetch_linked_pdf(config, season)
     if provider == "column_sections":
         return _fetch_column_sections(config, season)
     raise RuntimeError(f"Unknown standings provider: {provider}")
