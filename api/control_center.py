@@ -320,6 +320,21 @@ def command_brief(request: Request, x_pitmark_admin_key: str | None = Header(def
     return build_command_brief()
 
 
+@router.get('/standings')
+def racing_standings(request: Request, season: int | None = None, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    from services.racing_standings import get_standings_hub
+    return get_standings_hub(season=season)
+
+
+@router.post('/standings/refresh')
+def racing_standings_refresh(request: Request, season: int | None = None, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    from services.racing_standings import clear_standings_cache, get_standings_hub
+    clear_standings_cache()
+    return get_standings_hub(force=True, season=season)
+
+
 @router.get('/shield/status')
 def shield_status(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)

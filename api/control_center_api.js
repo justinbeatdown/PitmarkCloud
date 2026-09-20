@@ -22,6 +22,8 @@ const ENDPOINTS = Object.freeze({
   workspaceOAuthStart: '/api/control/workspace/oauth/start',
   workspaceOAuthComplete: '/api/control/workspace/oauth/complete',
   storeOverview: '/api/control/store/overview',
+  standings: '/api/control/standings',
+  standingsRefresh: '/api/control/standings/refresh',
   logout: '/api/control/auth/logout',
 });
 
@@ -155,5 +157,7 @@ export const api = Object.freeze({
   workspaceOAuthStart: () => request(ENDPOINTS.workspaceOAuthStart, { method: 'POST' }),
   workspaceOAuthComplete: (callbackUrl) => request(ENDPOINTS.workspaceOAuthComplete, { method: 'POST', body: { callback_url: callbackUrl } }),
   storeOverview: (options = {}) => request(ENDPOINTS.storeOverview, { scope: 'store-overview', maxAge: 12000, ...options }),
+  standings: (season = '', options = {}) => request(query(ENDPOINTS.standings, { season }), { scope: 'standings', maxAge: 300000, ...options }),
+  refreshStandings: (season = '') => request(query(ENDPOINTS.standingsRefresh, { season }), { method: 'POST' }),
   logout: () => request(ENDPOINTS.logout, { method: 'POST' }),
 });
