@@ -415,9 +415,9 @@ def save_post(req: SavePost, request: Request, x_pitmark_admin_key: str | None =
     ):
         from services.autonomy_control import effective_mode
         if effective_mode("low_risk_social_publish", uncertainty=0.05, fallback="auto") == "auto":
-            from services.social_operator import _schedule_time
+            from services.social_operator import _next_growth_slot
             status = "scheduled"
-            scheduled_for = scheduled_for or _schedule_time(platform)
+            scheduled_for = scheduled_for or _next_growth_slot(platform).isoformat()
             source = "control_center:auto"
 
     with SessionLocal() as db:
