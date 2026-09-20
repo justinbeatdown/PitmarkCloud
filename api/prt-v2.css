@@ -71,3 +71,43 @@ body.prt-v2:after{content:"";position:fixed;inset:0;pointer-events:none;z-index:
   .v2-bento{grid-template-columns:1fr}
   .v2-feature,.v2-feature-large,.v2-feature-wide{grid-column:1}
 }
+
+
+/* V2.2 race media containment */
+.v2-race-layout{align-items:stretch}
+.v2-race-layout>*{min-width:0}
+.v2-race-player{min-width:0;overflow:hidden}
+.v2-race-notes{min-width:0;overflow:hidden}
+.v2-race-notes article{min-width:0;overflow:hidden}
+.v2-race-notes article>div{min-width:0}
+.v2-race-notes h3,.v2-race-notes p{overflow-wrap:anywhere}
+
+.v2-real-race-card{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(280px,.55fr);min-height:520px;color:inherit!important;text-decoration:none;background:#090b0b;overflow:hidden}
+.v2-real-race-art{position:relative;min-width:0;overflow:hidden;background:
+  radial-gradient(circle at 72% 40%,rgba(255,85,0,.20),transparent 28%),
+  linear-gradient(135deg,#111515 0%,#080a0a 52%,#140a05 100%)}
+.v2-real-race-grid{position:absolute;inset:0;opacity:.28;background-image:
+  linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+  background-size:42px 42px}
+.v2-real-race-art:before{content:"RACE NIGHT";position:absolute;left:-28px;bottom:34px;font-size:clamp(64px,7vw,112px);line-height:.8;font-weight:950;font-style:italic;letter-spacing:-5px;color:rgba(255,255,255,.055);white-space:nowrap}
+.v2-real-race-art:after{content:"REAL SESSION · REAL TRAFFIC · REAL TESTING";position:absolute;left:28px;bottom:24px;color:#8d9595;font-size:9px;font-weight:950;letter-spacing:1.15px}
+.v2-real-race-mark{position:absolute;left:28px;top:26px;color:#ff5b0c;font-size:82px;font-weight:950;font-style:italic;letter-spacing:-6px}
+.v2-real-race-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:76px;height:76px;border-radius:50%;display:grid;place-items:center;padding-left:5px;background:#ff5500;color:#fff;font-size:26px;box-shadow:0 20px 50px rgba(0,0,0,.45)}
+.v2-real-race-copy{min-width:0;padding:32px 28px;display:flex;flex-direction:column;justify-content:space-between;border-left:1px solid #303535;background:linear-gradient(180deg,#111414,#0a0c0c)}
+.v2-real-race-copy small{color:#ff7838;font-size:8px;font-weight:950;letter-spacing:1.1px}
+.v2-real-race-copy h3{margin:12px 0 12px;font-size:30px;line-height:1.02;font-style:italic}
+.v2-real-race-copy p{margin:0;color:#8d9595;font-size:12px;line-height:1.6}
+.v2-real-race-copy strong{margin-top:28px;color:#ff7838;font-size:10px;letter-spacing:.8px}
+
+@media(max-width:1180px){
+  .v2-real-race-card{grid-template-columns:1fr;min-height:auto}
+  .v2-real-race-art{min-height:360px}
+  .v2-real-race-copy{border-left:0;border-top:1px solid #303535}
+}
+@media(max-width:680px){
+  .v2-real-race-art{min-height:270px}
+  .v2-real-race-mark{font-size:62px}
+  .v2-real-race-copy{padding:24px 20px}
+  .v2-real-race-copy h3{font-size:26px}
+}
