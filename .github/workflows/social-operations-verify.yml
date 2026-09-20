@@ -13,6 +13,7 @@ on:
       - 'services/social_daily_package.py'
       - 'services/autopilot_multiplatform.py'
       - 'services/social_publish_worker.py'
+      - 'services/first_party_auto_schedule.py'
       - 'services/first_party_media.py'
       - 'services/first_party_sources.py'
       - 'services/prt_release_announcements.py'
@@ -23,6 +24,7 @@ on:
       - 'scripts/test_social_daily_*.py'
       - 'scripts/test_social_ops_shutdown_contract.py'
       - 'scripts/test_social_operator_logic.py'
+      - 'scripts/test_first_party_auto_schedule.py'
       - 'scripts/test_prt_release_announcements.py'
       - 'scripts/test_prt_version_regression.py'
       - 'scripts/test_prt_stale_campaign_filter.py'
@@ -53,6 +55,7 @@ jobs:
             services/social_daily_package.py \
             services/autopilot_multiplatform.py \
             services/social_publish_worker.py \
+            services/first_party_auto_schedule.py \
             services/first_party_media.py \
             services/first_party_sources.py \
             services/prt_release_announcements.py \
@@ -62,6 +65,7 @@ jobs:
       - name: Run Social Operations regression tests
         run: |
           python scripts/test_social_operator_logic.py
+          python scripts/test_first_party_auto_schedule.py
           python scripts/test_social_daily_campaign_contract.py
           python scripts/test_social_daily_package_contract.py
           python scripts/test_social_daily_ui_contract.py
