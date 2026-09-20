@@ -67,6 +67,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "group": "Dirt",
         "provider": "official_table",
         "official_url": "https://worldofoutlaws.com/series-points/",
+        "logo_source_url": "https://about.worldofoutlaws.com/how-to-watch",
+        "logo_url": "https://about.worldofoutlaws.com/hubfs/2023-Fan%20101%20Microsite/images/NOS_SCS_LOGO_FINAL_RGB.svg",
         "source_name": "World of Outlaws official points",
         "name_headers": ("driver",),
         "points_headers": ("points",),
@@ -82,6 +84,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "group": "Dirt",
         "provider": "official_table",
         "official_url": "https://worldofoutlaws.com/latemodels/series-points/",
+        "logo_source_url": "https://about.worldofoutlaws.com/how-to-watch",
+        "logo_url": "https://about.worldofoutlaws.com/hs-fs/hubfs/WoOLM_200.png?height=125&name=WoOLM_200.png&width=200",
         "source_name": "World of Outlaws official points",
         "name_headers": ("driver",),
         "points_headers": ("points",),
@@ -173,8 +177,12 @@ SERIES: tuple[dict[str, Any], ...] = (
         "group": "Stock Cars",
         "provider": "official_table",
         "official_url": "https://www.arcaracing.com/standings/arca-menards-series/",
+        "logo_source_url": "https://www.arcaracing.com/competitor-site/",
+        "logo_url": "https://www.arcaracing.com/wp-content/uploads/sites/36/2022/11/10/Menards_ANASCARTouringDivision_Primary_4C_BLK.png",
+        "metadata_url": "https://www.arcaracing.com/driver-list/",
+        "metadata_row_offset": 1,
         "source_name": "ARCA official standings",
-        "name_headers": ("driver",),
+        "name_headers": ("driver", "name"),
         "points_headers": ("points", "pts"),
         "position_headers": ("pos", "position", "rank", "column 1"),
         "behind_headers": ("diff", "behind"),
@@ -189,6 +197,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "group": "Short Track",
         "provider": "official_table",
         "official_url": "https://www.carsracingtour.com/standings",
+        "logo_source_url": "https://www.carsracingtour.com/2023/11/27/zmax-joins-cars-tour-as-entitlement-sponsor-2024-schedule-unveiled-floracing-continues-as-official-streaming-partner/",
+        "logo_url": "https://www.carsracingtour.com/wp-content/uploads/sites/61/2024/05/09/ZMAXGeneric.jpg",
         "source_name": "CARS Tour official standings",
         "name_headers": ("driver",),
         "points_headers": ("points", "pts"),
@@ -203,6 +213,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "group": "Short Track",
         "provider": "linked_pdf",
         "official_url": "https://starsnationaltour.com/stats/standings/",
+        "logo_source_url": "https://starsnationaltour.com/asa-stars-national-tour-reveals-its-official-logo/",
+        "logo_url": "https://slms.dev/data/2023/01/ASA-STARS-National-Tour-Logo-2000px-TEMP-1024x650.webp",
         "source_name": "ASA STARS official standings",
         "pdf_link_text": "Driver Standings",
         "pdf_format": "asa_stars",
@@ -214,12 +226,15 @@ SERIES: tuple[dict[str, Any], ...] = (
         "group": "Short Track",
         "provider": "linked_pdf",
         "official_url": "https://smartmodifiedtour.com/standings",
+        "logo_source_url": "https://smartmodifiedtour.com/history",
+        "logo_url": "https://img1.wsimg.com/isteam/ip/32d806cc-87e5-46d0-87cb-e81ce9615680/SMART%20LOGO%20CUBE%20copy.jpg/%3A/cr%3Dt%3A25%25%2Cl%3A0%25%2Cw%3A100%25%2Ch%3A50%25/rs%3Dw%3A600%2Ch%3A300%2Ccg%3Atrue",
         "source_name": "SMART Modified Tour official standings",
         "pdf_link_text": "Click to Download PDF",
         "pdf_format": "smart_modified",
     },
     {
         "key": "nhra-top-fuel",
+        "logo_disabled": True,
         "name": "NHRA Top Fuel",
         "short_name": "NHRA Top Fuel",
         "group": "Drag Racing",
@@ -233,6 +248,7 @@ SERIES: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "nhra-funny-car",
+        "logo_disabled": True,
         "name": "NHRA Funny Car",
         "short_name": "NHRA Funny Car",
         "group": "Drag Racing",
@@ -246,6 +262,7 @@ SERIES: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "nhra-pro-stock",
+        "logo_disabled": True,
         "name": "NHRA Pro Stock",
         "short_name": "NHRA Pro Stock",
         "group": "Drag Racing",
@@ -259,6 +276,7 @@ SERIES: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "nhra-pro-stock-motorcycle",
+        "logo_disabled": True,
         "name": "NHRA Pro Stock Motorcycle",
         "short_name": "NHRA PSM",
         "group": "Drag Racing",
@@ -277,6 +295,7 @@ SERIES: tuple[dict[str, Any], ...] = (
         "group": "Open Wheel",
         "provider": "jolpica",
         "official_url_template": "https://www.formula1.com/en/results/{season}/drivers",
+        "metadata_url": "https://www.formula1.com/en/results/2026/races/1287/spain/race-result",
         "name_headers": ("driver",),
         "team_headers": ("team",),
         "logo_disabled": True,
@@ -297,6 +316,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "group": "Open Wheel",
         "provider": "official_table",
         "official_url_template": "https://www.fiaformulae.com/en/results-and-standings?season={fe_season}&tab=drivers",
+        "logo_source_url": "https://www.fiaformulae.com/en/results-and-standings?season=12&tab=drivers",
+        "logo_url": "https://www.fiaformulae.com/images/formula-e-footer.svg",
         "source_name": "Formula E official standings",
         "name_headers": ("driver",),
         "points_headers": ("pts", "points"),
@@ -320,6 +341,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "group": "Sports Cars",
         "provider": "wec",
         "official_url": "https://www.fiawec.com/en/page/drivers-classification/34",
+        "logo_source_url": "https://www.fiawec.com/en/page/drivers-classification/34",
+        "logo_url": "https://www.fiawec.com/uploads/wec-logo-69d50a53ddfee895249122.png",
     },
     {
         "key": "supercars",
@@ -328,6 +351,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "group": "Touring Cars",
         "provider": "official_table",
         "official_url_template": "https://www.supercars.com/standings/{season}/supercars",
+        "logo_source_url": "https://www.supercars.com/news/supercars-reveals-new-logo-and-hashtag",
+        "logo_url": "https://www.supercars.com/_next/image?q=100&url=https%3A%2F%2Fimages.ctfassets.net%2Fxd502h20t7lh%2F22NjnKq2xXMiZOUr1QGFsw%2F9e39b09bd650317a5721180d638e82de%2Flogo-main.jpg&w=3840",
         "source_name": "Supercars official standings",
         "name_headers": ("driver",),
         "points_headers": ("pts", "points"),
@@ -342,6 +367,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "group": "Motorcycles",
         "provider": "official_table",
         "official_url": "https://stats.motogp.com/en/world-standing",
+        "official_identity_hosts": ("stats.motogp.com", "www.motogp.com"),
+        "logo_disabled": True,
         "source_name": "MotoGP official statistics",
         "name_headers": ("rider",),
         "points_headers": ("points", "pts"),
@@ -1419,13 +1446,29 @@ def _official_metadata_from_tables(
     if not best:
         return {}, None
 
-    _, rows, indexes = best
+    header, rows, indexes = best
     out: dict[str, dict[str, str | None]] = {}
+    configured_offset = int(config.get("metadata_row_offset") or 0)
     for row in rows:
+        offset = configured_offset
         name_index = indexes["name"]
-        if name_index is None or name_index >= len(row):
+        if name_index is None:
             continue
-        name = str(row[name_index] or "").strip()
+
+        # Some official tables insert an unlabeled profile/image cell into every
+        # data row. Keep header-derived indexes aligned without guessing fields.
+        candidate_index = name_index + offset
+        if candidate_index < len(row):
+            candidate_name = str(row[candidate_index] or "").strip()
+            if candidate_name.startswith("[](") and candidate_name.endswith(")"):
+                offset += 1
+
+        actual_name_index = name_index + offset
+        if actual_name_index >= len(row):
+            continue
+        name = str(row[actual_name_index] or "").strip()
+        # F1 official results append the three-letter timing code to driver names.
+        name = re.sub(r"\s+[A-Z]{3}$", "", name).strip()
         embedded_number: str | None = None
         if str(config.get("key") or "") == "motogp":
             match = re.match(r"^(\d{1,3})\s*(.+)$", name)
@@ -1438,9 +1481,12 @@ def _official_metadata_from_tables(
 
         def cell(field: str) -> str | None:
             index = indexes.get(field)
-            if index is None or index >= len(row):
+            if index is None:
                 return None
-            value = str(row[index] or "").strip()
+            actual_index = index + offset
+            if actual_index >= len(row):
+                return None
+            value = str(row[actual_index] or "").strip()
             return value or None
 
         out[key] = {
@@ -1467,6 +1513,14 @@ def _http_image_url(value: str) -> bool:
         return False
 
 
+def _official_identity_source_allowed(config: dict[str, Any], candidate: str, official_url: str) -> bool:
+    if candidate == official_url or _same_host(candidate, official_url):
+        return True
+    host = (urlsplit(candidate).hostname or "").lower()
+    allowed_hosts = {str(value or "").lower() for value in (config.get("official_identity_hosts") or ())}
+    return bool(host and host in allowed_hosts)
+
+
 def _provider_identity_provenance(
     config: dict[str, Any],
     season: int,
@@ -1485,14 +1539,14 @@ def _provider_identity_provenance(
 
     # These adapters consume the configured official series URL directly.
     if provider in {"column_sections", "imsa", "wec"} and provider_url:
-        if provider_url == official_url or _same_host(provider_url, official_url):
+        if _official_identity_source_allowed(config, provider_url, official_url):
             return True, official_url
 
     # official_table may use third-party fallbacks (for example High Limit).
     # Only identity parsed from the configured official host is accepted.
     if provider == "official_table" and provider_url:
-        if provider_url == official_url or _same_host(provider_url, official_url):
-            return True, official_url
+        if _official_identity_source_allowed(config, provider_url, official_url):
+            return True, provider_url
 
     return False, None
 
@@ -1583,17 +1637,14 @@ def _discover_official_logo(
     season: int,
 ) -> tuple[str | None, str | None]:
     """Return only imagery referenced by the configured official series page."""
-    source_url = _series_url(config, season)
+    official_url = _series_url(config, season)
+    configured_source = str(config.get("logo_source_url") or "").strip()
+    source_url = configured_source or official_url
     if bool(config.get("logo_disabled")):
         return None, None
     explicit_logo = str(config.get("logo_url") or "").strip()
-    explicit_source = str(config.get("logo_source_url") or source_url).strip()
-    if (
-        explicit_logo
-        and _http_image_url(explicit_logo)
-        and explicit_source
-        and _same_host(explicit_source, source_url)
-    ):
+    explicit_source = configured_source or official_url
+    if explicit_logo and _http_image_url(explicit_logo) and explicit_source:
         return explicit_logo, explicit_source
 
     terms = OFFICIAL_LOGO_TERMS.get(str(config.get("key") or ""), ())
@@ -1943,6 +1994,14 @@ def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
                     "error": None,
                 }
             )
+            if bool(config.get("logo_disabled")):
+                snapshot["series_logo_url"] = None
+                snapshot["series_logo_source_url"] = None
+            elif config.get("logo_url"):
+                snapshot["series_logo_url"] = str(config.get("logo_url") or "").strip() or None
+                snapshot["series_logo_source_url"] = str(
+                    config.get("logo_source_url") or _series_url(config, season)
+                ).strip() or None
             ordered.append(_sanitize_identity_payload(snapshot))
             continue
         ordered.append(
@@ -1990,6 +2049,18 @@ def get_series_logo_info(series_key: str, *, season: int | None = None) -> dict[
     config = next((item for item in SERIES if item["key"] == series_key), None)
     if not config:
         return None
+    if bool(config.get("logo_disabled")):
+        return None
+
+    official_url = _series_url(config, season)
+    configured_logo_source = str(config.get("logo_source_url") or "").strip()
+    explicit_logo = str(config.get("logo_url") or "").strip()
+    if explicit_logo and _http_image_url(explicit_logo):
+        return {
+            "url": explicit_logo,
+            "source_url": configured_logo_source or official_url,
+        }
+
     snapshot = _decode_snapshot(_latest_snapshot(series_key, season))
     if not snapshot:
         return None
@@ -1997,12 +2068,13 @@ def get_series_logo_info(series_key: str, *, season: int | None = None) -> dict[
     source_url = str(snapshot.get("series_logo_source_url") or "").strip()
     if not logo_url or not source_url or not _http_image_url(logo_url):
         return None
-    # Source provenance must be the configured official series page or a
-    # separately configured official-series media/brand page on the same host.
-    official_url = _series_url(config, season)
-    configured_logo_source = str(config.get("logo_source_url") or official_url).strip()
-    allowed_sources = {official_url, configured_logo_source}
-    if source_url not in allowed_sources or not _same_host(source_url, official_url):
+
+    # Auto-discovered imagery is trusted only when its source page is one of
+    # the exact official provenance anchors configured for that series.
+    allowed_sources = {official_url}
+    if configured_logo_source:
+        allowed_sources.add(configured_logo_source)
+    if source_url not in allowed_sources:
         return None
     return {"url": logo_url, "source_url": source_url}
 
