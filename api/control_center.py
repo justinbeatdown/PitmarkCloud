@@ -523,9 +523,20 @@ def delete_post(post_id: int, request: Request, x_pitmark_admin_key: str | None 
         p = db.get(SocialPost, post_id)
         if not p:
             raise HTTPException(404, 'Post not found')
+        source = str(p.source or '').strip()
+        platform = str(p.platform or '').strip().lower()
+        suppressed = False
+        if source.startswith('dailycampaign:') and platform:
+            try:
+                campaign_id = int(source.split(':', 1)[1])
+            except (TypeError, ValueError):
+                campaign_id = None
+            if campaign_id is not None:
+                from services.social_daily_campaign import suppress_campaign_platform
+                suppressed = suppress_campaign_platform(campaign_id, platform) is not None
         db.delete(p)
         db.commit()
-        return {'ok': True, 'deleted_id': post_id}
+        return {'ok': True, 'deleted_id': post_id, 'regeneration_suppressed': suppressed}
 
 
 @router.post('/autopilot/posts/{post_id}/decision')

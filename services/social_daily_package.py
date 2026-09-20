@@ -357,6 +357,11 @@ def sync_campaign_queue(campaign: dict, package: dict) -> dict:
     )
     created = 0
     archived_duplicates = 0
+    suppressed_platforms = {
+        str(item or "").strip().lower()
+        for item in (package.get("suppressed_platforms") or [])
+        if str(item or "").strip()
+    }
     with SessionLocal() as db:
         existing = {
             row.platform: row
@@ -390,7 +395,12 @@ def sync_campaign_queue(campaign: dict, package: dict) -> dict:
 
         for platform in QUEUE_PLATFORMS:
             body = str(copy.get(platform) or "").strip()
-            if not body or platform in existing or platform in covered_platforms:
+            if (
+                not body
+                or platform in existing
+                or platform in covered_platforms
+                or platform in suppressed_platforms
+            ):
                 continue
             autopublish = bool(
                 settings.social_operator_autopublish_low_risk
@@ -428,6 +438,7 @@ def sync_campaign_queue(campaign: dict, package: dict) -> dict:
     return {
         "created": created,
         "archived_duplicates": archived_duplicates,
+        "suppressed_platforms": sorted(suppressed_platforms),
         "items": {
             row.platform: {
                 "id": row.id,
