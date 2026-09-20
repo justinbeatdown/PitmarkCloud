@@ -319,6 +319,14 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("all_header_cells", service)
         self.assertIn("Accessible standings tables often use <th scope=\"row\">", service)
 
+    def test_standings_reader_fallback_handles_blocked_and_js_sites(self):
+        service = self.read("services/racing_standings.py")
+        self.assertIn("def _reader_table_rows", service)
+        self.assertIn("https://r.jina.ai/http://", service)
+        self.assertIn("def _parse_markdown_tables", service)
+        self.assertIn("rendered fallback failed", service)
+        self.assertIn("X-Return-Format", service)
+
     def test_control_center_readability_scale_covers_tiny_ui_text(self):
         css = self.read("api/control_center_overhaul.css")
         self.assertIn("Readability pass — 2026-09-20", css)
