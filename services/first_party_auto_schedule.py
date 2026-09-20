@@ -260,6 +260,10 @@ def auto_schedule_verified_first_party() -> dict:
     cutoff = max(bootstrap_at, now - timedelta(hours=max_age_hours))
     max_campaigns = _env_int("PITMARK_FIRST_PARTY_AUTO_CAMPAIGNS_PER_PASS", 3, 1, 6)
     with SessionLocal() as db:
+        # Repair bad timing on already-scheduled event content even when there are
+        # no new pending campaigns. This must happen before the early return below.
+        repaired = _repair_time_sensitive_schedules(db, now)
+
         candidates = list(db.scalars(select(SocialPost).where(
             SocialPost.status == "pending",
             SocialPost.source.like("firstparty:%"),
@@ -268,7 +272,9 @@ def auto_schedule_verified_first_party() -> dict:
             SocialPost.created_at > cutoff,
         ).order_by(SocialPost.id.asc()).limit(60)).all())
         if not candidates:
-            return {"enabled": True, "mode": mode, "scheduled_campaigns": 0, "scheduled_posts": 0}
+            if repaired:
+                db.commit()
+            return {"enabled": True, "mode": mode, "scheduled_campaigns": 0, "scheduled_posts": 0, "repaired": repaired}
         scheduled_values = list(db.scalars(select(SocialPost.scheduled_for).where(
             SocialPost.status == "scheduled",
             SocialPost.scheduled_for.is_not(None),
@@ -291,7 +297,6 @@ def auto_schedule_verified_first_party() -> dict:
             if parsed:
                 occupied.append(parsed.astimezone(zone))
 
-        repaired = _repair_time_sensitive_schedules(db, now)
         # Rebuild occupied after repairs.
         occupied = []
         for raw in db.scalars(select(SocialPost.scheduled_for).where(
