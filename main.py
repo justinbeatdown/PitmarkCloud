@@ -15,7 +15,7 @@ from utils.security import SecurityHeadersMiddleware, security_summary
 from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_v19, control_center_v195, control_access_v191, control_center_ui, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, prt_testimonial_asset, early_access_admin, astra_director
 from utils.config import settings
 from utils.logger import configure_logging
-from services import discord_gateway_service, prt_access_bans
+from services import discord_gateway_service, prt_access_bans, prt_licensing_store
 from services.database import init_database, database_status
 from services.founders_race_activation import backfill_hub_emails
 from services.autopilot_intelligence import scheduler_loop
@@ -113,6 +113,23 @@ async def lifespan(app: FastAPI):
     loop.set_default_executor(executor)
 
     init_database()
+    maintenance_invite_id = (os.getenv("PRT_ONE_TIME_REISSUE_INVITE_ID") or "").strip()
+    maintenance_reissue_code = (os.getenv("PRT_ONE_TIME_REISSUE_CODE") or "").strip()
+    if maintenance_invite_id and maintenance_reissue_code:
+        try:
+            maintenance_result = await asyncio.to_thread(
+                prt_licensing_store.reissue_early_access_invite,
+                int(maintenance_invite_id),
+                code=maintenance_reissue_code,
+            )
+            if maintenance_result is None:
+                log.error("PRT Early Access maintenance reissue invite #%s was not found.", maintenance_invite_id)
+            elif maintenance_result.get("already_applied"):
+                log.info("PRT Early Access maintenance reissue already applied for invite #%s.", maintenance_invite_id)
+            else:
+                log.warning("PRT Early Access maintenance reissue applied for invite #%s.", maintenance_invite_id)
+        except Exception:
+            log.exception("PRT Early Access maintenance reissue failed for invite #%s.", maintenance_invite_id)
     if settings.astra_director_self_test:
         try:
             from services.astra_director import startup_self_test
