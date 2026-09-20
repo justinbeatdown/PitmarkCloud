@@ -13,7 +13,7 @@ from services.autopilot_ai import compose_with_ai
 from services.control_center import SocialPost, utcnow
 from services.database import SessionLocal
 from services.openai_image_service import generate_image
-from services.social_asset_pool import add_asset, store_uploaded_image
+from services.social_asset_pool import add_asset, public_asset_url, store_uploaded_image
 from services.social_daily_campaign import (
     REQUIRED_IG_SLIDES,
     REQUIRED_VERTICAL_ASSETS,
@@ -257,11 +257,7 @@ def render_final_asset(*, source: bytes, output_size: tuple[int, int], headline:
 
 
 def _public_asset_url(token: str) -> str:
-    base = (
-        getattr(settings, "pitmark_cloud_public_url", "")
-        or "https://pcc.pitmarkracing.com"
-    ).rstrip("/")
-    return f"{base}/social-assets/{token}"
+    return public_asset_url(token)
 
 
 def _ensure_final_variant(
