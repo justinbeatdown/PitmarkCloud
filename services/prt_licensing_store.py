@@ -418,6 +418,58 @@ def create_early_access_invite(
 
 
 
+
+def reissue_early_access_invite_prehashed(
+    invite_id: int,
+    *,
+    code_hash: str,
+    code_hint: str,
+    expires_days: int = 14,
+) -> dict | None:
+    """Reissue an invite using already-hashed activation material."""
+    clean_hash = (code_hash or "").strip().lower()
+    clean_hint = (code_hint or "").strip()
+    if len(clean_hash) != 64 or any(ch not in "0123456789abcdef" for ch in clean_hash):
+        raise ValueError("Replacement code hash must be a SHA-256 hex digest.")
+    if not clean_hint.startswith("PRT-EA-"):
+        raise ValueError("Replacement code hint must identify a PRT Early Access code.")
+    expires_days = max(1, min(int(expires_days), 90))
+
+    with SessionLocal() as db:
+        row = db.get(PrtEarlyAccessInviteRow, int(invite_id))
+        if row is None:
+            return None
+
+        if row.code_hash == clean_hash:
+            item = _early_access_dict(row)
+            item["already_applied"] = True
+            return item
+
+        previous_device_id = row.bound_device_id
+        if previous_device_id:
+            entitlement = db.get(PrtEntitlementRow, previous_device_id)
+            if entitlement is not None and str(entitlement.source or "").lower() == "early_access":
+                entitlement.status = "inactive"
+                entitlement.offline_grace_until = _now_iso()
+                entitlement.updated_at = _now_iso()
+
+        row.code_hash = clean_hash
+        row.code_hint = clean_hint
+        row.status = "issued"
+        row.tester_status = "invited"
+        row.bound_device_id = ""
+        row.expires_at = (datetime.now(timezone.utc) + timedelta(days=expires_days)).isoformat()
+        row.redeemed_at = ""
+        row.revoked_at = ""
+        row.last_seen_at = ""
+        db.commit()
+        db.refresh(row)
+
+        item = _early_access_dict(row)
+        item["already_applied"] = False
+        return item
+
+
 def reissue_early_access_invite(
     invite_id: int,
     *,
