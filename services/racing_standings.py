@@ -440,11 +440,8 @@ def _fetch_f1(config: dict[str, str], season: int) -> dict[str, Any]:
     return {"entries": normalized, "source_name": "Jolpica F1", "provider_url": url}
 
 
-def _html_table_rows(url: str) -> list[tuple[list[str], list[list[str]]]]:
-    with httpx.Client(timeout=16.0, follow_redirects=True, headers={"User-Agent": USER_AGENT}) as client:
-        response = client.get(url)
-        response.raise_for_status()
-    soup = BeautifulSoup(response.text, "html.parser")
+def _parse_html_tables(html: str) -> list[tuple[list[str], list[list[str]]]]:
+    soup = BeautifulSoup(html, "html.parser")
     tables: list[tuple[list[str], list[list[str]]]] = []
     for table in soup.find_all("table"):
         rows = table.find_all("tr")
@@ -453,20 +450,44 @@ def _html_table_rows(url: str) -> list[tuple[list[str], list[list[str]]]]:
         header: list[str] = []
         body: list[list[str]] = []
         for row_index, row in enumerate(rows):
+            cell_nodes = row.find_all(["th", "td"], recursive=False)
+            if not cell_nodes:
+                cell_nodes = row.find_all(["th", "td"])
             cells = [
                 " ".join(cell.get_text(" ", strip=True).split())
-                for cell in row.find_all(["th", "td"])
+                for cell in cell_nodes
             ]
             if not cells:
                 continue
-            if row_index == 0 or row.find("th"):
+            in_thead = row.find_parent("thead") is not None
+            all_header_cells = bool(cell_nodes) and all(getattr(cell, "name", "") == "th" for cell in cell_nodes)
+            # Accessible standings tables often use <th scope="row"> in EVERY
+            # driver row. Treat only real <thead> rows (or an initial all-TH
+            # row) as column headers; otherwise we'd throw away the standings.
+            if in_thead or (not header and row_index == 0 and all_header_cells):
                 if len(cells) >= len(header):
                     header = cells
+                continue
+            if not header and all_header_cells:
+                header = cells
                 continue
             body.append(cells)
         if body:
             tables.append((header, body))
     return tables
+
+
+def _html_table_rows(url: str) -> list[tuple[list[str], list[list[str]]]]:
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache",
+    }
+    with httpx.Client(timeout=16.0, follow_redirects=True, headers=headers) as client:
+        response = client.get(url)
+        response.raise_for_status()
+    return _parse_html_tables(response.text)
 
 
 def _series_url(config: dict[str, Any], season: int) -> str:
