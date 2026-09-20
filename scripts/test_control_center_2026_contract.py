@@ -351,6 +351,15 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("seriesVisible", public_js)
         self.assertIn("standings_public.router", main)
 
+    def test_public_standings_serve_saved_snapshots_without_remote_wait(self):
+        service = self.read("services/racing_standings.py")
+        public_api = self.read("api/standings_public.py")
+        main = self.read("main.py")
+        self.assertIn("def get_standings_snapshot_hub", service)
+        self.assertIn("get_standings_snapshot_hub()", public_api)
+        self.assertNotIn("get_standings_hub(force=False)", public_api)
+        self.assertIn("await asyncio.sleep(15)", main)
+
     def test_control_center_readability_scale_covers_tiny_ui_text(self):
         css = self.read("api/control_center_overhaul.css")
         self.assertIn("Readability pass — 2026-09-20", css)
