@@ -116,7 +116,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "name": "USAC AMSOIL National Sprint",
         "short_name": "USAC Sprint",
         "group": "Dirt",
-        "provider": "official_table",
+        "provider": "column_sections",
+        "column_title": "Driver Standings",
         "official_url": "https://www.usacracing.com/series-point-standings/national-sprint",
         "source_name": "USAC official standings",
         "name_headers": ("driver",),
@@ -130,7 +131,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "name": "USAC NOS Energy Drink National Midget",
         "short_name": "USAC Midget",
         "group": "Dirt",
-        "provider": "official_table",
+        "provider": "column_sections",
+        "column_title": "Driver Standings",
         "official_url": "https://www.usacracing.com/series-point-standings/national-midget",
         "source_name": "USAC official standings",
         "name_headers": ("driver",),
@@ -144,7 +146,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "name": "USAC Silver Crown",
         "short_name": "Silver Crown",
         "group": "Dirt / Pavement",
-        "provider": "official_table",
+        "provider": "column_sections",
+        "column_title": "Driver Standings",
         "official_url": "https://www.usacracing.com/series-point-standings/silver-crown",
         "source_name": "USAC official standings",
         "name_headers": ("driver",),
@@ -701,6 +704,134 @@ def _html_table_rows(url: str) -> list[tuple[list[str], list[list[str]]]]:
         ) from reader_error
 
 
+def _page_tokens(url: str) -> list[str]:
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    direct_error: Exception | None = None
+    try:
+        with httpx.Client(timeout=16.0, follow_redirects=True, headers=headers) as client:
+            response = client.get(url)
+            response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        tokens = [" ".join(text.split()) for text in soup.stripped_strings if " ".join(text.split())]
+        if tokens:
+            return tokens
+        direct_error = RuntimeError("official page returned no readable text")
+    except Exception as exc:
+        direct_error = exc
+
+    try:
+        reader_url = _reader_url(url)
+        with httpx.Client(
+            timeout=24.0,
+            follow_redirects=True,
+            headers={"User-Agent": USER_AGENT, "X-Return-Format": "markdown"},
+        ) as client:
+            response = client.get(reader_url)
+            response.raise_for_status()
+        tokens: list[str] = []
+        for raw in response.text.splitlines():
+            value = _clean_markdown_cell(raw.lstrip("#>*- ").strip())
+            if value:
+                tokens.append(value)
+        if tokens:
+            return tokens
+        raise RuntimeError("rendered reader returned no readable text")
+    except Exception as reader_error:
+        raise RuntimeError(
+            f"official text unavailable ({direct_error}); rendered fallback failed ({reader_error})"
+        ) from reader_error
+
+
+def _token_index(tokens: list[str], needle: str, start: int = 0) -> int | None:
+    target = _norm_header(needle)
+    for index in range(max(0, start), len(tokens)):
+        if _norm_header(tokens[index]) == target:
+            return index
+    return None
+
+
+def _fetch_column_sections(config: dict[str, Any], season: int) -> dict[str, Any]:
+    url = _series_url(config, season)
+    tokens = _page_tokens(url)
+    title = str(config.get("column_title") or "Driver Standings")
+    title_index = _token_index(tokens, title, 0) or 0
+    pos_index = _token_index(tokens, "Pos.", title_index)
+    if pos_index is None:
+        pos_index = _token_index(tokens, "Pos", title_index)
+    name_index = _token_index(tokens, "Driver", (pos_index or title_index) + 1)
+    points_index = _token_index(tokens, "Points", (name_index or title_index) + 1)
+    if pos_index is None or name_index is None or points_index is None:
+        raise RuntimeError("standings columns were not found in official page text")
+
+    stop_labels = (
+        "Home town",
+        "Hometown",
+        "Starts",
+        "Wins",
+        "Top 5s",
+        "Top 10s",
+        "FQs",
+        "Scroll Over >",
+        "Entrant Standings",
+    )
+    stop_index = len(tokens)
+    for label in stop_labels:
+        found = _token_index(tokens, label, points_index + 1)
+        if found is not None:
+            stop_index = min(stop_index, found)
+
+    positions = [
+        value for value in (_parse_position(token) for token in tokens[pos_index + 1:name_index])
+        if value is not None
+    ]
+    raw_names = tokens[name_index + 1:points_index]
+    names = [
+        name for name in raw_names
+        if name
+        and _num(name) is None
+        and _norm_header(name) not in {
+            "image", "driver standings", "entrant standings", "home town",
+            "hometown", "starts", "wins", "top 5s", "top 10s", "fqs",
+        }
+    ]
+    point_values = [
+        _clean_points(token)
+        for token in tokens[points_index + 1:stop_index]
+        if _num(token) is not None
+    ]
+    count = min(len(names), len(point_values))
+    if positions:
+        count = min(count, len(positions))
+    if count < 3:
+        raise RuntimeError(
+            f"standings columns were incomplete (positions={len(positions)} names={len(names)} points={len(point_values)})"
+        )
+
+    normalized: list[dict[str, Any]] = []
+    for index in range(count):
+        normalized.append(
+            {
+                "position": positions[index] if positions else index + 1,
+                "name": names[index],
+                "team": None,
+                "manufacturer": None,
+                "points": point_values[index],
+                "behind": None,
+                "wins": None,
+                "starts": None,
+            }
+        )
+    return {
+        "entries": normalized,
+        "source_name": str(config.get("source_name") or "Official standings"),
+        "provider_url": url,
+    }
+
+
 def _series_url(config: dict[str, Any], season: int) -> str:
     template = str(config.get("official_url_template") or "").strip()
     if template:
@@ -907,6 +1038,8 @@ def _fetch_series(config: dict[str, Any], season: int) -> dict[str, Any]:
         return _fetch_wec(config, season)
     if provider == "official_table":
         return _fetch_official_table(config, season)
+    if provider == "column_sections":
+        return _fetch_column_sections(config, season)
     raise RuntimeError(f"Unknown standings provider: {provider}")
 
 
