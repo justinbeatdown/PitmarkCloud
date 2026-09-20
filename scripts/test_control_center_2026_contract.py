@@ -74,8 +74,8 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("include_router(control_center_assets.router)", init_text)
 
         app_js = self.read("api/control_center_app.js")
-        self.assertRegex(app_js, r"['\"]\\./control-center-api\\.js(?:\\?[^'\"]+)?['\"]")
-        self.assertRegex(app_js, r"['\"]\\./control-center-views\\.js(?:\\?[^'\"]+)?['\"]")
+        self.assertRegex(app_js, r"['\"]\./control-center-api\.js(?:\?[^'\"]+)?['\"]")
+        self.assertRegex(app_js, r"['\"]\./control-center-views\.js(?:\?[^'\"]+)?['\"]")
 
     def test_shell_has_current_operating_domains_and_no_email_or_finance_product(self):
         html = self.read("api/control_center.html")
