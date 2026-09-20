@@ -21,7 +21,7 @@ log = logging.getLogger("pitmark.racing_standings")
 USER_AGENT = "PitmarkRacingStandings/1.0 (+https://pitmarkracing.com)"
 CACHE_SECONDS = 20 * 60
 
-SERIES: tuple[dict[str, str], ...] = (
+SERIES: tuple[dict[str, Any], ...] = (
     {
         "key": "nascar-cup",
         "name": "NASCAR Cup Series",
@@ -50,6 +50,92 @@ SERIES: tuple[dict[str, str], ...] = (
         "official_url": "https://www.nascar.com/standings/nascar-craftsman-truck-series/",
     },
     {
+        "key": "world-of-outlaws-sprint",
+        "name": "World of Outlaws Sprint Car Series",
+        "short_name": "WoO Sprint",
+        "group": "Dirt",
+        "provider": "official_table",
+        "official_url": "https://worldofoutlaws.com/series-points/",
+        "source_name": "World of Outlaws official points",
+        "name_headers": ("driver",),
+        "points_headers": ("points",),
+        "position_headers": ("pos", "position"),
+        "behind_headers": ("gap",),
+        "wins_headers": ("wins",),
+        "starts_headers": ("starts",),
+    },
+    {
+        "key": "world-of-outlaws-late-models",
+        "name": "World of Outlaws Late Model Series",
+        "short_name": "WoO Late Models",
+        "group": "Dirt",
+        "provider": "official_table",
+        "official_url": "https://worldofoutlaws.com/latemodels/series-points/",
+        "source_name": "World of Outlaws official points",
+        "name_headers": ("driver",),
+        "points_headers": ("points",),
+        "position_headers": ("pos", "position"),
+        "behind_headers": ("gap",),
+        "wins_headers": ("wins",),
+        "starts_headers": ("starts",),
+    },
+    {
+        "key": "nhra-top-fuel",
+        "name": "NHRA Top Fuel",
+        "short_name": "NHRA Top Fuel",
+        "group": "Drag Racing",
+        "provider": "official_table",
+        "official_url_template": "https://www.nhra.com/standings/{season}/nhra-mission-foods-drag-racing-series/nhra-mission-foods-drag-racing-series?tab=top-fuel",
+        "source_name": "NHRA official standings",
+        "name_headers": ("driver",),
+        "points_headers": ("points",),
+        "position_headers": ("position", "pos"),
+        "behind_headers": ("points behind leader", "behind"),
+        "team_headers": ("vehicle",),
+    },
+    {
+        "key": "nhra-funny-car",
+        "name": "NHRA Funny Car",
+        "short_name": "NHRA Funny Car",
+        "group": "Drag Racing",
+        "provider": "official_table",
+        "official_url_template": "https://www.nhra.com/standings/{season}/nhra-mission-foods-drag-racing-series/nhra-mission-foods-drag-racing-series?tab=funny-car",
+        "source_name": "NHRA official standings",
+        "name_headers": ("driver",),
+        "points_headers": ("points",),
+        "position_headers": ("position", "pos"),
+        "behind_headers": ("points behind leader", "behind"),
+        "team_headers": ("vehicle",),
+    },
+    {
+        "key": "nhra-pro-stock",
+        "name": "NHRA Pro Stock",
+        "short_name": "NHRA Pro Stock",
+        "group": "Drag Racing",
+        "provider": "official_table",
+        "official_url_template": "https://www.nhra.com/standings/{season}/nhra-mission-foods-drag-racing-series/nhra-mission-foods-drag-racing-series?tab=pro-stock",
+        "source_name": "NHRA official standings",
+        "name_headers": ("driver",),
+        "points_headers": ("points",),
+        "position_headers": ("position", "pos"),
+        "behind_headers": ("points behind leader", "behind"),
+        "team_headers": ("vehicle",),
+    },
+    {
+        "key": "nhra-pro-stock-motorcycle",
+        "name": "NHRA Pro Stock Motorcycle",
+        "short_name": "NHRA PSM",
+        "group": "Drag Racing",
+        "provider": "official_table",
+        "official_url_template": "https://www.nhra.com/standings/{season}/nhra-mission-foods-drag-racing-series/nhra-mission-foods-drag-racing-series?tab=pro-stock-motorcycle",
+        "source_name": "NHRA official standings",
+        "name_headers": ("driver",),
+        "points_headers": ("points",),
+        "position_headers": ("position", "pos"),
+        "behind_headers": ("points behind leader", "behind"),
+        "team_headers": ("vehicle",),
+    },
+    {
         "key": "f1",
         "name": "Formula 1",
         "short_name": "F1",
@@ -67,6 +153,19 @@ SERIES: tuple[dict[str, str], ...] = (
         "official_url": "https://www.indycar.com/standings",
     },
     {
+        "key": "formula-e",
+        "name": "ABB FIA Formula E World Championship",
+        "short_name": "Formula E",
+        "group": "Open Wheel",
+        "provider": "official_table",
+        "official_url_template": "https://www.fiaformulae.com/en/results-and-standings?season={fe_season}&tab=drivers",
+        "source_name": "Formula E official standings",
+        "name_headers": ("driver",),
+        "points_headers": ("pts", "points"),
+        "position_headers": ("pos", "position"),
+        "team_headers": ("team",),
+    },
+    {
         "key": "imsa-weathertech",
         "name": "IMSA WeatherTech SportsCar Championship",
         "short_name": "IMSA",
@@ -81,6 +180,35 @@ SERIES: tuple[dict[str, str], ...] = (
         "group": "Sports Cars",
         "provider": "wec",
         "official_url": "https://www.fiawec.com/en/page/drivers-classification/34",
+    },
+    {
+        "key": "supercars",
+        "name": "Repco Supercars Championship",
+        "short_name": "Supercars",
+        "group": "Touring Cars",
+        "provider": "official_table",
+        "official_url_template": "https://www.supercars.com/standings/{season}/supercars",
+        "source_name": "Supercars official standings",
+        "name_headers": ("driver",),
+        "points_headers": ("pts", "points"),
+        "position_headers": ("pos", "position"),
+        "behind_headers": ("gap",),
+        "wins_headers": ("wins",),
+    },
+    {
+        "key": "motogp",
+        "name": "MotoGP World Championship",
+        "short_name": "MotoGP",
+        "group": "Motorcycles",
+        "provider": "official_table",
+        "official_url": "https://stats.motogp.com/en/world-standing",
+        "source_name": "MotoGP official statistics",
+        "name_headers": ("rider",),
+        "points_headers": ("points", "pts"),
+        "position_headers": ("pos", "position"),
+        "behind_headers": ("gap",),
+        "team_headers": ("team",),
+        "manufacturer_headers": ("bike",),
     },
 )
 
@@ -341,6 +469,111 @@ def _html_table_rows(url: str) -> list[tuple[list[str], list[list[str]]]]:
     return tables
 
 
+def _series_url(config: dict[str, Any], season: int) -> str:
+    template = str(config.get("official_url_template") or "").strip()
+    if template:
+        fe_season = max(1, season - 2014)
+        return template.format(season=season, fe_season=fe_season)
+    return str(config.get("official_url") or "").strip()
+
+
+def _norm_header(value: str) -> str:
+    return " ".join(
+        "".join(ch if ch.isalnum() else " " for ch in str(value or "").lower()).split()
+    )
+
+
+def _header_index(header: list[str], aliases: tuple[str, ...] | list[str] | None) -> int | None:
+    normalized = [_norm_header(item) for item in header]
+    for alias in aliases or ():
+        needle = _norm_header(alias)
+        for index, value in enumerate(normalized):
+            if value == needle or needle in value:
+                return index
+    return None
+
+
+def _parse_position(value: Any) -> int | None:
+    digits = ""
+    for ch in str(value or "").strip():
+        if ch.isdigit():
+            digits += ch
+        elif digits:
+            break
+    try:
+        return int(digits) if digits else None
+    except ValueError:
+        return None
+
+
+def _fetch_official_table(config: dict[str, Any], season: int) -> dict[str, Any]:
+    url = _series_url(config, season)
+    tables = _html_table_rows(url)
+    best: tuple[list[str], list[list[str]], dict[str, int | None]] | None = None
+    best_score = -1
+    for header, rows in tables:
+        indexes = {
+            "position": _header_index(header, config.get("position_headers") or ("pos", "position")),
+            "name": _header_index(header, config.get("name_headers") or ("driver", "rider")),
+            "points": _header_index(header, config.get("points_headers") or ("points", "pts", "total")),
+            "behind": _header_index(header, config.get("behind_headers") or ("gap", "behind")),
+            "wins": _header_index(header, config.get("wins_headers") or ("wins",)),
+            "starts": _header_index(header, config.get("starts_headers") or ("starts",)),
+            "team": _header_index(header, config.get("team_headers") or ("team",)),
+            "manufacturer": _header_index(header, config.get("manufacturer_headers") or ("manufacturer", "make", "bike")),
+        }
+        if indexes["name"] is None or indexes["points"] is None:
+            continue
+        score = sum(1 for value in indexes.values() if value is not None) + min(len(rows), 40) / 100
+        if score > best_score:
+            best = (header, rows, indexes)
+            best_score = score
+    if not best:
+        raise RuntimeError("official standings table was not present in page HTML")
+    _, rows, indexes = best
+    normalized: list[dict[str, Any]] = []
+    for fallback_position, row in enumerate(rows, start=1):
+        name_index = indexes["name"]
+        points_index = indexes["points"]
+        if name_index is None or points_index is None or name_index >= len(row) or points_index >= len(row):
+            continue
+        name = str(row[name_index] or "").strip()
+        points = _clean_points(row[points_index])
+        if not name or points is None:
+            continue
+        position_index = indexes["position"]
+        position = (
+            _parse_position(row[position_index])
+            if position_index is not None and position_index < len(row)
+            else fallback_position
+        ) or fallback_position
+
+        def field(index_name: str) -> Any:
+            index = indexes.get(index_name)
+            return row[index] if index is not None and index < len(row) else None
+
+        normalized.append(
+            {
+                "position": position,
+                "name": name,
+                "team": str(field("team") or "").strip() or None,
+                "manufacturer": str(field("manufacturer") or "").strip() or None,
+                "points": points,
+                "behind": _clean_points(field("behind")),
+                "wins": _clean_points(field("wins")),
+                "starts": _clean_points(field("starts")),
+            }
+        )
+    if not normalized:
+        raise RuntimeError("official standings rows could not be parsed")
+    normalized.sort(key=lambda item: item["position"])
+    return {
+        "entries": normalized,
+        "source_name": str(config.get("source_name") or "Official standings"),
+        "provider_url": url,
+    }
+
+
 def _fetch_imsa(config: dict[str, str], season: int) -> dict[str, Any]:
     tables = _html_table_rows(config["official_url"])
     chosen: tuple[list[str], list[list[str]]] | None = None
@@ -430,7 +663,7 @@ def _fetch_wec(config: dict[str, str], season: int) -> dict[str, Any]:
     }
 
 
-def _fetch_series(config: dict[str, str], season: int) -> dict[str, Any]:
+def _fetch_series(config: dict[str, Any], season: int) -> dict[str, Any]:
     provider = config["provider"]
     if provider == "espn":
         return _fetch_espn(config, season)
@@ -440,6 +673,8 @@ def _fetch_series(config: dict[str, str], season: int) -> dict[str, Any]:
         return _fetch_imsa(config, season)
     if provider == "wec":
         return _fetch_wec(config, season)
+    if provider == "official_table":
+        return _fetch_official_table(config, season)
     raise RuntimeError(f"Unknown standings provider: {provider}")
 
 
@@ -492,7 +727,7 @@ def _movement(entries: list[dict[str, Any]], previous: dict[str, Any] | None) ->
     return out
 
 
-def _persist(config: dict[str, str], season: int, fetched: dict[str, Any]) -> dict[str, Any]:
+def _persist(config: dict[str, Any], season: int, fetched: dict[str, Any]) -> dict[str, Any]:
     entries = fetched["entries"]
     fingerprint = _fingerprint(entries)
     previous_row = _latest_snapshot(config["key"], season, excluding=fingerprint)
@@ -503,7 +738,7 @@ def _persist(config: dict[str, str], season: int, fetched: dict[str, Any]) -> di
         "short_name": config["short_name"],
         "group": config["group"],
         "season": season,
-        "official_url": config["official_url"],
+        "official_url": _series_url(config, season),
         "source_name": fetched.get("source_name") or "Standings source",
         "provider_url": fetched.get("provider_url"),
         "entries": entries,
@@ -522,7 +757,7 @@ def _persist(config: dict[str, str], season: int, fetched: dict[str, Any]) -> di
                 series_key=config["key"],
                 season=season,
                 source_name=normalized["source_name"],
-                source_url=config["official_url"],
+                source_url=_series_url(config, season),
                 fingerprint=fingerprint,
                 payload_json=json.dumps(normalized, ensure_ascii=False, default=str),
                 fetched_at=utcnow(),
@@ -544,7 +779,7 @@ def _persist(config: dict[str, str], season: int, fetched: dict[str, Any]) -> di
     return normalized
 
 
-def _fallback(config: dict[str, str], season: int, error: Exception) -> dict[str, Any]:
+def _fallback(config: dict[str, Any], season: int, error: Exception) -> dict[str, Any]:
     latest = _latest_snapshot(config["key"], season)
     cached = _decode_snapshot(latest)
     if cached:
@@ -581,7 +816,7 @@ def _fallback(config: dict[str, str], season: int, error: Exception) -> dict[str
     }
 
 
-def _load_one(config: dict[str, str], season: int) -> dict[str, Any]:
+def _load_one(config: dict[str, Any], season: int) -> dict[str, Any]:
     try:
         fetched = _fetch_series(config, season)
         return _persist(config, season, fetched)
