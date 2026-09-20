@@ -15,7 +15,7 @@
   <link rel="icon" href="/control-favicon.png">
   <link rel="stylesheet" href="/prt.css?v=02123">
   <link rel="stylesheet" href="/prt-growth.css?v=02149">
-  <link rel="stylesheet" href="/prt-v2.css?v=02240">
+  <link rel="stylesheet" href="/prt-v2.css?v=02250">
 </head>
 <body class="prt-v2">
 <header class="v2-nav">
@@ -58,11 +58,15 @@
 
       <div class="v2-hero-stage" aria-label="PRT live race proof">
         <div class="v2-stage-label"><span>LIVE TEST FOOTAGE</span><b>PRT // RACE CONTROL</b></div>
-        <a class="v2-stage-media" href="https://www.youtube.com/watch?v=lM1vyU5KPrY" target="_blank" rel="noopener noreferrer" aria-label="Watch this PRT race on YouTube">
-          <img src="https://i.ytimg.com/vi/lM1vyU5KPrY/maxresdefault.jpg" alt="PRT running during a real Pitmark race">
-          <span class="v2-stage-play" aria-hidden="true">▶</span>
-          <span class="v2-stage-watch">WATCH THIS RACE</span>
-        </a>
+        <div class="v2-stage-video">
+          <iframe
+            src="https://www.youtube.com/embed/2CjHr1BDDr0?rel=0&playsinline=1"
+            title="Pitmark Racing Tools race demo"
+            loading="eager"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen></iframe>
+        </div>
         <div class="v2-hud-card v2-hud-left">
           <small>RACE STATE</small>
           <strong>P4 <em>+0.32</em></strong>
@@ -76,7 +80,7 @@
         <div class="v2-stage-foot">
           <span><i></i> REAL SESSION</span>
           <span>REAL TELEMETRY</span>
-          <a href="https://www.youtube.com/watch?v=lM1vyU5KPrY" target="_blank" rel="noopener noreferrer" data-prt-funnel-link="v2-featured-race">WATCH FULL RACE →</a>
+          <a href="https://www.youtube.com/watch?v=lM1vyU5KPrY" target="_blank" rel="noopener noreferrer" data-prt-funnel-link="v2-featured-race">WATCH REAL RACE →</a>
         </div>
       </div>
     </div>
@@ -104,15 +108,21 @@
           <span><i></i> FEATURED PRT RACE</span>
           <b>PITMARK RACING NETWORK</b>
         </div>
-        <div class="v2-player-frame">
-          <iframe
-            src="https://www.youtube.com/embed/lM1vyU5KPrY?rel=0&playsinline=1"
-            title="Featured Pitmark Racing Network PRT race"
-            loading="lazy"
-            referrerpolicy="strict-origin-when-cross-origin"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowfullscreen></iframe>
-        </div>
+        <a class="v2-real-race-card" href="https://www.youtube.com/watch?v=lM1vyU5KPrY" target="_blank" rel="noopener noreferrer" data-prt-funnel-link="v2-real-race">
+          <div class="v2-real-race-art" aria-hidden="true">
+            <div class="v2-real-race-grid"></div>
+            <div class="v2-real-race-mark">PRT</div>
+            <div class="v2-real-race-play">▶</div>
+          </div>
+          <div class="v2-real-race-copy">
+            <div>
+              <small>REAL RACE · PITMARK RACING NETWORK</small>
+              <h3>Watch PRT run a full race.</h3>
+              <p>This is one of the real Pitmark race videos used to test PRT under actual race-night conditions.</p>
+            </div>
+            <strong>WATCH ON YOUTUBE →</strong>
+          </div>
+        </a>
       </div>
 
       <div class="v2-race-notes">
