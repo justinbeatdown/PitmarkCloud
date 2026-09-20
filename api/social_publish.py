@@ -28,10 +28,11 @@ public_router = APIRouter()
 
 class GeneratedImageRequest(BaseModel):
     prompt: str
-    size: str = "1024x1024"
+    size: str = "1024x1536"
     quality: str = "medium"
     add_to_library: bool = True
     content_type: str = "social"
+    platform: str = "instagram"
 
 class AssetCreate(BaseModel):
     url: str
@@ -87,10 +88,20 @@ def generate_social_asset(payload: GeneratedImageRequest, request: Request, x_pi
     enforce_rate_limit(request, "openai-image-generation", 6, 300)
     try:
         result = generate_image(prompt=payload.prompt, size=payload.size, quality=payload.quality)
+        # Normalize generated media into platform-safe JPEG. This prevents the PNG
+        # rejection path seen in TikTok/Metricool and gives Instagram a native 4:5 asset.
+        import io
+        from PIL import Image, ImageOps
+        target = (1080, 1920) if payload.platform.strip().lower() in {"tiktok", "reels", "tiktok_reels"} else (1080, 1350)
+        image = Image.open(io.BytesIO(result["data"])).convert("RGB")
+        image = ImageOps.fit(image, target, method=Image.Resampling.LANCZOS)
+        output = io.BytesIO()
+        image.save(output, format="JPEG", quality=92, optimize=True, progressive=True)
+        final_data = output.getvalue()
         stored = store_uploaded_image(
-            data=result["data"],
-            filename=f"pitmark-ai-{payload.size}.png",
-            mime_type=result["mime_type"],
+            data=final_data,
+            filename=f"pitmark-ai-{payload.platform}-{target[0]}x{target[1]}.jpg",
+            mime_type="image/jpeg",
         )
     except (PitmarkImageGenerationError, ValueError) as exc:
         raise HTTPException(400, str(exc))
@@ -113,6 +124,10 @@ def generate_social_asset(payload: GeneratedImageRequest, request: Request, x_pi
         "size": result["size"],
         "quality": result["quality"],
         "revised_prompt": result.get("revised_prompt"),
+        "mime_type": "image/jpeg",
+        "width": target[0],
+        "height": target[1],
+        "platform": payload.platform,
     }
 
 
