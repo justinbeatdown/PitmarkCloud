@@ -83,7 +83,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; "
                 "base-uri 'none'; form-action 'none'; img-src 'none'; script-src 'none'"
             )
-        elif request.url.path.startswith(("/prt", "/links", "/partners", "/partner-guide", "/standings")):
+        elif request.url.path.startswith(("/prt", "/links", "/partners", "/partner-guide", "/standings", "/race-center")):
             # Public Pitmark pages use same-origin static assets. PRT additionally
             # embeds Pitmark-owned YouTube proof video, so permit only YouTube's
             # official embed origins rather than opening frame access generally.
@@ -97,6 +97,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 + frame_src
                 + "frame-ancestors 'none'; base-uri 'none'; form-action 'none'; img-src 'self'; "
                 "font-src 'self'"
+            )
+        elif request.url.path.startswith(("/racing-desk", "/submit-racing-news", "/racing-network.css")):
+            # Racing Desk uses same-origin CSS and a same-origin submission form.
+            # Keep scripts and third-party resources disabled.
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; style-src 'self'; frame-ancestors 'none'; "
+                "base-uri 'none'; form-action 'self'; img-src 'self'; script-src 'none'; font-src 'self'"
             )
         elif request.url.path.startswith(("/founders-race", "/control/founders-race")):
             # Founder’s Race is server-rendered with inline CSS and a tiny inline helper
