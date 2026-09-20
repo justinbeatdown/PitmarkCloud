@@ -1412,6 +1412,53 @@ def _official_metadata_from_tables(
     return out, url if out else None
 
 
+
+def _same_host(left: str, right: str) -> bool:
+    try:
+        left_host = (urlsplit(left).hostname or "").lower().removeprefix("www.")
+        right_host = (urlsplit(right).hostname or "").lower().removeprefix("www.")
+        return bool(left_host and right_host and left_host == right_host)
+    except Exception:
+        return False
+
+
+def _http_image_url(value: str) -> bool:
+    try:
+        return urlsplit(str(value or "")).scheme.lower() in {"http", "https"}
+    except Exception:
+        return False
+
+
+def _provider_identity_provenance(
+    config: dict[str, Any],
+    season: int,
+    fetched: dict[str, Any],
+) -> tuple[bool, str | None]:
+    """Approve identity only when its source chain originates with the series itself."""
+    provider = str(config.get("provider") or "")
+    official_url = _series_url(config, season)
+    provider_url = str(fetched.get("provider_url") or "").strip()
+
+    # Linked PDFs are discovered by following a link on the configured official
+    # standings page. The PDF may live on a CDN, but the official landing page
+    # is the provenance anchor.
+    if provider == "linked_pdf" and provider_url:
+        return True, official_url
+
+    # These adapters consume the configured official series URL directly.
+    if provider in {"column_sections", "imsa", "wec"} and provider_url:
+        if provider_url == official_url or _same_host(provider_url, official_url):
+            return True, official_url
+
+    # official_table may use third-party fallbacks (for example High Limit).
+    # Only identity parsed from the configured official host is accepted.
+    if provider == "official_table" and provider_url:
+        if provider_url == official_url or _same_host(provider_url, official_url):
+            return True, official_url
+
+    return False, None
+
+
 def _enrich_official_identity(
     config: dict[str, Any],
     season: int,
@@ -1419,23 +1466,34 @@ def _enrich_official_identity(
 ) -> dict[str, Any]:
     entries = [dict(item) for item in fetched.get("entries") or []]
     if not entries:
-        return fetched
+        result = dict(fetched)
+        result["metadata_source_url"] = None
+        result["metadata_verified"] = False
+        return result
 
-    # Identity already parsed from an official standings/PDF source remains valid.
-    provider = str(config.get("provider") or "")
-    provider_is_official = provider in {
-        "official_table", "linked_pdf", "column_sections", "imsa", "wec"
-    }
-    metadata_source_url: str | None = None
-    if provider_is_official and any(
+    provider_verified, provider_source = _provider_identity_provenance(
+        config, season, fetched
+    )
+
+    # Identity parsed from an unverified fallback must never leak into the hub.
+    if not provider_verified:
+        for item in entries:
+            item["number"] = None
+            item["team"] = None
+            item["manufacturer"] = None
+
+    metadata_source_url = provider_source
+    metadata_verified = provider_verified and any(
         item.get("number") or item.get("team") or item.get("manufacturer")
         for item in entries
-    ):
-        metadata_source_url = str(fetched.get("provider_url") or _series_url(config, season))
+    )
 
-    # Fill missing fields from a table on the series' own official site.
+    # Independently inspect the configured official series page for identity
+    # columns. This can fill missing fields even when the standings provider is
+    # a structured third-party feed used only for positions/points.
     metadata, table_url = _official_metadata_from_tables(config, season)
     if metadata:
+        matched = False
         for item in entries:
             values = metadata.get(_identity_key(item.get("name")))
             if not values:
@@ -1443,9 +1501,11 @@ def _enrich_official_identity(
             for field in ("number", "team", "manufacturer"):
                 if not item.get(field) and values.get(field):
                     item[field] = values[field]
-        metadata_source_url = table_url or metadata_source_url
+                    matched = True
+        if matched:
+            metadata_source_url = table_url or _series_url(config, season)
+            metadata_verified = True
 
-    # Guarantee the UI never has to guess at missing identity.
     for item in entries:
         item.setdefault("number", None)
         item.setdefault("team", None)
@@ -1453,7 +1513,8 @@ def _enrich_official_identity(
 
     result = dict(fetched)
     result["entries"] = entries
-    result["metadata_source_url"] = metadata_source_url
+    result["metadata_source_url"] = metadata_source_url if metadata_verified else None
+    result["metadata_verified"] = bool(metadata_verified)
     return result
 
 
@@ -1503,6 +1564,8 @@ def _discover_official_logo(
             if not raw_url:
                 continue
             absolute = urljoin(source_url, raw_url)
+            if not _http_image_url(absolute):
+                continue
             label = " ".join(
                 str(value or "")
                 for value in (
@@ -1528,6 +1591,8 @@ def _discover_official_logo(
                 response.raise_for_status()
             for alt, raw_url in re.findall(r"!\[([^\]]*)\]\(([^)]+)\)", response.text):
                 absolute = urljoin(source_url, raw_url.strip())
+                if not _http_image_url(absolute):
+                    continue
                 score = _logo_score(alt, absolute, terms)
                 if score >= 7:
                     candidates.append((score, absolute))
@@ -1624,6 +1689,7 @@ def _persist(config: dict[str, Any], season: int, fetched: dict[str, Any]) -> di
         "source_name": fetched.get("source_name") or "Standings source",
         "provider_url": fetched.get("provider_url"),
         "metadata_source_url": fetched.get("metadata_source_url"),
+        "metadata_verified": bool(fetched.get("metadata_verified")),
         "series_logo_url": fetched.get("series_logo_url"),
         "series_logo_source_url": fetched.get("series_logo_source_url"),
         "entries": entries,
@@ -1697,6 +1763,8 @@ def _fallback(config: dict[str, Any], season: int, error: Exception) -> dict[str
         "season": season,
         "source_name": None,
         "provider_url": None,
+        "metadata_source_url": None,
+        "metadata_verified": False,
         "entries": [],
         "fetched_at": None,
         "snapshot_id": None,
@@ -1795,6 +1863,7 @@ def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
                     "season": season,
                     "official_url": _series_url(config, season),
                     "source_name": snapshot.get("source_name") or latest_row.source_name,
+                    "metadata_verified": bool(snapshot.get("metadata_verified")),
                     "entries": _movement(entries, previous),
                     "status": "live" if fresh else "stale",
                     "stale": not fresh,
@@ -1813,6 +1882,8 @@ def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
                 "season": season,
                 "source_name": None,
                 "provider_url": None,
+                "metadata_source_url": None,
+                "metadata_verified": False,
                 "entries": [],
                 "fetched_at": None,
                 "snapshot_id": None,
@@ -1851,7 +1922,7 @@ def get_series_logo_info(series_key: str, *, season: int | None = None) -> dict[
         return None
     logo_url = str(snapshot.get("series_logo_url") or "").strip()
     source_url = str(snapshot.get("series_logo_source_url") or "").strip()
-    if not logo_url or not source_url:
+    if not logo_url or not source_url or not _http_image_url(logo_url):
         return None
     # Source provenance must be the configured official series page.
     if source_url != _series_url(config, season):
