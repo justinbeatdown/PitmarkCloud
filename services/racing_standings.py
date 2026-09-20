@@ -7,6 +7,7 @@ import json
 import logging
 import re
 import threading
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any
@@ -346,6 +347,41 @@ SERIES: tuple[dict[str, Any], ...] = (
         ),
     },
 )
+ 
+OFFICIAL_LOGO_TERMS: dict[str, tuple[str, ...]] = {
+    "nascar-cup": ("nascar cup", "cup series"),
+    "nascar-oreilly": ("o'reilly auto parts", "oreilly auto parts"),
+    "nascar-truck": ("craftsman truck", "truck series"),
+    "world-of-outlaws-sprint": ("world of outlaws", "outlaws sprint"),
+    "world-of-outlaws-late-models": ("world of outlaws", "outlaws late model"),
+    "lucas-oil-late-models": ("lucas oil late model", "late model dirt series"),
+    "high-limit-sprint": ("high limit racing", "high limit"),
+    "usac-national-sprint": ("usac",),
+    "usac-national-midget": ("usac",),
+    "usac-silver-crown": ("usac", "silver crown"),
+    "arca-menards": ("arca menards", "arca"),
+    "cars-tour-lmsc": ("cars tour", "zmax cars"),
+    "asa-stars": ("asa stars", "stars national tour"),
+    "smart-modified": ("smart modified", "smart tour"),
+    "nhra-top-fuel": ("nhra",),
+    "nhra-funny-car": ("nhra",),
+    "nhra-pro-stock": ("nhra",),
+    "nhra-pro-stock-motorcycle": ("nhra",),
+    "f1": ("formula 1", "f1"),
+    "indycar": ("indycar",),
+    "formula-e": ("formula e",),
+    "imsa-weathertech": ("imsa", "weathertech"),
+    "wec": ("fia wec", "world endurance championship"),
+    "supercars": ("supercars",),
+    "motogp": ("motogp",),
+}
+
+NUMBER_HEADERS = (
+    "#", "no", "no.", "number", "car", "car #", "car no", "car no.",
+    "vehicle no", "vehicle #", "bike #", "rider #",
+)
+TEAM_HEADERS = ("team", "entrant", "organization")
+MANUFACTURER_HEADERS = ("manufacturer", "make", "marque", "bike", "constructor")
 
 
 def utcnow() -> datetime:
@@ -516,8 +552,9 @@ def _fetch_espn(config: dict[str, str], season: int) -> dict[str, Any]:
                         {
                             "position": position,
                             "name": name,
-                            "team": team,
-                            "manufacturer": stats.get("manufacturer") or stats.get("make"),
+                            "number": None,
+                            "team": None,
+                            "manufacturer": None,
                             "points": _clean_points(points),
                             "behind": _clean_points(behind),
                             "wins": _clean_points(wins),
@@ -562,8 +599,9 @@ def _fetch_f1(config: dict[str, str], season: int) -> dict[str, Any]:
             {
                 "position": int(row.get("position") or index),
                 "name": name,
-                "team": team,
-                "manufacturer": team,
+                "number": None,
+                "team": None,
+                "manufacturer": None,
                 "points": _clean_points(row.get("points")),
                 "behind": None,
                 "wins": _clean_points(row.get("wins")),
@@ -806,6 +844,7 @@ def _parse_asa_stars_pdf(text: str) -> list[dict[str, Any]]:
             {
                 "position": int(parts[0]),
                 "name": name.rstrip("*").strip(),
+                "number": parts[1].strip() or None,
                 "team": None,
                 "manufacturer": None,
                 "points": points,
@@ -847,6 +886,7 @@ def _parse_smart_modified_pdf(text: str) -> list[dict[str, Any]]:
             {
                 "position": position,
                 "name": name,
+                "number": parts[1].strip() or None,
                 "team": None,
                 "manufacturer": None,
                 "points": points,
@@ -1028,6 +1068,7 @@ def _fetch_column_sections(config: dict[str, Any], season: int) -> dict[str, Any
             {
                 "position": positions[index] if positions else index + 1,
                 "name": names[index],
+                "number": None,
                 "team": None,
                 "manufacturer": None,
                 "points": point_values[index],
@@ -1133,8 +1174,9 @@ def _normalize_official_tables(
             "behind": _header_index(header, config.get("behind_headers") or ("gap", "behind")),
             "wins": _header_index(header, config.get("wins_headers") or ("wins",)),
             "starts": _header_index(header, config.get("starts_headers") or ("starts",)),
-            "team": _header_index(header, config.get("team_headers") or ("team",)),
-            "manufacturer": _header_index(header, config.get("manufacturer_headers") or ("manufacturer", "make", "bike")),
+            "number": _header_index(header, config.get("number_headers") or NUMBER_HEADERS),
+            "team": _header_index(header, config.get("team_headers") or TEAM_HEADERS),
+            "manufacturer": _header_index(header, config.get("manufacturer_headers") or MANUFACTURER_HEADERS),
         }
         if indexes["name"] is None or indexes["points"] is None:
             continue
@@ -1193,6 +1235,7 @@ def _normalize_official_tables(
             {
                 "position": position,
                 "name": name,
+                "number": str(field("number") or "").strip() or None,
                 "team": str(field("team") or "").strip() or None,
                 "manufacturer": str(field("manufacturer") or "").strip() or None,
                 "points": points,
@@ -1238,6 +1281,7 @@ def _fetch_imsa(config: dict[str, str], season: int) -> dict[str, Any]:
             {
                 "position": position,
                 "name": name,
+                "number": None,
                 "team": None,
                 "manufacturer": None,
                 "points": points,
@@ -1283,7 +1327,8 @@ def _fetch_wec(config: dict[str, str], season: int) -> dict[str, Any]:
             {
                 "position": position,
                 "name": name,
-                "team": number,
+                "number": number,
+                "team": None,
                 "manufacturer": manufacturer,
                 "points": _clean_points(row[-1]),
                 "behind": None,
@@ -1298,6 +1343,202 @@ def _fetch_wec(config: dict[str, str], season: int) -> dict[str, Any]:
         "source_name": "FIA WEC official standings",
         "provider_url": config["official_url"],
     }
+
+
+
+def _identity_key(value: Any) -> str:
+    text = unicodedata.normalize("NFKD", str(value or ""))
+    text = "".join(ch for ch in text if not unicodedata.combining(ch)).lower()
+    return re.sub(r"[^a-z0-9]+", "", text)
+
+
+def _official_metadata_from_tables(
+    config: dict[str, Any],
+    season: int,
+) -> tuple[dict[str, dict[str, str | None]], str | None]:
+    """Read optional identity columns from the series' own official page only."""
+    url = str(config.get("metadata_url") or _series_url(config, season))
+    try:
+        tables = _html_table_rows(url)
+    except Exception:
+        return {}, None
+
+    best: tuple[list[str], list[list[str]], dict[str, int | None]] | None = None
+    best_score = -1
+    for header, rows in tables:
+        indexes = {
+            "name": _header_index(header, config.get("name_headers") or ("driver", "rider")),
+            "number": _header_index(header, config.get("number_headers") or NUMBER_HEADERS),
+            "team": _header_index(header, config.get("team_headers") or TEAM_HEADERS),
+            "manufacturer": _header_index(header, config.get("manufacturer_headers") or MANUFACTURER_HEADERS),
+        }
+        if indexes["name"] is None:
+            continue
+        identity_columns = sum(
+            1 for key in ("number", "team", "manufacturer") if indexes[key] is not None
+        )
+        if identity_columns == 0:
+            continue
+        score = identity_columns * 10 + min(len(rows), 50) / 100
+        if score > best_score:
+            best = (header, rows, indexes)
+            best_score = score
+    if not best:
+        return {}, None
+
+    _, rows, indexes = best
+    out: dict[str, dict[str, str | None]] = {}
+    for row in rows:
+        name_index = indexes["name"]
+        if name_index is None or name_index >= len(row):
+            continue
+        name = str(row[name_index] or "").strip()
+        key = _identity_key(name)
+        if not key:
+            continue
+
+        def cell(field: str) -> str | None:
+            index = indexes.get(field)
+            if index is None or index >= len(row):
+                return None
+            value = str(row[index] or "").strip()
+            return value or None
+
+        out[key] = {
+            "number": cell("number"),
+            "team": cell("team"),
+            "manufacturer": cell("manufacturer"),
+        }
+    return out, url if out else None
+
+
+def _enrich_official_identity(
+    config: dict[str, Any],
+    season: int,
+    fetched: dict[str, Any],
+) -> dict[str, Any]:
+    entries = [dict(item) for item in fetched.get("entries") or []]
+    if not entries:
+        return fetched
+
+    # Identity already parsed from an official standings/PDF source remains valid.
+    provider = str(config.get("provider") or "")
+    provider_is_official = provider in {
+        "official_table", "linked_pdf", "column_sections", "imsa", "wec"
+    }
+    metadata_source_url: str | None = None
+    if provider_is_official and any(
+        item.get("number") or item.get("team") or item.get("manufacturer")
+        for item in entries
+    ):
+        metadata_source_url = str(fetched.get("provider_url") or _series_url(config, season))
+
+    # Fill missing fields from a table on the series' own official site.
+    metadata, table_url = _official_metadata_from_tables(config, season)
+    if metadata:
+        for item in entries:
+            values = metadata.get(_identity_key(item.get("name")))
+            if not values:
+                continue
+            for field in ("number", "team", "manufacturer"):
+                if not item.get(field) and values.get(field):
+                    item[field] = values[field]
+        metadata_source_url = table_url or metadata_source_url
+
+    # Guarantee the UI never has to guess at missing identity.
+    for item in entries:
+        item.setdefault("number", None)
+        item.setdefault("team", None)
+        item.setdefault("manufacturer", None)
+
+    result = dict(fetched)
+    result["entries"] = entries
+    result["metadata_source_url"] = metadata_source_url
+    return result
+
+
+def _logo_score(text: str, url: str, terms: tuple[str, ...]) -> int:
+    hay = f"{text} {url}".lower()
+    score = 0
+    if "logo" in hay:
+        score += 4
+    for term in terms:
+        term = term.lower().strip()
+        if term and term in hay:
+            score += 7
+    if any(bad in hay for bad in ("sponsor", "partner", "advert", "ticket", "driver", "car-photo", "hero-")):
+        score -= 6
+    return score
+
+
+def _discover_official_logo(
+    config: dict[str, Any],
+    season: int,
+) -> tuple[str | None, str | None]:
+    """Return only imagery referenced by the configured official series page."""
+    source_url = _series_url(config, season)
+    terms = OFFICIAL_LOGO_TERMS.get(str(config.get("key") or ""), ())
+    if not terms:
+        return None, None
+
+    candidates: list[tuple[int, str]] = []
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    try:
+        with httpx.Client(timeout=14.0, follow_redirects=True, headers=headers) as client:
+            response = client.get(source_url)
+            response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        for image in soup.find_all("img"):
+            raw_url = (
+                image.get("src")
+                or image.get("data-src")
+                or image.get("data-lazy-src")
+                or ""
+            )
+            raw_url = str(raw_url).strip()
+            if not raw_url:
+                continue
+            absolute = urljoin(source_url, raw_url)
+            label = " ".join(
+                str(value or "")
+                for value in (
+                    image.get("alt"), image.get("title"), image.get("id"),
+                    " ".join(image.get("class") or []),
+                )
+            )
+            score = _logo_score(label, absolute, terms)
+            if score >= 7:
+                candidates.append((score, absolute))
+    except Exception:
+        pass
+
+    if not candidates:
+        try:
+            reader_url = _reader_url(source_url)
+            with httpx.Client(
+                timeout=20.0,
+                follow_redirects=True,
+                headers={"User-Agent": USER_AGENT, "X-Return-Format": "markdown"},
+            ) as client:
+                response = client.get(reader_url)
+                response.raise_for_status()
+            for alt, raw_url in re.findall(r"!\[([^\]]*)\]\(([^)]+)\)", response.text):
+                absolute = urljoin(source_url, raw_url.strip())
+                score = _logo_score(alt, absolute, terms)
+                if score >= 7:
+                    candidates.append((score, absolute))
+        except Exception:
+            pass
+
+    if not candidates:
+        return None, None
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    return candidates[0][1], source_url
+
 
 
 def _fetch_series(config: dict[str, Any], season: int) -> dict[str, Any]:
@@ -1382,6 +1623,9 @@ def _persist(config: dict[str, Any], season: int, fetched: dict[str, Any]) -> di
         "official_url": _series_url(config, season),
         "source_name": fetched.get("source_name") or "Standings source",
         "provider_url": fetched.get("provider_url"),
+        "metadata_source_url": fetched.get("metadata_source_url"),
+        "series_logo_url": fetched.get("series_logo_url"),
+        "series_logo_source_url": fetched.get("series_logo_source_url"),
         "entries": entries,
         "fingerprint": fingerprint,
     }
@@ -1409,6 +1653,11 @@ def _persist(config: dict[str, Any], season: int, fetched: dict[str, Any]) -> di
             fetched_at = row.fetched_at
             snapshot_id = row.id
         else:
+            # Metadata/logo provenance can improve without the points changing.
+            existing.source_name = normalized["source_name"]
+            existing.source_url = _series_url(config, season)
+            existing.payload_json = json.dumps(normalized, ensure_ascii=False, default=str)
+            db.commit()
             fetched_at = existing.fetched_at
             snapshot_id = existing.id
     normalized["entries"] = _movement(entries, previous)
@@ -1460,6 +1709,10 @@ def _fallback(config: dict[str, Any], season: int, error: Exception) -> dict[str
 def _load_one(config: dict[str, Any], season: int) -> dict[str, Any]:
     try:
         fetched = _fetch_series(config, season)
+        fetched = _enrich_official_identity(config, season, fetched)
+        logo_url, logo_source_url = _discover_official_logo(config, season)
+        fetched["series_logo_url"] = logo_url
+        fetched["series_logo_source_url"] = logo_source_url
         return _persist(config, season, fetched)
     except Exception as exc:
         log.warning("Standings fetch failed series=%s error=%s", config["key"], exc)
@@ -1585,6 +1838,26 @@ def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
             "last_snapshot_at": max(synced_times) if synced_times else None,
         },
     }
+
+
+
+def get_series_logo_info(series_key: str, *, season: int | None = None) -> dict[str, str] | None:
+    season = int(season or utcnow().year)
+    config = next((item for item in SERIES if item["key"] == series_key), None)
+    if not config:
+        return None
+    snapshot = _decode_snapshot(_latest_snapshot(series_key, season))
+    if not snapshot:
+        return None
+    logo_url = str(snapshot.get("series_logo_url") or "").strip()
+    source_url = str(snapshot.get("series_logo_source_url") or "").strip()
+    if not logo_url or not source_url:
+        return None
+    # Source provenance must be the configured official series page.
+    if source_url != _series_url(config, season):
+        return None
+    return {"url": logo_url, "source_url": source_url}
+
 
 
 def clear_standings_cache() -> None:
