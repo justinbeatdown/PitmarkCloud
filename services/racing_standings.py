@@ -481,8 +481,8 @@ def _parse_html_tables(html: str) -> list[tuple[list[str], list[list[str]]]]:
 
 def _clean_markdown_cell(value: str) -> str:
     text = str(value or "").strip()
-    text = re.sub(r"!\\[[^\\]]*\\]\\([^)]*\\)", "", text)
-    text = re.sub(r"\\[([^\\]]+)\\]\\([^)]*\\)", r"\\1", text)
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", text)
+    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
     text = text.replace("**", "").replace("__", "").replace(chr(96), "")
     return " ".join(text.split()).strip()
 
