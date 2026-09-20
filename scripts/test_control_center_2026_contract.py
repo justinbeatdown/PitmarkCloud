@@ -308,6 +308,9 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Full standings", views)
         self.assertIn("CHAMPIONSHIP LEADERS", views)
         self.assertIn('data-domain="standings"', html)
+        main = self.read("main.py")
+        self.assertIn("racing_standings_sync_loop", main)
+        self.assertIn('name="racing-standings"', main)
 
     def test_control_center_readability_scale_covers_tiny_ui_text(self):
         css = self.read("api/control_center_overhaul.css")
