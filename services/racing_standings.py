@@ -230,7 +230,6 @@ SERIES: tuple[dict[str, Any], ...] = (
         "points_headers": ("points",),
         "position_headers": ("position", "pos"),
         "behind_headers": ("points behind leader", "behind"),
-        "team_headers": ("vehicle",),
     },
     {
         "key": "nhra-funny-car",
@@ -244,7 +243,6 @@ SERIES: tuple[dict[str, Any], ...] = (
         "points_headers": ("points",),
         "position_headers": ("position", "pos"),
         "behind_headers": ("points behind leader", "behind"),
-        "team_headers": ("vehicle",),
     },
     {
         "key": "nhra-pro-stock",
@@ -258,7 +256,6 @@ SERIES: tuple[dict[str, Any], ...] = (
         "points_headers": ("points",),
         "position_headers": ("position", "pos"),
         "behind_headers": ("points behind leader", "behind"),
-        "team_headers": ("vehicle",),
     },
     {
         "key": "nhra-pro-stock-motorcycle",
@@ -272,7 +269,6 @@ SERIES: tuple[dict[str, Any], ...] = (
         "points_headers": ("points",),
         "position_headers": ("position", "pos"),
         "behind_headers": ("points behind leader", "behind"),
-        "team_headers": ("vehicle",),
     },
     {
         "key": "f1",
