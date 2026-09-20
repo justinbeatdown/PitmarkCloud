@@ -1520,15 +1520,22 @@ def _enrich_official_identity(
 
 def _logo_score(text: str, url: str, terms: tuple[str, ...]) -> int:
     hay = f"{text} {url}".lower()
-    score = 0
-    if "logo" in hay:
-        score += 4
-    for term in terms:
-        term = term.lower().strip()
-        if term and term in hay:
-            score += 7
-    if any(bad in hay for bad in ("sponsor", "partner", "advert", "ticket", "driver", "car-photo", "hero-")):
-        score -= 6
+    has_logo_signal = "logo" in hay
+    matched_terms = [
+        term.lower().strip()
+        for term in terms
+        if term and term.lower().strip() in hay
+    ]
+    # Official page alone is not enough. The asset itself must identify the
+    # series and look explicitly like a logo, otherwise we leave it blank.
+    if not has_logo_signal or not matched_terms:
+        return -100
+    score = 12 + min(6, len(matched_terms) * 2)
+    if any(bad in hay for bad in (
+        "sponsor", "partner", "advert", "ticket", "driver", "car-photo",
+        "hero-", "instagram", "facebook", "youtube", "team-logo", "team_logo",
+    )):
+        score -= 20
     return score
 
 
