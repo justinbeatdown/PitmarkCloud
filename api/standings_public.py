@@ -31,6 +31,7 @@ def _asset(name: str, media_type: str) -> Response:
     )
 
 
+@router.get("/race-center", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/standings", response_class=HTMLResponse, include_in_schema=False)
 def public_standings_home():
     html = (ASSET_DIR / "standings_public.html").read_text(encoding="utf-8")
