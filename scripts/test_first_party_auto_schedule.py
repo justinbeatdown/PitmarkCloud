@@ -1,0 +1,46 @@
+from datetime import datetime
+from types import SimpleNamespace
+from zoneinfo import ZoneInfo
+import unittest
+
+from services.first_party_auto_schedule import _content_timing, _choose_campaign_slot
+
+
+class FirstPartyAutoScheduleTests(unittest.TestCase):
+    def setUp(self):
+        self.zone = ZoneInfo("America/New_York")
+
+    def posts(self, text):
+        return [SimpleNamespace(title=text, body="", source="firstparty:test")]
+
+    def test_explicit_event_start_time_is_parsed(self):
+        now = datetime(2026, 9, 20, 12, 0, tzinfo=self.zone)
+        timing = _content_timing(self.posts("Race preview September 20 at 7:30 PM"), now)
+        self.assertEqual(timing["kind"], "preview")
+        self.assertEqual(timing["start"].hour, 19)
+        self.assertEqual(timing["start"].minute, 30)
+
+    def test_nearby_event_uses_urgent_pre_event_slot(self):
+        now = datetime(2026, 9, 20, 17, 50, tzinfo=self.zone)
+        slot, reason = _choose_campaign_slot(
+            now,
+            [],
+            self.posts("Tonight's race preview September 20 at 7 PM"),
+        )
+        self.assertIsNotNone(slot)
+        self.assertLess(slot, datetime(2026, 9, 20, 19, 0, tzinfo=self.zone))
+        self.assertEqual(reason, "urgent pre-event")
+
+    def test_preview_is_not_scheduled_after_event_starts(self):
+        now = datetime(2026, 9, 20, 19, 10, tzinfo=self.zone)
+        slot, reason = _choose_campaign_slot(
+            now,
+            [],
+            self.posts("Where to watch September 20 at 7 PM"),
+        )
+        self.assertIsNone(slot)
+        self.assertIn("already started", reason)
+
+
+if __name__ == "__main__":
+    unittest.main()
