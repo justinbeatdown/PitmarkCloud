@@ -19,6 +19,7 @@ from services.meta_publish_service import (
     reply_instagram_comment,
 )
 from services.social_operator_logic import counts_toward_daily_coverage, summarize_channel_health
+from services.autonomy_control import effective_mode
 from services.first_party_auto_schedule import auto_schedule_verified_first_party
 from services.first_party_media import reconcile_first_party_drafts
 from services.x_publish_service import fetch_mentions as fetch_x_mentions
@@ -367,7 +368,8 @@ def _ensure_growth_posts() -> int:
         if _operator_post_exists(platform, day_key):
             continue
         body = _pick(_prompt_set(platform), f"{platform}:{day_key}")
-        status = "scheduled" if settings.social_operator_autopublish_low_risk else "pending"
+        auto_mode = effective_mode("low_risk_social_publish", uncertainty=0.05, fallback="auto")
+        status = "scheduled" if settings.social_operator_autopublish_low_risk and auto_mode == "auto" else "pending"
         with SessionLocal() as db:
             db.add(
                 SocialPost(
