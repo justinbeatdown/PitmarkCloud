@@ -67,6 +67,7 @@ async function renderHQ(root, ctx) {
   const checklistBadge = workConnected ? (work?.stale ? '<span class="pm-badge warn">Checklist cached</span>' : '<span class="pm-badge good">Checklist live</span>') : '<span class="pm-badge warn">Checklist unavailable</span>';
 
   const operatingQueue = [
+    workConnected && attention.length ? { domain:'work', kicker:'Work · Attention', title:`${attention.length} checklist item${attention.length === 1 ? '' : 's'} need you`, copy:'P0/P1, blockers, or active work that needs an owner decision.' } : null,
     appCount ? { domain:'prt', kicker:'PRT · Intake', title:`${appCount} new tester application${appCount === 1 ? '' : 's'}`, copy:'Review applicants and keep Early Access moving.' } : null,
     feedbackOpen ? { domain:'prt', kicker:'PRT · Feedback', title:`${feedbackOpen} tester feedback item${feedbackOpen === 1 ? '' : 's'} open`, copy:'Review product feedback and release-impacting reports.' } : null,
     approvalCount ? { domain:'content', kicker:'Content · Approval', title:`${approvalCount} generated post${approvalCount === 1 ? '' : 's'} waiting`, copy:'Review, edit, approve, schedule, or archive social copy.' } : null,
@@ -97,7 +98,7 @@ async function renderHQ(root, ctx) {
       ${workConnected ? '' : `<button type="button" class="pm-metric pm-metric-action" data-hq-action="feedback"><span>PRT feedback</span><strong>${n(feedbackOpen)}</strong><small>Open tester feedback</small><i aria-hidden="true">›</i></button><button type="button" class="pm-metric pm-metric-action" data-hq-action="signals"><span>Signals</span><strong>${n(unreadCount)}</strong><small>Unread operational signals</small><i aria-hidden="true">›</i></button>`}
     </div>
     <div class="pm-grid pm-grid-hq">
-      ${workConnected ? panel('Needs Attention','Operator Queue', attention.length ? `<div class="pm-row-list">${attention.map(workRow).join('')}</div>` : empty('Nothing urgent is sitting in the queue.'), `<button class="pm-button pm-button-ghost" data-go="work">Open Work</button>`) : panel('Operational Queue','Live Company Actions',queueBody,'')}
+      ${panel('Operator Queue','What Needs You',queueBody,'')}
       ${panel('Pitmark Pulse','Company State', `
         <div class="pm-pulse-grid">
           ${workConnected ? `<div class="pm-pulse"><header><span>Work</span>${summary.blocked ? '<b class="pm-danger-text">Blocked</b>' : '<b class="pm-good-text">Moving</b>'}</header><strong>${n(summary.open)}</strong><p>open items · ${n(summary.completed)} completed</p><div class="pm-progress"><span style="width:${Math.min(100, (Number(summary.completed||0) / Math.max(1, Number(summary.total||1))) * 100)}%"></span></div></div>` : ''}
