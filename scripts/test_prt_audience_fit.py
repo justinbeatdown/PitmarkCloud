@@ -14,6 +14,10 @@ required = [
     'Advanced coaching and Driver DNA are in development',
     'data-prt-funnel-link="hero-apply"',
     'data-prt-download="prt-home-accepted"',
+    'aria-label="PRT Founder\'s Race"',
+    'personal Founder’s Race Hub',
+    'P1 earns 12 months',
+    'data-prt-funnel-link="founders-race-apply"',
 ]
 
 missing = [token for token in required if token not in html]

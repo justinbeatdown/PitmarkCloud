@@ -184,6 +184,17 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('"shield", "mail", "gmail", "email"', notifications)
         self.assertIn("Control Center is not an inbox", notifications)
 
+    def test_owner_community_posts_skip_approval_but_manual_authority_stays_gated(self):
+        api_py = self.read("api/control_center.py")
+        worker = self.read("services/social_publish_worker.py")
+        views = self.read("api/control_center_views.js")
+        self.assertIn('content_type == "community"', api_py)
+        self.assertIn('source = "control_center:auto"', api_py)
+        self.assertIn('status = "scheduled"', api_py)
+        self.assertIn('raw == "control_center:auto"', worker)
+        self.assertIn("Community post saved into the automatic scheduling lane.", views)
+        self.assertIn('status = "pending"', api_py)
+
     def test_content_can_generate_and_attach_publish_safe_media(self):
         api_js = self.read("api/control_center_api.js")
         views = self.read("api/control_center_views.js")
