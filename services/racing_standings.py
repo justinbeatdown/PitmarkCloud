@@ -106,12 +106,13 @@ SERIES: tuple[dict[str, Any], ...] = (
         "provider": "official_table",
         "official_url": "https://www.highlimitracing.com/standings",
         "source_name": "High Limit Racing official standings",
-        "name_headers": ("driver",),
+        "name_headers": ("driver", "competitor"),
         "points_headers": ("points", "pts"),
         "position_headers": ("pos", "position", "rank"),
         "behind_headers": ("gap", "behind"),
         "wins_headers": ("wins",),
-        "starts_headers": ("starts", "races"),
+        "starts_headers": ("starts", "races", "features"),
+        "fallback_urls": ("https://www.tonystewartracing.com/schedule/",),
     },
     {
         "key": "usac-national-sprint",
@@ -707,32 +708,65 @@ def _html_table_rows(url: str) -> list[tuple[list[str], list[list[str]]]]:
 
 def _linked_pdf_url(config: dict[str, Any], season: int) -> str:
     landing_url = _series_url(config, season)
-    headers = {
-        "User-Agent": USER_AGENT,
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "en-US,en;q=0.9",
-    }
-    with httpx.Client(timeout=16.0, follow_redirects=True, headers=headers) as client:
-        response = client.get(landing_url)
-        response.raise_for_status()
-    soup = BeautifulSoup(response.text, "html.parser")
     wanted = str(config.get("pdf_link_text") or "").strip().lower()
     fallback: str | None = None
-    for anchor in soup.find_all("a", href=True):
-        href = str(anchor.get("href") or "").strip()
-        if not href:
-            continue
-        text = " ".join(anchor.get_text(" ", strip=True).split()).lower()
-        absolute = urljoin(landing_url, href)
-        looks_pdf = ".pdf" in absolute.lower() or "pdf" in text
-        if not looks_pdf:
-            continue
-        if fallback is None:
-            fallback = absolute
-        if wanted and wanted in text:
-            return absolute
-    if fallback:
-        return fallback
+    direct_error: Exception | None = None
+
+    try:
+        headers = {
+            "User-Agent": USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        with httpx.Client(timeout=16.0, follow_redirects=True, headers=headers) as client:
+            response = client.get(landing_url)
+            response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        for anchor in soup.find_all("a", href=True):
+            href = str(anchor.get("href") or "").strip()
+            if not href:
+                continue
+            text = " ".join(anchor.get_text(" ", strip=True).split()).lower()
+            absolute = urljoin(landing_url, href)
+            looks_pdf = ".pdf" in absolute.lower() or "pdf" in text
+            if not looks_pdf:
+                continue
+            if fallback is None:
+                fallback = absolute
+            if wanted and wanted in text:
+                return absolute
+        if fallback:
+            return fallback
+    except Exception as exc:
+        direct_error = exc
+
+    try:
+        reader_url = _reader_url(landing_url)
+        with httpx.Client(
+            timeout=24.0,
+            follow_redirects=True,
+            headers={"User-Agent": USER_AGENT, "X-Return-Format": "markdown"},
+        ) as client:
+            response = client.get(reader_url)
+            response.raise_for_status()
+        markdown = response.text
+        for label, href in re.findall(r"\[([^\]]*)\]\(([^)]+)\)", markdown):
+            text = " ".join(label.split()).lower()
+            absolute = urljoin(landing_url, href.strip())
+            looks_pdf = ".pdf" in absolute.lower() or "pdf" in text
+            if not looks_pdf:
+                continue
+            if fallback is None:
+                fallback = absolute
+            if wanted and wanted in text:
+                return absolute
+        if fallback:
+            return fallback
+    except Exception as reader_error:
+        raise RuntimeError(
+            f"standings PDF link unavailable ({direct_error}); rendered fallback failed ({reader_error})"
+        ) from reader_error
+
     raise RuntimeError("standings PDF link was not found on the official page")
 
 
@@ -891,6 +925,32 @@ def _token_index(tokens: list[str], needle: str, start: int = 0) -> int | None:
     return None
 
 
+
+def _split_collapsed_driver_names(value: str, expected_count: int) -> list[str]:
+    words = [
+        word for word in str(value or "").replace("\u00a0", " ").split()
+        if word and word not in {"(R)", "(r)"}
+    ]
+    if not words or expected_count <= 0:
+        return []
+    suffixes = {"jr.", "jr", "sr.", "sr", "ii", "iii", "iv", "v"}
+    names: list[str] = []
+    index = 0
+    while index < len(words) and len(names) < expected_count:
+        remaining_names = expected_count - len(names)
+        remaining_words = len(words) - index
+        if remaining_words < remaining_names * 2:
+            break
+        take = 2
+        if index + 2 < len(words) and words[index + 2].lower() in suffixes:
+            take = 3
+        name = " ".join(words[index:index + take]).strip()
+        if name:
+            names.append(name)
+        index += take
+    return names
+
+
 def _fetch_column_sections(config: dict[str, Any], season: int) -> dict[str, Any]:
     url = _series_url(config, season)
     tokens = _page_tokens(url)
@@ -921,25 +981,36 @@ def _fetch_column_sections(config: dict[str, Any], season: int) -> dict[str, Any
         if found is not None:
             stop_index = min(stop_index, found)
 
-    positions = [
-        value for value in (_parse_position(token) for token in tokens[pos_index + 1:name_index])
-        if value is not None
-    ]
-    raw_names = tokens[name_index + 1:points_index]
-    names = [
-        name for name in raw_names
+    positions: list[int] = []
+    for token in tokens[pos_index + 1:name_index]:
+        for piece in str(token or "").split():
+            value = _parse_position(piece)
+            if value is not None:
+                positions.append(value)
+
+    point_values: list[int | float | str | None] = []
+    for token in tokens[points_index + 1:stop_index]:
+        for piece in str(token or "").replace(",", "").split():
+            if _num(piece) is not None:
+                point_values.append(_clean_points(piece))
+
+    raw_names = [
+        name for name in tokens[name_index + 1:points_index]
         if name
-        and _num(name) is None
         and _norm_header(name) not in {
             "image", "driver standings", "entrant standings", "home town",
             "hometown", "starts", "wins", "top 5s", "top 10s", "fqs",
         }
     ]
-    point_values = [
-        _clean_points(token)
-        for token in tokens[points_index + 1:stop_index]
-        if _num(token) is not None
-    ]
+    if len(raw_names) == 1 and point_values:
+        names = _split_collapsed_driver_names(raw_names[0], len(point_values))
+    else:
+        names = [
+            " ".join(str(name).replace("(R)", "").split()).strip()
+            for name in raw_names
+            if _num(name) is None
+        ]
+
     count = min(len(names), len(point_values))
     if positions:
         count = min(count, len(positions))
@@ -1031,7 +1102,24 @@ def _fetch_official_table(config: dict[str, Any], season: int) -> dict[str, Any]
 
 
 def _fetch_official_table_url(config: dict[str, Any], url: str) -> dict[str, Any]:
-    tables = _html_table_rows(url)
+    try:
+        tables = _html_table_rows(url)
+        return _normalize_official_tables(config, url, tables)
+    except Exception as direct_error:
+        try:
+            tables = _reader_table_rows(url)
+            return _normalize_official_tables(config, url, tables)
+        except Exception as reader_error:
+            raise RuntimeError(
+                f"direct table parse failed ({direct_error}); rendered table parse failed ({reader_error})"
+            ) from reader_error
+
+
+def _normalize_official_tables(
+    config: dict[str, Any],
+    url: str,
+    tables: list[tuple[list[str], list[list[str]]]],
+) -> dict[str, Any]:
     best: tuple[list[str], list[list[str]], dict[str, int | None]] | None = None
     best_score = -1
     for header, rows in tables:
