@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from services.database import Base, SessionLocal
 from services.prt_applications import PrtEarlyAccessApplication
 from services.prt_licensing_store import PrtEarlyAccessInviteRow
+from services.prt_analytics import PrtUsageSession
 
 
 def utcnow() -> datetime:
@@ -198,6 +199,21 @@ def leaderboard() -> list[dict]:
         rows: list[dict] = []
         for referrer in referrers:
             items = by_referrer.get(referrer.id, [])
+            invite = db.get(PrtEarlyAccessInviteRow, referrer.invite_id)
+            activated = bool(
+                invite
+                and invite.status == "redeemed"
+                and invite.bound_device_id
+                and invite.tester_status in {"active", "completed"}
+            )
+            first_session = None
+            if activated and invite and invite.bound_device_id:
+                first_session = db.scalar(
+                    select(PrtUsageSession)
+                    .where(PrtUsageSession.device_id == invite.bound_device_id)
+                    .order_by(PrtUsageSession.started_at.asc())
+                    .limit(1)
+                )
             qualified = 0
             pending = 0
             flagged = 0
@@ -236,6 +252,11 @@ def leaderboard() -> list[dict]:
                 "flagged": flagged,
                 "total": len(items),
                 "latest_qualified_activation": max(activation_times) if activation_times else "",
+                "activated": activated,
+                "first_session_complete": bool(first_session),
+                "first_session_at": first_session.started_at.isoformat() if first_session and first_session.started_at else "",
+                "first_session_track": first_session.track_name if first_session else "",
+                "first_session_car": first_session.car_name if first_session else "",
                 "referrals": detail,
             })
 
