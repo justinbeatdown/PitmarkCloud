@@ -130,7 +130,10 @@ def publish_due_posts() -> int:
 async def social_publish_worker_loop() -> None:
     while True:
         try:
-            publish_due_posts()
+            # Publishing can make several blocking HTTP calls (Meta media creation,
+            # container polling, Shopify asset sync). Keep that work off the ASGI
+            # event loop so a slow provider cannot freeze every Pitmark Cloud route.
+            await asyncio.to_thread(publish_due_posts)
         except Exception:
             log.exception("Social publishing worker iteration failed")
         await asyncio.sleep(60)
