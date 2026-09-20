@@ -1176,7 +1176,9 @@ def _normalize_official_tables(
         if not name or points is None:
             continue
 
-        position_index = shifted(indexes["position"])
+        # MyRacePass inserts the unlabeled profile cell AFTER the rank/car columns,
+        # so Driver/Points need the offset but championship position does not.
+        position_index = indexes["position"]
         position = (
             _parse_position(row[position_index])
             if position_index is not None and position_index < len(row)
