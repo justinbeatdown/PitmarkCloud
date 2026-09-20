@@ -98,6 +98,17 @@ def public_standings_data():
     payload = get_standings_snapshot_hub()
     safe_series = []
     for series in payload.get("series") or []:
+        identity_verified = bool(series.get("metadata_verified"))
+        safe_entries = []
+        for raw_entry in series.get("entries") or []:
+            entry = dict(raw_entry)
+            if not identity_verified:
+                entry["number"] = None
+                entry["team"] = None
+                entry["manufacturer"] = None
+            safe_entries.append(entry)
+        logo_url = str(series.get("series_logo_url") or "").strip()
+        logo_is_http = logo_url.startswith(("https://", "http://"))
         safe_series.append(
             {
                 "series_key": series.get("series_key"),
@@ -107,17 +118,18 @@ def public_standings_data():
                 "season": series.get("season"),
                 "official_url": series.get("official_url"),
                 "source_name": series.get("source_name"),
-                "metadata_source_url": series.get("metadata_source_url"),
+                "metadata_source_url": series.get("metadata_source_url") if identity_verified else None,
+                "metadata_verified": identity_verified,
                 "series_logo": (
                     f"/standings-logo/{series.get('series_key')}"
-                    if series.get("series_logo_url") and series.get("series_logo_source_url")
+                    if logo_is_http and series.get("series_logo_source_url")
                     else None
                 ),
                 "series_logo_source_url": series.get("series_logo_source_url"),
                 "fetched_at": series.get("fetched_at"),
                 "status": series.get("status"),
                 "stale": bool(series.get("stale")),
-                "entries": series.get("entries") or [],
+                "entries": safe_entries,
             }
         )
     return Response(
