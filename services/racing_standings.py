@@ -35,6 +35,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "provider": "espn",
         "league": "nascar-premier",
         "official_url": "https://www.nascar.com/standings/nascar-cup-series/",
+        "logo_source_url": "https://www.nascar.com/",
+        "logo_url": "https://www.nascar.com/wp-content/uploads/sites/7/2023/05/10/nascar_cup_series_logo.svg",
     },
     {
         "key": "nascar-oreilly",
@@ -44,6 +46,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "provider": "espn",
         "league": "nascar-secondary",
         "official_url": "https://www.nascar.com/standings/nascar-oreilly-auto-parts-series/",
+        "logo_source_url": "https://www.nascar.com/",
+        "logo_url": "https://www.nascar.com/wp-content/uploads/sites/7/2025/09/30/NOAPS-Primary_FullColor-RGB.svg",
     },
     {
         "key": "nascar-truck",
@@ -53,6 +57,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "provider": "espn",
         "league": "nascar-truck",
         "official_url": "https://www.nascar.com/standings/nascar-craftsman-truck-series/",
+        "logo_source_url": "https://www.nascar.com/",
+        "logo_url": "https://www.nascar.com/wp-content/uploads/sites/7/2026/02/13/nascar-craftman-truck-series-1.svg",
     },
     {
         "key": "world-of-outlaws-sprint",
@@ -277,6 +283,7 @@ SERIES: tuple[dict[str, Any], ...] = (
         "official_url_template": "https://www.formula1.com/en/results/{season}/drivers",
         "name_headers": ("driver",),
         "team_headers": ("team",),
+        "logo_disabled": True,
     },
     {
         "key": "indycar",
@@ -1581,6 +1588,8 @@ def _discover_official_logo(
 ) -> tuple[str | None, str | None]:
     """Return only imagery referenced by the configured official series page."""
     source_url = _series_url(config, season)
+    if bool(config.get("logo_disabled")):
+        return None, None
     explicit_logo = str(config.get("logo_url") or "").strip()
     explicit_source = str(config.get("logo_source_url") or source_url).strip()
     if (
