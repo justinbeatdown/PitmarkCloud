@@ -307,6 +307,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "group": "Sports Cars",
         "provider": "imsa",
         "official_url": "https://www.imsa.com/weathertech/standings/",
+        "logo_source_url": "https://www.imsa.com/media-center/",
+        "logo_url": "https://www.imsa.com/wp-content/uploads/sites/32/2025/12/08/2025_IWSC_Logo_MediaCenter.png",
     },
     {
         "key": "wec",
@@ -1579,6 +1581,16 @@ def _discover_official_logo(
 ) -> tuple[str | None, str | None]:
     """Return only imagery referenced by the configured official series page."""
     source_url = _series_url(config, season)
+    explicit_logo = str(config.get("logo_url") or "").strip()
+    explicit_source = str(config.get("logo_source_url") or source_url).strip()
+    if (
+        explicit_logo
+        and _http_image_url(explicit_logo)
+        and explicit_source
+        and _same_host(explicit_source, source_url)
+    ):
+        return explicit_logo, explicit_source
+
     terms = OFFICIAL_LOGO_TERMS.get(str(config.get("key") or ""), ())
     if not terms:
         return None, None
@@ -1980,8 +1992,12 @@ def get_series_logo_info(series_key: str, *, season: int | None = None) -> dict[
     source_url = str(snapshot.get("series_logo_source_url") or "").strip()
     if not logo_url or not source_url or not _http_image_url(logo_url):
         return None
-    # Source provenance must be the configured official series page.
-    if source_url != _series_url(config, season):
+    # Source provenance must be the configured official series page or a
+    # separately configured official-series media/brand page on the same host.
+    official_url = _series_url(config, season)
+    configured_logo_source = str(config.get("logo_source_url") or official_url).strip()
+    allowed_sources = {official_url, configured_logo_source}
+    if source_url not in allowed_sources or not _same_host(source_url, official_url):
         return None
     return {"url": logo_url, "source_url": source_url}
 
