@@ -269,6 +269,20 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("prepareOpportunityResearch:", api_js)
         self.assertIn("runIntelligence:", api_js)
 
+    def test_control_center_readability_scale_covers_tiny_ui_text(self):
+        css = self.read("api/control_center_overhaul.css")
+        self.assertIn("Readability pass — 2026-09-20", css)
+        for token in (
+            ".pm-button{font-size:12px}",
+            ".pm-row-actions .pm-button{min-height:36px;padding:0 10px;font-size:11px}",
+            ".pm-row-main strong{font-size:13px}",
+            ".pm-row-main p{font-size:11px",
+            ".pm-badge{min-height:22px;font-size:9px}",
+            ".pm-table td strong{font-size:12px}",
+            ".pm-table td small{font-size:10px}",
+        ):
+            self.assertIn(token, css)
+
     def test_operating_tables_stack_cleanly_on_mobile(self):
         views = self.read("api/control_center_views.js")
         self.assertIn('data-label="Applicant"', views)
