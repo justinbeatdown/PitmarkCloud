@@ -578,7 +578,7 @@ function openComposer(ctx){
           const goal=document.getElementById('composer-goal').value;
           await api.savePost({platform:document.getElementById(platform).value,title:compact(document.getElementById(topic).value,160),body:document.getElementById(body).value,content_type:goal,source:'control_center',risk:'low',media_url:document.getElementById(media).value||null});
           clearCache('/api/control/autopilot/posts');
-          ctx.toast(goal==='community'||goal==='authority'?'Post saved. Low-risk automation may schedule it automatically.':'Post saved to the content queue.','good');
+          ctx.toast(goal==='community'?'Community post saved into the automatic scheduling lane.':'Post saved to the content queue.','good');
           ctx.closeSheet();
           ctx.refresh();
         }catch(e){ctx.toast(e.message,'bad');}
