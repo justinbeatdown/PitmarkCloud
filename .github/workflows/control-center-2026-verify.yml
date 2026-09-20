@@ -16,6 +16,10 @@ on:
       - 'api/control_center_api.js'
       - 'api/control_center_views.js'
       - 'api/control_sw.js'
+      - 'api/standings_public.py'
+      - 'api/standings_public.html'
+      - 'api/standings_public.css'
+      - 'api/standings_public.js'
       - 'api/__init__.py'
       - 'services/google_workspace_auth.py'
       - 'services/google_gmail.py'
@@ -73,7 +77,7 @@ jobs:
         run: python scripts/test_workspace_focus_frame.py -v
       - name: Compile Control Center APIs
         run: |
-          python -m py_compile main.py api/control_center.py api/control_center_2026.py api/control_center_ui.py api/__init__.py
+          python -m py_compile main.py api/control_center.py api/control_center_2026.py api/control_center_ui.py api/standings_public.py api/__init__.py
           if [ -f api/control_center_hq.py ]; then python -m py_compile api/control_center_hq.py; fi
           if [ -f services/google_workspace_auth.py ]; then python -m py_compile services/google_workspace_auth.py; fi
           if [ -f services/master_checklist.py ]; then python -m py_compile services/master_checklist.py; fi
@@ -85,3 +89,4 @@ jobs:
           if [ -f api/control_center_api.js ]; then node --check api/control_center_api.js; fi
           if [ -f api/control_center_views.js ]; then node --check api/control_center_views.js; fi
           if [ -f api/control_sw.js ]; then node --check api/control_sw.js; fi
+          if [ -f api/standings_public.js ]; then node --check api/standings_public.js; fi
