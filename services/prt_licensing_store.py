@@ -417,6 +417,67 @@ def create_early_access_invite(
         return item
 
 
+
+def reissue_early_access_invite(
+    invite_id: int,
+    *,
+    code: str,
+    expires_days: int = 14,
+) -> dict | None:
+    """Replace an invite's activation code and clear its old device binding.
+
+    Supplying the same replacement code again is a no-op, which makes this safe
+    for one-time startup maintenance hooks across repeated service restarts.
+    """
+    normalized = _normalize_early_access_code(code)
+    if not normalized.startswith("PRT-EA-"):
+        raise ValueError("Replacement code must be a PRT Early Access code.")
+    expires_days = max(1, min(int(expires_days), 90))
+    replacement_hash = _hash_early_access_code(normalized)
+    parts = normalized.split("-")
+    if len(parts) < 6:
+        raise ValueError("Replacement code format is invalid.")
+    replacement_hint = "-".join(parts[:3]) + "-••••-••••-" + parts[-1]
+
+    with SessionLocal() as db:
+        row = db.get(PrtEarlyAccessInviteRow, int(invite_id))
+        if row is None:
+            return None
+
+        # If this exact replacement was already applied, never reset it again.
+        # This protects a tester who has redeemed the new code after a restart.
+        if row.code_hash == replacement_hash:
+            item = _early_access_dict(row)
+            item["code"] = normalized
+            item["already_applied"] = True
+            return item
+
+        previous_device_id = row.bound_device_id
+        if previous_device_id:
+            entitlement = db.get(PrtEntitlementRow, previous_device_id)
+            if entitlement is not None and str(entitlement.source or "").lower() == "early_access":
+                entitlement.status = "inactive"
+                entitlement.offline_grace_until = _now_iso()
+                entitlement.updated_at = _now_iso()
+
+        row.code_hash = replacement_hash
+        row.code_hint = replacement_hint
+        row.status = "issued"
+        row.tester_status = "invited"
+        row.bound_device_id = ""
+        row.expires_at = (datetime.now(timezone.utc) + timedelta(days=expires_days)).isoformat()
+        row.redeemed_at = ""
+        row.revoked_at = ""
+        row.last_seen_at = ""
+        db.commit()
+        db.refresh(row)
+
+        item = _early_access_dict(row)
+        item["code"] = normalized
+        item["already_applied"] = False
+        return item
+
+
 def list_early_access_invites(limit: int = 250) -> list[dict]:
     now = datetime.now(timezone.utc)
     with SessionLocal() as db:
