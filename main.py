@@ -102,6 +102,26 @@ async def gmail_sync_loop() -> None:
         await asyncio.sleep(interval)
 
 
+async def racing_standings_sync_loop() -> None:
+    interval = _env_int("PITMARK_STANDINGS_SYNC_SECONDS", 14400, 1800, 43200)
+    await asyncio.sleep(300)
+    while True:
+        try:
+            from services.racing_standings import get_standings_hub
+            result = await asyncio.to_thread(get_standings_hub, force=True)
+            summary = result.get("summary") or {}
+            log.info(
+                "Racing standings sync: series=%s live=%s cached=%s unavailable=%s",
+                summary.get("series_total", 0),
+                summary.get("live", 0),
+                summary.get("stale", 0),
+                summary.get("unavailable", 0),
+            )
+        except Exception as exc:
+            log.warning("Racing standings background sync failed: %s", exc)
+        await asyncio.sleep(interval)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     loop = asyncio.get_running_loop()
@@ -162,6 +182,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(social_operator_loop(), name="social-operator"),
         asyncio.create_task(gmail_sync_loop(), name="gmail-shield"),
         asyncio.create_task(runtime_maintenance_loop(), name="runtime-memory-maintenance"),
+        asyncio.create_task(racing_standings_sync_loop(), name="racing-standings"),
     ]
     log.info(
         "Pitmark Cloud runtime started: background_threads=%s gmail_sync_min=%ss gmail_batch<=%s social_operator=%s",
