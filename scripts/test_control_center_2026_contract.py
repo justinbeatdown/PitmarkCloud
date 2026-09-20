@@ -367,6 +367,16 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('"column_title": "Driver Standings"', service)
         self.assertIn('if provider == "column_sections"', service)
 
+    def test_public_standings_embed_snapshot_and_renderer(self):
+        public_api = self.read("api/standings_public.py")
+        public_html = self.read("api/standings_public.html")
+        public_js = self.read("api/standings_public.js")
+        self.assertIn("get_standings_snapshot_hub()", public_api)
+        self.assertIn("{{PITMARK_STANDINGS_BOOTSTRAP}}", public_html)
+        self.assertIn("{{PITMARK_STANDINGS_INLINE_JS}}", public_html)
+        self.assertIn("pitmark-standings-bootstrap", public_js)
+        self.assertIn("JSON.parse(bootstrap.textContent)", public_js)
+
     def test_control_center_readability_scale_covers_tiny_ui_text(self):
         css = self.read("api/control_center_overhaul.css")
         self.assertIn("Readability pass — 2026-09-20", css)
