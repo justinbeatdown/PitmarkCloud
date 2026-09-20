@@ -44,6 +44,7 @@ def _automatic_social_source(source: str | None) -> bool:
         or raw.startswith("dailycampaign:")
         or raw.startswith("firstparty:")
         or raw.startswith("intelligence:")
+        or raw == "control_center:auto"
     )
 
 
