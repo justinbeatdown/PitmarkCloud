@@ -194,6 +194,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .pm-standings-brief{margin-bottom:14px}
 .pm-standings-leader-strip{display:grid;grid-template-columns:repeat(3,minmax(130px,1fr));gap:8px;min-width:min(660px,48vw)}
 .pm-standings-leader-strip>div{padding:10px 11px;border:1px solid var(--pm-line);border-radius:11px;background:rgba(0,0,0,.16)}
+.pm-standings-strip-brand{display:flex;align-items:center;gap:7px;min-height:30px}
+.pm-standings-strip-brand .pm-standings-logo{width:28px;height:28px}
 .pm-standings-leader-strip span{display:block;color:var(--pm-orange-soft);font-size:9px;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
 .pm-standings-leader-strip strong{display:block;margin-top:4px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pm-standings-leader-strip small{display:block;margin-top:3px;color:var(--pm-muted);font-size:10px}
@@ -205,6 +207,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .pm-standings-card{padding:14px;cursor:pointer;transition:transform var(--pm-speed),border-color var(--pm-speed),background var(--pm-speed)}
 .pm-standings-card:hover{transform:translateY(-2px);border-color:rgba(255,85,0,.26);background:linear-gradient(160deg,rgba(24,27,32,.98),rgba(15,18,22,.98))}
 .pm-standings-card>header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.pm-standings-series-brand{display:flex;align-items:center;gap:10px;min-width:0}
+.pm-standings-series-brand>div{min-width:0}
+.pm-standings-logo{width:38px;height:38px;object-fit:contain;flex:0 0 auto;filter:drop-shadow(0 4px 10px rgba(0,0,0,.28))}
+.pm-standings-logo.is-sheet{width:64px;height:64px}
 .pm-standings-card>header .eyebrow{display:block;margin-bottom:3px;color:var(--pm-orange-soft);font-size:9px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
 .pm-standings-card>header h3{margin:0;font-size:17px;letter-spacing:-.025em}
 .pm-standings-leader{margin:12px 0 9px;padding:10px 11px;border:1px solid rgba(255,85,0,.12);border-radius:11px;background:rgba(255,85,0,.035)}
@@ -212,9 +218,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .pm-standings-leader strong{display:block;margin-top:4px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pm-standings-leader small{display:block;margin-top:2px;color:#ff9b6d;font-size:10px;font-weight:800}
 .pm-standings-mini{display:grid}
-.pm-standings-mini-row{display:grid;grid-template-columns:30px minmax(0,1fr) 38px 62px;align-items:center;gap:7px;min-height:42px;border-top:1px solid var(--pm-line)}
+.pm-standings-mini-row{display:grid;grid-template-columns:30px 42px minmax(0,1fr) 38px 62px;align-items:center;gap:7px;min-height:42px;border-top:1px solid var(--pm-line)}
 .pm-standings-mini-row:first-child{border-top:0}
 .pm-standings-pos{font-size:13px;font-weight:900;color:#fff}
+.pm-standings-number{font-size:10px;font-weight:900;color:var(--pm-orange-soft);white-space:nowrap}
 .pm-standings-driver{min-width:0}
 .pm-standings-driver strong{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pm-standings-driver small{display:block;margin-top:2px;color:var(--pm-muted);font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -227,6 +234,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .pm-standings-card>footer>span{min-width:0;color:var(--pm-muted);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pm-standings-card>footer .pm-button{min-height:34px}
 .pm-standings-time{font-size:15px!important;line-height:1.1!important}
+.pm-standings-sheet-brand{display:flex;align-items:center;min-height:8px;margin-bottom:10px}
+.pm-standings-table{min-width:920px}
+.pm-standings-table th:nth-child(2),.pm-standings-table td:nth-child(2){white-space:nowrap}
+
 .pm-standings-table{min-width:780px}
 .pm-standings-table td:first-child strong{font-size:14px}
 @media(max-width:1220px){.pm-standings-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.pm-standings-leader-strip{min-width:0;grid-template-columns:repeat(2,minmax(120px,1fr))}}
