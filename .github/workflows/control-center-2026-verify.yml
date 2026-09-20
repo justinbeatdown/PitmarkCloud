@@ -19,6 +19,8 @@ on:
       - 'services/google_workspace_auth.py'
       - 'services/google_gmail.py'
       - 'services/master_checklist.py'
+      - 'services/racing_standings.py'
+      - 'requirements.txt'
       - 'scripts/test_control_center_2026_contract.py'
       - 'scripts/test_control_center_lowrisk_runtime.py'
       - 'scripts/test_control_center_pwa_retirement.py'
@@ -42,6 +44,8 @@ on:
       - 'services/google_workspace_auth.py'
       - 'services/google_gmail.py'
       - 'services/master_checklist.py'
+      - 'services/racing_standings.py'
+      - 'requirements.txt'
       - 'scripts/test_control_center_2026_contract.py'
       - 'scripts/test_control_center_pwa_retirement.py'
       - 'scripts/test_master_checklist_contract.py'
@@ -71,6 +75,7 @@ jobs:
           if [ -f api/control_center_hq.py ]; then python -m py_compile api/control_center_hq.py; fi
           if [ -f services/google_workspace_auth.py ]; then python -m py_compile services/google_workspace_auth.py; fi
           if [ -f services/master_checklist.py ]; then python -m py_compile services/master_checklist.py; fi
+          if [ -f services/racing_standings.py ]; then python -m py_compile services/racing_standings.py; fi
       - name: Check JavaScript syntax
         run: |
           node --check api/control_center_overhaul.js
