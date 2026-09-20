@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, Response
@@ -22,10 +23,18 @@ def _asset(name: str, media_type: str) -> Response:
 
 @router.get("/standings", response_class=HTMLResponse, include_in_schema=False)
 def public_standings_home():
+    payload = get_standings_snapshot_hub()
     html = (ASSET_DIR / "standings_public.html").read_text(encoding="utf-8")
+    js = (ASSET_DIR / "standings_public.js").read_text(encoding="utf-8")
+    bootstrap = json.dumps(payload, ensure_ascii=False, default=str).replace("</", "<\\/")
+    html = (
+        html.replace("{{PITMARK_VERSION}}", settings.app_version)
+        .replace("{{PITMARK_STANDINGS_BOOTSTRAP}}", bootstrap)
+        .replace("{{PITMARK_STANDINGS_INLINE_JS}}", js)
+    )
     return HTMLResponse(
-        html.replace("{{PITMARK_VERSION}}", settings.app_version),
-        headers={"Cache-Control": "no-cache"},
+        html,
+        headers={"Cache-Control": "no-cache, no-store"},
     )
 
 
