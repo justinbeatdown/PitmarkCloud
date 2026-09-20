@@ -45,6 +45,15 @@ class FirstPartyAutoScheduleTests(unittest.TestCase):
         self.assertLess(slot, datetime(2026, 9, 20, 19, 0, tzinfo=self.zone))
         self.assertEqual(reason, "urgent pre-event")
 
+    def test_continuous_pass_contains_daily_campaign_duplicate_sweep(self):
+        from pathlib import Path
+        source = Path("services/first_party_auto_schedule.py").read_text(encoding="utf-8")
+        self.assertIn("def _repair_duplicate_daily_campaigns", source)
+        self.assertIn('SocialPost.source.like("dailycampaign:%")', source)
+        self.assertIn('SocialPost.source.like("firstparty:%")', source)
+        self.assertIn('"archived_duplicate"', source)
+        self.assertIn("repaired.extend(_repair_duplicate_daily_campaigns(db))", source)
+
     def test_preview_is_not_scheduled_after_event_starts(self):
         now = datetime(2026, 9, 20, 19, 10, tzinfo=self.zone)
         slot, reason = _choose_campaign_slot(
