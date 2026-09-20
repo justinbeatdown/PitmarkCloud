@@ -327,6 +327,30 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("rendered fallback failed", service)
         self.assertIn("X-Return-Format", service)
 
+    def test_public_standings_hub_and_expanded_series(self):
+        service = self.read("services/racing_standings.py")
+        public_api = self.read("api/standings_public.py")
+        public_html = self.read("api/standings_public.html")
+        public_js = self.read("api/standings_public.js")
+        main = self.read("main.py")
+        for token in (
+            "lucas-oil-late-models",
+            "high-limit-sprint",
+            "usac-national-sprint",
+            "usac-national-midget",
+            "usac-silver-crown",
+            "arca-menards",
+            "cars-tour-lmsc",
+            "asa-stars",
+            "smart-modified",
+        ):
+            self.assertIn(token, service)
+        self.assertIn('@router.get("/standings"', public_api)
+        self.assertIn('@router.get("/api/public/standings"', public_api)
+        self.assertIn("Every championship.", public_html)
+        self.assertIn("seriesVisible", public_js)
+        self.assertIn("standings_public.router", main)
+
     def test_control_center_readability_scale_covers_tiny_ui_text(self):
         css = self.read("api/control_center_overhaul.css")
         self.assertIn("Readability pass — 2026-09-20", css)
