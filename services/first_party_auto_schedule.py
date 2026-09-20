@@ -67,7 +67,7 @@ def _extract_event_window(posts: list[SocialPost], now_local: datetime) -> tuple
         f"{post.title or ''} {post.body or ''}"
         for post in posts
     ).lower()
-    # Examples: Sept. 18-26, September 18–26, Sept 18 through 26
+    # Examples: Sept. 18-26, September 18 at 7:30 PM, Sept 18 through 26.
     m = re.search(
         r"\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{1,2})(?:\s*(?:-|–|—|to|through)\s*(\d{1,2}))?",
         text,
@@ -86,6 +86,30 @@ def _extract_event_window(posts: list[SocialPost], now_local: datetime) -> tuple
         end = datetime(year, month, end_day, 23, 59, tzinfo=now_local.tzinfo)
     except ValueError:
         return None, None
+
+    # Pull an explicit clock time near the date when one is present. Treat that as
+    # the true event start instead of pretending the whole date is one giant window.
+    nearby = text[m.end():m.end() + 140]
+    clock = re.search(
+        r"(?:\bat\s+|\b)(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b",
+        nearby,
+        re.I,
+    )
+    if clock:
+        hour = int(clock.group(1))
+        minute = int(clock.group(2) or 0)
+        marker = clock.group(3).lower().replace(".", "")
+        if marker == "pm" and hour != 12:
+            hour += 12
+        if marker == "am" and hour == 12:
+            hour = 0
+        if 0 <= hour <= 23 and 0 <= minute <= 59:
+            start = start.replace(hour=hour, minute=minute)
+            if not m.group(3):
+                # A single race-night start gets a bounded event window so preview
+                # copy can never be scheduled halfway through the program.
+                end = min(end, start + timedelta(hours=6))
+
     # Handle year rollover for December content created in January and vice versa.
     if start < now_local - timedelta(days=180):
         try:
@@ -100,7 +124,6 @@ def _extract_event_window(posts: list[SocialPost], now_local: datetime) -> tuple
         except ValueError:
             pass
     return start, end
-
 
 def _content_timing(posts: list[SocialPost], now_local: datetime) -> dict:
     text = " ".join(f"{post.title or ''} {post.body or ''}" for post in posts).lower()
@@ -131,35 +154,37 @@ def _candidate_slots(now_local: datetime, days: int = 8) -> list[datetime]:
 
 def _choose_campaign_slot(now_local: datetime, occupied: list[datetime], posts: list[SocialPost]) -> tuple[datetime | None, str]:
     collision_minutes = _env_int("PITMARK_FIRST_PARTY_SLOT_COLLISION_MINUTES", 75, 15, 240)
+    lead_minutes = _env_int("PITMARK_FIRST_PARTY_MIN_LEAD_MINUTES", 15, 5, 180)
     timing = _content_timing(posts, now_local)
     candidates = _candidate_slots(now_local, 8)
 
     if timing["kind"] == "preview" and timing["end"]:
-        # Preview/where-to-watch content should never be queued after the event ends.
         candidates = [slot for slot in candidates if slot <= timing["end"]]
         if timing["start"]:
-            if now_local < timing["start"]:
-                # Prefer getting the preview out before the event begins.
-                before = [slot for slot in candidates if slot < timing["start"]]
-                if before:
-                    candidates = before
+            if now_local >= timing["start"]:
+                return None, "event already started; preview was not posted mid-event"
+            before = [slot for slot in candidates if slot < timing["start"]]
+            if before:
+                candidates = before
             else:
-                # Event has already started: publish at the earliest safe slot, not days later.
-                urgent_deadline = min(timing["end"], now_local + timedelta(hours=18))
-                urgent = [slot for slot in candidates if slot <= urgent_deadline]
-                if urgent:
-                    candidates = urgent
+                # Fixed posting hours may leave no slot before a nearby event.
+                # Use the earliest safe lead-time slot instead of waiting until the race is underway.
+                urgent = now_local + timedelta(minutes=lead_minutes)
+                if urgent < timing["start"] and not _is_collision(urgent, occupied, collision_minutes):
+                    return urgent, "urgent pre-event"
+                return None, "no safe pre-event slot remains"
         if not candidates:
             return None, "event window expired or no pre-event slot remains"
 
-    if timing["kind"] == "result" and timing["start"] and now_local < timing["start"]:
-        candidates = [slot for slot in candidates if slot >= timing["start"]]
+    if timing["kind"] == "result":
+        anchor = timing["end"] or timing["start"]
+        if anchor and now_local < anchor:
+            candidates = [slot for slot in candidates if slot >= anchor]
 
     for slot in candidates:
         if not _is_collision(slot, occupied, collision_minutes):
             return slot, timing["kind"]
     return None, "no safe event-aware slot available"
-
 
 def _repair_time_sensitive_schedules(db, now: datetime) -> list[dict]:
     zone = _timezone()
@@ -189,7 +214,7 @@ def _repair_time_sensitive_schedules(db, now: datetime) -> list[dict]:
         if timing["kind"] != "preview" or not timing["end"]:
             continue
         bad = current_local > timing["end"] or (
-            timing["start"] and now_local >= timing["start"] and current_local > now_local + timedelta(hours=18)
+            timing["start"] and current_local >= timing["start"]
         )
         if not bad:
             continue
@@ -240,9 +265,9 @@ def _available_slots(now_utc: datetime, scheduled_values: list[str | None], need
 def auto_schedule_verified_first_party() -> dict:
     """Schedule only newly-created, verified first-party Pitmark campaigns.
 
-    Existing backlog is preserved on first boot. Only low-risk firstparty:* posts
-    for Facebook, Instagram, and X are eligible. Reactive intelligence, manual
-    posts, TikTok, and Discord remain human-controlled.
+    Existing backlog is preserved on first boot. Low-risk verified firstparty:* posts
+    for Facebook, Instagram, and X are eligible here. Fresh reactive racing news
+    and engagement prompts use the separate low-risk social autonomy lane.
     """
     now = datetime.now(timezone.utc)
     bootstrap_raw = get_state(STATE_BOOTSTRAP_AT)
