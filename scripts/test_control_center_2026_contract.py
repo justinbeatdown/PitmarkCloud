@@ -312,6 +312,13 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("racing_standings_sync_loop", main)
         self.assertIn('name="racing-standings"', main)
 
+    def test_standings_parser_keeps_accessible_body_rows(self):
+        service = self.read("services/racing_standings.py")
+        self.assertIn("def _parse_html_tables", service)
+        self.assertIn('row.find_parent("thead") is not None', service)
+        self.assertIn("all_header_cells", service)
+        self.assertIn("Accessible standings tables often use <th scope=\"row\">", service)
+
     def test_control_center_readability_scale_covers_tiny_ui_text(self):
         css = self.read("api/control_center_overhaul.css")
         self.assertIn("Readability pass — 2026-09-20", css)
