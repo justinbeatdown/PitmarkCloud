@@ -27,7 +27,7 @@ function supportPage() {
 }
 test('search finds text inside a closed answer', () => {
   const p = supportPage();
-  assert.equal(p.items.length, 8);
+  assert.equal(p.items.length, 12);
   p.search('entitlement');
   assert.equal(p.items.filter(x => !x.hidden).length, 1);
   assert.equal(p.noResults.hidden, true);
@@ -41,7 +41,7 @@ test('an empty result explains the next step and another search recovers', () =>
   assert.equal(p.items.filter(x => !x.hidden).length, 3);
   assert.equal(p.noResults.hidden, true);
   p.search('');
-  assert.equal(p.items.filter(x => !x.hidden).length, 8);
+  assert.equal(p.items.filter(x => !x.hidden).length, 12);
 });
 test('topic filters expose their selected state and toggle back to all answers', () => {
   const p = supportPage();
@@ -50,6 +50,18 @@ test('topic filters expose their selected state and toggle back to all answers',
   assert.equal(p.items.filter(x => !x.hidden).length, 2);
   assert.equal(account.attrs['aria-pressed'], 'true');
   account.click();
-  assert.equal(p.items.filter(x => !x.hidden).length, 8);
+  assert.equal(p.items.filter(x => !x.hidden).length, 12);
   assert.equal(account.attrs['aria-pressed'], 'false');
+});
+
+test('data and streaming answers are discoverable as a support topic', () => {
+  const p = supportPage();
+  const privacy = p.buttons.find(x => x.dataset.filter === 'privacy');
+  assert.ok(privacy);
+  privacy.click();
+  assert.equal(p.items.filter(x => !x.hidden).length, 2);
+  assert.equal(privacy.attrs['aria-pressed'], 'true');
+  p.search('Driver DNA');
+  assert.equal(p.items.filter(x => !x.hidden).length, 1);
+  assert.equal(p.noResults.hidden, true);
 });
