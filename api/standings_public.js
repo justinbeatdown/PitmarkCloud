@@ -89,14 +89,23 @@ function openSeries(key){
 }
 async function load(){
   try{
-    const response=await fetch('/api/public/standings',{headers:{Accept:'application/json'}});
+    const bootstrap=document.getElementById('pitmark-standings-bootstrap');
+    if(bootstrap?.textContent?.trim()){
+      state.payload=JSON.parse(bootstrap.textContent);
+      render();
+      return;
+    }
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),8000);
+    const response=await fetch('/api/public/standings',{headers:{Accept:'application/json'},signal:controller.signal});
+    clearTimeout(timeout);
     if(!response.ok)throw new Error('Standings feed unavailable');
     state.payload=await response.json();
     render();
   }catch(error){
     $('#leaderStrip').innerHTML='<div class="loading-card">Pitmark could not load the standings feed right now. Try again shortly.</div>';
     $('#seriesGroups').innerHTML='<div class="loading-card">Standings temporarily unavailable.</div>';
-    $('#statusText').textContent=error.message||'Unable to load standings';
+    $('#statusText').textContent=error?.name==='AbortError'?'Standings feed timed out. Refresh the page to retry.':(error.message||'Unable to load standings');
   }
 }
 document.addEventListener('click',event=>{
