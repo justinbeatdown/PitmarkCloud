@@ -13,7 +13,7 @@ from services.control_center import SocialPost, utcnow
 from services.database import SessionLocal
 from services import shopify_service
 from services.openai_image_service import generate_image
-from services.social_asset_pool import add_asset, store_uploaded_image
+from services.social_asset_pool import add_asset, public_asset_url, store_uploaded_image
 from services.first_party_models import FirstPartyEvent
 from utils.config import settings
 
@@ -42,11 +42,7 @@ def _event_payload(event: FirstPartyEvent) -> dict:
 
 
 def _public_asset_url(token: str) -> str:
-    base = (
-        getattr(settings, "pitmark_cloud_public_url", "")
-        or "https://pcc.pitmarkracing.com"
-    ).rstrip("/")
-    return f"{base}/social-assets/{token}"
+    return public_asset_url(token)
 
 
 def _resolve_shopify_article_image(event: FirstPartyEvent) -> str | None:

@@ -5,12 +5,15 @@ on:
     branches: [main]
     paths:
       - 'api/social_operator.py'
+      - 'api/social_publish.py'
       - 'api/control_social_daily_campaign.js'
       - 'api/control_social_daily_campaign.css'
+      - 'services/social_asset_pool.py'
       - 'services/social_daily_campaign.py'
       - 'services/social_daily_package.py'
       - 'services/autopilot_multiplatform.py'
       - 'services/social_publish_worker.py'
+      - 'services/first_party_media.py'
       - 'services/first_party_sources.py'
       - 'services/prt_release_announcements.py'
       - 'services/prt_versions.py'
@@ -44,10 +47,13 @@ jobs:
         run: |
           python -m py_compile \
             api/social_operator.py \
+            api/social_publish.py \
+            services/social_asset_pool.py \
             services/social_daily_campaign.py \
             services/social_daily_package.py \
             services/autopilot_multiplatform.py \
             services/social_publish_worker.py \
+            services/first_party_media.py \
             services/first_party_sources.py \
             services/prt_release_announcements.py \
             services/prt_versions.py \

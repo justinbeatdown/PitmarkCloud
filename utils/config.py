@@ -92,6 +92,9 @@ class Settings(BaseSettings):
     pitmark_timezone: str = "America/New_York"
     pitmark_public_store_url: str = "https://pitmarkracing.com"
     pitmark_cloud_public_url: str = "https://pcc.pitmarkracing.com"
+    # Public, unauthenticated origin used when third-party social platforms fetch
+    # generated Pitmark media. Keep this separate from the authenticated Control Center host.
+    social_asset_public_url: str = ""
     prt_early_access_form_url: str = ""
     # Cloudflare R2 public-download rollout. No R2 credentials are stored in Pitmark Cloud;
     # Cloud only redirects the heavy installer to the configured public/custom-domain URL.

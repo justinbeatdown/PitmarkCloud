@@ -45,6 +45,21 @@ class SocialAssetUpload(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+def public_asset_url(public_token: str, *, request_base_url: str | None = None) -> str:
+    """Return the externally fetchable URL for one stored social asset.
+
+    Social networks fetch this URL without a Control Center session, so never
+    implicitly bind generated media to the authenticated PCC hostname in production.
+    """
+    base = (
+        str(getattr(settings, "social_asset_public_url", "") or "").strip()
+        or str(getattr(settings, "pitmark_cloud_public_url", "") or "").strip()
+        or str(request_base_url or "").strip()
+        or "https://pcc.pitmarkracing.com"
+    ).rstrip("/")
+    return f"{base}/social-assets/{public_token}"
+
+
 def store_uploaded_image(*, data: bytes, filename: str, mime_type: str) -> dict:
     allowed = {"image/jpeg", "image/png", "image/webp"}
     clean_type = (mime_type or "").split(";", 1)[0].strip().lower()

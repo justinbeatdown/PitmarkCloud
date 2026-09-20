@@ -18,7 +18,7 @@ from services.meta_publish_service import (
     publish_instagram_post,
 )
 from services.x_publish_service import XPublishError, connection_status as x_connection_status, publish_x_post
-from services.social_asset_pool import add_asset, choose_asset, get_asset, get_uploaded_image, list_assets, mark_used, store_uploaded_image, sync_shopify_images
+from services.social_asset_pool import add_asset, choose_asset, get_asset, get_uploaded_image, list_assets, mark_used, public_asset_url, store_uploaded_image, sync_shopify_images
 from services.openai_image_service import PitmarkImageGenerationError, generate_image
 from utils.security import enforce_rate_limit
 
@@ -105,8 +105,10 @@ def generate_social_asset(payload: GeneratedImageRequest, request: Request, x_pi
         )
     except (PitmarkImageGenerationError, ValueError) as exc:
         raise HTTPException(400, str(exc))
-    base = str(request.base_url).rstrip("/")
-    public_url = f"{base}/social-assets/{stored['public_token']}"
+    public_url = public_asset_url(
+        stored["public_token"],
+        request_base_url=str(request.base_url).rstrip("/"),
+    )
     asset = None
     if payload.add_to_library:
         asset = add_asset(
@@ -201,8 +203,10 @@ async def upload_social_asset(request: Request, x_pitmark_admin_key: str | None 
         stored = store_uploaded_image(data=raw, filename=filename, mime_type=request.headers.get("content-type", ""))
     except ValueError as exc:
         raise HTTPException(400, str(exc))
-    base = str(request.base_url).rstrip("/")
-    public_url = f"{base}/social-assets/{stored['public_token']}"
+    public_url = public_asset_url(
+        stored["public_token"],
+        request_base_url=str(request.base_url).rstrip("/"),
+    )
     asset = None
     if add_to_library:
         asset = add_asset(url=public_url, title=filename, source="upload", source_ref=f"upload:{stored['id']}", tags=["upload", "social", "instagram"])
