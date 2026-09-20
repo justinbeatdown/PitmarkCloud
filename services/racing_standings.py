@@ -274,7 +274,9 @@ SERIES: tuple[dict[str, Any], ...] = (
         "short_name": "F1",
         "group": "Open Wheel",
         "provider": "jolpica",
-        "official_url": "https://www.formula1.com/en/results/current/drivers",
+        "official_url_template": "https://www.formula1.com/en/results/{season}/drivers",
+        "name_headers": ("driver",),
+        "team_headers": ("team",),
     },
     {
         "key": "indycar",
@@ -713,35 +715,35 @@ def _reader_table_rows(url: str) -> list[tuple[list[str], list[list[str]]]]:
     return tables
 
 
-def _html_table_rows(url: str) -> list[tuple[list[str], list[list[str]]]]:
+def _direct_html_table_rows(url: str) -> list[tuple[list[str], list[list[str]]]]:
     headers = {
         "User-Agent": USER_AGENT,
         "Accept": "text/html,application/xhtml+xml",
         "Accept-Language": "en-US,en;q=0.9",
         "Cache-Control": "no-cache",
     }
+    with httpx.Client(timeout=16.0, follow_redirects=True, headers=headers) as client:
+        response = client.get(url)
+        response.raise_for_status()
+    tables = _parse_html_tables(response.text)
+    if not tables:
+        raise RuntimeError("official page returned no static standings tables")
+    return tables
+
+
+def _html_table_rows(url: str) -> list[tuple[list[str], list[list[str]]]]:
     direct_error: Exception | None = None
     try:
-        with httpx.Client(timeout=16.0, follow_redirects=True, headers=headers) as client:
-            response = client.get(url)
-            response.raise_for_status()
-        tables = _parse_html_tables(response.text)
-        if tables:
-            return tables
-        direct_error = RuntimeError("official page returned no static standings tables")
+        return _direct_html_table_rows(url)
     except Exception as exc:
         direct_error = exc
 
-    # Several racing sites block Render/datacenter IPs or render standings
-    # entirely client-side. Use a read-only rendered-page fallback while
-    # keeping the official page as the canonical source shown in Pitmark.
     try:
         return _reader_table_rows(url)
     except Exception as reader_error:
         raise RuntimeError(
             f"official source unavailable ({direct_error}); rendered fallback failed ({reader_error})"
         ) from reader_error
-
 
 
 def _linked_pdf_url(config: dict[str, Any], season: int) -> str:
@@ -1146,17 +1148,20 @@ def _fetch_official_table(config: dict[str, Any], season: int) -> dict[str, Any]
 
 
 def _fetch_official_table_url(config: dict[str, Any], url: str) -> dict[str, Any]:
+    direct_error: Exception | None = None
     try:
-        tables = _html_table_rows(url)
+        tables = _direct_html_table_rows(url)
         return _normalize_official_tables(config, url, tables)
-    except Exception as direct_error:
-        try:
-            tables = _reader_table_rows(url)
-            return _normalize_official_tables(config, url, tables)
-        except Exception as reader_error:
-            raise RuntimeError(
-                f"direct table parse failed ({direct_error}); rendered table parse failed ({reader_error})"
-            ) from reader_error
+    except Exception as exc:
+        direct_error = exc
+
+    try:
+        tables = _reader_table_rows(url)
+        return _normalize_official_tables(config, url, tables)
+    except Exception as reader_error:
+        raise RuntimeError(
+            f"direct table parse failed ({direct_error}); rendered table parse failed ({reader_error})"
+        ) from reader_error
 
 
 def _normalize_official_tables(
@@ -1218,6 +1223,13 @@ def _normalize_official_tables(
         if not name or points is None:
             continue
 
+        embedded_number: str | None = None
+        if str(config.get("key") or "") == "motogp":
+            match = re.match(r"^(\d{1,3})\s*(.+)$", name)
+            if match:
+                embedded_number = match.group(1)
+                name = match.group(2).strip()
+
         # MyRacePass inserts the unlabeled profile cell AFTER the rank/car columns,
         # so Driver/Points need the offset but championship position does not.
         position_index = indexes["position"]
@@ -1235,7 +1247,7 @@ def _normalize_official_tables(
             {
                 "position": position,
                 "name": name,
-                "number": str(field("number") or "").strip() or None,
+                "number": (str(field("number") or "").strip() or embedded_number or None),
                 "team": str(field("team") or "").strip() or None,
                 "manufacturer": str(field("manufacturer") or "").strip() or None,
                 "points": points,
@@ -1358,45 +1370,47 @@ def _official_metadata_from_tables(
 ) -> tuple[dict[str, dict[str, str | None]], str | None]:
     """Read optional identity columns from the series' own official page only."""
     url = str(config.get("metadata_url") or _series_url(config, season))
-    tables: list[tuple[list[str], list[list[str]]]] = []
-    try:
-        tables.extend(_html_table_rows(url))
-    except Exception:
-        pass
-    # Some official standings are rendered client-side. The reader fallback
-    # converts the same official URL into tables without changing provenance.
-    try:
-        reader_tables = _reader_table_rows(url)
-        existing = {(tuple(header), tuple(tuple(row) for row in rows)) for header, rows in tables}
-        for header, rows in reader_tables:
-            key = (tuple(header), tuple(tuple(row) for row in rows))
-            if key not in existing:
-                tables.append((header, rows))
-    except Exception:
-        pass
-    if not tables:
-        return {}, None
 
-    best: tuple[list[str], list[list[str]], dict[str, int | None]] | None = None
-    best_score = -1
-    for header, rows in tables:
-        indexes = {
-            "name": _header_index(header, config.get("name_headers") or ("driver", "rider")),
-            "number": _header_index(header, config.get("number_headers") or NUMBER_HEADERS),
-            "team": _header_index(header, config.get("team_headers") or TEAM_HEADERS),
-            "manufacturer": _header_index(header, config.get("manufacturer_headers") or MANUFACTURER_HEADERS),
-        }
-        if indexes["name"] is None:
-            continue
-        identity_columns = sum(
-            1 for key in ("number", "team", "manufacturer") if indexes[key] is not None
-        )
-        if identity_columns == 0:
-            continue
-        score = identity_columns * 10 + min(len(rows), 50) / 100
-        if score > best_score:
-            best = (header, rows, indexes)
-            best_score = score
+    def choose(
+        tables: list[tuple[list[str], list[list[str]]]],
+    ) -> tuple[list[str], list[list[str]], dict[str, int | None]] | None:
+        best: tuple[list[str], list[list[str]], dict[str, int | None]] | None = None
+        best_score = -1
+        for header, rows in tables:
+            indexes = {
+                "name": _header_index(header, config.get("name_headers") or ("driver", "rider")),
+                "number": _header_index(header, config.get("number_headers") or NUMBER_HEADERS),
+                "team": _header_index(header, config.get("team_headers") or TEAM_HEADERS),
+                "manufacturer": _header_index(
+                    header, config.get("manufacturer_headers") or MANUFACTURER_HEADERS
+                ),
+            }
+            if indexes["name"] is None:
+                continue
+            identity_columns = sum(
+                1 for key in ("number", "team", "manufacturer") if indexes[key] is not None
+            )
+            if identity_columns == 0:
+                continue
+            score = identity_columns * 10 + min(len(rows), 50) / 100
+            if score > best_score:
+                best = (header, rows, indexes)
+                best_score = score
+        return best
+
+    best = None
+    try:
+        best = choose(_direct_html_table_rows(url))
+    except Exception:
+        pass
+
+    # Only spend a rendered-reader request when static HTML did not expose a
+    # usable official identity table. This prevents duplicate requests/rate hits.
+    if best is None:
+        try:
+            best = choose(_reader_table_rows(url))
+        except Exception:
+            best = None
     if not best:
         return {}, None
 
@@ -1407,6 +1421,12 @@ def _official_metadata_from_tables(
         if name_index is None or name_index >= len(row):
             continue
         name = str(row[name_index] or "").strip()
+        embedded_number: str | None = None
+        if str(config.get("key") or "") == "motogp":
+            match = re.match(r"^(\d{1,3})\s*(.+)$", name)
+            if match:
+                embedded_number = match.group(1)
+                name = match.group(2).strip()
         key = _identity_key(name)
         if not key:
             continue
@@ -1419,12 +1439,11 @@ def _official_metadata_from_tables(
             return value or None
 
         out[key] = {
-            "number": cell("number"),
+            "number": cell("number") or embedded_number,
             "team": cell("team"),
             "manufacturer": cell("manufacturer"),
         }
     return out, url if out else None
-
 
 
 def _same_host(left: str, right: str) -> bool:
@@ -1548,6 +1567,7 @@ def _logo_score(text: str, url: str, terms: tuple[str, ...]) -> int:
     if any(bad in hay for bad in (
         "sponsor", "partner", "advert", "ticket", "driver", "car-photo",
         "hero-", "instagram", "facebook", "youtube", "team-logo", "team_logo",
+        "team logo", "teams logo", "75th", "anniversary",
     )):
         score -= 20
     return score
