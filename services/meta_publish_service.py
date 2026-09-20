@@ -180,43 +180,32 @@ def _prepare_instagram_image_url(image_url: str) -> str:
     if width <= 0 or height <= 0:
         raise MetaPublishError("Selected Instagram image has invalid dimensions.")
 
-    ratio = width / height
-    min_ratio = 4 / 5
-    max_ratio = 1.91
-
-    # Keep as much of the original frame as possible while bringing only the
-    # unsupported edge cases into Instagram's legal feed range.
-    if ratio < min_ratio:
-        target_height = max(1, int(round(width / min_ratio)))
-        top = max(0, (height - target_height) // 2)
-        prepared = prepared.crop((0, top, width, min(height, top + target_height)))
-    elif ratio > max_ratio:
-        target_width = max(1, int(round(height * max_ratio)))
-        left = max(0, (width - target_width) // 2)
-        prepared = prepared.crop((left, 0, min(width, left + target_width), height))
-
-    # Normalize unusually large/small sources to a dependable feed width.
-    if prepared.width > 1080 or prepared.width < 320:
-        target_width = 1080
-        target_height = max(1, int(round(prepared.height * (target_width / prepared.width))))
-        prepared = prepared.resize((target_width, target_height), Image.Resampling.LANCZOS)
-
-    final_ratio = prepared.width / prepared.height
+    # Meta's feed endpoint is happiest with a conventional 4:5 JPEG. Always
+    # normalize arbitrary source images to 1080x1350 before publishing. ImageOps.pad
+    # preserves the full source frame and avoids the rounding edge cases that caused
+    # some wide article images to remain barely outside Meta's accepted ratio.
     already_safe_hosted_jpeg = (
         source.startswith("https://pitmarkcloud.onrender.com/social-assets/")
         and original_format in {"JPEG", "JPG"}
-        and min_ratio <= ratio <= max_ratio
-        and 320 <= width <= 1440
+        and prepared.size == (1080, 1350)
     )
     if already_safe_hosted_jpeg:
         return source
+
+    prepared = ImageOps.pad(
+        prepared,
+        (1080, 1350),
+        method=Image.Resampling.LANCZOS,
+        color=(16, 16, 16),
+        centering=(0.5, 0.5),
+    )
 
     output = io.BytesIO()
     prepared.save(output, format="JPEG", quality=92, optimize=True)
     try:
         stored = store_uploaded_image(
             data=output.getvalue(),
-            filename=f"instagram-ready-{prepared.width}x{prepared.height}.jpg",
+            filename="instagram-ready-1080x1350.jpg",
             mime_type="image/jpeg",
         )
     except ValueError as exc:
@@ -225,8 +214,6 @@ def _prepare_instagram_image_url(image_url: str) -> str:
     normalized = public_asset_url(stored["public_token"])
     if not normalized.startswith(("https://", "http://")):
         raise MetaPublishError("Instagram image normalization did not produce a public URL.")
-    if not (min_ratio - 0.001 <= final_ratio <= max_ratio + 0.001):
-        raise MetaPublishError("Instagram image normalization produced an unsupported aspect ratio.")
     return normalized
 
 
