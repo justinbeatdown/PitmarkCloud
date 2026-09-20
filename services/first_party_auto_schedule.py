@@ -186,6 +186,47 @@ def _choose_campaign_slot(now_local: datetime, occupied: list[datetime], posts: 
             return slot, timing["kind"]
     return None, "no safe event-aware slot available"
 
+def _repair_duplicate_daily_campaigns(db) -> list[dict]:
+    """Continuously archive Daily Campaign rows already covered by direct first-party posts.
+
+    This runs independently of Daily Campaign package generation so restarts or
+    completed packages cannot leave duplicate FB/IG/X posts waiting in the queue.
+    """
+    daily_rows = list(db.scalars(select(SocialPost).where(
+        SocialPost.source.like("dailycampaign:%"),
+        SocialPost.platform.in_(SUPPORTED_PLATFORMS),
+        SocialPost.status.in_(["scheduled", "pending", "approved"]),
+    )).all())
+    if not daily_rows:
+        return []
+
+    repaired: list[dict] = []
+    for row in daily_rows:
+        title = str(row.title or "").strip()
+        platform = str(row.platform or "").strip()
+        if not title or not platform:
+            continue
+        direct = db.scalar(select(SocialPost).where(
+            SocialPost.source.like("firstparty:%"),
+            SocialPost.title == title,
+            SocialPost.platform == platform,
+            SocialPost.status.in_(["scheduled", "published", "approved"]),
+        ).limit(1))
+        if direct is None:
+            continue
+        row.status = "archived"
+        row.scheduled_for = None
+        row.updated_at = utcnow()
+        repaired.append({
+            "source": str(row.source or ""),
+            "id": row.id,
+            "platform": platform,
+            "action": "archived_duplicate",
+            "covered_by": str(direct.source or ""),
+        })
+    return repaired
+
+
 def _repair_time_sensitive_schedules(db, now: datetime) -> list[dict]:
     zone = _timezone()
     now_local = now.astimezone(zone)
@@ -290,6 +331,7 @@ def auto_schedule_verified_first_party() -> dict:
         # Repair bad timing on already-scheduled event content even when there are
         # no new pending campaigns. This must happen before the early return below.
         repaired = _repair_time_sensitive_schedules(db, now)
+        repaired.extend(_repair_duplicate_daily_campaigns(db))
 
         candidates = list(db.scalars(select(SocialPost).where(
             SocialPost.status == "pending",
