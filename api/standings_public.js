@@ -32,21 +32,21 @@ const seriesVisible=series=>{
 function miniRows(series){
   const rows=(series.entries||[]).slice(0,5);
   if(!rows.length)return '<div class="empty-card">Standings source is temporarily unavailable.</div>';
-  return `<div class="mini-table">\${rows.map(row=>`<div class="mini-row">
-    <span class="pos">\${esc(row.position??'—')}</span>
-    <span class="car-number">\${row.number?esc('#'+row.number):''}</span>
-    <span class="driver"><strong>\${esc(row.name||'Unknown')}</strong><small>\${esc(identityText(row))}</small></span>
-    \${move(row.movement)}
-    <span class="pts">\${points(row.points)}</span>
+  return `<div class="mini-table">${rows.map(row=>`<div class="mini-row">
+    <span class="pos">${esc(row.position??'—')}</span>
+    <span class="car-number">${row.number?esc('#'+row.number):''}</span>
+    <span class="driver"><strong>${esc(row.name||'Unknown')}</strong><small>${esc(identityText(row))}</small></span>
+    ${move(row.movement)}
+    <span class="pts">${points(row.points)}</span>
   </div>`).join('')}</div>`;
 }
 function card(series){
   const leader=(series.entries||[])[0];
-  return `<article class="series-card" data-key="\${esc(series.series_key)}">
-    <header><div class="card-brand">\${logo(series)}<div><span class="eyebrow">\${esc(series.group||'RACING')}</span><h4>\${esc(series.short_name||series.series_name)}</h4></div></div>\${statusBadge(series)}</header>
-    <div class="card-leader"><span>Championship leader</span><strong>\${leader?.number?esc('#'+leader.number+' · '):''}\${esc(leader?.name||'—')}</strong><small>\${leader?points(leader.points)+' pts'+(identityText(leader)?' · '+esc(identityText(leader)):''):'No data yet'}</small></div>
-    \${miniRows(series)}
-    <footer><span>\${esc(series.series_name||'Series')}</span><strong>Full standings ›</strong></footer>
+  return `<article class="series-card" data-key="${esc(series.series_key)}">
+    <header><div class="card-brand">${logo(series)}<div><span class="eyebrow">${esc(series.group||'RACING')}</span><h4>${esc(series.short_name||series.series_name)}</h4></div></div>${statusBadge(series)}</header>
+    <div class="card-leader"><span>Championship leader</span><strong>${leader?.number?esc('#'+leader.number+' · '):''}${esc(leader?.name||'—')}</strong><small>${leader?points(leader.points)+' pts'+(identityText(leader)?' · '+esc(identityText(leader)):''):'No data yet'}</small></div>
+    ${miniRows(series)}
+    <footer><span>${esc(series.series_name||'Series')}</span><strong>Full standings ›</strong></footer>
   </article>`;
 }
 function renderFilters(){
@@ -57,7 +57,7 @@ function renderLeaders(){
   const leaders=(state.payload?.series||[]).filter(s=>s.entries?.length&&seriesVisible(s)).slice(0,8);
   $('#leaderStrip').innerHTML=leaders.length?leaders.map(series=>{
     const leader=series.entries[0];
-    return `<article class="leader-card" data-key="\${esc(series.series_key)}"><div class="leader-brand">\${logo(series)}<span class="series">\${esc(series.short_name||series.series_name)}</span></div><div><strong>\${leader.number?esc('#'+leader.number+' · '):''}\${esc(leader.name||'—')}</strong><div class="points">\${points(leader.points)} pts</div><small>\${esc(identityText(leader)||series.group||'')}</small></div></article>`;
+    return `<article class="leader-card" data-key="${esc(series.series_key)}"><div class="leader-brand">${logo(series)}<span class="series">${esc(series.short_name||series.series_name)}</span></div><div><strong>${leader.number?esc('#'+leader.number+' · '):''}${esc(leader.name||'—')}</strong><div class="points">${points(leader.points)} pts</div><small>${esc(identityText(leader)||series.group||'')}</small></div></article>`;
   }).join(''):'<div class="loading-card">No standings match this filter.</div>';
 }
 function renderGroups(){
@@ -86,13 +86,13 @@ function openSeries(key){
   const series=(state.payload?.series||[]).find(s=>String(s.series_key)===String(key));
   if(!series)return;
   const rows=series.entries||[];
-  const body=rows.length?`<div class="table-wrap"><table><thead><tr><th>Pos</th><th>#</th><th>Move</th><th>Driver</th><th>Team</th><th>Manufacturer</th><th>Points</th><th>Behind</th><th>Wins</th></tr></thead><tbody>\${rows.map(row=>`<tr>
-    <td><strong>\${esc(row.position??'—')}</strong></td><td><strong>\${esc(row.number||'—')}</strong></td><td>\${move(row.movement)}</td><td><strong>\${esc(row.name||'Unknown')}</strong></td>
-    <td>\${esc(row.team||'—')}</td><td>\${esc(row.manufacturer||'—')}</td><td><strong>\${points(row.points)}</strong></td><td>\${points(row.behind)}</td><td>\${points(row.wins)}</td>
+  const body=rows.length?`<div class="table-wrap"><table><thead><tr><th>Pos</th><th>#</th><th>Move</th><th>Driver</th><th>Team</th><th>Manufacturer</th><th>Points</th><th>Behind</th><th>Wins</th></tr></thead><tbody>${rows.map(row=>`<tr>
+    <td><strong>${esc(row.position??'—')}</strong></td><td><strong>${esc(row.number||'—')}</strong></td><td>${move(row.movement)}</td><td><strong>${esc(row.name||'Unknown')}</strong></td>
+    <td>${esc(row.team||'—')}</td><td>${esc(row.manufacturer||'—')}</td><td><strong>${points(row.points)}</strong></td><td>${points(row.behind)}</td><td>${points(row.wins)}</td>
   </tr>`).join('')}</tbody></table></div>`:'<div class="loading-card">No current standings are available from this source yet.</div>';
-  const identitySource=series.metadata_source_url?`<a class="official-link identity-source" href="\${esc(series.metadata_source_url)}" target="_blank" rel="noopener">Driver identity data: official series source ↗</a>`:'';
-  const logoSource=series.series_logo_source_url?`<a class="official-link identity-source" href="\${esc(series.series_logo_source_url)}" target="_blank" rel="noopener">Logo source: official series page ↗</a>`:'';
-  $('#dialogContent').innerHTML=`<div class="dialog-title"><div class="dialog-brand">\${logo(series)}<div><span class="eyebrow">\${esc(series.group||'RACING')} · \${esc(series.season||'')}</span><h2>\${esc(series.series_name||'Standings')}</h2><p>\${esc(series.source_name||'Series standings')} · updated \${esc(age(series.fetched_at))}</p></div></div></div>\${body}<div class="source-links">\${series.official_url?`<a class="official-link" href="\${esc(series.official_url)}" target="_blank" rel="noopener">Open official series standings ↗</a>`:''}\${identitySource}\${logoSource}</div>`;
+  const identitySource=series.metadata_source_url?`<a class="official-link identity-source" href="${esc(series.metadata_source_url)}" target="_blank" rel="noopener">Driver identity data: official series source ↗</a>`:'';
+  const logoSource=series.series_logo_source_url?`<a class="official-link identity-source" href="${esc(series.series_logo_source_url)}" target="_blank" rel="noopener">Logo source: official series page ↗</a>`:'';
+  $('#dialogContent').innerHTML=`<div class="dialog-title"><div class="dialog-brand">${logo(series)}<div><span class="eyebrow">${esc(series.group||'RACING')} · ${esc(series.season||'')}</span><h2>${esc(series.series_name||'Standings')}</h2><p>${esc(series.source_name||'Series standings')} · updated ${esc(age(series.fetched_at))}</p></div></div></div>${body}<div class="source-links">${series.official_url?`<a class="official-link" href="${esc(series.official_url)}" target="_blank" rel="noopener">Open official series standings ↗</a>`:''}${identitySource}${logoSource}</div>`;
   bindLogoErrors();
   $('#standingsDialog').showModal();
 }
