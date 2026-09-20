@@ -1,4 +1,4 @@
-import { api, clearCache } from './control-center-api.js?v=20260920brief1';
+import { api, clearCache } from './control-center-api.js?v=20260920standings1';
 
 export const DOMAIN_META = Object.freeze({
   hq: { title: 'HQ', kicker: 'Corporate Operations', context: 'What matters, what moved, and what needs you.' },
@@ -10,6 +10,7 @@ export const DOMAIN_META = Object.freeze({
   people: { title: 'People', kicker: 'Pitmark Network', context: 'The people and organizations moving Pitmark forward.' },
   systems: { title: 'Systems', kicker: 'Platform Operations', context: 'Pitmark Cloud, automation, services, and signals.' },
   insights: { title: 'Insights', kicker: 'Operating Intelligence', context: 'Useful momentum from real Pitmark activity.' },
+  standings: { title: 'Standings', kicker: 'Racing Intelligence', context: 'One place for the championships Pitmark follows.' },
 });
 
 const esc = (value = '') => String(value ?? '').replace(/[&<>'"]/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[ch]));
@@ -811,6 +812,111 @@ async function openWorkspaceConnect(ctx){
   }
 }
 
+function standingsMovement(value){
+  if(value===null||value===undefined)return '<span class="pm-standings-move neutral">—</span>';
+  const amount=Number(value);
+  if(!Number.isFinite(amount)||amount===0)return '<span class="pm-standings-move neutral">—</span>';
+  if(amount>0)return `<span class="pm-standings-move up">▲${Math.abs(amount)}</span>`;
+  return `<span class="pm-standings-move down">▼${Math.abs(amount)}</span>`;
+}
+
+function standingsPoints(value){
+  if(value===null||value===undefined||value==='')return '—';
+  return typeof value==='number'?value.toLocaleString():esc(value);
+}
+
+function standingsStatus(series){
+  if(series.status==='live')return '<span class="pm-badge good">Live</span>';
+  if(series.status==='stale')return '<span class="pm-badge warn">Cached</span>';
+  return '<span class="pm-badge bad">Unavailable</span>';
+}
+
+function standingsCard(series){
+  const rows=(series.entries||[]).slice(0,5);
+  const leader=rows[0];
+  const body=rows.length?`<div class="pm-standings-mini">
+    ${rows.map(row=>`<div class="pm-standings-mini-row">
+      <span class="pm-standings-pos">${esc(row.position??'—')}</span>
+      <span class="pm-standings-driver"><strong>${esc(row.name||'Unknown')}</strong><small>${esc(row.team||row.manufacturer||'')}</small></span>
+      ${standingsMovement(row.movement)}
+      <strong class="pm-standings-points">${standingsPoints(row.points)}</strong>
+    </div>`).join('')}
+  </div>`:empty(series.error?'Standings source is currently unavailable.':'No standings returned.');
+  return `<section class="pm-surface pm-standings-card" data-standings-series="${esc(series.series_key)}">
+    <header>
+      <div><span class="eyebrow">${esc(series.group||'Racing')}</span><h3>${esc(series.short_name||series.series_name)}</h3></div>
+      ${standingsStatus(series)}
+    </header>
+    <div class="pm-standings-leader"><span>Championship leader</span><strong>${esc(leader?.name||'—')}</strong><small>${leader?standingsPoints(leader.points)+' pts':'No data yet'}</small></div>
+    ${body}
+    <footer><span>${esc(series.series_name||'Series')}</span><button class="pm-button pm-button-ghost" type="button">Full standings ›</button></footer>
+  </section>`;
+}
+
+function openStandingsSeries(series,ctx){
+  if(!series)return;
+  const rows=series.entries||[];
+  const table=rows.length?`<div class="pm-table-wrap"><table class="pm-table pm-standings-table"><thead><tr><th>Pos</th><th>Move</th><th>Driver</th><th>Team / Mfr</th><th>Points</th><th>Behind</th><th>Wins</th></tr></thead><tbody>
+    ${rows.map(row=>`<tr>
+      <td data-label="Pos"><strong>${esc(row.position??'—')}</strong></td>
+      <td data-label="Move">${standingsMovement(row.movement)}</td>
+      <td data-label="Driver"><strong>${esc(row.name||'Unknown')}</strong></td>
+      <td data-label="Team / Mfr">${esc(row.team||row.manufacturer||'—')}</td>
+      <td data-label="Points"><strong>${standingsPoints(row.points)}</strong></td>
+      <td data-label="Behind">${standingsPoints(row.behind)}</td>
+      <td data-label="Wins">${standingsPoints(row.wins)}</td>
+    </tr>`).join('')}
+  </tbody></table></div>`:empty('No standings are available for this series yet.');
+  ctx.openSheet({
+    kicker:`${series.group||'Racing'} · ${series.season||''}`,
+    title:series.series_name||'Standings',
+    body:`${details([['Status',series.status||'unknown'],['Source',series.source_name||'—'],['Last snapshot',dateText(series.fetched_at)]])}${series.error?`<div class="pm-callout is-warn"><div><strong>Using fallback data</strong><p>${esc(series.error)}</p></div></div>`:''}${table}`,
+    actions:[
+      {label:'Open official standings',tone:'ghost',run:()=>{if(series.official_url)window.open(series.official_url,'_blank','noopener');}},
+      {label:'Refresh all',tone:'primary',run:async()=>{ctx.closeSheet();await refreshStandingsHub(ctx);}}
+    ]
+  });
+}
+
+async function refreshStandingsHub(ctx){
+  try{
+    ctx.toast('Refreshing championship standings…');
+    await api.refreshStandings();
+    clearCache('/api/control/standings');
+    ctx.toast('Standings updated.','good');
+    ctx.refresh(true);
+  }catch(e){ctx.toast(e.message||'Standings refresh failed.','bad');}
+}
+
+async function renderStandings(root,ctx){
+  let payload;
+  try{payload=await api.standings('',{maxAge:ctx.force?0:300000});}
+  catch(e){root.innerHTML=`${viewHeader('Racing Intelligence','Standings Hub','One place for the championships Pitmark follows.')}${moduleError('Standings Hub',e.message,'standings')}`;return;}
+  const series=payload?.series||[];
+  const summary=payload?.summary||{};
+  const leaders=series.filter(item=>item.entries?.length).map(item=>({name:item.short_name,leader:item.entries[0]}));
+  root.innerHTML=`
+    ${viewHeader('Racing Intelligence','Standings Hub','NASCAR, open-wheel, and sports-car championships in one place—saved over time so position changes are easy to see.',`<button class="pm-button pm-button-primary" type="button" data-standings-refresh>↻ Refresh All</button>`)}
+    <div class="pm-metric-strip">
+      <div class="pm-metric"><span>Series tracked</span><strong>${n(summary.series_total||series.length)}</strong><small>${esc(payload?.season||'current')} season</small></div>
+      <div class="pm-metric"><span>Live</span><strong>${n(summary.live)}</strong><small>fresh source data</small></div>
+      <div class="pm-metric"><span>Cached</span><strong>${n(summary.stale)}</strong><small>last good snapshot</small></div>
+      <div class="pm-metric"><span>Unavailable</span><strong>${n(summary.unavailable)}</strong><small>source needs attention</small></div>
+      <div class="pm-metric"><span>Latest snapshot</span><strong class="pm-standings-time">${summary.last_snapshot_at?esc(age(summary.last_snapshot_at)):'—'}</strong><small>across tracked series</small></div>
+    </div>
+    <section class="pm-brief pm-standings-brief">
+      <div><span class="eyebrow">CHAMPIONSHIP LEADERS</span><h2>Everything that matters, one scoreboard.</h2><p>Movement arrows compare the current table with Pitmark's previous saved snapshot. Open any series for the full standings.</p></div>
+      <div class="pm-standings-leader-strip">${leaders.slice(0,7).map(item=>`<div><span>${esc(item.name)}</span><strong>${esc(item.leader.name||'—')}</strong><small>${standingsPoints(item.leader.points)} pts</small></div>`).join('')}</div>
+    </section>
+    <div class="pm-standings-grid">${series.map(standingsCard).join('')}</div>
+  `;
+  root.onclick=(event)=>{
+    if(event.target.closest('[data-standings-refresh]')){refreshStandingsHub(ctx);return;}
+    const card=event.target.closest('[data-standings-series]');
+    if(card){openStandingsSeries(series.find(item=>String(item.series_key)===card.dataset.standingsSeries),ctx);}
+  };
+}
+
 async function renderInsights(root,ctx){const payload=await api.hq();const m=payload.modules||{};const work=unwrap(m.work)||{};const prt=unwrap(m.prt)||{};const content=unwrap(m.content)||{};const rel=unwrap(m.relationships)||{};const s=work.summary||{};root.innerHTML=`${viewHeader('Operating Intelligence','Insights','Current operational momentum from real Pitmark sources—not vanity metrics.')}<div class="pm-metric-strip"><div class="pm-metric"><span>Open work</span><strong>${n(s.open)}</strong><small>${n(s.p1)} P1 · ${n(s.blocked)} blocked</small></div><div class="pm-metric"><span>Completed</span><strong>${n(s.completed)}</strong><small>Master Checklist history</small></div><div class="pm-metric"><span>PRT testers</span><strong>${n(prt.testers?.redeemed)}</strong><small>${n(prt.applications?.new)} new applications</small></div><div class="pm-metric"><span>Content queue</span><strong>${n(content.autopilot?.pending)}</strong><small>${n(content.autopilot?.scheduled)} scheduled</small></div><div class="pm-metric"><span>Relationships</span><strong>${n(rel.total)}</strong><small>${n(rel.waiting_follow_up)} follow-ups</small></div></div><div class="pm-grid pm-grid-2">${panel('Work Momentum','Source of Truth',`<div class="pm-pulse-grid"><div class="pm-pulse"><header><span>Active</span></header><strong>${n(s.active)}</strong><p>currently moving</p></div><div class="pm-pulse"><header><span>Monitoring</span></header><strong>${n(s.monitoring)}</strong><p>being watched</p></div><div class="pm-pulse"><header><span>Waiting</span></header><strong>${n(s.waiting)}</strong><p>external dependencies</p></div><div class="pm-pulse"><header><span>Roadmap</span></header><strong>${n(s.roadmap)}</strong><p>future work</p></div></div>`)}${panel('Growth Activity','Operational Snapshot',`<div class="pm-detail-list"><div class="pm-detail-pair"><span>Founder’s Race pending</span><strong>${n(prt.founders_race?.pending)}</strong></div><div class="pm-detail-pair"><span>PRT feedback</span><strong>${n(prt.feedback?.open??prt.feedback?.total)}</strong></div><div class="pm-detail-pair"><span>Editorial drafts</span><strong>${n(content.editorial?.drafts)}</strong></div><div class="pm-detail-pair"><span>Published social</span><strong>${n(content.autopilot?.published)}</strong></div></div>`)}</div>`;}
 
 export async function renderDomain(domain, root, ctx) {
@@ -826,6 +932,7 @@ export async function renderDomain(domain, root, ctx) {
     if (domain === 'people') return await renderPeople(root,ctx);
     if (domain === 'systems') return await renderSystems(root,ctx);
     if (domain === 'insights') return await renderInsights(root,ctx);
+    if (domain === 'standings') return await renderStandings(root,ctx);
     throw new Error(`Unknown Pitmark operating area: ${domain}`);
   } catch (error) {
     if (error?.name === 'AbortError') return;
