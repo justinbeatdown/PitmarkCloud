@@ -167,8 +167,8 @@ SERIES: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "imsa-weathertech",
-        "name": "IMSA WeatherTech SportsCar Championship",
-        "short_name": "IMSA",
+        "name": "IMSA WeatherTech — GTP Drivers",
+        "short_name": "IMSA GTP",
         "group": "Sports Cars",
         "provider": "imsa",
         "official_url": "https://www.imsa.com/weathertech/standings/",
@@ -841,7 +841,7 @@ def get_standings_hub(*, force: bool = False, season: int | None = None) -> dict
             return copy.deepcopy(cached_value)
 
     results: dict[str, dict[str, Any]] = {}
-    with ThreadPoolExecutor(max_workers=min(6, len(SERIES))) as pool:
+    with ThreadPoolExecutor(max_workers=min(8, len(SERIES))) as pool:
         future_map = {pool.submit(_load_one, config, season): config for config in SERIES}
         for future in as_completed(future_map):
             config = future_map[future]
