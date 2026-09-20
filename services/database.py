@@ -120,6 +120,7 @@ def init_database() -> None:
     from services import prt_paid_activation  # noqa: F401
     from services import prt_feedback  # noqa: F401
     from services import astra_director  # noqa: F401
+    from services import racing_standings  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     if not settings.database_url:
