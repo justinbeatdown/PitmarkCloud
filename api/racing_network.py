@@ -20,7 +20,7 @@ _PAGE = """<!doctype html>
   <link rel="stylesheet" href="/racing-network.css?v=20260920b">
 </head>
 <body><main class="wrap">
-  <div class="top"><div class="brand"><span class="brand-mark">P</span><span>PITMARK <b>RACING DESK</b></span></div><nav class="nav"><a href="/race-center">Race Center</a><a href="https://pitmarkracing.com">PitmarkRacing.com</a></nav></div>
+  <div class="top"><a class="brand" href="https://pitmarkracing.com" aria-label="Pitmark Racing Co. home"><img class="brand-logo" src="/prt-logo.png" alt="Pitmark Racing Co."><span class="desk-label">RACING DESK</span></a><nav class="nav"><a href="/race-center">Race Center</a><a href="https://pitmarkracing.com">PitmarkRacing.com</a></nav></div>
   <section class="hero"><div class="eyebrow">TRACKS · TEAMS · DRIVERS · SERIES · PROMOTERS</div><h1>Send us<br>the story.</h1><p>Pitmark wants real racing information straight from the people living it. Send schedules, results, press releases, corrections, story leads, photos or video links. This is a coverage lane—not a paid-placement form.</p></section>
   <section class="panel">
     <div class="panel-head"><div><div class="eyebrow">SUBMIT TO PITMARK</div><h2>Racing Desk Intake</h2></div><p>Give us the facts and the best official source you have. We would rather leave something blank than invent it.</p></div>
