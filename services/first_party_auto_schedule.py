@@ -21,7 +21,7 @@ MONTHS = {
     "oct": 10, "october": 10, "nov": 11, "november": 11, "dec": 12, "december": 12,
 }
 PREVIEW_TERMS = ("where to watch", "preview", "lineup", "schedule", "coming up", "this weekend", "what to watch", "race weekend")
-RESULT_TERMS = ("results", "recap", "winner", "won ", "victory", "champion", "post-race", "after the race")
+RESULT_TERMS = ("results", "recap", "winner", " won ", "victory", "champion crowned", "post-race", "after the race")
 
 
 def _env_int(name: str, default: int, low: int, high: int) -> int:
@@ -222,10 +222,12 @@ def _repair_time_sensitive_schedules(db, now: datetime) -> list[dict]:
         replacement, reason = _choose_campaign_slot(now_local, occupied, posts)
         if not replacement:
             for post in posts:
-                post.status = "pending"
+                # An expired preview is no longer actionable content. Archive it
+                # instead of dumping stale race promotion back into the approval queue.
+                post.status = "archived"
                 post.scheduled_for = None
                 post.updated_at = utcnow()
-            repaired.append({"source": source, "action": "unscheduled", "reason": reason})
+            repaired.append({"source": source, "action": "archived", "reason": reason})
             continue
         replacement_iso = replacement.isoformat()
         for post in posts:

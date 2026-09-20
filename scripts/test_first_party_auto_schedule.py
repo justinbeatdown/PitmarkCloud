@@ -20,6 +20,20 @@ class FirstPartyAutoScheduleTests(unittest.TestCase):
         self.assertEqual(timing["start"].hour, 19)
         self.assertEqual(timing["start"].minute, 30)
 
+    def test_championship_preview_is_not_mistaken_for_result(self):
+        now = datetime(2026, 9, 20, 15, 0, tzinfo=self.zone)
+        posts = [SimpleNamespace(
+            title="Florence Speedway Championship Finale",
+            body="Florence Speedway closes its 2026 season September 19. Read the full event preview before the Championship Finale.",
+            source="firstparty:test",
+        )]
+        timing = _content_timing(posts, now)
+        self.assertEqual(timing["kind"], "preview")
+        self.assertEqual(timing["start"].date().isoformat(), "2026-09-19")
+        slot, reason = _choose_campaign_slot(now, [], posts)
+        self.assertIsNone(slot)
+        self.assertIn("already started", reason)
+
     def test_nearby_event_uses_urgent_pre_event_slot(self):
         now = datetime(2026, 9, 20, 17, 50, tzinfo=self.zone)
         slot, reason = _choose_campaign_slot(
