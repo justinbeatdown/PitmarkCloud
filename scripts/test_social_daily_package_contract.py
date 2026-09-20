@@ -43,6 +43,20 @@ class SocialDailyPackageContractTests(unittest.TestCase):
         finally:
             settings.social_asset_public_url = previous
 
+    def test_daily_campaign_queue_suppresses_direct_first_party_duplicates(self):
+        from pathlib import Path
+        source = Path("services/social_daily_package.py").read_text(encoding="utf-8")
+        self.assertIn("covered_platforms", source)
+        self.assertIn('SocialPost.source.like("firstparty:%")', source)
+        self.assertIn('row.status = "archived"', source)
+        self.assertIn('"archived_duplicates": archived_duplicates', source)
+
+    def test_existing_daily_asset_urls_are_normalized_to_public_origin(self):
+        from pathlib import Path
+        source = Path("services/social_daily_package.py").read_text(encoding="utf-8")
+        self.assertIn("def _normalize_existing_asset_urls", source)
+        self.assertIn("desired = public_asset_url(token)", source)
+
     def test_asset_prompt_forbids_logo_redraw_and_fake_specifics(self):
         from services.social_daily_package import visual_prompt
         text = visual_prompt(
