@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Pitmark Racing Standings — Every Championship. One Scoreboard.</title>
-  <meta name="description" content="Follow NASCAR, dirt racing, F1, INDYCAR, IMSA, NHRA, World of Outlaws, Lucas Oil Late Models and more in one Pitmark standings hub.">
-  <meta property="og:title" content="Pitmark Racing Standings">
-  <meta property="og:description" content="Every championship. One scoreboard.">
+  <title>Pitmark Race Center — Follow the Racing World</title>
+  <meta name="description" content="Pitmark Race Center brings major racing standings, official series sources, Pitmark coverage, and a direct racing-news desk together in one place.">
+  <meta property="og:title" content="Pitmark Race Center">
+  <meta property="og:description" content="All of racing. One home base.">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#0b0d10">
   <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}">
@@ -19,18 +19,18 @@
     <nav>
       <a href="https://pitmarkracing.com">Shop</a>
       <a href="/prt">PRT</a>
-      <a class="active" href="/standings">Standings</a>
+      <a class="active" href="/race-center">Race Center</a>
     </nav>
   </header>
 
   <main>
     <section class="hero">
       <div class="hero-copy">
-        <span class="eyebrow">PITMARK RACING INTELLIGENCE</span>
-        <h1>Every championship.<br><em>One scoreboard.</em></h1>
-        <p>Keep up with the racing world without keeping 27 tabs open. Pitmark tracks the major championships, saves snapshots, and shows who's moving.</p>
+        <span class="eyebrow">PITMARK RACE CENTER</span>
+        <h1>All of racing.<br><em>One home base.</em></h1>
+        <p>Follow the racing world without living in 27 tabs. Race Center starts with major championship standings and verified series sources, then connects you to Pitmark coverage and a direct desk for track, team, driver, and series news.</p>
         <div class="hero-actions">
-          <button id="jumpLive" class="button primary">See the standings</button>
+          <button id="jumpLive" class="button primary">Open the race board</button>
           <a class="button secondary" href="https://pitmarkracing.com">Pitmark Racing Co. ↗</a>
         </div>
       </div>
@@ -48,6 +48,29 @@
         <span>Search</span>
         <input id="searchInput" type="search" placeholder="Driver or series…">
       </label>
+    </section>
+
+    <section class="race-center-grid" aria-label="Pitmark Race Center">
+      <a class="race-center-tile" href="#standingsStart">
+        <span class="eyebrow">LIVE BOARD</span>
+        <strong>Championship Standings</strong>
+        <p>Major pavement, dirt, open-wheel, sports-car, drag, touring-car and motorcycle championships in one searchable board.</p>
+      </a>
+      <div class="race-center-tile">
+        <span class="eyebrow">OFFICIAL SOURCES</span>
+        <strong>Schedules + Results</strong>
+        <p>Open any series card for its verified official source. Pitmark leaves unsupported identity data blank instead of guessing.</p>
+      </div>
+      <a class="race-center-tile" href="https://pitmarkracing.com/blogs/racing-culture" target="_blank" rel="noopener">
+        <span class="eyebrow">PITMARK COVERAGE</span>
+        <strong>Racing News + Culture</strong>
+        <p>Track stories, racing news, features and original coverage from across the Pitmark racing world.</p>
+      </a>
+      <a class="race-center-tile" href="/submit-racing-news">
+        <span class="eyebrow">RACING DESK</span>
+        <strong>Send Pitmark Your News</strong>
+        <p>Tracks, teams, drivers, series and promoters can send schedules, results, releases, corrections and media directly to Pitmark.</p>
+      </a>
     </section>
 
     <section class="leaders-section">
@@ -84,7 +107,7 @@
     <div class="footer-links">
       <a href="https://pitmarkracing.com">Pitmark Racing Co.</a>
       <a href="/prt">Pitmark Racing Tools</a>
-      <a href="/standings">Racing Standings</a>
+      <a href="/race-center">Pitmark Race Center</a>
     </div>
     <small>Standings are aggregated from official or structured series sources when available. Driver numbers, team/manufacturer identity, and series logos are displayed only when Pitmark can trace them to an official series-owned source. Missing identity data is intentionally left blank rather than inferred. Always use the linked official series source for rules and final classification decisions.</small>
   </footer>

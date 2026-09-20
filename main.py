@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from utils.security import SecurityHeadersMiddleware, security_summary
 
-from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_2026, control_center_v19, control_center_v195, control_access_v191, control_center_ui, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, prt_testimonial_asset, early_access_admin, astra_director, standings_public
+from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_2026, control_center_v19, control_center_v195, control_access_v191, control_center_ui, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, prt_testimonial_asset, early_access_admin, astra_director, standings_public, racing_network
 from utils.config import settings
 from utils.logger import configure_logging
 from services import discord_gateway_service, prt_access_bans, prt_licensing_store
@@ -337,7 +337,7 @@ app.include_router(prt_analytics_v191.router, prefix="/api/prt/analytics", tags=
 app.include_router(content_tools.router, prefix="/api/control/content", tags=["content-tools"])
 app.include_router(control_center_ui.router)
 app.include_router(prt_ui.router)
-app.include_router(standings_public.router, tags=["public-standings"])
+app.include_router(standings_public.router, tags=["public-standings"])\napp.include_router(racing_network.router, tags=["racing-network"])
 app.include_router(prt_testimonial_asset.router)
 app.include_router(early_access_admin.router)
 

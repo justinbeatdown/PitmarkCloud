@@ -22,8 +22,11 @@ def _hub_message(display_name: str, hub: str) -> str:
         "You’re officially in the PRT Founder’s Race — our Early Access referral championship. "
         "This is your personal Race Hub:\n\n"
         f"{hub}\n\n"
-        "Inside, you’ll find your unique recruit link, current position, qualified and pending referrals, "
+        "Inside, you’ll find your Green Flag Mission, unique recruit link, current position, qualified and pending referrals, "
         "milestone progress, and ready-made social copy you can share.\n\n"
+        "Before worrying about recruiting, complete the Green Flag Mission: run one real iRacing session with PRT, "
+        "use Radar plus Relative/Standings, then send one thing you liked and one thing you would change. "
+        "Your Race Hub detects the first recorded session automatically.\n\n"
         "A referral only counts after the racer applies through your link, gets approved, and actually activates PRT. "
         "When Early Access ends, P1 gets 12 months of the highest paid PRT tier, P2 gets 6 months, and P3 gets 3 months.\n\n"
         "Open your hub, grab your recruit link, and bring the grid. 🏁\n\n"
@@ -188,11 +191,20 @@ def founder_tester_hub(code: str):
     left = max(0, next_goal - card["qualified"])
     reward = "P1 · 12 months top tier" if card["position"] == 1 else ("P2 · 6 months top tier" if card["position"] == 2 else ("P3 · 3 months top tier" if card["position"] == 3 else "Chasing the podium"))
     social = f"I’m in the PRT Founder’s Race 🏁\n\nI’m helping build the Early Access grid for Pitmark Racing Tools. If you race iRacing and want to help shape PRT before public release, apply through my link:\n\n{recruit}\n\nLeave your mark."
+    activated_text = "VERIFIED ✓" if card.get("activated") else "NOT ACTIVATED"
+    session_text = "FIRST SESSION COMPLETE ✓" if card.get("first_session_complete") else "RUN ONE REAL SESSION"
+    first_run_detail = ""
+    if card.get("first_session_complete"):
+        first_run_bits = [x for x in (card.get("first_session_car"), card.get("first_session_track")) if x]
+        if first_run_bits:
+            first_run_detail = " · " + escape(" @ ".join(first_run_bits))
+    feedback_href = "mailto:prt@pitmarkracing.com?subject=PRT%20Green%20Flag%20Mission%20Feedback&body=PRT%20version%3A%0ACar%20%2F%20track%3A%0AOne%20thing%20I%20liked%3A%0AOne%20thing%20I%20would%20change%3A%0AAnything%20wrong%2C%20confusing%2C%20laggy%20or%20inaccurate%3A"
     body = f"""
     <div class="top"><div class="brand">PITMARK RACING TOOLS <b>TESTER RACE HUB</b></div><div class="nav"><a href="/founders-race">Public Race</a><a href="/prt">PRT Home</a></div></div>
     <section class="hero"><div class="eyebrow">FOUNDING TESTER · {name_e}</div><h1>YOUR RACE.<br>YOUR LINK.</h1><p class="lead">Everything you need to run your Founder’s Race campaign is right here.</p><div class="actions"><button class="btn primary" data-copy="{escape(recruit, quote=True)}">Copy Recruit Link</button><button class="btn" data-share="{escape(recruit, quote=True)}" data-share-text="Join PRT Early Access through my Founder’s Race link.">Share</button><a class="btn" target="_blank" href="/founders-race/r/{code_e}">Open Recruit Page</a></div></section>
     <div class="kpis"><div class="kpi"><span>Position</span><strong>P{card["position"]}</strong><small>{escape(reward)}</small></div><div class="kpi"><span>Qualified</span><strong>{card["qualified"]}</strong><small>activated racers</small></div><div class="kpi"><span>Pending</span><strong>{card["pending"]}</strong><small>still in pipeline</small></div><div class="kpi"><span>Total Referred</span><strong>{card["total"]}</strong><small>all attributed apps</small></div></div>
     <div class="grid"><section class="panel"><div class="eyebrow">YOUR RECRUIT LINK</div><h2>Share this. This is what scores.</h2><div class="linkbox">{escape(recruit)}</div><div class="actions"><button class="btn primary" data-copy="{escape(recruit, quote=True)}">Copy Link</button><button class="btn" data-share="{escape(recruit, quote=True)}">Share Link</button></div><p class="muted">Your hub URL: {escape(hub)} · Referral code: {code_e}</p></section><aside class="panel"><div class="eyebrow">NEXT MILESTONE</div><h2>{left} to go</h2><p class="muted">{card["qualified"]} / {next_goal} qualified referrals</p><div class="progress"><span style="width:{pct}%"></span></div><p class="muted">Only approved, activated racers move this bar.</p></aside></div>
+    <section class="panel" style="margin-top:14px"><div class="eyebrow">GREEN FLAG MISSION · FIRST USE</div><h2>One real session. Then tell us the truth.</h2><p class="muted">This is the activation loop that matters more than another signup. Your first recorded PRT session is detected automatically.</p><div class="steps"><div class="step"><div class="num">01</div><h3>Activate PRT</h3><p class="orange">{activated_text}</p></div><div class="step"><div class="num">02</div><h3>Run a real session</h3><p class="orange">{session_text}{first_run_detail}</p></div><div class="step"><div class="num">03</div><h3>Use the race tools</h3><p>Run Radar plus Relative/Standings long enough to judge them at race pace.</p></div></div><div class="actions"><a class="btn primary" href="{feedback_href}">Send 1 Like + 1 Change</a><a class="btn" href="/prt/support">Setup / Troubleshooting</a></div></section>
     <section class="panel" style="margin-top:14px"><div class="eyebrow">COPY + POST</div><h2>Ready-made social copy</h2><div class="sharecopy">{escape(social)}</div><div class="actions"><button class="btn primary" data-copy="{escape(social, quote=True)}">Copy Post</button></div></section>
     <section class="panel" style="margin-top:14px"><div class="eyebrow">HOW YOU SCORE</div><div class="steps"><div class="step"><div class="num">01</div><h3>Send the recruit link</h3><p>Your friend must apply through your personal link.</p></div><div class="step"><div class="num">02</div><h3>They get approved</h3><p>Pitmark reviews them normally. Approval alone is still pending.</p></div><div class="step"><div class="num">03</div><h3>They activate</h3><p>After invite redemption + device activation, your referral becomes qualified.</p></div></div></section>
     <div class="footer"><span>{name_e} · Founder’s Race Hub</span><span>Race clean. Bring the grid.</span></div>

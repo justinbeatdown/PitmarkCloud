@@ -1,4 +1,6 @@
 from pathlib import Path
+import re
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, Response, RedirectResponse
@@ -30,6 +32,16 @@ _PREVIEW_BOT_TOKENS = (
     "googlebot",
     "bingbot",
 )
+
+_TRACKED_CHANNELS = {
+    "tiktok": ("tiktok", "social", "channel_profile"),
+    "instagram": ("instagram", "social", "channel_profile"),
+    "facebook": ("facebook", "social", "channel_profile"),
+    "youtube": ("youtube", "social", "channel_profile"),
+    "x": ("x", "social", "channel_profile"),
+    "shop": ("pitmark_links", "owned", "shop"),
+}
+_PARTNER_SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{1,59}$")
 
 
 def _html(name: str) -> HTMLResponse:
@@ -70,6 +82,90 @@ def raceproof_redirect(request: Request):
         url=RACEPROOF_TARGET,
         status_code=302,
         headers={"Cache-Control": "no-store"},
+    )
+
+
+
+def _tracked_redirect(
+    request: Request,
+    *,
+    slug: str,
+    source: str,
+    medium: str,
+    campaign: str,
+    asset: str,
+    destination: str = "https://pitmarkracing.com/",
+) -> RedirectResponse:
+    try:
+        record_campaign_link(
+            slug=slug,
+            campaign=campaign,
+            source=source,
+            asset=asset,
+            traffic_type=_campaign_traffic_type(request),
+        )
+    except Exception:
+        pass
+    query = urlencode({
+        "utm_source": source,
+        "utm_medium": medium,
+        "utm_campaign": campaign,
+        "utm_content": asset,
+    })
+    separator = "&" if "?" in destination else "?"
+    return RedirectResponse(
+        url=f"{destination}{separator}{query}",
+        status_code=302,
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.get("/tiktok", include_in_schema=False)
+@router.get("/instagram", include_in_schema=False)
+@router.get("/facebook", include_in_schema=False)
+@router.get("/youtube", include_in_schema=False)
+@router.get("/x", include_in_schema=False)
+@router.get("/shop", include_in_schema=False)
+def channel_redirect(request: Request):
+    slug = request.url.path.strip("/").lower()
+    source, medium, asset = _TRACKED_CHANNELS[slug]
+    return _tracked_redirect(
+        request,
+        slug=slug,
+        source=source,
+        medium=medium,
+        campaign="pitmark_channel",
+        asset=asset,
+    )
+
+
+@router.get("/track/{slug}", include_in_schema=False)
+def track_partner_redirect(slug: str, request: Request):
+    clean = (slug or "").strip().lower()
+    if not _PARTNER_SLUG.fullmatch(clean):
+        return RedirectResponse(url="/links", status_code=302)
+    return _tracked_redirect(
+        request,
+        slug=f"track-{clean}",
+        source="track",
+        medium="partner",
+        campaign="racing_network",
+        asset=clean,
+    )
+
+
+@router.get("/driver/{slug}", include_in_schema=False)
+def driver_partner_redirect(slug: str, request: Request):
+    clean = (slug or "").strip().lower()
+    if not _PARTNER_SLUG.fullmatch(clean):
+        return RedirectResponse(url="/links", status_code=302)
+    return _tracked_redirect(
+        request,
+        slug=f"driver-{clean}",
+        source="driver",
+        medium="partner",
+        campaign="racing_network",
+        asset=clean,
     )
 
 
