@@ -846,22 +846,22 @@ function standingsCard(series){
   const rows=(series.entries||[]).slice(0,5);
   const leader=rows[0];
   const body=rows.length?`<div class="pm-standings-mini">
-    \${rows.map(row=>`<div class="pm-standings-mini-row">
-      <span class="pm-standings-pos">\${esc(row.position??'—')}</span>
-      <span class="pm-standings-number">\${row.number?esc('#'+row.number):''}</span>
-      <span class="pm-standings-driver"><strong>\${esc(row.name||'Unknown')}</strong><small>\${esc(standingsIdentity(row))}</small></span>
-      \${standingsMovement(row.movement)}
-      <strong class="pm-standings-points">\${standingsPoints(row.points)}</strong>
+    ${rows.map(row=>`<div class="pm-standings-mini-row">
+      <span class="pm-standings-pos">${esc(row.position??'—')}</span>
+      <span class="pm-standings-number">${row.number?esc('#'+row.number):''}</span>
+      <span class="pm-standings-driver"><strong>${esc(row.name||'Unknown')}</strong><small>${esc(standingsIdentity(row))}</small></span>
+      ${standingsMovement(row.movement)}
+      <strong class="pm-standings-points">${standingsPoints(row.points)}</strong>
     </div>`).join('')}
   </div>`:empty(series.error?'Standings source is currently unavailable.':'No standings returned.');
-  return `<section class="pm-surface pm-standings-card" data-standings-series="\${esc(series.series_key)}">
+  return `<section class="pm-surface pm-standings-card" data-standings-series="${esc(series.series_key)}">
     <header>
-      <div class="pm-standings-series-brand">\${standingsLogo(series)}<div><span class="eyebrow">\${esc(series.group||'Racing')}</span><h3>\${esc(series.short_name||series.series_name)}</h3></div></div>
-      \${standingsStatus(series)}
+      <div class="pm-standings-series-brand">${standingsLogo(series)}<div><span class="eyebrow">${esc(series.group||'Racing')}</span><h3>${esc(series.short_name||series.series_name)}</h3></div></div>
+      ${standingsStatus(series)}
     </header>
-    <div class="pm-standings-leader"><span>Championship leader</span><strong>\${leader?.number?esc('#'+leader.number+' · '):''}\${esc(leader?.name||'—')}</strong><small>\${leader?standingsPoints(leader.points)+' pts'+(standingsIdentity(leader)?' · '+esc(standingsIdentity(leader)):''):'No data yet'}</small></div>
-    \${body}
-    <footer><span>\${esc(series.series_name||'Series')}</span><button class="pm-button pm-button-ghost" type="button">Full standings ›</button></footer>
+    <div class="pm-standings-leader"><span>Championship leader</span><strong>${leader?.number?esc('#'+leader.number+' · '):''}${esc(leader?.name||'—')}</strong><small>${leader?standingsPoints(leader.points)+' pts'+(standingsIdentity(leader)?' · '+esc(standingsIdentity(leader)):''):'No data yet'}</small></div>
+    ${body}
+    <footer><span>${esc(series.series_name||'Series')}</span><button class="pm-button pm-button-ghost" type="button">Full standings ›</button></footer>
   </section>`;
 }
 
@@ -869,25 +869,25 @@ function openStandingsSeries(series,ctx){
   if(!series)return;
   const rows=series.entries||[];
   const table=rows.length?`<div class="pm-table-wrap"><table class="pm-table pm-standings-table"><thead><tr><th>Pos</th><th>#</th><th>Move</th><th>Driver</th><th>Team</th><th>Manufacturer</th><th>Points</th><th>Behind</th><th>Wins</th></tr></thead><tbody>
-    \${rows.map(row=>`<tr>
-      <td data-label="Pos"><strong>\${esc(row.position??'—')}</strong></td>
-      <td data-label="#"><strong>\${esc(row.number||'—')}</strong></td>
-      <td data-label="Move">\${standingsMovement(row.movement)}</td>
-      <td data-label="Driver"><strong>\${esc(row.name||'Unknown')}</strong></td>
-      <td data-label="Team">\${esc(row.team||'—')}</td>
-      <td data-label="Manufacturer">\${esc(row.manufacturer||'—')}</td>
-      <td data-label="Points"><strong>\${standingsPoints(row.points)}</strong></td>
-      <td data-label="Behind">\${standingsPoints(row.behind)}</td>
-      <td data-label="Wins">\${standingsPoints(row.wins)}</td>
+    ${rows.map(row=>`<tr>
+      <td data-label="Pos"><strong>${esc(row.position??'—')}</strong></td>
+      <td data-label="#"><strong>${esc(row.number||'—')}</strong></td>
+      <td data-label="Move">${standingsMovement(row.movement)}</td>
+      <td data-label="Driver"><strong>${esc(row.name||'Unknown')}</strong></td>
+      <td data-label="Team">${esc(row.team||'—')}</td>
+      <td data-label="Manufacturer">${esc(row.manufacturer||'—')}</td>
+      <td data-label="Points"><strong>${standingsPoints(row.points)}</strong></td>
+      <td data-label="Behind">${standingsPoints(row.behind)}</td>
+      <td data-label="Wins">${standingsPoints(row.wins)}</td>
     </tr>`).join('')}
   </tbody></table></div>`:empty('No standings are available for this series yet.');
   const provenance=series.metadata_verified
-    ? `<div class="pm-callout is-good"><div><strong>Official identity verified</strong><p>Driver number, team and manufacturer fields shown here are sourced only from the series' official source. \${series.metadata_source_url?`<a href="\${esc(series.metadata_source_url)}" target="_blank" rel="noopener">Open identity source ↗</a>`:''}\${series.series_logo_source_url?` · <a href="\${esc(series.series_logo_source_url)}" target="_blank" rel="noopener">Open logo source ↗</a>`:''}</p></div></div>`
+    ? `<div class="pm-callout is-good"><div><strong>Official identity verified</strong><p>Driver number, team and manufacturer fields shown here are sourced only from the series' official source. ${series.metadata_source_url?`<a href="${esc(series.metadata_source_url)}" target="_blank" rel="noopener">Open identity source ↗</a>`:''}${series.series_logo_source_url?` · <a href="${esc(series.series_logo_source_url)}" target="_blank" rel="noopener">Open logo source ↗</a>`:''}</p></div></div>`
     : `<div class="pm-callout"><div><strong>Official-only identity policy</strong><p>Any number, team or manufacturer information that cannot be verified from an official series-owned source is intentionally left blank.</p></div></div>`;
   ctx.openSheet({
-    kicker:`\${series.group||'Racing'} · \${series.season||''}`,
+    kicker:`${series.group||'Racing'} · ${series.season||''}`,
     title:series.series_name||'Standings',
-    body:`<div class="pm-standings-sheet-brand">\${standingsLogo(series,'is-sheet')}</div>\${details([['Status',series.status||'unknown'],['Source',series.source_name||'—'],['Last snapshot',dateText(series.fetched_at)]])}\${provenance}\${series.error?`<div class="pm-callout is-warn"><div><strong>Using fallback data</strong><p>\${esc(series.error)}</p></div></div>`:''}\${table}`,
+    body:`<div class="pm-standings-sheet-brand">${standingsLogo(series,'is-sheet')}</div>${details([['Status',series.status||'unknown'],['Source',series.source_name||'—'],['Last snapshot',dateText(series.fetched_at)]])}${provenance}${series.error?`<div class="pm-callout is-warn"><div><strong>Using fallback data</strong><p>${esc(series.error)}</p></div></div>`:''}${table}`,
     actions:[
       {label:'Open official standings',tone:'ghost',run:()=>{if(series.official_url)window.open(series.official_url,'_blank','noopener');}},
       {label:'Refresh all',tone:'primary',run:async()=>{ctx.closeSheet();await refreshStandingsHub(ctx);}}
