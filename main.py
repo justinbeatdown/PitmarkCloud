@@ -337,7 +337,8 @@ app.include_router(prt_analytics_v191.router, prefix="/api/prt/analytics", tags=
 app.include_router(content_tools.router, prefix="/api/control/content", tags=["content-tools"])
 app.include_router(control_center_ui.router)
 app.include_router(prt_ui.router)
-app.include_router(standings_public.router, tags=["public-standings"])\napp.include_router(racing_network.router, tags=["racing-network"])
+app.include_router(standings_public.router, tags=["public-standings"])
+app.include_router(racing_network.router, tags=["racing-network"])
 app.include_router(prt_testimonial_asset.router)
 app.include_router(early_access_admin.router)
 
