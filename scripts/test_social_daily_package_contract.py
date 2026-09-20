@@ -29,6 +29,20 @@ class SocialDailyPackageContractTests(unittest.TestCase):
         self.assertEqual(QUEUE_PLATFORMS, ("facebook", "instagram", "x", "discord"))
         self.assertNotIn("tiktok_reels", QUEUE_PLATFORMS)
 
+    def test_public_social_asset_origin_is_separate_from_control_center(self):
+        from services.social_asset_pool import public_asset_url
+        from utils.config import settings
+
+        previous = settings.social_asset_public_url
+        try:
+            settings.social_asset_public_url = "https://pitmarkcloud.onrender.com"
+            self.assertEqual(
+                public_asset_url("token-123", request_base_url="https://pcc.pitmarkracing.com"),
+                "https://pitmarkcloud.onrender.com/social-assets/token-123",
+            )
+        finally:
+            settings.social_asset_public_url = previous
+
     def test_asset_prompt_forbids_logo_redraw_and_fake_specifics(self):
         from services.social_daily_package import visual_prompt
         text = visual_prompt(
