@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import io
 import json
 import logging
 from urllib.parse import quote
 
 import httpx
+from PIL import Image
 from sqlalchemy import select
 
 from services.control_center import SocialPost, utcnow
@@ -87,10 +89,13 @@ def _generate_blog_image(event: FirstPartyEvent) -> str | None:
         data = generated.get("data")
         if not data:
             return None
+        image = Image.open(io.BytesIO(data)).convert("RGB")
+        out = io.BytesIO()
+        image.save(out, format="JPEG", quality=92, optimize=True)
         stored = store_uploaded_image(
-            data=data,
-            filename=f"firstparty-blog-{event.id}.png",
-            mime_type="image/png",
+            data=out.getvalue(),
+            filename=f"firstparty-blog-{event.id}.jpg",
+            mime_type="image/jpeg",
         )
         url = _public_asset_url(stored["public_token"])
         add_asset(
@@ -112,6 +117,44 @@ def _product_handle(event: FirstPartyEvent) -> str:
     except Exception:
         payload = {}
     return str(payload.get("handle") or "").strip()
+
+
+def _instagram_compatible_media(media_url: str, *, source_ref: str) -> str | None:
+    """Return a public JPEG URL safe for Instagram's image publishing endpoint."""
+    url = _normalize_image_url(media_url)
+    if not url:
+        return None
+    try:
+        response = httpx.get(
+            url,
+            timeout=25.0,
+            follow_redirects=True,
+            headers={"User-Agent": "PitmarkAutopilot-InstagramMedia/1.0"},
+        )
+        response.raise_for_status()
+        content_type = (response.headers.get("content-type") or "").split(";", 1)[0].lower()
+        if content_type == "image/jpeg":
+            return url
+        image = Image.open(io.BytesIO(response.content)).convert("RGB")
+        out = io.BytesIO()
+        image.save(out, format="JPEG", quality=92, optimize=True)
+        stored = store_uploaded_image(
+            data=out.getvalue(),
+            filename=f"{source_ref.replace(':','-')}-instagram.jpg",
+            mime_type="image/jpeg",
+        )
+        public_url = _public_asset_url(stored["public_token"])
+        add_asset(
+            url=public_url,
+            title="Instagram-compatible first-party media",
+            source="firstparty_media",
+            source_ref=source_ref,
+            tags=["pitmark", "instagram", "jpeg", "first-party"],
+        )
+        return public_url
+    except Exception as exc:
+        log.exception("Could not prepare Instagram-compatible media for %s: %s", source_ref, exc)
+        return None
 
 
 def resolve_shopify_product_image(handle: str) -> str | None:
@@ -238,9 +281,19 @@ def reconcile_first_party_drafts(limit: int = 100) -> dict:
                 images_missing += len(posts)
                 continue
 
+            instagram_media = None
             for post in posts:
-                if (post.media_url or "").strip() != media:
-                    post.media_url = media
+                desired_media = media
+                if post.platform == "instagram":
+                    if instagram_media is None:
+                        instagram_media = _instagram_compatible_media(
+                            media,
+                            source_ref=f"firstparty:{event.id}",
+                        )
+                    if instagram_media:
+                        desired_media = instagram_media
+                if (post.media_url or "").strip() != desired_media:
+                    post.media_url = desired_media
                     post.updated_at = utcnow()
                     repaired_images += 1
 
