@@ -4,10 +4,12 @@ import copy
 import hashlib
 import json
 import logging
+import re
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 from bs4 import BeautifulSoup
@@ -477,6 +479,69 @@ def _parse_html_tables(html: str) -> list[tuple[list[str], list[list[str]]]]:
     return tables
 
 
+def _clean_markdown_cell(value: str) -> str:
+    text = str(value or "").strip()
+    text = re.sub(r"!\\[[^\\]]*\\]\\([^)]*\\)", "", text)
+    text = re.sub(r"\\[([^\\]]+)\\]\\([^)]*\\)", r"\\1", text)
+    text = text.replace("**", "").replace("__", "").replace(chr(96), "")
+    return " ".join(text.split()).strip()
+
+
+def _parse_markdown_tables(markdown: str) -> list[tuple[list[str], list[list[str]]]]:
+    lines = [line.strip() for line in str(markdown or "").splitlines()]
+    tables: list[tuple[list[str], list[list[str]]]] = []
+    index = 0
+
+    def split_row(line: str) -> list[str]:
+        raw = line.strip().strip("|")
+        return [_clean_markdown_cell(cell) for cell in raw.split("|")]
+
+    def separator(line: str) -> bool:
+        if "|" not in line:
+            return False
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        return bool(cells) and all(re.fullmatch(r":?-{3,}:?", cell or "") for cell in cells)
+
+    while index + 1 < len(lines):
+        if "|" not in lines[index] or not separator(lines[index + 1]):
+            index += 1
+            continue
+        header = split_row(lines[index])
+        body: list[list[str]] = []
+        index += 2
+        while index < len(lines) and "|" in lines[index]:
+            row = split_row(lines[index])
+            if row and any(cell for cell in row):
+                body.append(row)
+            index += 1
+        if header and body:
+            tables.append((header, body))
+    return tables
+
+
+def _reader_url(url: str) -> str:
+    parts = urlsplit(url)
+    path = parts.path or "/"
+    query = f"?{parts.query}" if parts.query else ""
+    return f"https://r.jina.ai/http://{parts.netloc}{path}{query}"
+
+
+def _reader_table_rows(url: str) -> list[tuple[list[str], list[list[str]]]]:
+    reader_url = _reader_url(url)
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/plain,text/markdown;q=0.9,*/*;q=0.5",
+        "X-Return-Format": "markdown",
+    }
+    with httpx.Client(timeout=24.0, follow_redirects=True, headers=headers) as client:
+        response = client.get(reader_url)
+        response.raise_for_status()
+    tables = _parse_markdown_tables(response.text)
+    if not tables:
+        raise RuntimeError("rendered reader returned no standings tables")
+    return tables
+
+
 def _html_table_rows(url: str) -> list[tuple[list[str], list[list[str]]]]:
     headers = {
         "User-Agent": USER_AGENT,
@@ -484,10 +549,27 @@ def _html_table_rows(url: str) -> list[tuple[list[str], list[list[str]]]]:
         "Accept-Language": "en-US,en;q=0.9",
         "Cache-Control": "no-cache",
     }
-    with httpx.Client(timeout=16.0, follow_redirects=True, headers=headers) as client:
-        response = client.get(url)
-        response.raise_for_status()
-    return _parse_html_tables(response.text)
+    direct_error: Exception | None = None
+    try:
+        with httpx.Client(timeout=16.0, follow_redirects=True, headers=headers) as client:
+            response = client.get(url)
+            response.raise_for_status()
+        tables = _parse_html_tables(response.text)
+        if tables:
+            return tables
+        direct_error = RuntimeError("official page returned no static standings tables")
+    except Exception as exc:
+        direct_error = exc
+
+    # Several racing sites block Render/datacenter IPs or render standings
+    # entirely client-side. Use a read-only rendered-page fallback while
+    # keeping the official page as the canonical source shown in Pitmark.
+    try:
+        return _reader_table_rows(url)
+    except Exception as reader_error:
+        raise RuntimeError(
+            f"official source unavailable ({direct_error}); rendered fallback failed ({reader_error})"
+        ) from reader_error
 
 
 def _series_url(config: dict[str, Any], season: int) -> str:
