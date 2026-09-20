@@ -89,6 +89,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             "people",
             "systems",
             "insights",
+            "standings",
         ):
             self.assertIn(f'data-domain="{domain}"', html)
         self.assertIn('id="global-command"', html)
@@ -132,6 +133,8 @@ class ControlCenter2026Contract(unittest.TestCase):
             "/api/control/workspace/oauth/start",
             "/api/control/workspace/oauth/complete",
             "/api/control/auth/logout",
+            "/api/control/standings",
+            "/api/control/standings/refresh",
         ):
             self.assertIn(endpoint, api_js)
         self.assertNotIn("/api/control/email/threads", api_js)
@@ -268,6 +271,43 @@ class ControlCenter2026Contract(unittest.TestCase):
             self.assertIn(endpoint, api_js)
         self.assertIn("prepareOpportunityResearch:", api_js)
         self.assertIn("runIntelligence:", api_js)
+
+    def test_racing_standings_hub_tracks_major_series_and_snapshots(self):
+        service = self.read("services/racing_standings.py")
+        views = self.read("api/control_center_views.js")
+        api_js = self.read("api/control_center_api.js")
+        api_py = self.read("api/control_center.py")
+        html = self.read("api/control_center.html")
+        for token in (
+            "nascar-cup",
+            "nascar-oreilly",
+            "nascar-truck",
+            "world-of-outlaws-sprint",
+            "world-of-outlaws-late-models",
+            "nhra-top-fuel",
+            "nhra-funny-car",
+            "nhra-pro-stock",
+            "nhra-pro-stock-motorcycle",
+            '"key": "f1"',
+            '"key": "indycar"',
+            '"key": "formula-e"',
+            "imsa-weathertech",
+            '"key": "wec"',
+            '"key": "supercars"',
+            '"key": "motogp"',
+        ):
+            self.assertIn(token, service)
+        self.assertIn("class RacingStandingSnapshot", service)
+        self.assertIn("movement", service)
+        self.assertIn("official_table", service)
+        self.assertIn("@router.get('/standings')", api_py)
+        self.assertIn("@router.post('/standings/refresh')", api_py)
+        self.assertIn("standings:", api_js)
+        self.assertIn("refreshStandings:", api_js)
+        self.assertIn("Standings Hub", views)
+        self.assertIn("Full standings", views)
+        self.assertIn("CHAMPIONSHIP LEADERS", views)
+        self.assertIn('data-domain="standings"', html)
 
     def test_control_center_readability_scale_covers_tiny_ui_text(self):
         css = self.read("api/control_center_overhaul.css")
