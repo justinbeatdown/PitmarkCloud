@@ -45,10 +45,14 @@ _PAGE = """<!doctype html>
 
 
 def _success() -> HTMLResponse:
-    return HTMLResponse(_PAGE.replace(
-        '<section class="panel">\n    <form',
-        '<section class="panel success"><div class="eyebrow">SUBMISSION RECEIVED</div><h2>Received. 🏁</h2><p>Your submission is in the Pitmark Racing Desk inbox. If we need more detail, we can reply directly to the email you provided.</p></section><section class="panel hidden-panel">\n    <form',
-    ), headers={"Cache-Control": "no-store"})
+    return HTMLResponse(
+        _PAGE.replace(
+            '<section class="panel">',
+            '<section class="panel success"><div class="eyebrow">SUBMISSION RECEIVED</div><h2>Received. 🏁</h2><p>Your submission is in the Pitmark Racing Desk inbox. If we need more detail, we can reply directly to the email you provided.</p></section><section class="panel hidden-panel">',
+            1,
+        ),
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.get("/racing-network.css", include_in_schema=False)
