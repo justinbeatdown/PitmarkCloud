@@ -824,6 +824,9 @@ def _parse_smart_modified_pdf(text: str) -> list[dict[str, Any]]:
         parts = line.split()
         if len(parts) < 5 or not parts[0].isdigit():
             continue
+        position = int(parts[0])
+        if position < 1 or position > 200:
+            continue
         point_index: int | None = None
         for index in range(2, len(parts)):
             if _num(parts[index]) is not None:
@@ -842,7 +845,7 @@ def _parse_smart_modified_pdf(text: str) -> list[dict[str, Any]]:
                 behind = _clean_points(candidate)
         rows.append(
             {
-                "position": int(parts[0]),
+                "position": position,
                 "name": name,
                 "team": None,
                 "manufacturer": None,
@@ -1146,13 +1149,34 @@ def _normalize_official_tables(
     for fallback_position, row in enumerate(rows, start=1):
         name_index = indexes["name"]
         points_index = indexes["points"]
-        if name_index is None or points_index is None or name_index >= len(row) or points_index >= len(row):
+        if name_index is None or points_index is None:
             continue
-        name = str(row[name_index] or "").strip()
-        points = _clean_points(row[points_index])
+
+        offset = 0
+        if name_index < len(row):
+            candidate_name = str(row[name_index] or "").strip()
+            if candidate_name.startswith("[](") and candidate_name.endswith(")"):
+                offset = 1
+
+        def shifted(index: int | None) -> int | None:
+            return None if index is None else index + offset
+
+        actual_name_index = shifted(name_index)
+        actual_points_index = shifted(points_index)
+        if (
+            actual_name_index is None
+            or actual_points_index is None
+            or actual_name_index >= len(row)
+            or actual_points_index >= len(row)
+        ):
+            continue
+
+        name = str(row[actual_name_index] or "").strip()
+        points = _clean_points(row[actual_points_index])
         if not name or points is None:
             continue
-        position_index = indexes["position"]
+
+        position_index = shifted(indexes["position"])
         position = (
             _parse_position(row[position_index])
             if position_index is not None and position_index < len(row)
@@ -1160,7 +1184,7 @@ def _normalize_official_tables(
         ) or fallback_position
 
         def field(index_name: str) -> Any:
-            index = indexes.get(index_name)
+            index = shifted(indexes.get(index_name))
             return row[index] if index is not None and index < len(row) else None
 
         normalized.append(
