@@ -115,3 +115,76 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .pm-content-autonomy-note{flex-direction:column;gap:7px}
   .pm-content-state-text{white-space:normal;text-align:right}
 }
+
+
+/* Readability pass — 2026-09-20
+   Keep the compact operator layout, but stop using sub-10px type for routine UI. */
+.pm-brand small{font-size:10px}
+.pm-command-trigger span:nth-child(2){font-size:12px}
+.pm-command-trigger kbd{font-size:9px}
+.pm-nav-label{font-size:10px}
+.pm-nav-item>span:nth-child(2){font-size:12px}
+.pm-nav-icon{font-size:12px}
+.pm-nav-item b{font-size:9px}
+.pm-rail-footer strong{font-size:10px}
+.pm-rail-footer small{font-size:10px}
+.pm-page-heading>span{font-size:10px}
+.pm-page-heading>div>span{font-size:12px}
+.pm-button{font-size:12px}
+.pm-account-button{font-size:10px}
+.pm-view-header .eyebrow,.pm-panel-header .eyebrow,.pm-sheet-body .eyebrow{font-size:10px}
+.pm-view-header p{font-size:13px}
+.pm-panel-header h3{font-size:16px}
+.pm-panel-header p{font-size:11px}
+.pm-brief p{font-size:13px}
+.pm-metric span{font-size:10px}
+.pm-metric small{font-size:10px}
+.pm-row-main strong{font-size:13px}
+.pm-row-main p{font-size:11px;line-height:1.5}
+.pm-row-actions .pm-button{min-height:36px;padding:0 10px;font-size:11px}
+.pm-priority{height:22px;font-size:9px}
+.pm-status{font-size:9px}
+.pm-tab{font-size:11px}
+.pm-tab b{font-size:9px}
+.pm-bulk-select-all,.pm-check-line{font-size:10px}
+.pm-bulk-bar>strong{font-size:11px}
+.pm-table th,.pm-table td{font-size:11px}
+.pm-table th{font-size:9px}
+.pm-table td strong{font-size:12px}
+.pm-table td small{font-size:10px}
+.pm-quick-grid strong{font-size:12px}
+.pm-quick-grid small{font-size:10px;line-height:1.4}
+.pm-pulse header span{font-size:10px}
+.pm-pulse header b{font-size:10px}
+.pm-pulse p{font-size:10px}
+.pm-callout strong{font-size:11px}
+.pm-callout p{font-size:10px;line-height:1.5}
+.pm-empty{font-size:11px}
+.pm-badge{min-height:22px;font-size:9px}
+.pm-input,.pm-select,.pm-textarea{font-size:12px}
+.pm-field label{font-size:9px}
+.pm-command-input-wrap button{font-size:9px}
+.pm-command-group>span{font-size:9px}
+.pm-command-result strong{font-size:11px}
+.pm-command-result small{font-size:10px}
+.pm-command-empty{font-size:11px}
+.pm-detail-sheet>header span{font-size:9px}
+.pm-detail-block h4{font-size:11px}
+.pm-detail-block p{font-size:11px}
+.pm-detail-pair span{font-size:9px}
+.pm-detail-pair strong{font-size:11px}
+.pm-more-grid button strong{font-size:12px}
+.pm-more-grid button small{font-size:10px}
+.pm-popover button{font-size:10px}
+.pm-toast{font-size:10px}
+.pm-inline-loader{font-size:10px}
+.pm-content-state-text{font-size:12px}
+
+@media (max-width:900px){
+  .pm-mobile-brand small{font-size:9px}
+  .pm-mobile-brand strong{font-size:13px}
+  .pm-view-header p{font-size:12px}
+  .pm-brief p{font-size:12px}
+  .pm-table td::before{font-size:9px}
+  .pm-mobile-nav button small{font-size:9px}
+}
