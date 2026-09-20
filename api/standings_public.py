@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 from pathlib import Path
+import threading
+import time
 
-from fastapi import APIRouter
+import httpx
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, Response
 
-from services.racing_standings import get_standings_snapshot_hub
+from services.racing_standings import get_series_logo_info, get_standings_snapshot_hub
 from utils.config import settings
 
 router = APIRouter()
 ASSET_DIR = Path(__file__).resolve().parent
+LOGO_MAX_BYTES = 2 * 1024 * 1024
+_logo_cache_lock = threading.Lock()
+_logo_cache: dict[str, tuple[float, bytes, str]] = {}
 
 
 def _public_payload() -> dict:
@@ -45,6 +51,48 @@ def public_standings_js():
     return _asset("standings_public.js", "application/javascript")
 
 
+@router.get("/standings-logo/{series_key}", include_in_schema=False)
+def public_standings_logo(series_key: str):
+    info = get_series_logo_info(series_key)
+    if not info:
+        raise HTTPException(status_code=404, detail="Official series logo is not available.")
+
+    remote_url = info["url"]
+    now = time.monotonic()
+    with _logo_cache_lock:
+        cached = _logo_cache.get(remote_url)
+        if cached and now - cached[0] <= 24 * 3600:
+            return Response(cached[1], media_type=cached[2])
+
+    headers = {
+        "User-Agent": "PitmarkRacingStandings/1.0 (+https://pitmarkracing.com)",
+        "Accept": "image/avif,image/webp,image/png,image/svg+xml,image/jpeg,*/*;q=0.5",
+        "Referer": info["source_url"],
+    }
+    try:
+        with httpx.Client(timeout=14.0, follow_redirects=True, headers=headers) as client:
+            response = client.get(remote_url)
+            response.raise_for_status()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Official series logo could not be retrieved.") from exc
+
+    content = response.content
+    media_type = (response.headers.get("content-type") or "").split(";", 1)[0].strip().lower()
+    allowed = {
+        "image/png", "image/jpeg", "image/webp", "image/gif",
+        "image/svg+xml", "image/avif",
+    }
+    if media_type not in allowed or not content or len(content) > LOGO_MAX_BYTES:
+        raise HTTPException(status_code=502, detail="Official series logo response was invalid.")
+
+    with _logo_cache_lock:
+        _logo_cache[remote_url] = (now, content, media_type)
+        if len(_logo_cache) > 64:
+            oldest = min(_logo_cache.items(), key=lambda item: item[1][0])[0]
+            _logo_cache.pop(oldest, None)
+    return Response(content, media_type=media_type)
+
+
 @router.get("/api/public/standings", include_in_schema=False)
 def public_standings_data():
     payload = get_standings_snapshot_hub()
@@ -59,6 +107,13 @@ def public_standings_data():
                 "season": series.get("season"),
                 "official_url": series.get("official_url"),
                 "source_name": series.get("source_name"),
+                "metadata_source_url": series.get("metadata_source_url"),
+                "series_logo": (
+                    f"/standings-logo/{series.get('series_key')}"
+                    if series.get("series_logo_url") and series.get("series_logo_source_url")
+                    else None
+                ),
+                "series_logo_source_url": series.get("series_logo_source_url"),
                 "fetched_at": series.get("fetched_at"),
                 "status": series.get("status"),
                 "stale": bool(series.get("stale")),
