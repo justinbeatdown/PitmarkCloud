@@ -17,3 +17,5 @@ cryptography>=44,<47
 python-multipart>=0.0.20,<1.0
 psd-tools>=1.10,<2.0
 Pillow>=10,<12
+
+beautifulsoup4>=4.13,<5.0
