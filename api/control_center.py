@@ -397,8 +397,41 @@ def compose(req: ComposeRequest, request: Request, x_pitmark_admin_key: str | No
 @router.post('/autopilot/posts')
 def save_post(req: SavePost, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
+    platform = (req.platform or "").strip().lower()
+    content_type = (req.content_type or "").strip().lower()
+    source = (req.source or "manual").strip()
+    risk = (req.risk or "low").strip().lower()
+    status = "pending"
+    scheduled_for = req.scheduled_for
+
+    # Owner-created community/engagement posts are explicitly trusted for the
+    # low-risk autonomy lane. Verified reactive current-events enter through
+    # intelligence:* instead; manually typed factual/authority claims stay gated.
+    if (
+        source == "control_center"
+        and risk == "low"
+        and content_type == "community"
+        and platform in {"facebook", "instagram", "x"}
+    ):
+        from services.autonomy_control import effective_mode
+        if effective_mode("low_risk_social_publish", uncertainty=0.05, fallback="auto") == "auto":
+            from services.social_operator import _schedule_time
+            status = "scheduled"
+            scheduled_for = scheduled_for or _schedule_time(platform)
+            source = "control_center:auto"
+
     with SessionLocal() as db:
-        p = SocialPost(platform=req.platform, title=req.title, body=req.body, content_type=req.content_type, source=req.source, risk=req.risk, status='pending', scheduled_for=req.scheduled_for, media_url=req.media_url)
+        p = SocialPost(
+            platform=platform,
+            title=req.title,
+            body=req.body,
+            content_type=content_type or "community",
+            source=source,
+            risk=risk,
+            status=status,
+            scheduled_for=scheduled_for,
+            media_url=req.media_url,
+        )
         db.add(p); db.commit(); db.refresh(p)
         return serialize(p)
 
