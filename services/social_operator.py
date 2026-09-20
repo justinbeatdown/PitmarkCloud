@@ -20,6 +20,7 @@ from services.meta_publish_service import (
 )
 from services.social_operator_logic import counts_toward_daily_coverage, summarize_channel_health
 from services.first_party_auto_schedule import auto_schedule_verified_first_party
+from services.first_party_media import reconcile_first_party_drafts
 from services.x_publish_service import fetch_mentions as fetch_x_mentions
 from utils.config import settings
 
@@ -398,6 +399,11 @@ def run_operator_once() -> dict:
         scanned, review, replied, channels = _sync_meta_engagement()
         planned = _ensure_growth_posts()
         try:
+            first_party_media = reconcile_first_party_drafts()
+        except Exception as exc:
+            log.exception("First-party media reconciliation failed")
+            first_party_media = {"error": str(exc)[:300]}
+        try:
             first_party_schedule = auto_schedule_verified_first_party()
         except Exception as exc:
             log.exception("First-party event-aware scheduling failed")
@@ -407,6 +413,7 @@ def run_operator_once() -> dict:
             {
                 "summary": health_note or "All configured engagement reads healthy.",
                 "channels": channels,
+                "first_party_media": first_party_media,
                 "first_party_schedule": first_party_schedule,
             },
             ensure_ascii=False,
@@ -431,6 +438,7 @@ def run_operator_once() -> dict:
             "replied": replied,
             "posts_planned": planned,
             "channels": channels,
+            "first_party_media": first_party_media,
             "first_party_schedule": first_party_schedule,
             "warning": health_note or None,
         }
