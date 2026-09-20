@@ -3,6 +3,8 @@ const $=s=>document.querySelector(s);
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const n=value=>Number(value||0).toLocaleString();
 const points=value=>value===null||value===undefined||value===''?'—':(typeof value==='number'?value.toLocaleString():esc(value));
+const logo=series=>series?.series_logo?`<img class="series-logo" src="${esc(series.series_logo)}" alt="${esc(series.series_name||'Series')} official logo">`:'';
+const identityText=row=>{const values=[row?.team,row?.manufacturer].filter(Boolean).map(String);return [...new Set(values)].join(' · ');};
 const age=iso=>{
   if(!iso)return '—';
   const then=new Date(iso).getTime(),now=Date.now(),mins=Math.max(0,Math.round((now-then)/60000));
@@ -23,28 +25,29 @@ const seriesVisible=series=>{
   if(!q)return groupOk;
   const hay=[
     series.series_name,series.short_name,series.group,
-    ...(series.entries||[]).slice(0,20).map(x=>x.name)
+    ...(series.entries||[]).slice(0,20).flatMap(x=>[x.name,x.number,x.team,x.manufacturer])
   ].join(' ').toLowerCase();
   return groupOk&&hay.includes(q);
 };
 function miniRows(series){
   const rows=(series.entries||[]).slice(0,5);
   if(!rows.length)return '<div class="empty-card">Standings source is temporarily unavailable.</div>';
-  return `<div class="mini-table">${rows.map(row=>`<div class="mini-row">
-    <span class="pos">${esc(row.position??'—')}</span>
-    <span class="driver"><strong>${esc(row.name||'Unknown')}</strong><small>${esc(row.team||row.manufacturer||'')}</small></span>
-    ${move(row.movement)}
-    <span class="pts">${points(row.points)}</span>
-  </div>`).join('')}</div>`;
+  return \`<div class="mini-table">\${rows.map(row=>\`<div class="mini-row">
+    <span class="pos">\${esc(row.position??'—')}</span>
+    <span class="car-number">\${row.number?esc('#'+row.number):''}</span>
+    <span class="driver"><strong>\${esc(row.name||'Unknown')}</strong><small>\${esc(identityText(row))}</small></span>
+    \${move(row.movement)}
+    <span class="pts">\${points(row.points)}</span>
+  </div>\`).join('')}</div>\`;
 }
 function card(series){
   const leader=(series.entries||[])[0];
-  return `<article class="series-card" data-key="${esc(series.series_key)}">
-    <header><div><span class="eyebrow">${esc(series.group||'RACING')}</span><h4>${esc(series.short_name||series.series_name)}</h4></div>${statusBadge(series)}</header>
-    <div class="card-leader"><span>Championship leader</span><strong>${esc(leader?.name||'—')}</strong><small>${leader?points(leader.points)+' pts':'No data yet'}</small></div>
-    ${miniRows(series)}
-    <footer><span>${esc(series.series_name||'Series')}</span><strong>Full standings ›</strong></footer>
-  </article>`;
+  return \`<article class="series-card" data-key="\${esc(series.series_key)}">
+    <header><div class="card-brand">\${logo(series)}<div><span class="eyebrow">\${esc(series.group||'RACING')}</span><h4>\${esc(series.short_name||series.series_name)}</h4></div></div>\${statusBadge(series)}</header>
+    <div class="card-leader"><span>Championship leader</span><strong>\${leader?.number?esc('#'+leader.number+' · '):''}\${esc(leader?.name||'—')}</strong><small>\${leader?points(leader.points)+' pts'+(identityText(leader)?' · '+esc(identityText(leader)):''):'No data yet'}</small></div>
+    \${miniRows(series)}
+    <footer><span>\${esc(series.series_name||'Series')}</span><strong>Full standings ›</strong></footer>
+  </article>\`;
 }
 function renderFilters(){
   const groups=['All',...[...new Set((state.payload?.series||[]).map(s=>s.group||'Other'))]];
@@ -54,7 +57,7 @@ function renderLeaders(){
   const leaders=(state.payload?.series||[]).filter(s=>s.entries?.length&&seriesVisible(s)).slice(0,8);
   $('#leaderStrip').innerHTML=leaders.length?leaders.map(series=>{
     const leader=series.entries[0];
-    return `<article class="leader-card" data-key="${esc(series.series_key)}"><span class="series">${esc(series.short_name||series.series_name)}</span><div><strong>${esc(leader.name||'—')}</strong><div class="points">${points(leader.points)} pts</div><small>${esc(leader.team||leader.manufacturer||series.group||'')}</small></div></article>`;
+    return \`<article class="leader-card" data-key="\${esc(series.series_key)}"><div class="leader-brand">\${logo(series)}<span class="series">\${esc(series.short_name||series.series_name)}</span></div><div><strong>\${leader.number?esc('#'+leader.number+' · '):''}\${esc(leader.name||'—')}</strong><div class="points">\${points(leader.points)} pts</div><small>\${esc(identityText(leader)||series.group||'')}</small></div></article>\`;
   }).join(''):'<div class="loading-card">No standings match this filter.</div>';
 }
 function renderGroups(){
@@ -73,18 +76,24 @@ function renderSummary(){
   $('#seasonValue').textContent=p.season||'—';
   $('#updatedValue').textContent=age(s.last_snapshot_at||p.generated_at);
 }
+function bindLogoErrors(){
+  document.querySelectorAll('.series-logo').forEach(img=>img.addEventListener('error',()=>{img.hidden=true;},{once:true}));
+}
 function render(){
-  renderSummary();renderFilters();renderLeaders();renderGroups();
+  renderSummary();renderFilters();renderLeaders();renderGroups();bindLogoErrors();
 }
 function openSeries(key){
   const series=(state.payload?.series||[]).find(s=>String(s.series_key)===String(key));
   if(!series)return;
   const rows=series.entries||[];
-  const body=rows.length?`<div class="table-wrap"><table><thead><tr><th>Pos</th><th>Move</th><th>Driver</th><th>Team / Mfr</th><th>Points</th><th>Behind</th><th>Wins</th></tr></thead><tbody>${rows.map(row=>`<tr>
-    <td><strong>${esc(row.position??'—')}</strong></td><td>${move(row.movement)}</td><td><strong>${esc(row.name||'Unknown')}</strong></td>
-    <td>${esc(row.team||row.manufacturer||'—')}</td><td><strong>${points(row.points)}</strong></td><td>${points(row.behind)}</td><td>${points(row.wins)}</td>
-  </tr>`).join('')}</tbody></table></div>`:'<div class="loading-card">No current standings are available from this source yet.</div>';
-  $('#dialogContent').innerHTML=`<div class="dialog-title"><span class="eyebrow">${esc(series.group||'RACING')} · ${esc(series.season||'')}</span><h2>${esc(series.series_name||'Standings')}</h2><p>${esc(series.source_name||'Series standings')} · updated ${esc(age(series.fetched_at))}</p></div>${body}${series.official_url?`<a class="official-link" href="${esc(series.official_url)}" target="_blank" rel="noopener">Open official series standings ↗</a>`:''}`;
+  const body=rows.length?\`<div class="table-wrap"><table><thead><tr><th>Pos</th><th>#</th><th>Move</th><th>Driver</th><th>Team</th><th>Manufacturer</th><th>Points</th><th>Behind</th><th>Wins</th></tr></thead><tbody>\${rows.map(row=>\`<tr>
+    <td><strong>\${esc(row.position??'—')}</strong></td><td><strong>\${esc(row.number||'—')}</strong></td><td>\${move(row.movement)}</td><td><strong>\${esc(row.name||'Unknown')}</strong></td>
+    <td>\${esc(row.team||'—')}</td><td>\${esc(row.manufacturer||'—')}</td><td><strong>\${points(row.points)}</strong></td><td>\${points(row.behind)}</td><td>\${points(row.wins)}</td>
+  </tr>\`).join('')}</tbody></table></div>\`:'<div class="loading-card">No current standings are available from this source yet.</div>';
+  const identitySource=series.metadata_source_url?\`<a class="official-link identity-source" href="\${esc(series.metadata_source_url)}" target="_blank" rel="noopener">Driver identity data: official series source ↗</a>\`:'';
+  const logoSource=series.series_logo_source_url?\`<a class="official-link identity-source" href="\${esc(series.series_logo_source_url)}" target="_blank" rel="noopener">Logo source: official series page ↗</a>\`:'';
+  $('#dialogContent').innerHTML=\`<div class="dialog-title"><div class="dialog-brand">\${logo(series)}<div><span class="eyebrow">\${esc(series.group||'RACING')} · \${esc(series.season||'')}</span><h2>\${esc(series.series_name||'Standings')}</h2><p>\${esc(series.source_name||'Series standings')} · updated \${esc(age(series.fetched_at))}</p></div></div></div>\${body}<div class="source-links">\${series.official_url?\`<a class="official-link" href="\${esc(series.official_url)}" target="_blank" rel="noopener">Open official series standings ↗</a>\`:''}\${identitySource}\${logoSource}</div>\`;
+  bindLogoErrors();
   $('#standingsDialog').showModal();
 }
 async function load(){
