@@ -316,6 +316,29 @@ def get_campaign(campaign_id: int) -> dict | None:
         return serialize_campaign(row) if row else None
 
 
+def suppress_campaign_platform(campaign_id: int, platform: str) -> dict | None:
+    name = str(platform or "").strip().lower()
+    if not name:
+        return get_campaign(campaign_id)
+    with SessionLocal() as db:
+        row = db.get(DailyCampaign, campaign_id)
+        if not row:
+            return None
+        package = _decode_package(row.package_json)
+        suppressed = {
+            str(item or "").strip().lower()
+            for item in (package.get("suppressed_platforms") or [])
+            if str(item or "").strip()
+        }
+        suppressed.add(name)
+        package["suppressed_platforms"] = sorted(suppressed)
+        row.package_json = json.dumps(package, ensure_ascii=False, default=str)
+        row.updated_at = utcnow()
+        db.commit()
+        db.refresh(row)
+        return serialize_campaign(row)
+
+
 def ensure_daily_campaign(now: datetime | None = None) -> dict:
     current = _aware(now)
     day_key = campaign_day_key(current)
