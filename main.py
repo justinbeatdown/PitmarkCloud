@@ -114,13 +114,15 @@ async def lifespan(app: FastAPI):
 
     init_database()
     maintenance_invite_id = (os.getenv("PRT_ONE_TIME_REISSUE_INVITE_ID") or "").strip()
-    maintenance_reissue_code = (os.getenv("PRT_ONE_TIME_REISSUE_CODE") or "").strip()
-    if maintenance_invite_id and maintenance_reissue_code:
+    maintenance_reissue_hash = (os.getenv("PRT_ONE_TIME_REISSUE_CODE_HASH") or "").strip()
+    maintenance_reissue_hint = (os.getenv("PRT_ONE_TIME_REISSUE_CODE_HINT") or "").strip()
+    if maintenance_invite_id and maintenance_reissue_hash and maintenance_reissue_hint:
         try:
             maintenance_result = await asyncio.to_thread(
-                prt_licensing_store.reissue_early_access_invite,
+                prt_licensing_store.reissue_early_access_invite_prehashed,
                 int(maintenance_invite_id),
-                code=maintenance_reissue_code,
+                code_hash=maintenance_reissue_hash,
+                code_hint=maintenance_reissue_hint,
             )
             if maintenance_result is None:
                 log.error("PRT Early Access maintenance reissue invite #%s was not found.", maintenance_invite_id)
