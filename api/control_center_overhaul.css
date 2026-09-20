@@ -89,3 +89,29 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .pm-metric-action:hover,.pm-metric-action:focus-visible{border-color:rgba(255,85,0,.32);background:rgba(255,85,0,.045);outline:none}
 .pm-metric-action:hover i,.pm-metric-action:focus-visible i{color:var(--pm-orange-soft);transform:translate(2px,-50%)}
 .pm-metric-action:active{transform:scale(.985)}
+
+/* Content pipeline clarity */
+.pm-content-tabs{position:sticky;top:68px;z-index:4;padding:8px 0;background:linear-gradient(180deg,rgba(8,9,11,.98),rgba(8,9,11,.92))}
+.pm-content-tabs .pm-tab{gap:8px}
+.pm-content-tabs .pm-tab b{min-width:20px;height:20px;padding:0 6px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:#171b20;color:#aeb5bd;font-size:10px}
+.pm-content-tabs .pm-tab.is-active b{background:rgba(255,85,0,.16);color:#ff9a62}
+.pm-content-autonomy-note{display:flex;align-items:flex-start;gap:12px;margin:12px 0 16px;padding:12px 14px;border:1px solid rgba(70,204,124,.18);background:rgba(70,204,124,.04);border-radius:12px}
+.pm-content-autonomy-note p{margin:1px 0 0;color:#8e98a3;font-size:12px;line-height:1.45}
+.pm-content-pipeline-grid{align-items:start}
+.pm-content-select-row{border-left:3px solid transparent;border-radius:12px}
+.pm-content-status-pending{border-left-color:#d49a31}
+.pm-content-status-approved{border-left-color:#66a7ff}
+.pm-content-status-scheduled{border-left-color:#a978ff}
+.pm-content-status-published{border-left-color:#46cc7c}
+.pm-content-status-rejected,.pm-content-status-archived{border-left-color:#d05c5c;opacity:.78}
+.pm-content-state-text{font-size:11px;font-weight:700;white-space:nowrap}
+.pm-content-status-pending .pm-content-state-text{color:#e4ad51}
+.pm-content-status-approved .pm-content-state-text{color:#79b3ff}
+.pm-content-status-scheduled .pm-content-state-text{color:#b48eff}
+.pm-content-status-published .pm-content-state-text{color:#5ed992}
+.pm-content-status-rejected .pm-content-state-text,.pm-content-status-archived .pm-content-state-text{color:#e17575}
+@media(max-width:900px){
+  .pm-content-tabs{top:62px;overflow-x:auto;display:flex;flex-wrap:nowrap}
+  .pm-content-autonomy-note{flex-direction:column;gap:7px}
+  .pm-content-state-text{white-space:normal;text-align:right}
+}
