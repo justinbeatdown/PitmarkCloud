@@ -1,7 +1,8 @@
 import asyncio, hashlib, html, logging, re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from urllib.parse import quote_plus, urlparse
+from zoneinfo import ZoneInfo
 import httpx
 from sqlalchemy import select
 from services.database import SessionLocal
@@ -9,6 +10,7 @@ from services.control_center import AutopilotOpportunity, AutopilotRun, SocialPo
 from services.autopilot_ai import compose_with_ai
 from utils.config import settings
 from services.x_publish_service import search_recent as x_search_recent
+from services.autonomy_control import effective_mode
 log=logging.getLogger('pitmark.autopilot.intelligence')
 FEED='https://news.google.com/rss/search?q={}&hl=en-US&gl=US&ceid=US:en'
 TERMS=('racing','race','motorsport','speedway','nascar','indycar','imsa','formula 1','f1','nhra','motogp','world of outlaws','lucas oil late model','usac','dirtcar','sprint car','late model','modified','sim racing','iracing','dirt','short track','kart','league')
@@ -133,12 +135,24 @@ def scan_now():
     op=AutopilotOpportunity(headline=title,source_name='Google News',source_url=url,relevance=rel,reason=reason,fingerprint=fp); db.add(op); db.flush();
     freshness='realtime' if age_hours<=2 else ('recent' if age_hours<=settings.social_realtime_max_age_hours else ('background' if age_hours<=24 else 'longform'))
     db.add(OpportunitySourceMeta(opportunity_id=op.id,published_at=published,age_hours=age_hours,freshness=freshness)); found+=1
-    # Approval queue is intentionally stricter than discovery.
+    # Fresh, verified low-risk racing conversation is an autonomous lane.
+    # Sensitive/uncertain stories never reach this block because the score/risk gates above reject them.
     if score>=45 and age_hours <= settings.social_realtime_max_age_hours and queued<3:
      try:
-      ai=compose_with_ai(platform='facebook',goal='community',prompt=f'Create a Pitmark Racing Co. community-first post inspired by this current racing headline: {title}. Do not invent facts or imply Pitmark involvement. Focus on grassroots racers, leagues, tracks, rookie journeys, or racing community value.',tone='pitmark')
-      db.add(SocialPost(platform='facebook',body=ai.body,content_type='community',source=f'intelligence:{op.id}',risk='low',status='pending')); op.status='drafted'; queued+=1
-     except Exception as e: log.warning('AI candidate failed: %s',e)
+      auto_mode=effective_mode('low_risk_social_publish',uncertainty=0.10,fallback='auto')
+      try: zone=ZoneInfo(settings.pitmark_timezone)
+      except Exception: zone=timezone.utc
+      scheduled_for=(datetime.now(zone)+timedelta(minutes=12)).isoformat() if auto_mode=='auto' else None
+      platforms=['facebook']
+      if published:
+       exact_age_minutes=max(0,(datetime.now(timezone.utc)-published.astimezone(timezone.utc)).total_seconds()/60)
+       if exact_age_minutes <= settings.x_realtime_max_age_minutes:
+        platforms.append('x')
+      for platform in platforms:
+       ai=compose_with_ai(platform=platform,goal='community',prompt=f'Create a Pitmark Racing Co. community-first post inspired by this current racing headline: {title}. Use only the verified headline/source context. Do not invent facts, results, quotes, identities, motives, or imply Pitmark involvement. Make it useful to racers, leagues, tracks, fans, or the racing community and invite natural discussion when appropriate.',tone='pitmark')
+       db.add(SocialPost(platform=platform,body=ai.body,content_type='community',source=f'intelligence:{op.id}',risk='low',status='scheduled' if auto_mode=='auto' else 'pending',scheduled_for=scheduled_for))
+      op.status='drafted'; queued+=1
+     except Exception as e: log.warning('AI current-event candidate failed: %s',e)
    # Paid X intelligence reads are intentionally disabled from scheduled scans.
    # X publishing remains enabled; paid X reads will be exposed only through an explicit on-demand action.
    db.commit(); rr=db.get(AutopilotRun,rid); rr.status='completed'; rr.found_count=found; rr.queued_count=queued; rr.note=f'Pitmark Intelligence V3.2 wide-coverage: filtered={filtered}; story_duplicates={duplicates}; rss_queries={len(queries)}; paid_x_reads=disabled'; db.commit()

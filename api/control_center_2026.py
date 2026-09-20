@@ -105,11 +105,64 @@ def ops_testers(request: Request, limit: int = 80):
 def ops_tester_status(application_id: int, payload: StatusUpdate, request: Request):
     _auth(request)
     try:
-        return set_application_status(application_id, payload.status)
+        result = set_application_status(application_id, payload.status)
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+    if str(payload.status or "").strip().lower() != "accepted":
+        return result
+
+    # Control Center acceptance is a complete onboarding action: status, code,
+    # and acceptance email. The legacy Applicant Center remains available as a
+    # fallback/admin view, but the owner should not need a second screen.
+    from api.early_access_admin import _acceptance_message, _application_by_id, _has_invite_for_email
+    from services.pitmark_mail_identities import send_message as send_mail
+    from services.prt_licensing_store import PrtEarlyAccessInviteRow, create_early_access_invite
+    from services.database import SessionLocal
+
+    row = _application_by_id(application_id)
+    if not row:
+        raise HTTPException(404, "Application disappeared after acceptance.")
+    email = str(row.get("email") or "").strip().lower()
+    name = str(row.get("full_name") or "Applicant").strip()
+    if not email:
+        raise HTTPException(409, "Applicant was accepted but has no email address for onboarding.")
+    if _has_invite_for_email(email):
+        return {**result, "onboarding_status": "already_issued", "onboarding_sent": False}
+
+    invite = create_early_access_invite(
+        applicant_name=name,
+        email=email,
+        discord=str(row.get("discord_username") or "").strip(),
+        notes=f"Issued automatically from Control Center application #{application_id}",
+        expires_days=14,
+    )
+    try:
+        send_mail(
+            to=[email],
+            subject="You’re In — Welcome to PRT Early Access 🏁",
+            text=_acceptance_message(name, invite["code"], row.get("placement") or "quick-apply"),
+            from_identity="justin",
+        )
+    except Exception as exc:
+        # A generated activation code cannot be recovered from its stored hash.
+        # Remove the unsent invite so pressing Accept again can safely retry with
+        # a fresh code instead of leaving a stranded applicant.
+        with SessionLocal() as db:
+            doomed = db.get(PrtEarlyAccessInviteRow, int(invite["id"]))
+            if doomed is not None:
+                db.delete(doomed)
+                db.commit()
+        raise HTTPException(502, f"Applicant accepted, but onboarding email failed: {exc}") from exc
+
+    return {
+        **result,
+        "onboarding_status": "sent",
+        "onboarding_sent": True,
+        "invite_id": invite["id"],
+    }
 
 
 @router.get("/api/control/ops/founders-race")

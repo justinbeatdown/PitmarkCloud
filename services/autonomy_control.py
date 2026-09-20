@@ -9,6 +9,7 @@ DEFAULTS = [
     ('outreach_prepare','auto','Prepare outreach drafts without sending them.','standard'),
     ('outreach_send','approval','Send first-contact or relationship outreach.','external'),
     ('social_publish','approval','Publish social content to connected platforms.','external'),
+    ('low_risk_social_publish','auto','Auto-schedule and publish verified low-risk racing current-events and community engagement posts; sensitive or uncertain content stays gated.','external'),
     ('first_party_social_publish','auto','Auto-schedule verified Pitmark first-party posts only; excludes reactive news, manual posts, TikTok, and Discord.','external'),
     ('master_checklist_update','auto','Update Pitmark Master Checklist status, next action, priority, or notes for clearly identified work.','standard'),
     ('blog_publish','approval','Publish blog content to connected platforms.','external'),

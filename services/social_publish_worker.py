@@ -43,6 +43,7 @@ def _automatic_social_source(source: str | None) -> bool:
         raw == "operator:growth-loop"
         or raw.startswith("dailycampaign:")
         or raw.startswith("firstparty:")
+        or raw.startswith("intelligence:")
     )
 
 

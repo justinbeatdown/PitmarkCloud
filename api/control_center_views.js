@@ -67,6 +67,7 @@ async function renderHQ(root, ctx) {
   const checklistBadge = workConnected ? (work?.stale ? '<span class="pm-badge warn">Checklist cached</span>' : '<span class="pm-badge good">Checklist live</span>') : '<span class="pm-badge warn">Checklist unavailable</span>';
 
   const operatingQueue = [
+    workConnected && attention.length ? { domain:'work', kicker:'Work · Attention', title:`${attention.length} checklist item${attention.length === 1 ? '' : 's'} need you`, copy:'P0/P1, blockers, or active work that needs an owner decision.' } : null,
     appCount ? { domain:'prt', kicker:'PRT · Intake', title:`${appCount} new tester application${appCount === 1 ? '' : 's'}`, copy:'Review applicants and keep Early Access moving.' } : null,
     feedbackOpen ? { domain:'prt', kicker:'PRT · Feedback', title:`${feedbackOpen} tester feedback item${feedbackOpen === 1 ? '' : 's'} open`, copy:'Review product feedback and release-impacting reports.' } : null,
     approvalCount ? { domain:'content', kicker:'Content · Approval', title:`${approvalCount} generated post${approvalCount === 1 ? '' : 's'} waiting`, copy:'Review, edit, approve, schedule, or archive social copy.' } : null,
@@ -97,7 +98,7 @@ async function renderHQ(root, ctx) {
       ${workConnected ? '' : `<button type="button" class="pm-metric pm-metric-action" data-hq-action="feedback"><span>PRT feedback</span><strong>${n(feedbackOpen)}</strong><small>Open tester feedback</small><i aria-hidden="true">›</i></button><button type="button" class="pm-metric pm-metric-action" data-hq-action="signals"><span>Signals</span><strong>${n(unreadCount)}</strong><small>Unread operational signals</small><i aria-hidden="true">›</i></button>`}
     </div>
     <div class="pm-grid pm-grid-hq">
-      ${workConnected ? panel('Needs Attention','Operator Queue', attention.length ? `<div class="pm-row-list">${attention.map(workRow).join('')}</div>` : empty('Nothing urgent is sitting in the queue.'), `<button class="pm-button pm-button-ghost" data-go="work">Open Work</button>`) : panel('Operational Queue','Live Company Actions',queueBody,'')}
+      ${panel('Operator Queue','What Needs You',queueBody,'')}
       ${panel('Pitmark Pulse','Company State', `
         <div class="pm-pulse-grid">
           ${workConnected ? `<div class="pm-pulse"><header><span>Work</span>${summary.blocked ? '<b class="pm-danger-text">Blocked</b>' : '<b class="pm-good-text">Moving</b>'}</header><strong>${n(summary.open)}</strong><p>open items · ${n(summary.completed)} completed</p><div class="pm-progress"><span style="width:${Math.min(100, (Number(summary.completed||0) / Math.max(1, Number(summary.total||1))) * 100)}%"></span></div></div>` : ''}
@@ -185,7 +186,7 @@ function renderApplications(rows){return panel('Tester Applications','PRT Intake
 function renderTesters(rows){return panel('Tester Program','Early Access',rows.length?`<div class="pm-table-wrap"><table class="pm-table"><thead><tr><th>Tester</th><th>Invite</th><th>Tester state</th><th>Device</th><th>Last activity</th></tr></thead><tbody>${rows.map(row=>`<tr data-prt-detail="tester" data-prt-id="${row.id}"><td data-label="Tester"><strong>${esc(titleOf(row,'Tester'))}</strong><small>${esc(row.email || row.hub_email || '—')}</small></td><td data-label="Invite">${statusBadge(row.status)}</td><td data-label="Tester state">${statusBadge(row.tester_status)}</td><td data-label="Device">${esc(row.device_id || row.bound_device_id || 'Not bound')}</td><td data-label="Last activity">${esc(age(row.last_seen_at || row.redeemed_at || row.updated_at))}</td></tr>`).join('')}</tbody></table></div>`:empty('No tester invites found.'))}
 function renderRace(rows){return panel("Founder’s Race","Competition",rows.length?`<div class="pm-table-wrap"><table class="pm-table"><thead><tr><th>Pos</th><th>Participant</th><th>Qualified</th><th>Pending</th><th>Flagged</th><th>Milestone</th></tr></thead><tbody>${rows.map(row=>`<tr data-prt-detail="founders" data-prt-id="${row.tester_id || row.id || ''}"><td data-label="Position"><strong>#${esc(row.position || '—')}</strong></td><td data-label="Participant"><strong>${esc(titleOf(row,'Participant'))}</strong><small>${esc(row.referral_code || '')}</small></td><td data-label="Qualified">${n(row.qualified)}</td><td data-label="Pending">${n(row.pending)}</td><td data-label="Flagged">${n(row.flagged)}</td><td data-label="Milestone">${statusBadge(row.milestone_status || row.milestone || 'racing')}</td></tr>`).join('')}</tbody></table></div>`:empty('No Founder’s Race participants yet.'),`<a class="pm-button pm-button-ghost" href="/control/founders-race">Full admin ↗</a>`)}
 function renderFeedback(rows){return panel('Tester Feedback','Quality Loop',rows.length?`<div class="pm-table-wrap"><table class="pm-table"><thead><tr><th>Report</th><th>Kind</th><th>Severity</th><th>Status</th><th>Age</th><th class="right">Action</th></tr></thead><tbody>${rows.map(row=>`<tr data-prt-detail="feedback" data-prt-id="${row.id}"><td data-label="Report"><strong>${esc(row.title || row.summary || 'Feedback')}</strong><small>${esc(row.tester_name || row.reporter || row.email || '')}</small></td><td data-label="Kind">${esc(row.kind || row.type || 'feedback')}</td><td data-label="Severity">${statusBadge(row.severity || 'normal')}</td><td data-label="Status">${statusBadge(row.status || 'open')}</td><td data-label="Age">${esc(age(row.created_at))}</td><td data-label="Action" class="right"><div class="pm-row-actions"><button class="pm-button pm-button-ghost" data-feedback-status="reviewing" data-id="${row.id}">Reviewing</button><button class="pm-button pm-button-primary" data-feedback-status="resolved" data-id="${row.id}">Resolve</button></div></td></tr>`).join('')}</tbody></table></div>`:empty('No feedback reports found.'))}
-async function mutateApplication(button,ctx){button.disabled=true;try{await api.setApplicationStatus(button.dataset.id,button.dataset.appStatus);clearCache('/api/control/ops');ctx.toast(`Application moved to ${button.dataset.appStatus}.`,'good');ctx.refresh();}catch(e){ctx.toast(e.message,'bad');button.disabled=false;}}
+async function mutateApplication(button,ctx){button.disabled=true;try{const result=await api.setApplicationStatus(button.dataset.id,button.dataset.appStatus);clearCache('/api/control/ops');const accepted=button.dataset.appStatus==='accepted';const message=accepted&&result?.onboarding_sent?'Accepted — Early Access code + onboarding email sent.':accepted&&result?.onboarding_status==='already_issued'?'Accepted — this applicant already has an Early Access invite.':`Application moved to ${button.dataset.appStatus}.`;ctx.toast(message,'good');ctx.refresh();}catch(e){ctx.toast(e.message,'bad');button.disabled=false;}}
 async function mutateFeedback(button,ctx){button.disabled=true;try{await api.setFeedbackStatus(button.dataset.id,button.dataset.feedbackStatus);clearCache('/api/control/ops');ctx.toast(`Feedback marked ${button.dataset.feedbackStatus}.`,'good');ctx.refresh();}catch(e){ctx.toast(e.message,'bad');button.disabled=false;}}
 function openPrtDetail(kind,id,data,ctx){let row;if(kind==='application')row=(data.testers?.applications||[]).find(x=>String(x.id)===String(id));if(kind==='tester')row=(data.testers?.invites||[]).find(x=>String(x.id)===String(id));if(kind==='founders')row=(data.race?.leaderboard||[]).find(x=>String(x.tester_id||x.id)===String(id));if(kind==='feedback')row=(data.feedback?.items||[]).find(x=>String(x.id)===String(id));if(!row)return;ctx.openSheet({kicker:kind,title:titleOf(row,kind),body:`${details(Object.entries(row).filter(([k])=>!['notes','body','description'].includes(k)).slice(0,14))}${row.notes||row.body||row.description?`<div class="pm-detail-block"><h4>Details</h4><p>${esc(row.notes||row.body||row.description)}</p></div>`:''}`,actions:[{label:'Close',tone:'ghost',run:ctx.closeSheet}]});}
 
@@ -344,7 +345,7 @@ function renderContentPipeline(rows,selected=new Set()){
       <button class="pm-metric pm-metric-action" type="button" data-content-tab="scheduled"><span>Scheduled</span><strong>${n(scheduled.length)}</strong><small>queued for publishing</small><i>›</i></button>
       <button class="pm-metric pm-metric-action" type="button" data-content-tab="published"><span>Published</span><strong>${n(published.length)}</strong><small>recent live posts</small><i>›</i></button>
     </div>
-    <div class="pm-content-autonomy-note"><span class="pm-badge good">Astra scheduling active</span><p>Astra may schedule verified low-risk first-party Facebook, Instagram, and X content. Reactive news, manual posts, Discord, and unverified drafts stay gated.</p></div>
+    <div class="pm-content-autonomy-note"><span class="pm-badge good">Low-risk auto scheduling active</span><p>Astra and Social Operations can schedule verified racing current-events, community engagement, and safe first-party Facebook, Instagram, and X content. Sensitive claims, offers, partner commitments, support/legal issues, and uncertain facts still stop for review.</p></div>
     ${tools}
     <div class="pm-grid pm-grid-2 pm-content-pipeline-grid">
       ${pipelineSection('Needs Approval','Decision Queue',pending.slice(0,8),selected,'Nothing is waiting for approval.')}
@@ -383,10 +384,29 @@ function openPost(row,ctx){
   const status=low(row.status||'pending');
   const platform=low(row.platform||'social');
   const canLivePublish=['facebook','instagram','x'].includes(platform);
+  const canGenerateMedia=['facebook','instagram','x','tiktok','tiktok_reels'].includes(platform);
   const actions=[
     {label:'Copy',tone:'ghost',run:async()=>{await navigator.clipboard.writeText(document.getElementById(bodyId)?.value||'');ctx.toast('Post copied.','good');}},
     {label:'Archive',tone:'ghost',run:()=>postDecision(row.id,'archive',ctx)},
   ];
+  if(canGenerateMedia && status!=='published'&&status!=='archived'&&status!=='rejected'){
+    actions.push({label:row.media_url?'Regenerate image':'Generate image',tone:'ghost',run:async()=>{
+      const title=document.getElementById(titleId)?.value||row.title||'Pitmark Racing';
+      const body=document.getElementById(bodyId)?.value||row.body||'';
+      const result=await api.generateSocialImage({
+        prompt:`Create a finished Pitmark Racing Co. social image for this post. Topic: ${title}. Post context: ${body}`,
+        platform,
+        content_type:row.content_type||'community',
+        quality:'medium',
+        add_to_library:true
+      });
+      await api.updatePost(row.id,{media_url:result.url});
+      clearCache('/api/control/autopilot/posts');
+      ctx.toast('Social image generated and attached.','good');
+      ctx.closeSheet();
+      ctx.refresh(true);
+    }});
+  }
   if(status!=='published'&&status!=='archived'&&status!=='rejected'){
     actions.push({label:'Save',tone:'ghost',run:async()=>{await api.updatePost(row.id,{title:document.getElementById(titleId)?.value||'',body:document.getElementById(bodyId)?.value||''});clearCache('/api/control/autopilot/posts');ctx.toast('Post updated.','good');ctx.closeSheet();ctx.refresh();}});
   }
@@ -399,10 +419,13 @@ function openPost(row,ctx){
   const publishNote=['approved','scheduled'].includes(status)&&!canLivePublish
     ? `<div class="pm-callout is-warn"><div><strong>Manual publishing required</strong><p>Live publishing is currently wired for Facebook, Instagram, and X. Copy this post for ${esc(row.platform||'this platform')}.</p></div></div>`
     : '';
+  const mediaPreview=row.media_url
+    ? `<div class="pm-detail-block"><h4>Attached media</h4><img src="${esc(row.media_url)}" alt="Attached social media" style="width:100%;max-height:420px;object-fit:contain;border-radius:12px;background:#080808"></div>`
+    : (canGenerateMedia?'<div class="pm-callout"><div><strong>No image attached</strong><p>Generate one here and Control Center will attach a publish-safe JPEG to this post.</p></div></div>':'');
   ctx.openSheet({
     kicker:`${row.platform||'Social'} · ${row.status||'unknown'}`,
     title:row.title||'Generated post',
-    body:`<div class="pm-form"><div class="pm-field"><label>Title</label><input class="pm-input" id="${titleId}" value="${esc(row.title||'')}"></div><div class="pm-field"><label>Post copy</label><textarea class="pm-textarea" id="${bodyId}" style="min-height:220px">${esc(row.body||'')}</textarea></div>${publishNote}${details([['Source',row.source],['Created',dateText(row.created_at)],['Scheduled',dateText(row.scheduled_for)],['Media',row.media_url||'None']])}</div>`,
+    body:`<div class="pm-form"><div class="pm-field"><label>Title</label><input class="pm-input" id="${titleId}" value="${esc(row.title||'')}"></div><div class="pm-field"><label>Post copy</label><textarea class="pm-textarea" id="${bodyId}" style="min-height:220px">${esc(row.body||'')}</textarea></div>${mediaPreview}${publishNote}${details([['Source',row.source],['Created',dateText(row.created_at)],['Scheduled',dateText(row.scheduled_for)],['Media',row.media_url||'None']])}</div>`,
     actions
   });
 }
@@ -514,7 +537,55 @@ function openBulkEdit(rows,ctx){
   });
 }
 
-function openComposer(ctx){const topic='composer-topic',platform='composer-platform',body='composer-body';ctx.openSheet({kicker:'Autopilot Composer',title:'Create social copy',body:`<div class="pm-form"><div class="pm-form-grid"><div class="pm-field"><label>Platform</label><select class="pm-select" id="${platform}"><option>facebook</option><option>instagram</option><option>x</option><option>tiktok</option><option>discord</option></select></div><div class="pm-field"><label>Goal</label><select class="pm-select" id="composer-goal"><option value="community">Community</option><option value="authority">Authority</option><option value="education">Education</option><option value="product">Product</option></select></div></div><div class="pm-field"><label>Topic / prompt</label><textarea class="pm-textarea" id="${topic}" placeholder="What should Pitmark talk about?"></textarea></div><div class="pm-field"><label>Generated copy</label><textarea class="pm-textarea" id="${body}" placeholder="Generate first, then edit here."></textarea></div></div>`,actions:[{label:'Generate',tone:'ghost',run:async()=>{try{const result=await api.compose({platform:document.getElementById(platform).value,goal:document.getElementById('composer-goal').value,topic:document.getElementById(topic).value,prompt:document.getElementById(topic).value,tone:'pitmark',use_context:true});document.getElementById(body).value=result.body||'';ctx.toast('Copy generated.','good');}catch(e){ctx.toast(e.message,'bad');}}},{label:'Save to queue',tone:'primary',run:async()=>{try{await api.savePost({platform:document.getElementById(platform).value,title:compact(document.getElementById(topic).value,160),body:document.getElementById(body).value,content_type:'community',source:'control_center',risk:'low'});clearCache('/api/control/autopilot/posts');ctx.toast('Post saved to approval queue.','good');ctx.closeSheet();ctx.refresh();}catch(e){ctx.toast(e.message,'bad');}}}]});}
+function openComposer(ctx){
+  const topic='composer-topic',platform='composer-platform',body='composer-body',media='composer-media',preview='composer-media-preview';
+  ctx.openSheet({
+    kicker:'Autopilot Composer',
+    title:'Create social content',
+    body:`<div class="pm-form">
+      <div class="pm-form-grid">
+        <div class="pm-field"><label>Platform</label><select class="pm-select" id="${platform}"><option>facebook</option><option>instagram</option><option>x</option><option>tiktok</option><option>discord</option></select></div>
+        <div class="pm-field"><label>Goal</label><select class="pm-select" id="composer-goal"><option value="community">Community / engagement</option><option value="authority">Current event / authority</option><option value="education">Education</option><option value="product">Product</option></select></div>
+      </div>
+      <div class="pm-field"><label>Topic / prompt</label><textarea class="pm-textarea" id="${topic}" placeholder="What should Pitmark talk about?"></textarea></div>
+      <div class="pm-field"><label>Generated copy</label><textarea class="pm-textarea" id="${body}" placeholder="Generate first, then edit here."></textarea></div>
+      <input type="hidden" id="${media}" value="">
+      <div id="${preview}" class="pm-detail-block" hidden><h4>Generated social image</h4><img alt="Generated social image" style="width:100%;max-height:420px;object-fit:contain;border-radius:12px;background:#080808"></div>
+    </div>`,
+    actions:[
+      {label:'Generate copy',tone:'ghost',run:async()=>{
+        try{
+          const result=await api.compose({platform:document.getElementById(platform).value,goal:document.getElementById('composer-goal').value,topic:document.getElementById(topic).value,prompt:document.getElementById(topic).value,tone:'pitmark',use_context:true});
+          document.getElementById(body).value=result.body||'';
+          ctx.toast('Copy generated.','good');
+        }catch(e){ctx.toast(e.message,'bad');}
+      }},
+      {label:'Generate image',tone:'ghost',run:async()=>{
+        try{
+          const p=document.getElementById(platform).value;
+          if(p==='discord'){ctx.toast('Discord does not need a generated social image.','bad');return;}
+          const promptText=document.getElementById(topic).value||document.getElementById(body).value;
+          if(!promptText.trim()){ctx.toast('Add a topic or generate copy first.','bad');return;}
+          const result=await api.generateSocialImage({prompt:`Create a finished Pitmark Racing Co. social image for: ${promptText}. Use the supplied topic as the source of truth and do not invent identities, results, car numbers, sponsors, or track details.`,platform:p,content_type:document.getElementById('composer-goal').value,quality:'medium',add_to_library:true});
+          document.getElementById(media).value=result.url||'';
+          const box=document.getElementById(preview);const img=box?.querySelector('img');
+          if(box&&img){img.src=result.url;box.hidden=false;}
+          ctx.toast('Publish-safe social image generated.','good');
+        }catch(e){ctx.toast(e.message,'bad');}
+      }},
+      {label:'Save to queue',tone:'primary',run:async()=>{
+        try{
+          const goal=document.getElementById('composer-goal').value;
+          await api.savePost({platform:document.getElementById(platform).value,title:compact(document.getElementById(topic).value,160),body:document.getElementById(body).value,content_type:goal,source:'control_center',risk:'low',media_url:document.getElementById(media).value||null});
+          clearCache('/api/control/autopilot/posts');
+          ctx.toast(goal==='community'||goal==='authority'?'Post saved. Low-risk automation may schedule it automatically.':'Post saved to the content queue.','good');
+          ctx.closeSheet();
+          ctx.refresh();
+        }catch(e){ctx.toast(e.message,'bad');}
+      }}
+    ]
+  });
+}
 function openBlog(row,ctx){if(!row)return;ctx.openSheet({kicker:`Editorial · ${row.status||'draft'}`,title:row.title,body:`${details([['Type',row.content_type],['Status',row.status],['Updated',dateText(row.updated_at)],['Scheduled',dateText(row.scheduled_for)]])}<div class="pm-detail-block"><h4>Draft</h4><p>${esc(String(row.body_html||'').replace(/<[^>]+>/g,' '))}</p></div>`,actions:[{label:'Archive',tone:'ghost',run:async()=>{await api.decideBlog(row.id,'archive');clearCache('/api/control/blog/drafts');ctx.toast('Draft archived.','good');ctx.closeSheet();ctx.refresh();}},{label:'Approve',tone:'primary',run:async()=>{await api.decideBlog(row.id,'approve');clearCache('/api/control/blog/drafts');ctx.toast('Draft approved.','good');ctx.closeSheet();ctx.refresh();}}]});}
 
 async function renderPartnerships(root,ctx){let rows;try{rows=await api.outreach();}catch(e){root.innerHTML=moduleError('Relationships',e.message,'partnerships');return;}const stages=rows.reduce((a,r)=>(a[low(r.stage)||'unknown']=(a[low(r.stage)||'unknown']||0)+1,a),{});root.innerHTML=`${viewHeader('Relationship Operations','Partnerships','A lightweight operating CRM for tracks, leagues, partners, broadcasters, and opportunities.')}<div class="pm-metric-strip"><div class="pm-metric"><span>Total relationships</span><strong>${n(rows.length)}</strong><small>tracked records</small></div><div class="pm-metric"><span>Prospects</span><strong>${n(stages.prospect||stages.new)}</strong><small>early-stage relationships</small></div><div class="pm-metric"><span>Active</span><strong>${n(stages.active||stages.partner)}</strong><small>active relationships</small></div><div class="pm-metric"><span>Waiting</span><strong>${n(stages.waiting)}</strong><small>pending next move</small></div><div class="pm-metric"><span>Follow-ups</span><strong>${n(rows.filter(r=>r.next_follow_up).length)}</strong><small>next action recorded</small></div></div>${panel('Relationship Pipeline','Real-world + sim network',rows.length?`<div class="pm-table-wrap"><table class="pm-table"><thead><tr><th>Organization / person</th><th>Type</th><th>Stage</th><th>Support</th><th>Next follow-up</th></tr></thead><tbody>${rows.map(r=>`<tr data-outreach-id="${r.id}"><td data-label="Organization / person"><strong>${esc(r.organization||r.name)}</strong><small>${esc(r.organization?r.name:'')}</small></td><td data-label="Type">${esc(r.contact_type||'Other')}</td><td data-label="Stage">${statusBadge(r.stage)}</td><td data-label="Support">${esc(r.supporter_status||'—')}</td><td data-label="Next follow-up">${esc(r.next_follow_up||'—')}</td></tr>`).join('')}</tbody></table></div>`:empty('No relationship records found.'))}`;root.onclick=(e)=>{const tr=e.target.closest('[data-outreach-id]');if(tr)openRelationship(rows.find(r=>String(r.id)===tr.dataset.outreachId),ctx);};}

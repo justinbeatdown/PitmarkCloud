@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     # are disabled by default so they cannot race or duplicate the Daily Campaign.
     social_operator_enabled: bool = True
     social_operator_auto_reply_enabled: bool = True
-    social_operator_growth_posts_enabled: bool = False
+    social_operator_growth_posts_enabled: bool = True
     social_operator_autopublish_low_risk: bool = True
     social_operator_poll_seconds: int = 300
     social_operator_min_facebook_posts_daily: int = 1

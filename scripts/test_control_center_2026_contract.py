@@ -74,8 +74,8 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("include_router(control_center_assets.router)", init_text)
 
         app_js = self.read("api/control_center_app.js")
-        self.assertIn("'./control-center-api.js'", app_js)
-        self.assertIn("'./control-center-views.js'", app_js)
+        self.assertRegex(app_js, r"['\"]\./control-center-api\.js(?:\?[^'\"]+)?['\"]")
+        self.assertRegex(app_js, r"['\"]\./control-center-views\.js(?:\?[^'\"]+)?['\"]")
 
     def test_shell_has_current_operating_domains_and_no_email_or_finance_product(self):
         html = self.read("api/control_center.html")
@@ -121,6 +121,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             "/api/control/ops/feedback",
             "/api/control/autopilot/posts",
             "/api/control/social/posts",
+            "/api/control/social/assets/generate",
             "/api/control/autopilot/composer/generate",
             "/api/control/blog/drafts",
             "/api/control/outreach",
@@ -183,6 +184,24 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('"shield", "mail", "gmail", "email"', notifications)
         self.assertIn("Control Center is not an inbox", notifications)
 
+    def test_content_can_generate_and_attach_publish_safe_media(self):
+        api_js = self.read("api/control_center_api.js")
+        views = self.read("api/control_center_views.js")
+        publish = self.read("api/social_publish.py")
+        self.assertIn("/api/control/social/assets/generate", api_js)
+        self.assertIn("generateSocialImage:", api_js)
+        self.assertIn("Generate image", views)
+        self.assertIn("image/jpeg", publish)
+        self.assertIn('format="JPEG"', publish)
+
+    def test_prt_acceptance_is_complete_onboarding_action(self):
+        ops = self.read("api/control_center_2026.py")
+        views = self.read("api/control_center_views.js")
+        self.assertIn("create_early_access_invite", ops)
+        self.assertIn("_acceptance_message", ops)
+        self.assertIn("onboarding_sent", ops)
+        self.assertIn("Early Access code + onboarding email sent", views)
+
     def test_content_approved_posts_can_publish_live(self):
         api_js = self.read("api/control_center_api.js")
         self.assertIn("/api/control/social/posts", api_js)
@@ -204,8 +223,8 @@ class ControlCenter2026Contract(unittest.TestCase):
 
     def test_hq_stays_actionable_without_checklist(self):
         views = self.read("api/control_center_views.js")
-        self.assertIn("Operational Queue", views)
-        self.assertIn("Live Company Actions", views)
+        self.assertIn("Operator Queue", views)
+        self.assertIn("What Needs You", views)
         self.assertIn("Recent Signals", views)
         self.assertIn("Quick Access", views)
         self.assertIn('data-go="prt"', views)
@@ -239,7 +258,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         views = self.read("api/control_center_views.js")
         self.assertIn("const workConnected = modules.work?.ok === true;", views)
         self.assertIn("Checklist unavailable", views)
-        self.assertIn("workConnected ? panel('Needs Attention'", views)
+        self.assertIn("workConnected && attention.length", views)
         self.assertNotIn("Work source needs attention.", views)
         self.assertNotIn("Checklist disconnected</span>", views)
 

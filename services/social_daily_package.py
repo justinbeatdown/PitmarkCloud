@@ -249,7 +249,10 @@ def render_final_asset(*, source: bytes, output_size: tuple[int, int], headline:
 
     final = Image.alpha_composite(canvas, overlay).convert("RGB")
     out = io.BytesIO()
-    final.save(out, format="PNG", optimize=True)
+    # Final social assets are intentionally JPEG. Meta/Metricool/TikTok paths are
+    # more consistently compatible with JPEG than PNG, while the generated master
+    # can remain lossless internally before this final render.
+    final.save(out, format="JPEG", quality=92, optimize=True, progressive=True)
     return out.getvalue()
 
 
@@ -289,8 +292,8 @@ def _ensure_final_variant(
         )
         stored = store_uploaded_image(
             data=final,
-            filename=f"daily-campaign-{campaign['id']}-{platform}-{slot}.png",
-            mime_type="image/png",
+            filename=f"daily-campaign-{campaign['id']}-{platform}-{slot}.jpg",
+            mime_type="image/jpeg",
         )
         url = _public_asset_url(stored["public_token"])
         add_asset(
