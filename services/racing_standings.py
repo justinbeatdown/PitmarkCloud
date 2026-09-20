@@ -37,6 +37,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "official_url": "https://www.nascar.com/standings/nascar-cup-series/",
         "logo_source_url": "https://www.nascar.com/",
         "logo_url": "https://www.nascar.com/wp-content/uploads/sites/7/2023/05/10/nascar_cup_series_logo.svg",
+        "metadata_provider": "nascar_driver_directory",
+        "metadata_url": "https://www.nascar.com/drivers/nascar-cup-series/",
     },
     {
         "key": "nascar-oreilly",
@@ -48,6 +50,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "official_url": "https://www.nascar.com/standings/nascar-oreilly-auto-parts-series/",
         "logo_source_url": "https://www.nascar.com/",
         "logo_url": "https://www.nascar.com/wp-content/uploads/sites/7/2025/09/30/NOAPS-Primary_FullColor-RGB.svg",
+        "metadata_provider": "nascar_driver_directory",
+        "metadata_url": "https://www.nascar.com/drivers/nascar-oreilly-auto-parts-series/",
     },
     {
         "key": "nascar-truck",
@@ -59,6 +63,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "official_url": "https://www.nascar.com/standings/nascar-craftsman-truck-series/",
         "logo_source_url": "https://www.nascar.com/",
         "logo_url": "https://www.nascar.com/wp-content/uploads/sites/7/2026/02/13/nascar-craftman-truck-series-1.svg",
+        "metadata_provider": "nascar_driver_directory",
+        "metadata_url": "https://www.nascar.com/drivers/nascar-craftsman-truck-series/",
     },
     {
         "key": "world-of-outlaws-sprint",
@@ -179,8 +185,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "official_url": "https://www.arcaracing.com/standings/arca-menards-series/",
         "logo_source_url": "https://www.arcaracing.com/competitor-site/",
         "logo_url": "https://www.arcaracing.com/wp-content/uploads/sites/36/2022/11/10/Menards_ANASCARTouringDivision_Primary_4C_BLK.png",
+        "metadata_provider": "arca_driver_directory",
         "metadata_url": "https://www.arcaracing.com/driver-list/",
-        "metadata_row_offset": 1,
         "source_name": "ARCA official standings",
         "name_headers": ("driver", "name"),
         "points_headers": ("points", "pts"),
@@ -368,6 +374,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "provider": "official_table",
         "official_url": "https://stats.motogp.com/en/world-standing",
         "official_identity_hosts": ("stats.motogp.com", "www.motogp.com"),
+        "metadata_provider": "motogp_riders",
+        "metadata_url": "https://www.motogp.com/en/riders/",
         "logo_disabled": True,
         "source_name": "MotoGP official statistics",
         "name_headers": ("rider",),
@@ -731,7 +739,7 @@ def _reader_url(url: str) -> str:
     return f"https://r.jina.ai/http://{parts.netloc}{path}{query}"
 
 
-def _reader_table_rows(url: str) -> list[tuple[list[str], list[list[str]]]]:
+def _reader_markdown(url: str) -> str:
     reader_url = _reader_url(url)
     headers = {
         "User-Agent": USER_AGENT,
@@ -741,7 +749,11 @@ def _reader_table_rows(url: str) -> list[tuple[list[str], list[list[str]]]]:
     with httpx.Client(timeout=24.0, follow_redirects=True, headers=headers) as client:
         response = client.get(reader_url)
         response.raise_for_status()
-    tables = _parse_markdown_tables(response.text)
+    return response.text
+
+
+def _reader_table_rows(url: str) -> list[tuple[list[str], list[list[str]]]]:
+    tables = _parse_markdown_tables(_reader_markdown(url))
     if not tables:
         raise RuntimeError("rendered reader returned no standings tables")
     return tables
@@ -1396,6 +1408,166 @@ def _identity_key(value: Any) -> str:
     return re.sub(r"[^a-z0-9]+", "", text)
 
 
+def _official_metadata_nascar_driver_directory(
+    config: dict[str, Any],
+    season: int,
+) -> tuple[dict[str, dict[str, str | None]], str | None]:
+    url = str(config.get("metadata_url") or "").strip()
+    if not url:
+        return {}, None
+    try:
+        markdown = _reader_markdown(url)
+    except Exception:
+        return {}, None
+
+    pairs: list[tuple[str, str]] = []
+    patterns = (
+        r"!\[([^\]]+?)\s+Badge Number\s+([A-Za-z0-9]+)\]\(",
+        r"Image:\s*([^\n]+?)\s+Badge Number\s+([A-Za-z0-9]+)",
+    )
+    for pattern in patterns:
+        pairs.extend(re.findall(pattern, markdown, flags=re.IGNORECASE))
+
+    out: dict[str, dict[str, str | None]] = {}
+    for raw_name, raw_number in pairs:
+        name = " ".join(str(raw_name or "").split()).strip()
+        number = str(raw_number or "").strip()
+        key = _identity_key(name)
+        if key and number:
+            out[key] = {"number": number, "team": None, "manufacturer": None}
+    return out, url if out else None
+
+
+def _official_metadata_arca_driver_directory(
+    config: dict[str, Any],
+    season: int,
+) -> tuple[dict[str, dict[str, str | None]], str | None]:
+    url = str(config.get("metadata_url") or "").strip()
+    if not url:
+        return {}, None
+    try:
+        tables = _html_table_rows(url)
+    except Exception:
+        return {}, None
+
+    for header, rows in tables:
+        name_index = _header_index(header, ("name", "driver"))
+        number_index = _header_index(header, ("no", "number", "#"))
+        make_index = _header_index(header, ("make", "manufacturer", "mfr"))
+        if name_index is None or number_index is None or make_index is None:
+            continue
+        out: dict[str, dict[str, str | None]] = {}
+        for row in rows:
+            delta = max(0, len(row) - len(header))
+            ni, noi, mi = name_index + delta, number_index + delta, make_index + delta
+            if max(ni, noi, mi) >= len(row):
+                continue
+            name = " ".join(str(row[ni] or "").split()).strip()
+            number = " ".join(str(row[noi] or "").split()).strip()
+            make = " ".join(str(row[mi] or "").split()).strip()
+            make = re.sub(r"\s+Image:\s*.*$", "", make, flags=re.IGNORECASE).strip()
+            key = _identity_key(name)
+            if not key:
+                continue
+            out[key] = {
+                "number": number or None,
+                "team": None,
+                "manufacturer": make or None,
+            }
+        if out:
+            return out, url
+    return {}, None
+
+
+_MOTOGP_COUNTRIES = tuple(sorted((
+    "United States of America", "United Kingdom", "South Africa", "New Zealand",
+    "Czechia", "Türkiye", "Argentina", "Australia", "Colombia", "France",
+    "Indonesia", "Italy", "Japan", "Malaysia", "Netherlands", "Spain",
+), key=len, reverse=True))
+
+
+def _motogp_label_metadata(label: str) -> tuple[str, dict[str, str | None]] | None:
+    text = " ".join(str(label or "").split()).strip()
+    # Official rider cards start with initials+number, then repeat the race
+    # number twice before the rider's full name.
+    match = re.match(r"^[A-ZÀ-ÖØ-Ý]{1,4}\d{1,3}\s+(\d{1,3})\s+\1\s+(.+)$", text, re.IGNORECASE)
+    if not match:
+        return None
+    number = match.group(1)
+    rest = match.group(2).strip()
+    lower_rest = rest.casefold()
+    for country in _MOTOGP_COUNTRIES:
+        token = f" {country.casefold()} "
+        index = lower_rest.find(token)
+        if index <= 0:
+            continue
+        name = rest[:index].strip()
+        team = rest[index + len(token):].strip()
+        key = _identity_key(name)
+        if key and team:
+            return key, {"number": number, "team": team, "manufacturer": None}
+    return None
+
+
+def _official_metadata_motogp_riders(
+    config: dict[str, Any],
+    season: int,
+) -> tuple[dict[str, dict[str, str | None]], str | None]:
+    url = str(config.get("metadata_url") or "").strip()
+    if not url:
+        return {}, None
+
+    labels: list[str] = []
+    try:
+        with httpx.Client(
+            timeout=18.0,
+            follow_redirects=True,
+            headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml"},
+        ) as client:
+            response = client.get(url)
+            response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        labels.extend(
+            " ".join(anchor.get_text(" ", strip=True).split())
+            for anchor in soup.find_all("a")
+            if anchor.get_text(" ", strip=True)
+        )
+    except Exception:
+        pass
+
+    if not any(_motogp_label_metadata(label) for label in labels):
+        try:
+            markdown = _reader_markdown(url)
+            labels.extend(
+                _clean_markdown_cell(label)
+                for label, _href in re.findall(r"\[([^\]]+)\]\(([^)]+)\)", markdown)
+            )
+        except Exception:
+            pass
+
+    out: dict[str, dict[str, str | None]] = {}
+    for label in labels:
+        parsed = _motogp_label_metadata(label)
+        if parsed:
+            key, values = parsed
+            out[key] = values
+    return out, url if out else None
+
+
+def _official_metadata(
+    config: dict[str, Any],
+    season: int,
+) -> tuple[dict[str, dict[str, str | None]], str | None]:
+    provider = str(config.get("metadata_provider") or "").strip()
+    if provider == "nascar_driver_directory":
+        return _official_metadata_nascar_driver_directory(config, season)
+    if provider == "arca_driver_directory":
+        return _official_metadata_arca_driver_directory(config, season)
+    if provider == "motogp_riders":
+        return _official_metadata_motogp_riders(config, season)
+    return _official_metadata_from_tables(config, season)
+
+
 def _official_metadata_from_tables(
     config: dict[str, Any],
     season: int,
@@ -1583,7 +1755,7 @@ def _enrich_official_identity(
     # Independently inspect the configured official series page for identity
     # columns. This can fill missing fields even when the standings provider is
     # a structured third-party feed used only for positions/points.
-    metadata, table_url = _official_metadata_from_tables(config, season)
+    metadata, table_url = _official_metadata(config, season)
     if metadata:
         matched = False
         for item in entries:
@@ -1862,7 +2034,25 @@ def _fallback(config: dict[str, Any], season: int, error: Exception) -> dict[str
             }
         )
         cached["entries"] = [dict(item, movement=None) for item in cached.get("entries") or []]
-        return cached
+        if config.get("metadata_provider") or config.get("metadata_url"):
+            try:
+                metadata, metadata_url = _official_metadata(config, season)
+            except Exception:
+                metadata, metadata_url = {}, None
+            matched = False
+            if metadata:
+                for entry in cached["entries"]:
+                    values = metadata.get(_identity_key(entry.get("name")))
+                    if not values:
+                        continue
+                    for field in ("number", "team", "manufacturer"):
+                        if values.get(field):
+                            entry[field] = values[field]
+                            matched = True
+            if matched:
+                cached["metadata_verified"] = True
+                cached["metadata_source_url"] = metadata_url
+        return _sanitize_identity_payload(cached)
     return {
         "series_key": config["key"],
         "series_name": config["name"],
