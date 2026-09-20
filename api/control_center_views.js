@@ -251,8 +251,11 @@ async function renderContent(root,ctx){
   for(const id of [...selected]) if(!visibleIds.has(id)) selected.delete(id);
   storeContentSelection(ctx,selected);
 
-  const tabs=`<div class="pm-tabs">${CONTENT_TABS.map(key=>`<button class="pm-tab ${tab===key?'is-active':''}" type="button" data-content-tab="${key}">${key==='approval'?'Needs Approval':key[0].toUpperCase()+key.slice(1)}</button>`).join('')}</div>`;
-  root.innerHTML=`${viewHeader('Social Manager','Content operations without image generation.','Review generated copy, approve or schedule posts, and keep editorial separate.',`<button class="pm-button pm-button-primary" type="button" data-compose>New post</button>`)}${tabs}${tab==='editorial'?renderEditorial(editorial):renderPosts(rows,tab,selected)}`;
+  const counts=rows.reduce((acc,row)=>{const s=low(row.status||'pending');acc[s]=(acc[s]||0)+1;return acc;},{});
+  const labels={generated:'Pipeline',approval:'Needs Approval',approved:'Approved',scheduled:'Scheduled',published:'Published',archived:'Archived',editorial:'Editorial'};
+  const countFor=(key)=>key==='generated'?rows.length:key==='approval'?(counts.pending||0):(counts[key]||0);
+  const tabs=`<div class="pm-tabs pm-content-tabs">${CONTENT_TABS.map(key=>`<button class="pm-tab ${tab===key?'is-active':''}" type="button" data-content-tab="${key}"><span>${labels[key]||key}</span>${key!=='editorial'? `<b>${n(countFor(key))}</b>` : ''}</button>`).join('')}</div>`;
+  root.innerHTML=`${viewHeader('Social Manager','Content Pipeline','See exactly what needs approval, what is ready, what Astra scheduled, and what already published.',`<button class="pm-button pm-button-primary" type="button" data-compose>New post</button>`)}${tabs}${tab==='editorial'?renderEditorial(editorial):(tab==='generated'?renderContentPipeline(rows,selected):renderPosts(rows,tab,selected))}`;
 
   root.onclick=(event)=>{
     const t=event.target.closest('[data-content-tab]');
@@ -293,22 +296,81 @@ async function renderContent(root,ctx){
   syncContentSelection(root,rows,ctx);
 }
 
+function contentSourceLabel(row){
+  const source=low(row?.source||'');
+  if(source.startsWith('astra:')) return 'Astra';
+  if(source.startsWith('firstparty:')) return 'First-party';
+  if(source.startsWith('intelligence:')) return 'News';
+  if(source.startsWith('dailycampaign:')) return 'Daily campaign';
+  if(source==='control_center'||source==='manual') return 'Manual';
+  return row?.source ? compact(row.source,24) : 'Unknown';
+}
+
+function contentStatusText(row){
+  const status=low(row?.status||'pending');
+  if(status==='scheduled') return row.scheduled_for ? `Scheduled ${dateText(row.scheduled_for)}` : 'Scheduled';
+  if(status==='published') return `Published ${age(row.updated_at||row.created_at)}`;
+  if(status==='approved') return 'Approved · ready';
+  if(status==='rejected') return 'Rejected';
+  if(status==='archived') return 'Archived';
+  return 'Needs approval';
+}
+
+function pipelineSection(title,eyebrow,items,selected,emptyText){
+  if(!items.length) return panel(title,eyebrow,empty(emptyText));
+  return panel(title,eyebrow,`<div class="pm-row-list pm-content-row-list">${items.map(row=>`<div class="pm-content-select-row pm-content-status-${esc(low(row.status||'pending'))} ${selected.has(String(row.id))?'is-selected':''}">
+    <label class="pm-content-check" title="Select post"><input type="checkbox" data-post-select value="${row.id}" ${selected.has(String(row.id))?'checked':''}><span aria-hidden="true"></span></label>
+    <button class="pm-row" type="button" data-post-id="${row.id}">
+      <div class="pm-row-main">
+        <div class="pm-row-meta"><span class="pm-badge orange">${esc(row.platform||'social')}</span>${statusBadge(row.status)}<span class="pm-badge">${esc(contentSourceLabel(row))}</span>${row.media_url?'<span class="pm-badge">Media</span>':''}</div>
+        <strong>${esc(row.title||compact(row.body,80)||'Generated post')}</strong>
+        <p>${esc(compact(row.body,170))}</p>
+      </div>
+      <div class="pm-row-side"><strong class="pm-content-state-text">${esc(contentStatusText(row))}</strong><span>›</span></div>
+    </button>
+  </div>`).join('')}</div>`,`<span class="pm-badge">${n(items.length)}</span>`);
+}
+
+function renderContentPipeline(rows,selected=new Set()){
+  const pending=rows.filter(r=>low(r.status)==='pending');
+  const approved=rows.filter(r=>low(r.status)==='approved');
+  const scheduled=rows.filter(r=>low(r.status)==='scheduled');
+  const published=rows.filter(r=>low(r.status)==='published');
+  const tools=contentBulkBar(rows,selected);
+  return `<div class="pm-content-overview">
+    <div class="pm-metric-strip">
+      <button class="pm-metric pm-metric-action" type="button" data-content-tab="approval"><span>Needs approval</span><strong>${n(pending.length)}</strong><small>decision required</small><i>›</i></button>
+      <button class="pm-metric pm-metric-action" type="button" data-content-tab="approved"><span>Approved</span><strong>${n(approved.length)}</strong><small>ready to schedule/publish</small><i>›</i></button>
+      <button class="pm-metric pm-metric-action" type="button" data-content-tab="scheduled"><span>Scheduled</span><strong>${n(scheduled.length)}</strong><small>queued for publishing</small><i>›</i></button>
+      <button class="pm-metric pm-metric-action" type="button" data-content-tab="published"><span>Published</span><strong>${n(published.length)}</strong><small>recent live posts</small><i>›</i></button>
+    </div>
+    <div class="pm-content-autonomy-note"><span class="pm-badge good">Astra scheduling active</span><p>Astra may schedule verified low-risk first-party Facebook, Instagram, and X content. Reactive news, manual posts, Discord, and unverified drafts stay gated.</p></div>
+    ${tools}
+    <div class="pm-grid pm-grid-2 pm-content-pipeline-grid">
+      ${pipelineSection('Needs Approval','Decision Queue',pending.slice(0,8),selected,'Nothing is waiting for approval.')}
+      ${pipelineSection('Scheduled','Publishing Queue',scheduled.slice(0,8),selected,'Nothing is scheduled right now.')}
+      ${pipelineSection('Approved & Ready','Ready Queue',approved.slice(0,8),selected,'No approved posts are waiting.')}
+      ${pipelineSection('Recently Published','Live History',published.slice(0,8),selected,'No recent published posts are in the working window.')}
+    </div>
+  </div>`;
+}
+
 function renderPosts(rows,tab,selected=new Set()){
   const tools=contentBulkBar(rows,selected);
   const title=tab==='approval'?'Needs Approval':tab==='approved'?'Approved & Ready':'Autopilot Posts';
   return panel(title,'Generated Social',
-    `${tools}${rows.length?`<div class="pm-row-list pm-content-row-list">${rows.map(row=>`<div class="pm-content-select-row ${selected.has(String(row.id))?'is-selected':''}">
+    `${tools}${rows.length?`<div class="pm-row-list pm-content-row-list">${rows.map(row=>`<div class="pm-content-select-row pm-content-status-${esc(low(row.status||'pending'))} ${selected.has(String(row.id))?'is-selected':''}">
       <label class="pm-content-check" title="Select post">
         <input type="checkbox" data-post-select value="${row.id}" ${selected.has(String(row.id))?'checked':''}>
         <span aria-hidden="true"></span>
       </label>
       <button class="pm-row" type="button" data-post-id="${row.id}">
         <div class="pm-row-main">
-          <div class="pm-row-meta"><span class="pm-badge orange">${esc(row.platform||'social')}</span>${statusBadge(row.status)}${row.media_url?'<span class="pm-badge">Media</span>':''}</div>
+          <div class="pm-row-meta"><span class="pm-badge orange">${esc(row.platform||'social')}</span>${statusBadge(row.status)}<span class="pm-badge">${esc(contentSourceLabel(row))}</span>${row.media_url?'<span class="pm-badge">Media</span>':''}</div>
           <strong>${esc(row.title||compact(row.body,80)||'Generated post')}</strong>
           <p>${esc(compact(row.body,170))}</p>
         </div>
-        <div class="pm-row-side"><span class="pm-muted">${esc(row.scheduled_for?dateText(row.scheduled_for):age(row.created_at))}</span><span>›</span></div>
+        <div class="pm-row-side"><strong class="pm-content-state-text">${esc(contentStatusText(row))}</strong><span>›</span></div>
       </button>
     </div>`).join('')}</div>`:empty('No posts in this view.')}`);
 }
