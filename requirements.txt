@@ -19,3 +19,5 @@ psd-tools>=1.10,<2.0
 Pillow>=10,<12
 
 beautifulsoup4>=4.13,<5.0
+
+pypdf>=5.0,<7.0
