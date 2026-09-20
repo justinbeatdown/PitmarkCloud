@@ -1105,6 +1105,79 @@ def get_standings_hub(*, force: bool = False, season: int | None = None) -> dict
     return value
 
 
+def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
+    """Return the latest saved standings immediately without touching remote sources."""
+    season = int(season or utcnow().year)
+    now = utcnow()
+    ordered: list[dict[str, Any]] = []
+    for config in SERIES:
+        latest_row = _latest_snapshot(config["key"], season)
+        snapshot = _decode_snapshot(latest_row)
+        if snapshot:
+            entries = snapshot.get("entries") or []
+            previous_row = _latest_snapshot(
+                config["key"],
+                season,
+                excluding=snapshot.get("fingerprint"),
+            )
+            previous = _decode_snapshot(previous_row)
+            fetched_at = latest_row.fetched_at if latest_row else None
+            age_seconds = (now - fetched_at).total_seconds() if fetched_at else None
+            fresh = age_seconds is not None and age_seconds <= 6 * 3600
+            snapshot.update(
+                {
+                    "series_key": config["key"],
+                    "series_name": config["name"],
+                    "short_name": config["short_name"],
+                    "group": config["group"],
+                    "season": season,
+                    "official_url": _series_url(config, season),
+                    "source_name": snapshot.get("source_name") or latest_row.source_name,
+                    "entries": _movement(entries, previous),
+                    "status": "live" if fresh else "stale",
+                    "stale": not fresh,
+                    "error": None,
+                }
+            )
+            ordered.append(snapshot)
+            continue
+        ordered.append(
+            {
+                "series_key": config["key"],
+                "series_name": config["name"],
+                "short_name": config["short_name"],
+                "group": config["group"],
+                "official_url": _series_url(config, season),
+                "season": season,
+                "source_name": None,
+                "provider_url": None,
+                "entries": [],
+                "fetched_at": None,
+                "snapshot_id": None,
+                "status": "unavailable",
+                "stale": True,
+                "error": "No saved Pitmark snapshot yet.",
+            }
+        )
+
+    live = sum(1 for item in ordered if item.get("status") == "live")
+    stale = sum(1 for item in ordered if item.get("status") == "stale")
+    unavailable = sum(1 for item in ordered if item.get("status") == "unavailable")
+    synced_times = [item.get("fetched_at") for item in ordered if item.get("fetched_at")]
+    return {
+        "season": season,
+        "generated_at": now.isoformat(),
+        "series": ordered,
+        "summary": {
+            "series_total": len(ordered),
+            "live": live,
+            "stale": stale,
+            "unavailable": unavailable,
+            "last_snapshot_at": max(synced_times) if synced_times else None,
+        },
+    }
+
+
 def clear_standings_cache() -> None:
     with _cache_lock:
         _cache["at"] = None
