@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Pitmark Racing Standings — Every Championship. One Scoreboard.</title>
+  <meta name="description" content="Follow NASCAR, dirt racing, F1, INDYCAR, IMSA, NHRA, World of Outlaws, Lucas Oil Late Models and more in one Pitmark standings hub.">
+  <meta property="og:title" content="Pitmark Racing Standings">
+  <meta property="og:description" content="Every championship. One scoreboard.">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#0b0d10">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="https://pitmarkracing.com" aria-label="Pitmark Racing Co. home">
+      <img src="/prt-logo.png" alt="Pitmark Racing Co.">
+    </a>
+    <nav>
+      <a href="https://pitmarkracing.com">Shop</a>
+      <a href="/prt">PRT</a>
+      <a class="active" href="/standings">Standings</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow">PITMARK RACING INTELLIGENCE</span>
+        <h1>Every championship.<br><em>One scoreboard.</em></h1>
+        <p>Keep up with the racing world without keeping 27 tabs open. Pitmark tracks the major championships, saves snapshots, and shows who's moving.</p>
+        <div class="hero-actions">
+          <button id="jumpLive" class="button primary">See the standings</button>
+          <a class="button secondary" href="https://pitmarkracing.com">Pitmark Racing Co. ↗</a>
+        </div>
+      </div>
+      <div class="hero-board" aria-label="Standings hub summary">
+        <div><span>Series tracked</span><strong id="seriesCount">—</strong></div>
+        <div><span>Live feeds</span><strong id="liveCount">—</strong></div>
+        <div><span>Season</span><strong id="seasonValue">—</strong></div>
+        <div><span>Updated</span><strong id="updatedValue">—</strong></div>
+      </div>
+    </section>
+
+    <section class="toolbar" id="standingsStart">
+      <div class="filters" id="filters" aria-label="Standings categories"></div>
+      <label class="search">
+        <span>Search</span>
+        <input id="searchInput" type="search" placeholder="Driver or series…">
+      </label>
+    </section>
+
+    <section class="leaders-section">
+      <div class="section-head">
+        <div><span class="eyebrow">CHAMPIONSHIP LEADERS</span><h2>Who's on top right now</h2></div>
+        <p>Position arrows appear once Pitmark has multiple snapshots to compare.</p>
+      </div>
+      <div class="leader-strip" id="leaderStrip">
+        <div class="loading-card">Loading racing world…</div>
+      </div>
+    </section>
+
+    <section class="series-section">
+      <div class="section-head">
+        <div><span class="eyebrow">ALL SERIES</span><h2>The full racing board</h2></div>
+        <p id="statusText">Pulling the latest saved standings…</p>
+      </div>
+      <div id="seriesGroups"></div>
+    </section>
+  </main>
+
+  <dialog id="standingsDialog">
+    <div class="dialog-shell">
+      <button class="dialog-close" id="dialogClose" aria-label="Close">×</button>
+      <div id="dialogContent"></div>
+    </div>
+  </dialog>
+
+  <footer>
+    <div>
+      <img src="/prt-logo.png" alt="Pitmark Racing Co.">
+      <p>Built for people who follow all of racing, not just one corner of it.</p>
+    </div>
+    <div class="footer-links">
+      <a href="https://pitmarkracing.com">Pitmark Racing Co.</a>
+      <a href="/prt">Pitmark Racing Tools</a>
+      <a href="/standings">Racing Standings</a>
+    </div>
+    <small>Standings are aggregated from official or structured series sources when available. Always use the linked official series source for rules and final classification decisions.</small>
+  </footer>
+
+  <script type="module" src="/standings.js?v={{PITMARK_VERSION}}"></script>
+</body>
+</html>
