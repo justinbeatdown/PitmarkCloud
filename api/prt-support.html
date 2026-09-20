@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#070808">
-  <meta name="description" content="Pitmark Racing Tools support for installation, activation, iRacing telemetry, overlays, Discord, licensing, and bug reports.">
+  <meta name="description" content="Pitmark Racing Tools support for installation, activation, iRacing telemetry, overlays, streaming, data privacy, Race Intelligence, Discord, licensing, and bug reports.">
   <title>PRT Support Hub | Pitmark Racing Tools</title>
   <link rel="icon" href="/control-favicon.png">
   <link rel="stylesheet" href="/prt.css?v=02123">
@@ -41,7 +41,7 @@
         <span aria-hidden="true">⌕</span>
         <input id="faqSearch" type="search" aria-label="Search PRT support" placeholder="Try: activation code, waiting for iRacing, radar, Discord…" autocomplete="off">
       </div>
-      <div class="support-v2-search-meta"><span id="faqCount">8 answers available</span><span>Choose a topic below to narrow results.</span></div>
+      <div class="support-v2-search-meta"><span id="faqCount">12 answers available</span><span>Choose a topic below to narrow results.</span></div>
     </div>
   </section>
 
@@ -95,6 +95,7 @@
       <button data-filter="overlays" aria-pressed="false">OVERLAYS</button>
       <button data-filter="discord" aria-pressed="false">DISCORD</button>
       <button data-filter="account" aria-pressed="false">ACCOUNT &amp; LICENSING</button>
+      <button data-filter="privacy" aria-pressed="false">DATA &amp; STREAMING</button>
       <button data-filter="issues" aria-pressed="false">BUG REPORTS</button>
     </div>
 
@@ -135,6 +136,22 @@
       <details data-tags="issues problem bug report standings map lap session crash freeze">
         <summary><span>08</span>I found a bug. What should I send?</summary>
         <div class="faq-answer"><p>Include your PRT version, car and track, session type, what you expected, what happened, and the steps that reproduce it. A screenshot or short clip is extremely helpful. If the problem involves standings, lap count, radar, inputs, or the track map, include the matching iRacing display when possible.</p></div>
+      </details>
+      <details data-tags="privacy data telemetry cloud session analytics discord device licensing">
+        <summary><span>09</span>What data does PRT send or store?</summary>
+        <div class="faq-answer"><p>PRT uses the live session and telemetry data iRacing exposes so race-night features can work. When a linked cloud/live integration is in use, a live session snapshot can include the car and track, lap and position, lap times and delta, speed, gear/RPM, fuel, incident count, flags, track temperature, and session state. That live snapshot is separate from PRT's smaller durable usage record. Current cloud analytics persist the device identity, optional linked Discord identity, car, track, highest lap reached, and session timestamps—not every raw telemetry sample. Early Access/licensing also stores the contact/application details you provide, invite status, and device binding. Early Access codes are stored hashed rather than as the plain code.</p></div>
+      </details>
+      <details data-tags="privacy stream streaming streamer twitch youtube obs broadcast recording record early access">
+        <summary><span>10</span>Can I stream or record PRT during Early Access?</summary>
+        <div class="faq-answer"><p>Yes. Testers may stream or record PRT in use. Please describe it as Early Access/in development because screens and behavior can change between builds. If something breaks on stream, a clip plus your PRT version, car, track, and session type is useful feedback. Never show your personal Early Access code on stream, in screenshots, or in public posts.</p></div>
+      </details>
+      <details data-tags="getting league setup drivers team admin tester early access group">
+        <summary><span>11</span>How do I set up a league or several drivers for Early Access?</summary>
+        <div class="faq-answer"><p>Have each interested tester use the <a href="/prt/apply">PRT Early Access application</a> so each person receives their own access path and personal code. For a coordinated league test, email <a href="mailto:prt@pitmarkracing.com?subject=PRT%20League%20Early%20Access">PRT Support</a> with the league name and expected tester count, or <a href="https://discord.gg/jP6fQuW7dr" target="_blank" rel="noopener noreferrer">join the Pitmark Discord</a>. Personal Early Access codes should not be shared between drivers.</p></div>
+      </details>
+      <details data-tags="analysis coaching intelligence race autopsy driver dna roadmap release date post race">
+        <summary><span>12</span>When will Race Intelligence, Race Autopsy, and deeper coaching be available?</summary>
+        <div class="faq-answer"><p>The race-night foundation—Windows app, live overlays, telemetry, standings, proximity, track context, and the core testing loop—is in Early Access now. Persistent history, Driver DNA, smarter coaching, predictive recommendations, and Race Autopsy are still being built toward, and there is not a public release date we can responsibly promise yet. Those capabilities will be exposed for testing as they become ready. See the <a href="/prt#roadmap">PRT roadmap</a> and Discord for the current status and release notes.</p></div>
       </details>
     </div>
 
