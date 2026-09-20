@@ -360,6 +360,13 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertNotIn("get_standings_hub(force=False)", public_api)
         self.assertIn("await asyncio.sleep(15)", main)
 
+    def test_usac_uses_column_section_parser(self):
+        service = self.read("services/racing_standings.py")
+        self.assertIn('def _fetch_column_sections', service)
+        self.assertIn('"provider": "column_sections"', service)
+        self.assertIn('"column_title": "Driver Standings"', service)
+        self.assertIn('if provider == "column_sections"', service)
+
     def test_control_center_readability_scale_covers_tiny_ui_text(self):
         css = self.read("api/control_center_overhaul.css")
         self.assertIn("Readability pass — 2026-09-20", css)
