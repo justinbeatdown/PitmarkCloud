@@ -51,6 +51,17 @@ class SocialDailyPackageContractTests(unittest.TestCase):
         self.assertIn('row.status = "archived"', source)
         self.assertIn('"archived_duplicates": archived_duplicates', source)
 
+    def test_deleted_daily_campaign_platforms_stay_suppressed(self):
+        from pathlib import Path
+        package_source = Path("services/social_daily_package.py").read_text(encoding="utf-8")
+        campaign_source = Path("services/social_daily_campaign.py").read_text(encoding="utf-8")
+        api_source = Path("api/control_center.py").read_text(encoding="utf-8")
+        self.assertIn("suppressed_platforms", package_source)
+        self.assertIn("or platform in suppressed_platforms", package_source)
+        self.assertIn("def suppress_campaign_platform", campaign_source)
+        self.assertIn("regeneration_suppressed", api_source)
+        self.assertIn("suppress_campaign_platform(campaign_id, platform)", api_source)
+
     def test_existing_daily_asset_urls_are_normalized_to_public_origin(self):
         from pathlib import Path
         source = Path("services/social_daily_package.py").read_text(encoding="utf-8")
