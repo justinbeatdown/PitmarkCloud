@@ -246,6 +246,29 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("mobilePageTitle", app_js)
         self.assertIn("mobilePageKicker", app_js)
 
+    def test_hq_surfaces_racing_command_brief_and_content_actions(self):
+        views = self.read("api/control_center_views.js")
+        api_js = self.read("api/control_center_api.js")
+        for token in (
+            "Racing opportunities",
+            "Racing Intelligence",
+            "data-op-content",
+            "data-op-research",
+            "data-op-scan",
+            "Make Content",
+            "Research More",
+            "Open article",
+        ):
+            self.assertIn(token, views)
+        for endpoint in (
+            "/api/control/autopilot/opportunities",
+            "/api/control/autopilot/intelligence/run",
+            "/api/control/community/research/prepare",
+        ):
+            self.assertIn(endpoint, api_js)
+        self.assertIn("prepareOpportunityResearch:", api_js)
+        self.assertIn("runIntelligence:", api_js)
+
     def test_operating_tables_stack_cleanly_on_mobile(self):
         views = self.read("api/control_center_views.js")
         self.assertIn('data-label="Applicant"', views)
