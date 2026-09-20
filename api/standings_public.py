@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, Response
 
-from services.racing_standings import get_standings_hub
+from services.racing_standings import get_standings_snapshot_hub
 from utils.config import settings
 
 router = APIRouter()
@@ -41,7 +41,7 @@ def public_standings_js():
 
 @router.get("/api/public/standings", include_in_schema=False)
 def public_standings_data():
-    payload = get_standings_hub(force=False)
+    payload = get_standings_snapshot_hub()
     safe_series = []
     for series in payload.get("series") or []:
         safe_series.append(
