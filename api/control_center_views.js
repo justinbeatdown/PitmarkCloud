@@ -908,7 +908,12 @@ async function renderStandings(root,ctx){
       <div><span class="eyebrow">CHAMPIONSHIP LEADERS</span><h2>Everything that matters, one scoreboard.</h2><p>Movement arrows compare the current table with Pitmark's previous saved snapshot. Open any series for the full standings.</p></div>
       <div class="pm-standings-leader-strip">${leaders.slice(0,7).map(item=>`<div><span>${esc(item.name)}</span><strong>${esc(item.leader.name||'—')}</strong><small>${standingsPoints(item.leader.points)} pts</small></div>`).join('')}</div>
     </section>
-    <div class="pm-standings-grid">${series.map(standingsCard).join('')}</div>
+    <div class="pm-standings-groups">
+      ${[...new Set(series.map(item=>item.group||'Racing'))].map(group=>{
+        const items=series.filter(item=>(item.group||'Racing')===group);
+        return `<section class="pm-standings-group"><header><div><span class="eyebrow">SERIES GROUP</span><h3>${esc(group)}</h3></div><span class="pm-badge">${n(items.length)} tracked</span></header><div class="pm-standings-grid">${items.map(standingsCard).join('')}</div></section>`;
+      }).join('')}
+    </div>
   `;
   root.onclick=(event)=>{
     if(event.target.closest('[data-standings-refresh]')){refreshStandingsHub(ctx);return;}
