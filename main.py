@@ -104,7 +104,6 @@ async def gmail_sync_loop() -> None:
 
 async def racing_standings_sync_loop() -> None:
     interval = _env_int("PITMARK_STANDINGS_SYNC_SECONDS", 14400, 1800, 43200)
-    await asyncio.sleep(15)
     while True:
         try:
             from services.racing_standings import get_standings_hub
