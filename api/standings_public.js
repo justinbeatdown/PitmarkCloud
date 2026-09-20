@@ -89,12 +89,6 @@ function openSeries(key){
 }
 async function load(){
   try{
-    const bootstrap=document.getElementById('pitmark-standings-bootstrap');
-    if(bootstrap?.textContent?.trim()){
-      state.payload=JSON.parse(bootstrap.textContent);
-      render();
-      return;
-    }
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),8000);
     const response=await fetch('/api/public/standings',{headers:{Accept:'application/json'},signal:controller.signal});
