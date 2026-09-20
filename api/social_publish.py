@@ -329,6 +329,7 @@ def publish_post(post_id: int, request: Request, x_pitmark_admin_key: str | None
                         media_url = asset["url"]
                         post.media_url = media_url
                 result = publish_instagram_post(caption=post.body, image_url=media_url)
+                post.media_url = str(result.get("media_url") or media_url)
                 mark_used(media_url)
         except HTTPException:
             raise

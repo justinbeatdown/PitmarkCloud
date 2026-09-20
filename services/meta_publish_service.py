@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import io
 import time
-import httpx
 
+import httpx
+from PIL import Image, ImageOps, UnidentifiedImageError
+
+from services.social_asset_pool import public_asset_url, store_uploaded_image
 from utils.config import settings
 
 
@@ -133,6 +137,97 @@ def _wait_for_instagram_container(creation_id: str, timeout_seconds: float = 25.
         if status_code in {"ERROR", "EXPIRED"}:
             raise MetaPublishError(f"Instagram media container failed: {data.get('status') or status_code}")
         time.sleep(1.5)
+    raise MetaPublishError("Instagram media container did not finish processing before timeout.")
+
+
+def _prepare_instagram_image_url(image_url: str) -> str:
+    """Validate, normalize, and re-host an Instagram feed image before Meta sees it.
+
+    Meta's image publishing endpoint is picky about both media type and aspect ratio.
+    Asset-pool URLs may point at PNG/WebP files, old PCC hosts, or source images wider
+    or taller than Instagram's supported feed range. Normalize those inputs into a
+    public JPEG so manual and scheduled publishing use the same safe media path.
+    """
+    source = (image_url or "").strip()
+    if not source.startswith(("https://", "http://")):
+        raise MetaPublishError("Instagram requires a publicly reachable image URL.")
+
+    try:
+        response = httpx.get(
+            source,
+            timeout=25.0,
+            follow_redirects=True,
+            headers={"User-Agent": "PitmarkCloud/instagram-media-preflight"},
+        )
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise MetaPublishError(f"Instagram image preflight could not download the selected media: {exc}") from exc
+
+    if not response.content:
+        raise MetaPublishError("Instagram image preflight received an empty file.")
+    if len(response.content) > 20 * 1024 * 1024:
+        raise MetaPublishError("Instagram image is too large to prepare safely.")
+
+    try:
+        with Image.open(io.BytesIO(response.content)) as opened:
+            original_format = str(opened.format or "").upper()
+            prepared = ImageOps.exif_transpose(opened).convert("RGB")
+            prepared.load()
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        raise MetaPublishError("Selected Instagram media is not a valid photo. Pick or generate a JPEG/PNG/WebP image.") from exc
+
+    width, height = prepared.size
+    if width <= 0 or height <= 0:
+        raise MetaPublishError("Selected Instagram image has invalid dimensions.")
+
+    ratio = width / height
+    min_ratio = 4 / 5
+    max_ratio = 1.91
+
+    # Keep as much of the original frame as possible while bringing only the
+    # unsupported edge cases into Instagram's legal feed range.
+    if ratio < min_ratio:
+        target_height = max(1, int(round(width / min_ratio)))
+        top = max(0, (height - target_height) // 2)
+        prepared = prepared.crop((0, top, width, min(height, top + target_height)))
+    elif ratio > max_ratio:
+        target_width = max(1, int(round(height * max_ratio)))
+        left = max(0, (width - target_width) // 2)
+        prepared = prepared.crop((left, 0, min(width, left + target_width), height))
+
+    # Normalize unusually large/small sources to a dependable feed width.
+    if prepared.width > 1080 or prepared.width < 320:
+        target_width = 1080
+        target_height = max(1, int(round(prepared.height * (target_width / prepared.width))))
+        prepared = prepared.resize((target_width, target_height), Image.Resampling.LANCZOS)
+
+    final_ratio = prepared.width / prepared.height
+    already_safe_hosted_jpeg = (
+        source.startswith("https://pitmarkcloud.onrender.com/social-assets/")
+        and original_format in {"JPEG", "JPG"}
+        and min_ratio <= ratio <= max_ratio
+        and 320 <= width <= 1440
+    )
+    if already_safe_hosted_jpeg:
+        return source
+
+    output = io.BytesIO()
+    prepared.save(output, format="JPEG", quality=92, optimize=True)
+    try:
+        stored = store_uploaded_image(
+            data=output.getvalue(),
+            filename=f"instagram-ready-{prepared.width}x{prepared.height}.jpg",
+            mime_type="image/jpeg",
+        )
+    except ValueError as exc:
+        raise MetaPublishError(f"Instagram image normalization failed: {exc}") from exc
+
+    normalized = public_asset_url(stored["public_token"])
+    if not normalized.startswith(("https://", "http://")):
+        raise MetaPublishError("Instagram image normalization did not produce a public URL.")
+    if not (min_ratio - 0.001 <= final_ratio <= max_ratio + 0.001):
+        raise MetaPublishError("Instagram image normalization produced an unsupported aspect ratio.")
+    return normalized
 
 
 def publish_instagram_post(*, caption: str, image_url: str) -> dict:
@@ -142,6 +237,7 @@ def publish_instagram_post(*, caption: str, image_url: str) -> dict:
     media = (image_url or "").strip()
     if not media.startswith(("https://", "http://")):
         raise MetaPublishError("Instagram requires a publicly reachable image URL.")
+    media = _prepare_instagram_image_url(media)
     token = _page_token()
     ig_id = settings.meta_instagram_account_id.strip()
     try:

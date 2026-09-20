@@ -115,7 +115,8 @@ def publish_due_posts() -> int:
                         log.error("Scheduled Instagram post %s has no usable image", post.id)
                         continue
                     post.media_url = media_url
-                    publish_instagram_post(caption=post.body, image_url=media_url)
+                    result = publish_instagram_post(caption=post.body, image_url=media_url)
+                    post.media_url = str(result.get("media_url") or media_url)
                     mark_used(media_url)
             except Exception:
                 log.exception("Scheduled %s publish failed for post %s", platform, post.id)
