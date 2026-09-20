@@ -83,7 +83,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; "
                 "base-uri 'none'; form-action 'none'; img-src 'none'; script-src 'none'"
             )
-        elif request.url.path.startswith(("/prt", "/links", "/partners", "/partner-guide")):
+        elif request.url.path.startswith(("/prt", "/links", "/partners", "/partner-guide", "/standings")):
             # Public Pitmark pages use same-origin static assets. PRT additionally
             # embeds Pitmark-owned YouTube proof video, so permit only YouTube's
             # official embed origins rather than opening frame access generally.
