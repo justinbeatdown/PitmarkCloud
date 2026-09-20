@@ -1774,6 +1774,21 @@ def _fallback(config: dict[str, Any], season: int, error: Exception) -> dict[str
     }
 
 
+
+def _sanitize_identity_payload(item: dict[str, Any]) -> dict[str, Any]:
+    """Fail closed: identity fields are visible only with verified official provenance."""
+    result = copy.deepcopy(item)
+    verified = bool(result.get("metadata_verified"))
+    result["metadata_verified"] = verified
+    if not verified:
+        result["metadata_source_url"] = None
+        for entry in result.get("entries") or []:
+            entry["number"] = None
+            entry["team"] = None
+            entry["manufacturer"] = None
+    return result
+
+
 def _load_one(config: dict[str, Any], season: int) -> dict[str, Any]:
     try:
         fetched = _fetch_series(config, season)
@@ -1812,7 +1827,7 @@ def get_standings_hub(*, force: bool = False, season: int | None = None) -> dict
             except Exception as exc:
                 results[config["key"]] = _fallback(config, season, exc)
 
-    ordered = [results[config["key"]] for config in SERIES]
+    ordered = [_sanitize_identity_payload(results[config["key"]]) for config in SERIES]
     live = sum(1 for item in ordered if item.get("status") == "live")
     stale = sum(1 for item in ordered if item.get("status") == "stale")
     unavailable = sum(1 for item in ordered if item.get("status") == "unavailable")
@@ -1870,7 +1885,7 @@ def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
                     "error": None,
                 }
             )
-            ordered.append(snapshot)
+            ordered.append(_sanitize_identity_payload(snapshot))
             continue
         ordered.append(
             {
