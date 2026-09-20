@@ -260,6 +260,21 @@ def _public_asset_url(token: str) -> str:
     return public_asset_url(token)
 
 
+def _normalize_existing_asset_urls(assets: list[dict]) -> list[dict]:
+    normalized: list[dict] = []
+    for asset in assets:
+        item = dict(asset)
+        url = str(item.get("url") or "").strip()
+        marker = "/social-assets/"
+        if marker in url:
+            token = url.split(marker, 1)[1].split("?", 1)[0].split("#", 1)[0]
+            desired = public_asset_url(token)
+            if desired != url and item.get("id"):
+                item = update_asset(int(item["id"]), url=desired, status=item.get("status") or "ready") or item
+        normalized.append(item)
+    return normalized
+
+
 def _ensure_final_variant(
     campaign: dict,
     *,
@@ -341,6 +356,7 @@ def sync_campaign_queue(campaign: dict, package: dict) -> dict:
         None,
     )
     created = 0
+    archived_duplicates = 0
     with SessionLocal() as db:
         existing = {
             row.platform: row
@@ -348,9 +364,33 @@ def sync_campaign_queue(campaign: dict, package: dict) -> dict:
                 select(SocialPost).where(SocialPost.source == source)
             ).all()
         }
+
+        # A Daily Campaign must not repeat the same story on a platform already
+        # covered by direct first-party automation. Exact title match is deliberate:
+        # it is conservative and only suppresses obvious duplicate distribution.
+        campaign_title = str(campaign.get("title") or "").strip()
+        covered_platforms: set[str] = set()
+        if campaign_title:
+            direct_rows = list(db.scalars(select(SocialPost).where(
+                SocialPost.source.like("firstparty:%"),
+                SocialPost.title == campaign_title[:180],
+                SocialPost.platform.in_(QUEUE_PLATFORMS),
+                SocialPost.status.in_(["scheduled", "published", "approved"]),
+            )).all())
+            covered_platforms = {str(row.platform or "") for row in direct_rows}
+
+        # Self-heal Daily Campaign rows that were created before duplicate
+        # suppression existed.
+        for platform, row in existing.items():
+            if platform in covered_platforms and row.status in {"scheduled", "pending", "approved"}:
+                row.status = "archived"
+                row.scheduled_for = None
+                row.updated_at = utcnow()
+                archived_duplicates += 1
+
         for platform in QUEUE_PLATFORMS:
             body = str(copy.get(platform) or "").strip()
-            if not body or platform in existing:
+            if not body or platform in existing or platform in covered_platforms:
                 continue
             autopublish = bool(
                 settings.social_operator_autopublish_low_risk
@@ -387,6 +427,7 @@ def sync_campaign_queue(campaign: dict, package: dict) -> dict:
         )
     return {
         "created": created,
+        "archived_duplicates": archived_duplicates,
         "items": {
             row.platform: {
                 "id": row.id,
@@ -429,7 +470,7 @@ def generate_daily_package(campaign_id: int) -> dict:
                 int(getattr(settings, "social_daily_image_batch_size", 2) or 2),
             ),
         )
-        existing_assets = campaign_assets(campaign_id)
+        existing_assets = _normalize_existing_asset_urls(campaign_assets(campaign_id))
         ready = {
             (str(asset.get("platform") or ""), int(asset.get("slot") or 0))
             for asset in existing_assets
