@@ -251,6 +251,15 @@ def prt_growth_css():
     )
 
 
+@router.get("/prt-v2.css", include_in_schema=False)
+def prt_v2_css():
+    return Response(
+        (ASSET_DIR / "prt-v2.css").read_text(encoding="utf-8"),
+        media_type="text/css",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @router.get("/prt.js", include_in_schema=False)
 def prt_js():
     return Response(

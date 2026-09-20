@@ -3,93 +3,114 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#0a0a0a">
-  <meta name="description" content="Pitmark Racing Tools is an iRacing companion built in real race nights: live overlays, telemetry, track context, race tools, and an active Early Access program.">
+  <meta name="theme-color" content="#070808">
+  <meta name="description" content="Pitmark Racing Tools is an iRacing companion built in real race nights: live overlays, telemetry, race context, broadcast tools, and intelligent post-race analysis.">
   <link rel="canonical" href="https://prt.pitmarkracing.com/prt">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Pitmark Racing Tools | Built on Race Night">
-  <meta property="og:description" content="Watch PRT run in real races, explore the tools being tested now, and join Early Access.">
+  <meta property="og:title" content="Pitmark Racing Tools | Your race engineer remembers everything.">
+  <meta property="og:description" content="Watch PRT run in real races, see what is live now, and join Early Access.">
   <meta property="og:url" content="https://prt.pitmarkracing.com/prt">
   <meta name="twitter:card" content="summary">
-  <title>Pitmark Racing Tools | Live iRacing Tools & Early Access</title>
+  <title>Pitmark Racing Tools | Race Intelligence for iRacing</title>
   <link rel="icon" href="/control-favicon.png">
   <link rel="stylesheet" href="/prt.css?v=02123">
   <link rel="stylesheet" href="/prt-growth.css?v=02149">
-  <link rel="stylesheet" href="/prt-v2.css?v=02200">
+  <link rel="stylesheet" href="/prt-v2.css?v=02210">
 </head>
-<body>
-<header class="topbar">
-  <a class="brand" href="/prt">
-    <span class="brand-wide"><img src="/prt-tools-logo.png" alt="Pitmark Racing Tools"></span>
+<body class="prt-v2">
+<header class="v2-nav">
+  <a class="v2-brand" href="/prt" aria-label="Pitmark Racing Tools home">
+    <img src="/prt-tools-logo.png" alt="Pitmark Racing Tools">
   </a>
-  <div class="top-actions">
-    <span class="early">EARLY ACCESS</span>
-    <a href="#race-feed" class="ghost-link race-feed-nav">RACE FEED</a>
-    <a href="/prt/apply" class="apply-link" data-prt-funnel-link="hero-nav-apply">APPLY</a>
-    <a href="/prt/support" class="ghost-link">SUPPORT</a>
+  <nav class="v2-links" aria-label="PRT navigation">
+    <a href="#race-feed">RACE FEED</a>
+    <a href="#tools">TOOLS</a>
+    <a href="#roadmap">ROADMAP</a>
+    <a href="/prt/support">SUPPORT</a>
+  </nav>
+  <div class="v2-nav-actions">
+    <span class="v2-pill">EARLY ACCESS</span>
+    <a class="v2-nav-apply" href="/prt/apply" data-prt-funnel-link="v2-nav-apply">APPLY</a>
   </div>
 </header>
 
-<main>
-  <section class="hero growth-hero">
-    <div class="hero-copy">
-      <p class="eyebrow">PRT EARLY ACCESS · WINDOWS + iRACING</p>
-      <h1>Bring your next race.<br><em>Help build PRT.</em></h1>
-      <p class="lead">PRT is already running in real races. Want in? Apply in about a minute, get activated if selected, then tell us what works, what breaks, and what would make race night better.</p>
-      <div class="hero-actions growth-actions">
-        <a class="primary action-link" href="/prt/apply" data-prt-funnel-link="hero-apply">APPLY FREE — ABOUT 60 SECONDS</a>
-        <a class="secondary action-link" href="#race-feed" data-prt-funnel-link="hero-race-feed">WATCH PRT ON RACE NIGHT</a>
-        <a class="secondary action-link accepted-download" href="/downloads/PRT-Setup-Latest.exe" data-prt-download="prt-home-accepted">ALREADY ACCEPTED? DOWNLOAD PRT</a>
-      </div>
-      <p class="growth-note"><b>No Google sign-in. No purchase required.</b> Accepted testers get an activation code and setup instructions directly from Pitmark.</p>
-    </div>
+<main class="v2-main">
+  <section class="v2-hero">
+    <div class="v2-hero-grid">
+      <div class="v2-hero-copy">
+        <div class="v2-kicker"><span></span> BUILT IN REAL RACES · WINDOWS + iRACING</div>
+        <h1>Your race engineer<br><em>remembers everything.</em></h1>
+        <p class="v2-lead">PRT is a race-night companion built around the stuff that actually matters once the green drops: clear overlays, live context, telemetry, race history, and a development loop driven by real sessions—not mockups.</p>
+        <div class="v2-actions">
+          <a class="v2-btn v2-btn-primary" href="/prt/apply" data-prt-funnel-link="v2-hero-apply">JOIN EARLY ACCESS</a>
+          <a class="v2-btn v2-btn-secondary" href="#race-feed" data-prt-funnel-link="v2-hero-race-feed">WATCH PRT RACE</a>
+          <a class="v2-btn v2-btn-ghost" href="/downloads/PRT-Setup-Latest.exe" data-prt-download="prt-home-accepted">DOWNLOAD PRT</a>
+        </div>
+        <p class="v2-note"><b>Free Early Access.</b> Accepted testers receive an activation code and setup instructions from Pitmark.</p>
 
-    <aside class="product-showcase proof-showcase" id="race-proof">
-      <div class="proof-card">
-        <div class="proof-video-wrap">
+        <div class="v2-status-rail" aria-label="PRT live status">
+          <div><i></i><span>PITMARK CLOUD</span><b id="cloudState">CHECKING</b></div>
+          <div><i></i><span>EARLY ACCESS</span><b>OPEN</b></div>
+          <div><i></i><span>BUILD</span><b id="prtBuildVersion">WINDOWS</b></div>
+          <div><i></i><span>DISCORD</span><b id="discordState">CHECKING</b></div>
+        </div>
+      </div>
+
+      <div class="v2-hero-stage" aria-label="PRT live race proof">
+        <div class="v2-stage-label"><span>LIVE TEST FOOTAGE</span><b>PRT // RACE CONTROL</b></div>
+        <div class="v2-stage-video">
           <iframe
             src="https://www.youtube.com/embed/2CjHr1BDDr0?rel=0&playsinline=1"
-            title="Rob Wilhoite racing with Pitmark Racing Tools"
+            title="Pitmark Racing Tools running in a real iRacing race"
             referrerpolicy="strict-origin-when-cross-origin"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowfullscreen></iframe>
         </div>
-        <div class="proof-copy">
-          <p class="eyebrow">REAL RACE · REAL TELEMETRY</p>
-          <strong>See PRT working under race pressure.</strong>
-          <span>Watch the short Pitmark proof clip here, then jump into Rob Wilhoite's full iRacing race for the complete run.</span>
-          <a class="proof-youtube-link" href="https://www.youtube.com/watch?v=rxpjE8gVYFc&t=1224s" target="_blank" rel="noopener noreferrer" data-prt-funnel-link="proof-youtube">WATCH FULL RACE ON YOUTUBE · STARTS 20:24 →</a>
+        <div class="v2-hud-card v2-hud-left">
+          <small>RACE STATE</small>
+          <strong>P4 <em>+0.32</em></strong>
+          <span>RELATIVE · LIVE</span>
+        </div>
+        <div class="v2-hud-card v2-hud-right">
+          <small>BUILD STATUS</small>
+          <strong>RACE <em>TESTED</em></strong>
+          <span>EARLY ACCESS</span>
+        </div>
+        <div class="v2-stage-foot">
+          <span><i></i> REAL SESSION</span>
+          <span>REAL TELEMETRY</span>
+          <a href="https://www.youtube.com/watch?v=rxpjE8gVYFc&t=1224s" target="_blank" rel="noopener noreferrer" data-prt-funnel-link="v2-rob-full-race">WATCH FULL RACE →</a>
         </div>
       </div>
-      <div class="compact-status">
-        <span><i></i>PITMARK CLOUD <b id="cloudState">ONLINE</b></span>
-        <span><i></i>EARLY ACCESS <b>OPEN</b></span>
-        <span><i></i>PRT BUILD <b id="prtBuildVersion">WINDOWS</b></span>
-        <span><i></i>DISCORD <b id="discordState">CHECKING</b></span>
-      </div>
-    </aside>
-  </section>
-
-  <section class="race-feed-v2" id="race-feed" aria-label="PRT race night video archive">
-    <div class="race-feed-head">
-      <div>
-        <p class="eyebrow">REAL RACES · PITMARK RACING NETWORK</p>
-        <h2>Watch PRT survive race night.</h2>
-        <p>PRT is not being built from mockups alone. We are racing with it, streaming with it, breaking it, fixing it, and putting the next build back on track. The player below follows the Pitmark Racing Network upload feed, so new race nights can show up here without rebuilding the website.</p>
-      </div>
-      <a class="race-feed-channel" href="https://www.youtube.com/@pitmarkracing" target="_blank" rel="noopener noreferrer">OPEN PITMARK RACING NETWORK →</a>
     </div>
 
-    <div class="race-feed-grid">
-      <div class="race-stream-shell">
-        <div class="race-stream-top">
-          <span class="race-stream-live"><i></i>RACE NIGHT ARCHIVE</span>
-          <span>PRT · iRACING · PITMARK RACING NETWORK</span>
+    <div class="v2-marquee" aria-label="PRT feature summary">
+      <div>LIVE OVERLAYS</div><span>•</span><div>TELEMETRY</div><span>•</span><div>TRACK CONTEXT</div><span>•</span><div>STANDINGS</div><span>•</span><div>PROXIMITY</div><span>•</span><div>RACE HISTORY</div><span>•</span><div>BROADCAST TOOLS</div><span>•</span><div>RACE INTELLIGENCE</div>
+    </div>
+  </section>
+
+  <section class="v2-section v2-race-feed" id="race-feed">
+    <div class="v2-section-head">
+      <div>
+        <p class="v2-eyebrow">PITMARK RACING NETWORK</p>
+        <h2>Don’t take our word for it.<br><em>Watch the races.</em></h2>
+      </div>
+      <div class="v2-section-copy">
+        <p>PRT gets used where the bugs actually live: traffic, cautions, long green-flag runs, league nights, stream load, and the chaos that never appears in a clean demo.</p>
+        <a href="https://www.youtube.com/@pitmarkracing" target="_blank" rel="noopener noreferrer">OPEN PITMARK RACING NETWORK →</a>
+      </div>
+    </div>
+
+    <div class="v2-race-layout">
+      <div class="v2-race-player">
+        <div class="v2-player-bar">
+          <span><i></i> RACE NIGHT ARCHIVE</span>
+          <b>PITMARK RACING NETWORK</b>
         </div>
-        <div class="race-stream-player">
+        <div class="v2-player-frame">
           <iframe
             src="https://www.youtube.com/embed/videoseries?list=UUfXZ5XjjE2jWXR2gYo-V6ZQ&rel=0&playsinline=1"
-            title="Pitmark Racing Network race night archive"
+            title="Pitmark Racing Network uploads"
             loading="lazy"
             referrerpolicy="strict-origin-when-cross-origin"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -97,177 +118,170 @@
         </div>
       </div>
 
-      <aside class="race-feed-side">
-        <article>
-          <span>01 · RACE IT</span>
-          <strong>Built under pressure.</strong>
-          <p>Long runs, league races, traffic, cautions, stream load, and the weird stuff that only appears once the green flag drops.</p>
+      <div class="v2-race-notes">
+        <article class="featured">
+          <span>01</span>
+          <div><small>RACE IT</small><h3>Built under pressure.</h3><p>PRT is tested in the sessions racers actually care about—not just a development window.</p></div>
         </article>
         <article>
-          <span>02 · WATCH IT</span>
-          <strong>The proof is public.</strong>
-          <p>Instead of only telling people PRT works, the race archive lets them see the overlays and race-night workflow in actual sessions.</p>
+          <span>02</span>
+          <div><small>BREAK IT</small><h3>Failures become features.</h3><p>Race-night problems feed directly into the next build instead of getting buried after launch.</p></div>
         </article>
         <article>
-          <span>03 · IMPROVE IT</span>
-          <strong>Every race feeds the next build.</strong>
-          <p>Tester feedback and race-night failures are part of the development loop—not something hidden after launch.</p>
+          <span>03</span>
+          <div><small>PROVE IT</small><h3>The work stays visible.</h3><p>The archive gives drivers, leagues, and broadcasters a public look at PRT in motion.</p></div>
         </article>
-      </aside>
+      </div>
     </div>
   </section>
 
-  <section class="development-pulse" aria-label="PRT development status">
-    <div class="section-head">
-      <p class="eyebrow">PRT DEVELOPMENT PULSE</p>
-      <h2>What is real now. What is getting built next.</h2>
-      <p>PRT is growing from a useful race-night companion into a connected racing platform. We keep the line clear between what testers can use today and what is still being developed.</p>
+  <section class="v2-section v2-tools" id="tools">
+    <div class="v2-section-head">
+      <div>
+        <p class="v2-eyebrow">THE RACE-NIGHT STACK</p>
+        <h2>Less clutter.<br><em>More race.</em></h2>
+      </div>
+      <div class="v2-section-copy">
+        <p>PRT is being built as one connected place for the information, awareness, and post-race context drivers normally stitch together from separate tools.</p>
+      </div>
     </div>
-    <div class="development-grid">
-      <article class="development-card active-now">
-        <span>RACING NOW</span>
-        <h3>Race-night tools</h3>
-        <p>Live overlays, telemetry, standings, proximity, track context, Race Cards, Discord workflows, and the core Windows app are already being tested in real sessions.</p>
-      </article>
-      <article class="development-card">
-        <span>ACTIVE DEVELOPMENT</span>
-        <h3>Broadcast + VR</h3>
-        <p>Broadcast Studio, streaming reliability, production controls, and VR compatibility work are being shaped around real driver and broadcaster feedback.</p>
-      </article>
-      <article class="development-card">
-        <span>WHERE WE'RE HEADED</span>
-        <h3>Race Intelligence</h3>
-        <p>Driver DNA, persistent race history, smarter coaching, contextual spotter tools, predictive recommendations, and Race Autopsy are the long-term intelligence layer.</p>
-      </article>
-    </div>
-  </section>
 
-  <section class="audience-fit" aria-label="PRT audience fit">
-    <div class="section-head audience-head">
-      <p class="eyebrow">BUILT WITH THE PEOPLE WHO USE RACE NIGHT</p>
-      <h2>Where do you fit?</h2>
-      <p>PRT Early Access is not only a driver test. We want the people who race, run leagues, produce broadcasts, cover sim racing, and build around iRacing to help shape what earns a place on race night.</p>
-    </div>
-    <div class="audience-grid">
-      <article class="audience-card">
-        <span class="audience-status">USE IT NOW</span>
-        <h3>Drivers</h3>
-        <p>Race with live overlays, telemetry, standings, proximity tools, track context, and race-night utilities in real iRacing sessions.</p>
-        <small>Advanced coaching and Driver DNA are in development.</small>
-        <a href="/prt/apply?role=driver" data-prt-funnel-link="audience-driver-apply">APPLY AS A TESTER →</a>
+    <div class="v2-bento">
+      <article class="v2-feature v2-feature-large">
+        <div class="v2-feature-top"><span>01</span><b>LIVE</b></div>
+        <div class="v2-mini-standings" aria-hidden="true">
+          <div><b>1</b><span>CAR 12</span><em>LEADER</em></div>
+          <div class="active"><b>4</b><span>YOU</span><em>+0.32</em></div>
+          <div><b>5</b><span>CAR 71</span><em>+0.61</em></div>
+        </div>
+        <h3>Live Race Context</h3>
+        <p>Standings, relative, proximity, lap state, track information, inputs, and telemetry designed to be readable at race pace.</p>
       </article>
-      <article class="audience-card">
-        <span class="audience-status">RUN A SMALL TEST</span>
-        <h3>Leagues &amp; Clubs</h3>
-        <p>Put PRT through an ordinary league night and tell us where setup, overlays, race cards, support, or admin workflow creates friction.</p>
-        <small>No league-wide rollout or purchase commitment required.</small>
-        <a href="/prt/apply?role=league" data-prt-funnel-link="audience-league-apply">TEST WITH YOUR LEAGUE →</a>
+
+      <article class="v2-feature">
+        <div class="v2-feature-top"><span>02</span><b>ACTIVE TESTING</b></div>
+        <div class="v2-radar" aria-hidden="true"><i></i><i></i><i></i><strong>YOU</strong></div>
+        <h3>Proximity + Awareness</h3>
+        <p>Radar and situational information aimed at giving you useful context without turning the screen into a Christmas tree.</p>
       </article>
-      <article class="audience-card">
-        <span class="audience-status">SHAPE WHAT'S NEXT</span>
-        <h3>Broadcasters</h3>
-        <p>Pressure-test the overlay and production assumptions behind PRT and tell us what a real broadcast workflow needs before we call it ready.</p>
-        <small>Broadcast Studio is in development; current Early Access helps us build it around real production needs.</small>
-        <a href="/prt/apply?role=broadcaster" data-prt-funnel-link="audience-broadcast-apply">JOIN EARLY ACCESS →</a>
+
+      <article class="v2-feature">
+        <div class="v2-feature-top"><span>03</span><b>ACTIVE TESTING</b></div>
+        <div class="v2-track-map" aria-hidden="true"><span></span><i>P4</i></div>
+        <h3>Track Map</h3>
+        <p>Position context across oval, dirt, road, formula, and endurance layouts—with readability taking priority over decoration.</p>
       </article>
-      <article class="audience-card">
-        <span class="audience-status">INSPECT + CHALLENGE</span>
-        <h3>Media / Developers</h3>
-        <p>Inspect PRT independently, challenge the product, and talk through responsible interoperability or ecosystem overlap where it makes sense.</p>
-        <small>No favorable coverage, endorsement, or closed-door access expected.</small>
-        <a href="/prt/apply?role=media" data-prt-funnel-link="audience-media-contact">INSPECT PRT / JOIN EARLY ACCESS →</a>
+
+      <article class="v2-feature">
+        <div class="v2-feature-top"><span>04</span><b>CONNECTED</b></div>
+        <div class="v2-data-lines" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+        <h3>Race History + Telemetry</h3>
+        <p>The foundation for persistent sessions, Driver DNA, Race Autopsy, smarter coaching, and an engineer that remembers how you race.</p>
+      </article>
+
+      <article class="v2-feature v2-feature-wide">
+        <div class="v2-feature-top"><span>05</span><b>IN DEVELOPMENT</b></div>
+        <div class="v2-broadcast-preview" aria-hidden="true">
+          <div class="program">PROGRAM</div><div class="preview">PREVIEW</div><div class="timeline">LIVE EVENTS · STANDINGS · LOWER THIRD · REPLAY</div>
+        </div>
+        <h3>Broadcast Studio</h3>
+        <p>A broadcaster-focused production layer being shaped around actual league and stream workflows—not a pile of widgets pretending to be a control room.</p>
       </article>
     </div>
   </section>
 
-  <section class="tester-proof" aria-label="PRT tester feedback">
-    <div class="tester-proof-kicker">TESTER FEEDBACK · 75-LAP LEAGUE RUN</div>
-    <div class="tester-proof-grid">
-      <div class="tester-proof-copy">
-        <p class="eyebrow">REAL DRIVER · REAL RACE NIGHT</p>
-        <h2>So good he turned off the native HUD.</h2>
+  <section class="v2-section v2-proof">
+    <div class="v2-proof-card">
+      <div class="v2-proof-quote">
+        <p class="v2-eyebrow">TESTER FEEDBACK · 75-LAP LEAGUE RUN</p>
         <blockquote>“Ran 75 laps in a league last night and everything worked great. So much so, I’ve turned off all of the iRacing HUDs.”</blockquote>
-        <div class="tester-proof-author">
-          <img class="tester-proof-avatar" src="data:image/jpeg;base64,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" alt="TimmyNeutron020 logo" style="display:block;object-fit:cover;background:#080808;padding:0;border:1px solid #2f3434;box-sizing:border-box;">
-          <div>
-            <strong>TimmyNeutron020</strong>
-            <span>PRT Early Access Tester</span>
-          </div>
+        <div class="v2-proof-author">
+          <img src="/prt-timmy-logo.jpg?v=1" alt="TimmyNeutron020">
+          <div><strong>TimmyNeutron020</strong><span>PRT EARLY ACCESS TESTER</span></div>
         </div>
       </div>
-      <div class="tester-proof-side">
-        <span class="proof-tag">75 LAPS</span>
-        <span class="proof-tag">LEAGUE RACE</span>
-        <span class="proof-tag">PRT HUD ONLY</span>
-        <p style="margin-bottom:0">That is the standard we are chasing: useful enough on race night that drivers choose PRT because it earns the screen space.</p>
+      <div class="v2-proof-stat">
+        <span>75</span>
+        <strong>LAPS</strong>
+        <p>One complete league run using PRT as the race-night HUD.</p>
       </div>
     </div>
   </section>
 
-  <section class="tester-path founders-race-preview" aria-label="PRT Founder's Race">
-    <div class="section-head">
-      <p class="eyebrow">EARLY ACCESS REFERRAL CHAMPIONSHIP</p>
-      <h2>Get in. Then build the grid.</h2>
-      <p>Once you activate PRT, you automatically get a personal Founder’s Race Hub and referral link. Bring in other racers who actually activate PRT and climb the Early Access leaderboard.</p>
+  <section class="v2-section v2-roadmap" id="roadmap">
+    <div class="v2-section-head">
+      <div>
+        <p class="v2-eyebrow">DEVELOPMENT PULSE</p>
+        <h2>What’s live.<br><em>What’s next.</em></h2>
+      </div>
+      <div class="v2-section-copy">
+        <p>No vaporware wall. We keep current tools, active development, and the bigger PRT direction clearly separated.</p>
+      </div>
     </div>
-    <div class="path-grid">
-      <article><span>01</span><h3>Activate PRT</h3><p>Accepted testers enter the Founder’s Race after activating Early Access on their PRT device.</p></article>
-      <article><span>02</span><h3>Recruit real testers</h3><p>Your Race Hub gives you a unique link, standings, milestones and ready-to-share recruitment copy. A referral counts only after approval and activation.</p></article>
-      <article><span>03</span><h3>Race for the top tier</h3><p>When Early Access ends, P1 earns 12 months of Pitmark’s highest paid PRT tier, P2 gets 6 months and P3 gets 3 months.</p><a href="/prt/apply" data-prt-funnel-link="founders-race-apply">GET ON THE GRID →</a></article>
+
+    <div class="v2-roadmap-grid">
+      <article class="current">
+        <div class="v2-roadmap-status"><i></i> RACING NOW</div>
+        <h3>Race-night foundation</h3>
+        <p>Windows app, live overlays, telemetry, standings, proximity, track context, Race Cards, Discord workflows, and the core testing loop.</p>
+      </article>
+      <article>
+        <div class="v2-roadmap-status"><i></i> ACTIVE DEVELOPMENT</div>
+        <h3>VR + Broadcast</h3>
+        <p>VR compatibility, stream stability, Broadcast Studio, more production control, and broader league/broadcaster workflows.</p>
+      </article>
+      <article>
+        <div class="v2-roadmap-status"><i></i> BUILDING TOWARD</div>
+        <h3>Race Intelligence</h3>
+        <p>Persistent history, Driver DNA, smarter coaching, contextual spotter behavior, predictive recommendations, and Race Autopsy.</p>
+      </article>
     </div>
   </section>
 
-  <section class="tester-path" aria-label="PRT Early Access path">
-    <div class="section-head">
-      <p class="eyebrow">FROM CLICK TO GREEN FLAG</p>
-      <h2>Three steps. Then go race.</h2>
-      <p>Apply, get activated if accepted, then put PRT through a real session.</p>
+  <section class="v2-section v2-people">
+    <div class="v2-section-head">
+      <div>
+        <p class="v2-eyebrow">BUILT WITH RACE NIGHT</p>
+        <h2>Drivers aren’t the only<br><em>people in the room.</em></h2>
+      </div>
+      <div class="v2-section-copy">
+        <p>PRT Early Access is open to the people who race, run leagues, produce broadcasts, and work around the iRacing ecosystem.</p>
+      </div>
     </div>
-    <div class="path-grid">
-      <article><span>01</span><h3>Apply</h3><p>About a minute: basic iRacing info, what you race, and one tester agreement.</p><a href="/prt/apply" data-prt-funnel-link="path-apply">START QUICK APPLY →</a></article>
-      <article><span>02</span><h3>Activate</h3><p>If accepted, you receive an Early Access code and setup instructions. The installer alone does not activate PRT.</p></article>
-      <article><span>03</span><h3>Race + report</h3><p>Run a real session and tell us what worked, what broke, and what would make race night better.</p></article>
+
+    <div class="v2-people-grid">
+      <a href="/prt/apply?role=driver" data-prt-funnel-link="v2-driver"><span>DRIVERS</span><strong>Race with it.</strong><small>Put PRT through real sessions.</small></a>
+      <a href="/prt/apply?role=league" data-prt-funnel-link="v2-league"><span>LEAGUES</span><strong>Pressure-test it.</strong><small>Find the admin and race-night friction.</small></a>
+      <a href="/prt/apply?role=broadcaster" data-prt-funnel-link="v2-broadcaster"><span>BROADCASTERS</span><strong>Shape production.</strong><small>Help build the tools a live show actually needs.</small></a>
+      <a href="/prt/apply?role=media" data-prt-funnel-link="v2-media"><span>MEDIA / DEVELOPERS</span><strong>Challenge it.</strong><small>Inspect the product and the assumptions behind it.</small></a>
     </div>
   </section>
 
-  <section class="section compact-toolbox">
-    <div class="section-head">
-      <p class="eyebrow">WHAT YOU'LL TEST</p>
-      <h2>Race-night tools, not a promise list.</h2>
-      <p>Early Access is focused on the pieces racers can actually use and judge now.</p>
-    </div>
-    <div class="tool-grid">
-      <article class="active"><span>01</span><h3>Live Overlays</h3><p>Readable race-state, telemetry, inputs, standings, proximity and track information.</p><b>ACTIVE TESTING</b></article>
-      <article><span>02</span><h3>Track Map</h3><p>Live position context across oval, dirt, road, formula and endurance layouts.</p><b>ACTIVE TESTING</b></article>
-      <article><span>03</span><h3>Race Cards</h3><p>Create and share race-night information without bouncing between disconnected tools.</p><b>ACTIVE TESTING</b></article>
-      <article><span>04</span><h3>Discord</h3><p>Community, tester feedback, race sharing and the growing Pitmark race-night workflow.</p><b>CONNECTED</b></article>
-    </div>
-  </section>
-
-  <section class="discord-block">
+  <section class="v2-final-cta">
     <div>
-      <p class="eyebrow">PRT COMMUNITY</p>
-      <h2>Race with the people helping build it.</h2>
-      <p>Join the Pitmark Discord for tester conversation, release notes, support and feedback requests.</p>
-      <p id="botStatus" class="status-line">Checking Pitmark Bot availability…</p>
+      <p class="v2-eyebrow">EARLY ACCESS IS OPEN</p>
+      <h2>Bring your next race.</h2>
+      <p>Apply in about a minute. If accepted, activate PRT, run a real session, and tell us what earns its place on your screen.</p>
     </div>
-    <div class="discord-actions">
-      <a class="secondary action-link community-link" href="https://discord.gg/jP6fQuW7dr" target="_blank" rel="noopener noreferrer">JOIN PRT DISCORD</a>
-      <a class="secondary action-link" href="/prt/support">SETUP / SUPPORT</a>
+    <div class="v2-final-actions">
+      <a class="v2-btn v2-btn-primary" href="/prt/apply" data-prt-funnel-link="v2-final-apply">APPLY FOR EARLY ACCESS</a>
+      <a class="v2-btn v2-btn-secondary" href="https://discord.gg/jP6fQuW7dr" target="_blank" rel="noopener noreferrer">JOIN DISCORD</a>
+      <p id="botStatus">Checking Pitmark Bot availability…</p>
     </div>
   </section>
 </main>
 
-<section class="pitmark-trust" aria-label="Pitmark platform services">
-  <div class="trust-service"><span class="trust-label">POWERED BY</span><img src="/pitmark-cloud-badge.png" alt="Pitmark Cloud"></div>
-  <span class="trust-divider" aria-hidden="true"></span>
-  <div class="trust-service"><span class="trust-label">PROTECTED BY</span><img src="/pitmark-shield-badge.png" alt="Pitmark Shield"></div>
+<section class="v2-trust" aria-label="Pitmark platform services">
+  <div><span>POWERED BY</span><img src="/pitmark-cloud-badge.png" alt="Pitmark Cloud"></div>
+  <i></i>
+  <div><span>PROTECTED BY</span><img src="/pitmark-shield-badge.png" alt="Pitmark Shield"></div>
 </section>
 
-<footer>
-  <span class="footer-brand"><img src="/prt-current-logo.png" alt="Pitmark Racing Co."><span>PITMARK RACING CO. · LEAVE YOUR MARK.</span></span>
-  <span>PRT Cloud v{{PITMARK_VERSION}}</span>
+<footer class="v2-footer">
+  <div><img src="/prt-current-logo.png" alt="Pitmark Racing Co."><span>PITMARK RACING CO. · LEAVE YOUR MARK.</span></div>
+  <span>PRT CLOUD v{{PITMARK_VERSION}}</span>
 </footer>
+
 <script src="/prt.js?v=02149" defer></script>
 <script src="/prt-downloads.js?v=02142" defer></script>
 <script src="/prt-growth.js?v=02144" defer></script>
