@@ -1,4 +1,4 @@
-import { api, clearCache } from './control-center-api.js';
+import { api, clearCache } from './control-center-api.js?v=20260920brief1';
 
 export const DOMAIN_META = Object.freeze({
   hq: { title: 'HQ', kicker: 'Corporate Operations', context: 'What matters, what moved, and what needs you.' },
@@ -49,6 +49,14 @@ function failure(module, fallback) { return module?.ok === false ? module.error 
 
 async function renderHQ(root, ctx) {
   const payload = await api.hq({ maxAge: ctx.force ? 0 : 15000 });
+  const [briefResult, opportunityResult] = await Promise.allSettled([
+    api.brief({ maxAge: ctx.force ? 0 : 15000 }),
+    api.opportunities({ maxAge: ctx.force ? 0 : 60000 }),
+  ]);
+  const brief = briefResult.status === 'fulfilled' ? briefResult.value : null;
+  const recentOps = (opportunityResult.status === 'fulfilled' && Array.isArray(opportunityResult.value) ? opportunityResult.value : [])
+    .filter(op => Number(op?.freshness?.age_hours ?? 9999) <= 96)
+    .slice(0, 6);
   const modules = payload?.modules || {};
   const workConnected = modules.work?.ok === true;
   const work = unwrap(modules.work); const prt = unwrap(modules.prt); const content = unwrap(modules.content); const relationships = unwrap(modules.relationships); const systems = unwrap(modules.systems); const notifications = unwrap(modules.notifications);
@@ -62,6 +70,7 @@ async function renderHQ(root, ctx) {
   const approvalCount = Number(c.autopilot?.pending || 0);
   const followUpCount = Number(relationships?.waiting_follow_up || 0);
   const unreadCount = Number(notifications?.unread || 0);
+  const opportunityCount = recentOps.length || Number(brief?.counts?.opportunities || 0);
   const headline = workConnected ? (attention.length ? `${attention.length} thing${attention.length === 1 ? '' : 's'} deserve your attention.` : 'Pitmark is clear for the moment.') : 'Pitmark HQ is online.';
   const sub = workConnected ? (work?.stale ? 'Master Checklist is showing cached data while the live source reconnects.' : 'Live operations across work, PRT, content, relationships, and systems.') : 'PRT, content, relationships, and systems are live. Work sync is temporarily unavailable.';
   const checklistBadge = workConnected ? (work?.stale ? '<span class="pm-badge warn">Checklist cached</span>' : '<span class="pm-badge good">Checklist live</span>') : '<span class="pm-badge warn">Checklist unavailable</span>';
@@ -79,6 +88,28 @@ async function renderHQ(root, ctx) {
 
   const signalsBody = signalItems.length ? `<div class="pm-row-list">${signalItems.slice(0,7).map(item => `<div class="pm-row"><div class="pm-row-main"><div class="pm-row-meta">${statusBadge(item.priority || item.status || 'info')}<span class="pm-badge">${esc(item.module || 'Pitmark')}</span></div><strong>${esc(item.title || 'Operational signal')}</strong><p>${esc(compact(item.detail || item.reason || 'No additional detail.', 150))}</p></div><div class="pm-row-side"><span class="pm-muted">${esc(age(item.created_at))}</span></div></div>`).join('')}</div>` : empty('No current operational signals.');
 
+  const briefHeadline = brief?.headline || (recentOps.length ? `${recentOps.length} racing opportunities available` : 'No fresh racing opportunities right now');
+  const opportunityBody = recentOps.length ? `<div class="pm-command-summary">
+    <div class="pm-command-head"><strong>${esc(briefHeadline)}</strong><span>Fresh racing coverage surfaced by Pitmark Intelligence</span></div>
+    <div class="pm-row-list">${recentOps.map(op => {
+      const freshness = op.freshness || {};
+      const freshnessLabel = freshness.status === 'realtime' ? 'Now' : freshness.status === 'recent' ? 'Recent' : freshness.status === 'background' ? 'Background' : 'Long-form';
+      const ageLabel = Number.isFinite(Number(freshness.age_hours)) ? `${Number(freshness.age_hours)}h old` : 'age unknown';
+      return `<div class="pm-row pm-opportunity-row">
+        <div class="pm-row-main">
+          <div class="pm-row-meta"><span class="pm-badge orange">Opportunity</span><span class="pm-badge">${esc(freshnessLabel)}</span><span class="pm-badge">${esc(op.source_name || 'Racing source')}</span></div>
+          <strong>${esc(op.headline || 'Racing opportunity')}</strong>
+          <p>${esc(compact(op.reason || 'Fresh motorsports story surfaced by Pitmark Intelligence.', 180))} · ${esc(ageLabel)}</p>
+          <div class="pm-row-actions" style="margin-top:10px">
+            ${op.source_url ? `<a class="pm-button pm-button-ghost" href="${esc(op.source_url)}" target="_blank" rel="noopener" data-op-open>Open article ↗</a>` : ''}
+            <button class="pm-button pm-button-primary" type="button" data-op-content="${esc(op.id)}">Make Content</button>
+            <button class="pm-button pm-button-ghost" type="button" data-op-research="${esc(op.id)}">Research More</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}</div>
+  </div>` : `<div class="pm-command-summary"><div class="pm-command-head"><strong>${esc(briefHeadline)}</strong><span>Run a fresh scan whenever you want new racing stories.</span></div>${empty('No fresh racing opportunities are waiting right now.')}</div>`;
+
   const quickAccess = `<div class="pm-quick-grid">
     <button type="button" data-go="prt"><span>P</span><strong>PRT</strong><small>Testers, feedback, Founder’s Race</small></button>
     <button type="button" data-go="content"><span>▤</span><strong>Content</strong><small>Generated, approvals, editorial</small></button>
@@ -94,8 +125,12 @@ async function renderHQ(root, ctx) {
       ${workConnected ? `<button type="button" class="pm-metric pm-metric-action" data-hq-action="attention" aria-label="Open work needing attention"><span>Needs attention</span><strong>${n(attention.length)}</strong><small>P0/P1, blockers, active work</small><i aria-hidden="true">›</i></button><button type="button" class="pm-metric pm-metric-action" data-hq-action="waiting" aria-label="Open waiting work"><span>Waiting</span><strong>${n(summary.waiting)}</strong><small>External or pending items</small><i aria-hidden="true">›</i></button>` : ''}
       <button type="button" class="pm-metric pm-metric-action" data-hq-action="applications" aria-label="Open PRT applications"><span>PRT applications</span><strong>${n(appCount)}</strong><small>New applications</small><i aria-hidden="true">›</i></button>
       <button type="button" class="pm-metric pm-metric-action" data-hq-action="approvals" aria-label="Open content approvals"><span>Content approvals</span><strong>${n(approvalCount)}</strong><small>Generated posts waiting</small><i aria-hidden="true">›</i></button>
+      <button type="button" class="pm-metric pm-metric-action" data-hq-action="opportunities" aria-label="Jump to racing opportunities"><span>Racing opportunities</span><strong>${n(opportunityCount)}</strong><small>Fresh articles & signals</small><i aria-hidden="true">›</i></button>
       <button type="button" class="pm-metric pm-metric-action" data-hq-action="relationships" aria-label="Open relationships"><span>Relationships</span><strong>${n(relationships?.total)}</strong><small>${n(followUpCount)} follow-ups tracked</small><i aria-hidden="true">›</i></button>
       ${workConnected ? '' : `<button type="button" class="pm-metric pm-metric-action" data-hq-action="feedback"><span>PRT feedback</span><strong>${n(feedbackOpen)}</strong><small>Open tester feedback</small><i aria-hidden="true">›</i></button><button type="button" class="pm-metric pm-metric-action" data-hq-action="signals"><span>Signals</span><strong>${n(unreadCount)}</strong><small>Unread operational signals</small><i aria-hidden="true">›</i></button>`}
+    </div>
+    <div id="racing-opportunities" class="pm-hq-lower">
+      ${panel('Command Brief','Racing Intelligence',opportunityBody,`<button class="pm-button pm-button-ghost" type="button" data-op-scan>Scan Now</button>`)}
     </div>
     <div class="pm-grid pm-grid-hq">
       ${panel('Operator Queue','What Needs You',queueBody,'')}
@@ -114,7 +149,7 @@ async function renderHQ(root, ctx) {
       ${panel('Recent Signals','Operations Feed',signalsBody,`<button class="pm-button pm-button-ghost" data-go="systems">Open Systems</button>`)}
       ${panel('Quick Access','Company Areas',quickAccess,'')}
     </div>`;
-  bindWorkOpeners(root, ctx);
+  bindWorkOpeners(root, ctx, recentOps);
 }
 
 const WORK_VIEWS = ['now','today','active','waiting','monitoring','blocked','desktop','phone','completed','roadmap'];
@@ -133,8 +168,8 @@ async function renderWork(root, ctx) {
   };
 }
 
-function bindWorkOpeners(root, ctx) {
-  root.onclick = (event) => {
+function bindWorkOpeners(root, ctx, opportunities = []) {
+  root.onclick = async (event) => {
     const metric = event.target.closest('[data-hq-action]');
     if (metric) {
       const action = metric.dataset.hqAction;
@@ -142,9 +177,41 @@ function bindWorkOpeners(root, ctx) {
       if (action === 'waiting') { ctx.state.workView = 'waiting'; ctx.navigate('work'); return; }
       if (action === 'applications') { ctx.state.prtTab = 'applications'; ctx.navigate('prt'); return; }
       if (action === 'approvals') { ctx.state.contentTab = 'generated'; ctx.navigate('content'); return; }
+      if (action === 'opportunities') { document.getElementById('racing-opportunities')?.scrollIntoView({behavior:'smooth',block:'start'}); return; }
       if (action === 'relationships') { ctx.navigate('partnerships'); return; }
       if (action === 'feedback') { ctx.state.prtTab = 'feedback'; ctx.navigate('prt'); return; }
       if (action === 'signals') { ctx.navigate('systems'); return; }
+    }
+    const contentButton = event.target.closest('[data-op-content]');
+    if (contentButton) {
+      const op = opportunities.find(item => String(item.id) === String(contentButton.dataset.opContent));
+      if (!op) { ctx.toast('That racing opportunity is no longer available.','bad'); return; }
+      openComposer(ctx, {
+        platform:'facebook',
+        goal:'authority',
+        title:'Create from racing opportunity',
+        topic:`Current racing story: ${op.headline || 'Racing news'}\nSource: ${op.source_name || 'Racing source'}${op.source_url ? `\nArticle: ${op.source_url}` : ''}\n\nCreate a Pitmark Racing Co. post using only verified information from this story. Do not invent results, quotes, motives, identities, sponsors, or Pitmark involvement.`,
+      });
+      return;
+    }
+    const researchButton = event.target.closest('[data-op-research]');
+    if (researchButton) {
+      try {
+        const result = await api.prepareOpportunityResearch(Number(researchButton.dataset.opResearch), 'Verify the racing story, collect reliable source context, identify the useful Pitmark angle, and prepare content hooks. Do not send outreach.');
+        ctx.toast(result?.deduped ? 'Research is already running for this story.' : 'Research & Prepare queued for this racing story.','good');
+      } catch (error) { ctx.toast(error?.message || 'Research could not be queued.','bad'); }
+      return;
+    }
+    if (event.target.closest('[data-op-scan]')) {
+      try {
+        ctx.toast('Scanning racing news for fresh opportunities…');
+        const result = await api.runIntelligence();
+        clearCache('/api/control/brief');
+        clearCache('/api/control/autopilot/opportunities');
+        ctx.toast(`Racing scan complete — ${Number(result?.found || 0)} new signal${Number(result?.found || 0) === 1 ? '' : 's'} found.`,'good');
+        ctx.refresh(true);
+      } catch (error) { ctx.toast(error?.message || 'Racing intelligence scan failed.','bad'); }
+      return;
     }
     const go = event.target.closest('[data-go]'); if (go) { ctx.navigate(go.dataset.go); return; }
     const row = event.target.closest('[data-open-work]');
@@ -543,17 +610,22 @@ function openBulkEdit(rows,ctx){
   });
 }
 
-function openComposer(ctx){
+function openComposer(ctx, seed = {}){
   const topic='composer-topic',platform='composer-platform',body='composer-body',media='composer-media',preview='composer-media-preview';
+  const seedPlatform=low(seed.platform||'facebook');
+  const seedGoal=low(seed.goal||'community');
+  const seedTopic=String(seed.topic||'');
+  const option=(value,label)=>`<option value="${value}" ${seedPlatform===value?'selected':''}>${label}</option>`;
+  const goalOption=(value,label)=>`<option value="${value}" ${seedGoal===value?'selected':''}>${label}</option>`;
   ctx.openSheet({
     kicker:'Autopilot Composer',
-    title:'Create social content',
+    title:seed.title||'Create social content',
     body:`<div class="pm-form">
       <div class="pm-form-grid">
-        <div class="pm-field"><label>Platform</label><select class="pm-select" id="${platform}"><option>facebook</option><option>instagram</option><option>x</option><option>tiktok</option><option>discord</option></select></div>
-        <div class="pm-field"><label>Goal</label><select class="pm-select" id="composer-goal"><option value="community">Community / engagement</option><option value="authority">Current event / authority</option><option value="education">Education</option><option value="product">Product</option></select></div>
+        <div class="pm-field"><label>Platform</label><select class="pm-select" id="${platform}">${option('facebook','facebook')}${option('instagram','instagram')}${option('x','x')}${option('tiktok','tiktok')}${option('discord','discord')}</select></div>
+        <div class="pm-field"><label>Goal</label><select class="pm-select" id="composer-goal">${goalOption('community','Community / engagement')}${goalOption('authority','Current event / authority')}${goalOption('education','Education')}${goalOption('product','Product')}</select></div>
       </div>
-      <div class="pm-field"><label>Topic / prompt</label><textarea class="pm-textarea" id="${topic}" placeholder="What should Pitmark talk about?"></textarea></div>
+      <div class="pm-field"><label>Topic / prompt</label><textarea class="pm-textarea" id="${topic}" placeholder="What should Pitmark talk about?">${esc(seedTopic)}</textarea></div>
       <div class="pm-field"><label>Generated copy</label><textarea class="pm-textarea" id="${body}" placeholder="Generate first, then edit here."></textarea></div>
       <input type="hidden" id="${media}" value="">
       <div id="${preview}" class="pm-detail-block" hidden><h4>Generated social image</h4><img alt="Generated social image" style="width:100%;max-height:420px;object-fit:contain;border-radius:12px;background:#080808"></div>
