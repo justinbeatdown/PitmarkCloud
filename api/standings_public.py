@@ -6,11 +6,23 @@ import json
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, Response
 
-from services.racing_standings import get_standings_snapshot_hub
+from services.racing_standings import get_standings_hub, get_standings_snapshot_hub
 from utils.config import settings
 
 router = APIRouter()
 ASSET_DIR = Path(__file__).resolve().parent
+
+
+def _public_payload() -> dict:
+    """Prefer the already-synced live/cache hub; fall back to durable snapshots."""
+    try:
+        live_payload = get_standings_hub()
+        summary = live_payload.get("summary") or {}
+        if int(summary.get("live") or 0) + int(summary.get("stale") or 0) > 0:
+            return live_payload
+    except Exception:
+        pass
+    return get_standings_snapshot_hub()
 
 
 def _asset(name: str, media_type: str) -> Response:
@@ -23,7 +35,7 @@ def _asset(name: str, media_type: str) -> Response:
 
 @router.get("/standings", response_class=HTMLResponse, include_in_schema=False)
 def public_standings_home():
-    payload = get_standings_snapshot_hub()
+    payload = _public_payload()
     html = (ASSET_DIR / "standings_public.html").read_text(encoding="utf-8")
     js = (ASSET_DIR / "standings_public.js").read_text(encoding="utf-8")
     bootstrap = json.dumps(payload, ensure_ascii=False, default=str).replace("</", "<\\/")
