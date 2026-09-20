@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, Response
 
-from services.racing_standings import get_standings_hub, get_standings_snapshot_hub
+from services.racing_standings import get_standings_snapshot_hub
 from utils.config import settings
 
 router = APIRouter()
@@ -13,14 +13,7 @@ ASSET_DIR = Path(__file__).resolve().parent
 
 
 def _public_payload() -> dict:
-    """Prefer the already-synced live/cache hub; fall back to durable snapshots."""
-    try:
-        live_payload = get_standings_hub()
-        summary = live_payload.get("summary") or {}
-        if int(summary.get("live") or 0) + int(summary.get("stale") or 0) > 0:
-            return live_payload
-    except Exception:
-        pass
+    """Serve durable saved snapshots immediately; background sync updates them."""
     return get_standings_snapshot_hub()
 
 
