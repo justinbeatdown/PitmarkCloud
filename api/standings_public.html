@@ -9,7 +9,7 @@
   <meta property="og:description" content="All of racing. One clean command center.">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#090b0e">
-  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-v3-20260921">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-v3-compact-20260921">
 </head>
 <body>
   <a class="skip-link" href="#standingsStart">Skip to Race Center</a>
@@ -67,9 +67,16 @@
         </label>
       </div>
       <div class="filters" id="filters" aria-label="Standings categories"></div>
+      <nav class="quick-nav" aria-label="Race Center sections">
+        <a href="#raceWeekend">Now</a>
+        <a href="#leaders">Leaders</a>
+        <a href="#movers">Movers</a>
+        <a href="#standingsBoard">Standings</a>
+        <a href="#schedules">Schedules</a>
+      </nav>
     </section>
 
-    <section class="live-section content-section">
+    <section class="live-section content-section" id="raceWeekend">
       <div class="section-head">
         <div>
           <span class="eyebrow">LIVE + NEXT</span>
@@ -81,7 +88,7 @@
       <div class="event-strip" id="nextEvents"></div>
     </section>
 
-    <section class="leaders-section content-section">
+    <section class="leaders-section content-section" id="leaders">
       <div class="section-head">
         <div>
           <span class="eyebrow">CHAMPIONSHIP LEADERS</span>
@@ -94,7 +101,7 @@
       </div>
     </section>
 
-    <section class="movers-section content-section">
+    <section class="movers-section content-section" id="movers">
       <div class="section-head">
         <div>
           <span class="eyebrow">VERIFIED MOVEMENT</span>
@@ -107,13 +114,16 @@
       </div>
     </section>
 
-    <section class="series-section content-section">
+    <section class="series-section content-section" id="standingsBoard">
       <div class="section-head">
         <div>
           <span class="eyebrow">STANDINGS</span>
           <h2>The full racing board</h2>
         </div>
-        <p id="statusText">Pulling the latest saved standings…</p>
+        <div class="section-head-actions">
+          <p id="statusText">Pulling the latest saved standings…</p>
+          <button id="toggleGroups" class="section-control" type="button">Expand all</button>
+        </div>
       </div>
       <div id="seriesGroups"></div>
     </section>
@@ -127,6 +137,9 @@
         <p id="scheduleStatusText">Official schedule and viewing links across Pitmark's racing board.</p>
       </div>
       <div class="schedule-grid" id="scheduleCatalog"></div>
+      <div class="section-more">
+        <button id="scheduleToggle" class="section-control" type="button" hidden>Show all schedules</button>
+      </div>
     </section>
 
     <section class="race-center-grid content-section" aria-label="More Pitmark racing tools">
@@ -151,6 +164,8 @@
     </section>
   </main>
 
+  <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top" hidden>↑ Top</button>
+
   <dialog id="standingsDialog" aria-labelledby="dialogSeriesTitle">
     <div class="dialog-shell">
       <button class="dialog-close" id="dialogClose" type="button" aria-label="Close standings">×</button>
@@ -174,6 +189,6 @@
     <small>Race Center prioritizes official and structured series sources. Pitmark hides unsupported identity fields instead of guessing. Use each linked official series source for final classifications, rules and race-control decisions.</small>
   </footer>
 
-  <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-v3-20260921" defer></script>
+  <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-v3-compact-20260921" defer></script>
 </body>
 </html>
