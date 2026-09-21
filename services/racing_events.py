@@ -70,7 +70,7 @@ _cache_lock = threading.Lock()
 _cache: dict[str, Any] = {"at": None, "value": None}
 _logo_lock = threading.Lock()
 _logo_cache: dict[str, tuple[datetime, str | None, str | None]] = {}
-_LOGO_RESTRICTED = {"f1", "motogp", "moto2", "moto3", "worldsbk"}
+_LOGO_RESTRICTED: set[str] = set()
 
 
 def _logo_tokens(config: dict[str, Any]) -> tuple[str, ...]:
