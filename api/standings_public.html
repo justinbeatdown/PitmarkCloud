@@ -2,135 +2,181 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Pitmark Race Center — Follow the Racing World</title>
-  <meta name="description" content="Pitmark Race Center brings major racing standings, official series sources, Pitmark coverage, and a direct racing-news desk together in one place.">
-  <meta property="og:title" content="Pitmark Race Center">
-  <meta property="og:description" content="All of racing. One home base.">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Pitmark Race Center V3 — Racing Standings, Schedules + Live Board</title>
+  <meta name="description" content="Pitmark Race Center V3 tracks racing standings, championship leaders, live and upcoming events, schedules and official watch information across major racing series.">
+  <meta property="og:title" content="Pitmark Race Center V3">
+  <meta property="og:description" content="All of racing. One clean command center.">
   <meta property="og:type" content="website">
-  <meta name="theme-color" content="#0b0d10">
-  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-adaptive-dialogs-20260921">
+  <meta name="theme-color" content="#090b0e">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-v3-20260921">
 </head>
 <body>
+  <a class="skip-link" href="#standingsStart">Skip to Race Center</a>
+
   <header class="site-header">
-    <a class="brand" href="/race-center" aria-label="Pitmark Race Center home">
-      <img src="/prt-logo.png" alt="Pitmark Racing Co.">
-    </a>
-    <nav>
-      <a href="https://pitmarkracing.com">Shop</a>
-      <a href="/prt">PRT</a>
-      <a class="active" href="/race-center">Race Center</a>
-      <a href="/racing-desk">Racing Desk</a>
-    </nav>
+    <div class="header-inner">
+      <a class="brand" href="/race-center" aria-label="Pitmark Race Center home">
+        <img src="/prt-logo.png" alt="Pitmark Racing Co.">
+        <span class="brand-product"><strong>Race Center</strong><small>V3</small></span>
+      </a>
+      <nav aria-label="Pitmark navigation">
+        <a href="https://pitmarkracing.com">Shop</a>
+        <a href="/prt">PRT</a>
+        <a class="active" href="/race-center" aria-current="page">Race Center</a>
+        <a href="/racing-desk">Racing Desk</a>
+      </nav>
+      <span class="header-health" id="headerStatus"><i></i> Loading data</span>
+    </div>
   </header>
 
   <main>
-    <section class="hero">
+    <section class="hero" aria-labelledby="heroTitle">
       <div class="hero-copy">
-        <span class="eyebrow">PITMARK RACE CENTER</span>
-        <h1>All of racing.<br><em>One home base.</em></h1>
-        <p>Follow the racing world without living in 27 tabs. Race Center starts with major championship standings and verified series sources, then connects you to Pitmark coverage and a direct desk for track, team, driver, and series news.</p>
+        <div class="version-line">
+          <span class="eyebrow">PITMARK RACE CENTER</span>
+          <span class="version-pill">V3</span>
+        </div>
+        <h1 id="heroTitle">The racing world,<br><em>organized.</em></h1>
+        <p>Standings, movement, schedules, live events and official watch links across the series you actually care about — without living in forty tabs.</p>
         <div class="hero-actions">
-          <button id="jumpLive" class="button primary">Open the race board</button>
-          <a class="button secondary" href="https://pitmarkracing.com">Pitmark Racing Co. ↗</a>
+          <button id="jumpLive" class="button primary" type="button">Open standings</button>
+          <a class="button secondary" href="#schedules">Find the next race</a>
         </div>
       </div>
-      <div class="hero-board" aria-label="Standings hub summary">
-        <div><span>Series tracked</span><strong id="seriesCount">—</strong></div>
-        <div><span>Live feeds</span><strong id="liveCount">—</strong></div>
-        <div><span>Season</span><strong id="seasonValue">—</strong></div>
-        <div><span>Updated</span><strong id="updatedValue">—</strong></div>
+
+      <div class="hero-board" aria-label="Race Center status">
+        <div><span>Series tracked</span><strong id="seriesCount">—</strong><small>standings + schedules</small></div>
+        <div><span>Live now</span><strong id="liveCount">—</strong><small>official event feeds</small></div>
+        <div><span>Feed health</span><strong id="feedHealth">—</strong><small>current / cached</small></div>
+        <div><span>Last sync</span><strong id="updatedValue">—</strong><small id="seasonValue">Season —</small></div>
       </div>
     </section>
 
-    <section class="toolbar" id="standingsStart">
+    <section class="toolbar" id="standingsStart" aria-label="Race Center controls">
+      <div class="toolbar-top">
+        <div>
+          <span class="toolbar-kicker">EXPLORE</span>
+          <strong id="resultCount">All championships</strong>
+        </div>
+        <label class="search">
+          <span class="sr-only">Search series or driver</span>
+          <span class="search-icon" aria-hidden="true">⌕</span>
+          <input id="searchInput" type="search" autocomplete="off" placeholder="Search series, driver, team…">
+          <button id="clearSearch" class="clear-search" type="button" aria-label="Clear search" hidden>×</button>
+        </label>
+      </div>
       <div class="filters" id="filters" aria-label="Standings categories"></div>
-      <label class="search">
-        <span>Search</span>
-        <input id="searchInput" type="search" placeholder="Driver or series…">
-      </label>
     </section>
 
-    <section class="race-center-grid" aria-label="Pitmark Race Center">
-      <a class="race-center-tile" href="#standingsStart">
-        <span class="eyebrow">LIVE BOARD</span>
-        <strong>Championship Standings</strong>
-        <p>Major pavement, dirt, open-wheel, sports-car, drag, touring-car and motorcycle championships in one searchable board.</p>
-      </a>
-      <a class="race-center-tile" href="#schedules">
-        <span class="eyebrow">RACE WEEKEND</span>
-        <strong>Schedules + Live Events</strong>
-        <p>Upcoming events, LIVE NOW status, and official watch information across the racing world.</p>
-      </a>
-      <a class="race-center-tile" href="https://pitmarkracing.com/blogs/racing-culture" target="_blank" rel="noopener">
-        <span class="eyebrow">PITMARK COVERAGE</span>
-        <strong>Racing News + Culture</strong>
-        <p>Track stories, racing news, features and original coverage from across the Pitmark racing world.</p>
-      </a>
-      <a class="race-center-tile" href="/submit-racing-news">
-        <span class="eyebrow">RACING DESK</span>
-        <strong>Send Pitmark Your News</strong>
-        <p>Tracks, teams, drivers, series and promoters can send schedules, results, releases, corrections and media directly to Pitmark.</p>
-      </a>
-    </section>
-
-    <section class="live-section">
+    <section class="live-section content-section">
       <div class="section-head">
-        <div><span class="eyebrow">LIVE + NEXT</span><h2>What’s happening now</h2></div>
+        <div>
+          <span class="eyebrow">LIVE + NEXT</span>
+          <h2>Race weekend</h2>
+        </div>
         <p id="eventStatusText">Checking official schedules…</p>
       </div>
       <div id="liveNow"></div>
       <div class="event-strip" id="nextEvents"></div>
     </section>
 
-    <section class="leaders-section">
+    <section class="leaders-section content-section">
       <div class="section-head">
-        <div><span class="eyebrow">CHAMPIONSHIP LEADERS</span><h2>Who's on top right now</h2></div>
-        <p>↔0 means unchanged or baseline. ▲ / ▼ appears only after a verified standings change.</p>
+        <div>
+          <span class="eyebrow">CHAMPIONSHIP LEADERS</span>
+          <h2>Who's on top</h2>
+        </div>
+        <p>Current leaders across the championships in view.</p>
       </div>
       <div class="leader-strip" id="leaderStrip">
-        <div class="loading-card">Loading racing world…</div>
+        <div class="loading-card">Loading championship leaders…</div>
       </div>
     </section>
 
-    <section class="schedule-section" id="schedules">
+    <section class="movers-section content-section">
       <div class="section-head">
-        <div><span class="eyebrow">SCHEDULES + WATCH</span><h2>Find the next race</h2></div>
-        <p>Official schedule and broadcast links for every series Pitmark tracks.</p>
+        <div>
+          <span class="eyebrow">VERIFIED MOVEMENT</span>
+          <h2>Who moved</h2>
+        </div>
+        <p>Only changes supported by two trustworthy Pitmark snapshots appear here.</p>
       </div>
-      <div class="schedule-grid" id="scheduleCatalog"></div>
+      <div class="movers-strip" id="moversStrip">
+        <div class="loading-card">Checking movement history…</div>
+      </div>
     </section>
 
-    <section class="series-section">
+    <section class="series-section content-section">
       <div class="section-head">
-        <div><span class="eyebrow">ALL SERIES</span><h2>The full racing board</h2></div>
+        <div>
+          <span class="eyebrow">STANDINGS</span>
+          <h2>The full racing board</h2>
+        </div>
         <p id="statusText">Pulling the latest saved standings…</p>
       </div>
       <div id="seriesGroups"></div>
     </section>
+
+    <section class="schedule-section content-section" id="schedules">
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">SCHEDULES + WATCH</span>
+          <h2>Find the next race</h2>
+        </div>
+        <p id="scheduleStatusText">Official schedule and viewing links across Pitmark's racing board.</p>
+      </div>
+      <div class="schedule-grid" id="scheduleCatalog"></div>
+    </section>
+
+    <section class="race-center-grid content-section" aria-label="More Pitmark racing tools">
+      <a class="race-center-tile" href="https://pitmarkracing.com/blogs/racing-culture" target="_blank" rel="noopener">
+        <span class="eyebrow">PITMARK COVERAGE</span>
+        <strong>Racing News + Culture</strong>
+        <p>Track stories, results, features and original Pitmark coverage.</p>
+        <span class="tile-arrow">Open coverage ↗</span>
+      </a>
+      <a class="race-center-tile" href="/submit-racing-news">
+        <span class="eyebrow">RACING DESK</span>
+        <strong>Send Pitmark Your News</strong>
+        <p>Tracks, teams, drivers and series can submit schedules, results, releases and media.</p>
+        <span class="tile-arrow">Open racing desk →</span>
+      </a>
+      <a class="race-center-tile" href="/prt">
+        <span class="eyebrow">PITMARK RACING TOOLS</span>
+        <strong>PRT Race Intelligence</strong>
+        <p>Race data, overlays and tools built for iRacing drivers and broadcasters.</p>
+        <span class="tile-arrow">Explore PRT →</span>
+      </a>
+    </section>
   </main>
 
-  <dialog id="standingsDialog">
+  <dialog id="standingsDialog" aria-labelledby="dialogSeriesTitle">
     <div class="dialog-shell">
-      <button class="dialog-close" id="dialogClose" aria-label="Close">×</button>
+      <button class="dialog-close" id="dialogClose" type="button" aria-label="Close standings">×</button>
       <div id="dialogContent"></div>
     </div>
   </dialog>
 
-  <footer>
-    <div>
-      <img src="/prt-logo.png" alt="Pitmark Racing Co.">
-      <p>Built for people who follow all of racing, not just one corner of it.</p>
+  <body-footer>
+  </body-footer>
+
+  <footer class="site-footer">
+    <div class="footer-main">
+      <div class="footer-brand">
+        <img src="/prt-logo.png" alt="Pitmark Racing Co.">
+        <p>All of racing. One home base.</p>
+      </div>
+      <div class="footer-links">
+        <a href="https://pitmarkracing.com">Pitmark Racing Co.</a>
+        <a href="/prt">Pitmark Racing Tools</a>
+        <a href="/race-center">Race Center</a>
+        <a href="/racing-desk">Racing Desk</a>
+      </div>
     </div>
-    <div class="footer-links">
-      <a href="https://pitmarkracing.com">Pitmark Racing Co.</a>
-      <a href="/prt">Pitmark Racing Tools</a>
-      <a href="/race-center">Pitmark Race Center</a>
-      <a href="/racing-desk">Pitmark Racing Desk</a>
-    </div>
-    <small>Standings are aggregated from official or structured series sources when available. Driver numbers, team/manufacturer identity, and series logos are displayed only when Pitmark can trace them to an official series-owned source. Missing identity data is intentionally left blank rather than inferred. Always use the linked official series source for rules and final classification decisions.</small>
+    <small>Race Center prioritizes official and structured series sources. Pitmark hides unsupported identity fields instead of guessing. Use each linked official series source for final classifications, rules and race-control decisions.</small>
   </footer>
 
-  <script src="/standings.js?v={{PITMARK_VERSION}}-adaptive-dialogs-20260921" defer></script>
+  <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-v3-20260921" defer></script>
 </body>
 </html>
