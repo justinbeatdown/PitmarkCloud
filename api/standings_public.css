@@ -166,6 +166,69 @@ main{width:min(var(--max),calc(100% - 36px));margin:0 auto;padding-bottom:84px}
 .filter.active{background:rgba(255,85,0,.13);border-color:rgba(255,85,0,.55);color:#fff}
 .filter.active span{color:#ff9a69}
 
+/* Race Center page architecture */
+.hub-nav-grid{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 8px
+}
+.hub-nav-card{
+  min-width:0;min-height:124px;padding:16px 17px;border:1px solid var(--line);border-radius:15px;
+  background:linear-gradient(145deg,#14191f,#0d1115);display:grid;grid-template-columns:auto 1fr auto;
+  gap:14px;align-items:center;transition:.15s ease
+}
+.hub-nav-card:hover{border-color:rgba(255,85,0,.48);transform:translateY(-2px);background:linear-gradient(145deg,#171d23,#101419)}
+.hub-nav-icon{
+  width:40px;height:40px;border-radius:10px;display:grid;place-items:center;
+  border:1px solid rgba(255,85,0,.28);background:rgba(255,85,0,.08);
+  color:var(--orange2);font-size:10px;font-weight:1000;letter-spacing:.06em
+}
+.hub-nav-card>div{min-width:0}
+.hub-nav-card strong{display:block;margin:4px 0 3px;font-size:18px;letter-spacing:-.03em}
+.hub-nav-card p{margin:0;color:#8491a3;font-size:10px;line-height:1.45}
+.hub-nav-card>b{color:#ff8b52;font-size:20px}
+.back-to-top{
+  position:fixed;right:18px;bottom:18px;z-index:45;padding:9px 12px;border:1px solid #35404b;
+  border-radius:999px;background:rgba(15,19,24,.92);backdrop-filter:blur(12px);color:#fff;
+  font-size:10px;font-weight:900;box-shadow:0 10px 30px rgba(0,0,0,.35);cursor:pointer
+}
+.back-to-top:hover{border-color:rgba(255,85,0,.5);background:#171c22}
+
+body[data-view="hub"] .toolbar,
+body[data-view="hub"] .series-section,
+body[data-view="hub"] .schedule-section{display:none}
+
+body[data-view="standings"] #hubNavigation,
+body[data-view="standings"] .live-section,
+body[data-view="standings"] .schedule-section,
+body[data-view="standings"] .race-center-grid{display:none}
+
+body[data-view="schedules"] #hubNavigation,
+body[data-view="schedules"] .live-section,
+body[data-view="schedules"] .leaders-section,
+body[data-view="schedules"] .movers-section,
+body[data-view="schedules"] .series-section,
+body[data-view="schedules"] .race-center-grid{display:none}
+
+body[data-view="live"] #hubNavigation,
+body[data-view="live"] .leaders-section,
+body[data-view="live"] .movers-section,
+body[data-view="live"] .series-section,
+body[data-view="live"] .schedule-section,
+body[data-view="live"] .race-center-grid{display:none}
+
+body:not([data-view="hub"]) .hero{
+  min-height:0;grid-template-columns:1fr;padding:42px 0 24px
+}
+body:not([data-view="hub"]) .hero-board{display:none}
+body:not([data-view="hub"]) .hero h1{
+  max-width:960px;margin:10px 0 15px;font-size:clamp(44px,5.5vw,72px);line-height:.94
+}
+body:not([data-view="hub"]) .hero-copy>p{max-width:850px;font-size:16px}
+body:not([data-view="hub"]) .hero-actions{margin-top:20px}
+body:not([data-view="hub"]) .toolbar{margin-bottom:24px}
+body[data-view="hub"] .content-section{margin-top:38px}
+body[data-view="hub"] .section-head{margin-bottom:12px}
+body[data-view="hub"] .section-head h2{font-size:clamp(26px,2.5vw,36px)}
+
 /* Sections */
 .content-section{margin-top:54px}
 .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:30px;margin-bottom:17px}
@@ -385,6 +448,11 @@ tbody tr:last-child td{border-bottom:0}
   .schedule-grid,.live-grid,.event-strip{grid-template-columns:repeat(3,minmax(0,1fr))}
   .leader-strip,.movers-strip{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+@media(max-width:1100px){
+  .hub-nav-grid{grid-template-columns:1fr}
+  .hub-nav-card{min-height:96px}
+}
+
 @media(max-width:900px){
   :root{--header-h:102px}
   .header-inner{height:auto;min-height:var(--header-h);grid-template-columns:1fr;gap:8px;padding:10px 0}
@@ -395,6 +463,7 @@ tbody tr:last-child td{border-bottom:0}
   .site-header nav::-webkit-scrollbar{display:none}
   .site-header nav a{padding:7px 9px;font-size:11px}
   .hero{min-height:0;grid-template-columns:1fr;padding:48px 0 32px}
+  body:not([data-view="hub"]) .hero{padding:32px 0 20px}
   .hero h1{font-size:clamp(52px,12vw,82px)}
   .hero-board{max-width:760px}
   .toolbar{top:calc(var(--header-h) + 6px)}
@@ -418,6 +487,9 @@ tbody tr:last-child td{border-bottom:0}
   .toolbar-top>div{justify-content:space-between}
   .search{width:100%}
   .content-section{margin-top:42px}
+  body[data-view="hub"] .content-section{margin-top:32px}
+  .hub-nav-card{grid-template-columns:auto 1fr auto;padding:13px 14px}
+  .hub-nav-card p{font-size:9px}
   .section-head{align-items:flex-start;flex-direction:column;gap:6px}
   .section-head p{text-align:left}
   .series-grid,.live-grid,.event-strip,.schedule-grid,.leader-strip,.movers-strip{grid-template-columns:1fr}
@@ -441,6 +513,7 @@ tbody tr:last-child td{border-bottom:0}
 }
 @media(max-width:430px){
   .brand img{width:122px}
+  .back-to-top{right:11px;bottom:11px}
   .brand-product{padding-left:9px}
   .hero h1{font-size:45px}
   .hero-board{grid-template-columns:1fr 1fr}
