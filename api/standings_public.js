@@ -205,6 +205,7 @@ function miniRows(series){
 function card(series){
   const leader=(series.entries||[])[0];
   const count=(series.entries||[]).length;
+  const rosterCount=Math.max(count,(series.roster||[]).length);
   return `<article class="series-card" data-key="${esc(series.series_key)}" role="button" tabindex="0" aria-label="Open ${esc(series.series_name)} standings">
     <header>
       <div class="card-brand">${logo(series)}<div><span class="eyebrow">${esc(series.group||'RACING')}</span><h4>${esc(series.short_name||series.series_name)}</h4></div></div>
@@ -216,7 +217,7 @@ function card(series){
       <small>${leader?points(leader.points)+' pts'+(identityText(leader)?' · '+esc(identityText(leader)):''):'No data yet'}</small>
     </div>
     ${miniRows(series)}
-    <footer><span>${count?count+' drivers':'No verified rows'}</span><strong>Full standings ›</strong></footer>
+    <footer><span>${rosterCount?rosterCount+' drivers':'No verified rows'}</span><strong>View full field ›</strong></footer>
   </article>`;
 }
 
@@ -251,7 +252,8 @@ function renderSummary(){
   const unavailable=Number(summary.unavailable||0);
   $('#seriesCount').textContent=n(summary.schedule_series_total||total);
   $('#liveCount').textContent=n(summary.events_live||0);
-  $('#feedHealth').textContent=total?`${fresh}/${total}`:'—';
+  const available=Math.max(0,total-unavailable);
+  $('#feedHealth').textContent=total?`${available}/${total}`:'—';
   $('#seasonValue').textContent=`Season ${payload.season||'—'}`;
   $('#updatedValue').textContent=age(summary.last_snapshot_at||payload.generated_at);
 
@@ -432,6 +434,9 @@ function openSeries(key){
   const series=(state.payload?.series||[]).find(item=>String(item.series_key)===String(key));
   if(!series)return;
   const rows=(series.entries||[]).map(row=>({...row}));
+  const roster=(series.roster||[]).map(row=>({...row}));
+  const rosterCount=Math.max(rows.length,roster.length);
+  const rosterOnly=roster.filter(row=>row.in_standings===false);
   const leaderPoints=rows.length?numericValue(rows[0]?.points):null;
 
   rows.forEach(row=>{
@@ -467,10 +472,20 @@ function openSeries(key){
     </table></div>`
     :'<div class="loading-card">No verified current standings are available from this source.</div>';
 
+  const rosterSupplement=rosterOnly.length
+    ?`<section class="roster-supplement">
+      <div class="roster-head"><div><span class="eyebrow">SEASON ROSTER</span><h3>Additional full-time competitors</h3></div><small>${rosterOnly.length} not exposed in the source's points table</small></div>
+      <div class="roster-grid">${rosterOnly.map(row=>`<div class="roster-person">
+        <strong>${row.number?esc('#'+row.number+' · '):''}${esc(row.name||'Unknown')}</strong>
+        <small>${esc([row.team,row.manufacturer].filter(Boolean).join(' · ')||'Full-time series competitor')}</small>
+      </div>`).join('')}</div>
+    </section>`
+    :'';
+
   const leader=rows[0];
   const summary=`<div class="dialog-summary">
     <div><span>Leader</span><strong>${esc(leader?.name||'—')}</strong></div>
-    <div><span>Field</span><strong>${rows.length?rows.length+' drivers':'—'}</strong></div>
+    <div><span>Roster</span><strong>${rosterCount?rosterCount+' drivers':'—'}</strong></div>
     <div><span>Data</span><strong>${series.stale?'Cached snapshot':'Current snapshot'}</strong></div>
     <div><span>Updated</span><strong>${esc(age(series.fetched_at))} ago</strong></div>
   </div>`;
@@ -492,7 +507,7 @@ function openSeries(key){
       <p>${esc(series.source_name||'Series standings')} · updated ${esc(age(series.fetched_at))} ago</p>
     </div></div>
   </div>
-  ${eventLine}${summary}${body}
+  ${eventLine}${summary}${body}${rosterSupplement}
   <div class="source-links">
     ${scheduleLink}${watchLink}
     ${series.official_url?`<a class="official-link" href="${esc(series.official_url)}" target="_blank" rel="noopener">Official standings ↗</a>`:''}
