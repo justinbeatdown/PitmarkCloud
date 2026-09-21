@@ -1,4 +1,4 @@
-const state={payload:null,group:'All',search:''};
+const state={payload:null,schedule:null,group:'All',search:''};
 const $=s=>document.querySelector(s);
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const n=value=>Number(value||0).toLocaleString();
@@ -77,6 +77,55 @@ function renderSummary(){
   $('#seasonValue').textContent=p.season||'—';
   $('#updatedValue').textContent=age(s.last_snapshot_at||p.generated_at);
 }
+const dateLabel=iso=>{
+  if(!iso)return 'Schedule';
+  const d=new Date(iso); if(Number.isNaN(d.getTime()))return 'Schedule';
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:d.getFullYear()!==new Date().getFullYear()?'numeric':undefined});
+};
+const eventTime=iso=>{
+  if(!iso)return '';
+  const d=new Date(iso); if(Number.isNaN(d.getTime()))return '';
+  const hasTime=d.getUTCHours()!==0||d.getUTCMinutes()!==0;
+  return hasTime?d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit',timeZoneName:'short'}):'';
+};
+function scheduleEventCard(item){
+  const event=item.event||{};
+  const live=!!event.live;
+  const when=live?'LIVE NOW':(event.state==='today'?'TODAY':dateLabel(event.start));
+  return `<article class="event-card ${live?'is-live':''}">
+    <div class="event-top"><span class="eyebrow">${esc(item.group||'RACING')}</span><span class="event-state ${live?'live':''}">${esc(when)}</span></div>
+    <h3>${esc(item.name)}</h3>
+    <strong class="event-name">${esc(event.name||'See official schedule')}</strong>
+    <small>${esc(event.status_text||eventTime(event.start)||'Official schedule')}</small>
+    <div class="event-actions"><a href="${esc(item.schedule)}" target="_blank" rel="noopener">Schedule ↗</a><a href="${esc(item.watch)}" target="_blank" rel="noopener">${esc(item.watch_label||'Where to watch')} ↗</a></div>
+  </article>`;
+}
+function renderSchedule(){
+  const s=state.schedule;
+  if(!s)return;
+  const live=s.live||[];
+  $('#liveNow').innerHTML=live.length?`<div class="live-now-banner"><span class="pulse"></span><strong>${live.length} LIVE NOW</strong><span>Across the Pitmark Race Center</span></div>`:'';
+  const upcoming=(s.upcoming||[]).slice(0,12);
+  $('#upcomingEvents').innerHTML=upcoming.length?upcoming.map(scheduleEventCard).join(''):'<div class="loading-card">Schedule directory is ready. Live/upcoming event detection is warming in the background.</div>';
+  $('#scheduleDirectory').innerHTML=(s.series||[]).map(item=>`<article class="schedule-row">
+    <div><span class="eyebrow">${esc(item.group||'RACING')}</span><strong>${esc(item.name)}</strong></div>
+    <div class="schedule-row-actions"><a href="${esc(item.schedule)}" target="_blank" rel="noopener">Official schedule ↗</a><a href="${esc(item.watch)}" target="_blank" rel="noopener">${esc(item.watch_label||'Watch info')} ↗</a></div>
+  </article>`).join('');
+  const total=s.summary?.series_total||s.series?.length||0, liveCount=s.summary?.live_now||0;
+  $('#scheduleStatus').textContent=`${total} series tracked · ${liveCount} live now · official schedule/watch links${s.summary?.warming?' · live detection warming…':''}`;
+}
+async function loadSchedule(){
+  try{
+    const response=await fetch('/api/public/race-schedule',{headers:{Accept:'application/json'}});
+    if(!response.ok)throw new Error('Schedule feed unavailable');
+    state.schedule=await response.json();
+    renderSchedule();
+    if(state.schedule?.summary?.warming)setTimeout(loadSchedule,12000);
+  }catch(error){
+    $('#scheduleStatus').textContent='Schedule feed temporarily unavailable.';
+  }
+}
+
 function bindLogoErrors(){
   document.querySelectorAll('.series-logo').forEach(img=>img.addEventListener('error',()=>{img.hidden=true;},{once:true}));
 }
@@ -134,3 +183,4 @@ $('#dialogClose').addEventListener('click',()=>$('#standingsDialog').close());
 $('#standingsDialog').addEventListener('click',event=>{if(event.target===$('#standingsDialog'))$('#standingsDialog').close();});
 $('#jumpLive').addEventListener('click',()=>$('#standingsStart').scrollIntoView({behavior:'smooth'}));
 load();
+loadSchedule();
