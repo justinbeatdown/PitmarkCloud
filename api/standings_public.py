@@ -51,7 +51,7 @@ def _asset(name: str, media_type: str) -> Response:
     return Response(
         (ASSET_DIR / name).read_text(encoding="utf-8"),
         media_type=media_type,
-        headers={"Cache-Control": "public, max-age=300"},
+        headers={"Cache-Control": "no-store, max-age=0"},
     )
 
 
