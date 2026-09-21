@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, Response
 
 from services.racing_standings import get_series_logo_info, get_standings_snapshot_hub
+from services.racing_events import get_racing_event_hub
 from utils.config import settings
 
 router = APIRouter()
@@ -97,6 +98,8 @@ def public_standings_logo(series_key: str):
 @router.get("/api/public/standings", include_in_schema=False)
 def public_standings_data():
     payload = get_standings_snapshot_hub()
+    event_hub = get_racing_event_hub()
+    event_series = event_hub.get("series") or {}
     safe_series = []
     for series in payload.get("series") or []:
         identity_verified = bool(series.get("metadata_verified"))
@@ -110,6 +113,7 @@ def public_standings_data():
             safe_entries.append(entry)
         logo_url = str(series.get("series_logo_url") or "").strip()
         logo_is_http = logo_url.startswith(("https://", "http://"))
+        event_info = event_series.get(str(series.get("series_key") or "")) or {}
         safe_series.append(
             {
                 "series_key": series.get("series_key"),
@@ -130,6 +134,11 @@ def public_standings_data():
                 "fetched_at": series.get("fetched_at"),
                 "status": series.get("status"),
                 "stale": bool(series.get("stale")),
+                "event_state": event_info.get("state"),
+                "current_event": event_info.get("event"),
+                "schedule_url": event_info.get("schedule_url"),
+                "watch_name": event_info.get("watch_name"),
+                "watch_url": event_info.get("watch_url"),
                 "entries": safe_entries,
             }
         )
@@ -138,7 +147,17 @@ def public_standings_data():
             {
                 "season": payload.get("season"),
                 "generated_at": payload.get("generated_at"),
-                "summary": payload.get("summary") or {},
+                "summary": {
+                    **(payload.get("summary") or {}),
+                    "events_live": len(event_hub.get("live") or []),
+                    "schedule_series_total": len(event_hub.get("catalog") or []),
+                },
+                "events": {
+                    "generated_at": event_hub.get("generated_at"),
+                    "live": event_hub.get("live") or [],
+                    "next": event_hub.get("next") or [],
+                    "catalog": event_hub.get("catalog") or [],
+                },
                 "series": safe_series,
             },
             ensure_ascii=False,
