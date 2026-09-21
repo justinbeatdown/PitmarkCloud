@@ -137,6 +137,7 @@ async def results_sweep_loop() -> None:
     """Run Pitmark's inbox-independent weekend results coverage sweep."""
     interval = _env_int("PITMARK_RESULTS_SWEEP_POLL_SECONDS", 900, 300, 3600)
     while True:
+        retry_seconds = interval
         try:
             result = await asyncio.to_thread(results_sweep_service.run_if_due)
             if result.get("ran"):
@@ -149,9 +150,14 @@ async def results_sweep_loop() -> None:
                     result.get("duplicate_count", 0),
                     result.get("error_count", 0),
                 )
+            elif result.get("reason") == "already_running_elsewhere":
+                # Rolling Render deploys briefly overlap old/new instances. Retry
+                # quickly once the draining instance releases the Postgres lock.
+                retry_seconds = 30
         except Exception as exc:
             log.warning("Sunday Night Results Sweep failed: %s", exc)
-        await asyncio.sleep(interval)
+            retry_seconds = 60
+        await asyncio.sleep(retry_seconds)
 
 
 @asynccontextmanager
