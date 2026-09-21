@@ -3,7 +3,7 @@ const $=s=>document.querySelector(s);
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const n=value=>Number(value||0).toLocaleString();
 const points=value=>value===null||value===undefined||value===''?'—':(typeof value==='number'?value.toLocaleString():esc(value));
-const logo=series=>series?.series_logo?`<img class="series-logo" src="${esc(series.series_logo)}" alt="${esc(series.series_name||'Series')} official logo">`:'';
+const logo=series=>series?.series_logo?`<img class="series-logo" src="${esc(series.series_logo)}" data-direct="${esc(series.series_logo_direct||'')}" alt="${esc(series.series_name||'Series')} official logo">`:'';
 const identityText=row=>{const values=[row?.team,row?.manufacturer].filter(Boolean).map(String);return [...new Set(values)].join(' · ');};
 const age=iso=>{
   if(!iso)return '—';
@@ -85,7 +85,19 @@ function renderSummary(){
   $('#updatedValue').textContent=age(s.last_snapshot_at||p.generated_at);
 }
 function bindLogoErrors(){
-  document.querySelectorAll('.series-logo').forEach(img=>img.addEventListener('error',()=>{img.hidden=true;},{once:true}));
+  document.querySelectorAll('.series-logo').forEach(img=>{
+    if(img.dataset.logoBound)return;
+    img.dataset.logoBound='1';
+    img.addEventListener('error',()=>{
+      const direct=img.dataset.direct||'';
+      if(direct&&img.src!==direct&&!img.dataset.directTried){
+        img.dataset.directTried='1';
+        img.src=direct;
+        return;
+      }
+      img.hidden=true;
+    });
+  });
 }
 function eventCard(item,compact=false){
   const event=item?.event||{};
