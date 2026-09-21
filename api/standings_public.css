@@ -419,6 +419,14 @@ tbody tr:last-child td{border-bottom:0}
 .adaptive-table th[data-col="manufacturer"],.adaptive-table td[data-col="manufacturer"]{min-width:115px}
 .adaptive-table th[data-col="points"],.adaptive-table td[data-col="points"]{min-width:86px}
 .adaptive-table td[data-col="behind"]{font-weight:850;color:#aab5c3}
+.roster-supplement{margin-top:16px;padding:14px;border:1px solid #252d36;border-radius:12px;background:#0f1419}
+.roster-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:10px}
+.roster-head h3{margin:4px 0 0;font-size:16px;letter-spacing:-.025em}
+.roster-head small{color:#758295;font-size:8px;text-align:right}
+.roster-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.roster-person{min-width:0;padding:9px 10px;border:1px solid #252d35;border-radius:9px;background:#0c1014}
+.roster-person strong{display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.roster-person small{display:block;margin-top:3px;color:#748295;font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .source-links{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}
 .official-link{
   display:inline-flex;padding:8px 10px;border:1px solid #28313b;border-radius:8px;background:#10151a;
@@ -471,6 +479,7 @@ tbody tr:last-child td{border-bottom:0}
   .leader-strip,.movers-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
   .race-center-grid{grid-template-columns:1fr}
   .dialog-summary{grid-template-columns:1fr 1fr}
+  .roster-grid{grid-template-columns:1fr 1fr}
 }
 @media(max-width:680px){
   :root{--header-h:96px}
@@ -523,6 +532,9 @@ tbody tr:last-child td{border-bottom:0}
   .series-logo{width:68px;height:46px}
   .series-wordmark{width:68px}
   .dialog-summary{grid-template-columns:1fr}
+  .roster-grid{grid-template-columns:1fr}
+  .roster-head{align-items:flex-start;flex-direction:column;gap:4px}
+  .roster-head small{text-align:left}
   .source-links{flex-direction:column;align-items:stretch}
   .official-link{justify-content:center}
 }
