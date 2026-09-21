@@ -12,10 +12,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from utils.security import SecurityHeadersMiddleware, security_summary
 
-from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_2026, control_center_v19, control_center_v195, control_access_v191, control_center_ui, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, prt_testimonial_asset, early_access_admin, astra_director, standings_public, racing_network
+from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_2026, control_center_v19, control_center_v195, control_access_v191, control_center_ui, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, prt_testimonial_asset, early_access_admin, astra_director, standings_public, racing_network, results_sweep
 from utils.config import settings
 from utils.logger import configure_logging
-from services import discord_gateway_service, prt_access_bans, prt_licensing_store
+from services import discord_gateway_service, prt_access_bans, prt_licensing_store, results_sweep as results_sweep_service
 from services.database import init_database, database_status
 from services.founders_race_activation import backfill_hub_emails
 from services.autopilot_intelligence import scheduler_loop
@@ -133,6 +133,27 @@ async def racing_standings_sync_loop() -> None:
         await asyncio.sleep(interval)
 
 
+async def results_sweep_loop() -> None:
+    """Run Pitmark's inbox-independent weekend results coverage sweep."""
+    interval = _env_int("PITMARK_RESULTS_SWEEP_POLL_SECONDS", 900, 300, 3600)
+    while True:
+        try:
+            result = await asyncio.to_thread(results_sweep_service.run_if_due)
+            if result.get("ran"):
+                log.info(
+                    "Sunday Night Results Sweep: checked=%s found=%s published=%s uncovered=%s duplicates=%s errors=%s",
+                    result.get("targets_checked", 0),
+                    result.get("results_found", 0),
+                    result.get("published_count", 0),
+                    result.get("uncovered_count", 0),
+                    result.get("duplicate_count", 0),
+                    result.get("error_count", 0),
+                )
+        except Exception as exc:
+            log.warning("Sunday Night Results Sweep failed: %s", exc)
+        await asyncio.sleep(interval)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     loop = asyncio.get_running_loop()
@@ -195,6 +216,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(runtime_maintenance_loop(), name="runtime-memory-maintenance"),
         asyncio.create_task(racing_standings_sync_loop(), name="racing-standings"),
         asyncio.create_task(racing_events_sync_loop(), name="race-center-events"),
+        asyncio.create_task(results_sweep_loop(), name="sunday-results-sweep"),
     ]
     log.info(
         "Pitmark Cloud runtime started: background_threads=%s gmail_sync_min=%ss gmail_batch<=%s social_operator=%s",
@@ -352,6 +374,7 @@ app.include_router(control_center_ui.router)
 app.include_router(prt_ui.router)
 app.include_router(standings_public.router, tags=["public-standings"])
 app.include_router(racing_network.router, tags=["racing-network"])
+app.include_router(results_sweep.router, prefix="/api/control/results-sweep", tags=["results-sweep"])
 app.include_router(prt_testimonial_asset.router)
 app.include_router(early_access_admin.router)
 
