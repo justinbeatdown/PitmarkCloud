@@ -107,6 +107,7 @@ SERIES: tuple[dict[str, Any], ...] = (
         "group": "Dirt",
         "provider": "official_table",
         "official_url": "https://www.lucasdirt.com/standings/",
+        "logo_source_url": "https://www.lucasdirt.com/",
         "source_name": "Lucas Oil Late Model Dirt Series official standings",
         "name_headers": ("driver", "competitor"),
         "points_headers": ("points", "pts"),
@@ -122,6 +123,7 @@ SERIES: tuple[dict[str, Any], ...] = (
         "group": "Dirt",
         "provider": "official_table",
         "official_url": "https://www.highlimitracing.com/standings",
+        "logo_source_url": "https://www.highlimitracing.com/",
         "source_name": "High Limit Racing official standings",
         "name_headers": ("driver", "competitor"),
         "points_headers": ("points", "pts"),
@@ -139,6 +141,7 @@ SERIES: tuple[dict[str, Any], ...] = (
         "provider": "column_sections",
         "column_title": "Driver Standings",
         "official_url": "https://www.usacracing.com/series-point-standings/national-sprint",
+        "logo_source_url": "https://www.usacracing.com/",
         "source_name": "USAC official standings",
         "name_headers": ("driver",),
         "points_headers": ("points",),
@@ -154,6 +157,7 @@ SERIES: tuple[dict[str, Any], ...] = (
         "provider": "column_sections",
         "column_title": "Driver Standings",
         "official_url": "https://www.usacracing.com/series-point-standings/national-midget",
+        "logo_source_url": "https://www.usacracing.com/",
         "source_name": "USAC official standings",
         "name_headers": ("driver",),
         "points_headers": ("points",),
@@ -169,6 +173,7 @@ SERIES: tuple[dict[str, Any], ...] = (
         "provider": "column_sections",
         "column_title": "Driver Standings",
         "official_url": "https://www.usacracing.com/series-point-standings/silver-crown",
+        "logo_source_url": "https://www.usacracing.com/",
         "source_name": "USAC official standings",
         "name_headers": ("driver",),
         "points_headers": ("points",),
@@ -240,7 +245,7 @@ SERIES: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "nhra-top-fuel",
-        "logo_disabled": True,
+        "logo_source_url": "https://www.nhra.com/",
         "name": "NHRA Top Fuel",
         "short_name": "NHRA Top Fuel",
         "group": "Drag Racing",
@@ -254,7 +259,7 @@ SERIES: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "nhra-funny-car",
-        "logo_disabled": True,
+        "logo_source_url": "https://www.nhra.com/",
         "name": "NHRA Funny Car",
         "short_name": "NHRA Funny Car",
         "group": "Drag Racing",
@@ -268,7 +273,7 @@ SERIES: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "nhra-pro-stock",
-        "logo_disabled": True,
+        "logo_source_url": "https://www.nhra.com/",
         "name": "NHRA Pro Stock",
         "short_name": "NHRA Pro Stock",
         "group": "Drag Racing",
@@ -282,7 +287,7 @@ SERIES: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "nhra-pro-stock-motorcycle",
-        "logo_disabled": True,
+        "logo_source_url": "https://www.nhra.com/",
         "name": "NHRA Pro Stock Motorcycle",
         "short_name": "NHRA PSM",
         "group": "Drag Racing",
@@ -304,7 +309,8 @@ SERIES: tuple[dict[str, Any], ...] = (
         "metadata_url": "https://www.formula1.com/en/results/2026/races/1287/spain/race-result",
         "name_headers": ("driver",),
         "team_headers": ("team",),
-        "logo_disabled": True,
+        "logo_source_url": "https://www.formula1.com/",
+
     },
     {
         "key": "indycar",
@@ -314,6 +320,10 @@ SERIES: tuple[dict[str, Any], ...] = (
         "provider": "espn",
         "league": "irl",
         "official_url": "https://www.indycar.com/standings",
+        "logo_source_url": "https://www.indycar.com/",
+        "metadata_provider": "indycar_driver_directory",
+        "metadata_url": "https://www.indycar.com/Drivers",
+        "official_identity_hosts": ("www.indycar.com", "indycar.com"),
     },
     {
         "key": "formula-e",
@@ -376,7 +386,7 @@ SERIES: tuple[dict[str, Any], ...] = (
         "official_identity_hosts": ("stats.motogp.com", "www.motogp.com"),
         "metadata_provider": "motogp_riders",
         "metadata_url": "https://www.motogp.com/en/riders/",
-        "logo_disabled": True,
+        "logo_source_url": "https://www.motogp.com/",
         "source_name": "MotoGP official statistics",
         "name_headers": ("rider",),
         "points_headers": ("points", "pts"),
@@ -448,6 +458,8 @@ class RacingStandingSnapshot(Base):
 
 _cache_lock = threading.Lock()
 _cache: dict[str, Any] = {"at": None, "value": None}
+_profile_metadata_lock = threading.Lock()
+_profile_metadata_cache: dict[str, tuple[datetime, dict[str, dict[str, str | None]], str | None]] = {}
 
 
 def _num(value: Any) -> float | None:
@@ -1408,6 +1420,49 @@ def _identity_key(value: Any) -> str:
     return re.sub(r"[^a-z0-9]+", "", text)
 
 
+def _profile_metadata_cache_get(cache_key: str) -> tuple[dict[str, dict[str, str | None]], str | None] | None:
+    now = utcnow()
+    with _profile_metadata_lock:
+        cached = _profile_metadata_cache.get(cache_key)
+        if cached and (now - cached[0]).total_seconds() < 6 * 3600:
+            return copy.deepcopy(cached[1]), cached[2]
+    return None
+
+
+def _profile_metadata_cache_set(
+    cache_key: str,
+    data: dict[str, dict[str, str | None]],
+    source_url: str | None,
+) -> None:
+    with _profile_metadata_lock:
+        _profile_metadata_cache[cache_key] = (utcnow(), copy.deepcopy(data), source_url)
+        if len(_profile_metadata_cache) > 16:
+            oldest = min(_profile_metadata_cache.items(), key=lambda item: item[1][0])[0]
+            _profile_metadata_cache.pop(oldest, None)
+
+
+def _nascar_profile_identity(url: str) -> tuple[str | None, str | None]:
+    try:
+        markdown = _reader_markdown(url)
+    except Exception:
+        return None, None
+
+    team = None
+    manufacturer = None
+    team_match = re.search(r"###\s*TEAM\s*\n+([^\n#]+)", markdown, flags=re.IGNORECASE)
+    if team_match:
+        team = " ".join(team_match.group(1).split()).strip() or None
+
+    make_match = re.search(
+        r"(?:Image:\s*|!\[)(Chevrolet|Ford|Toyota)(?:\]|\s|\))",
+        markdown,
+        flags=re.IGNORECASE,
+    )
+    if make_match:
+        manufacturer = make_match.group(1).title()
+    return team, manufacturer
+
+
 def _official_metadata_nascar_driver_directory(
     config: dict[str, Any],
     season: int,
@@ -1415,18 +1470,33 @@ def _official_metadata_nascar_driver_directory(
     url = str(config.get("metadata_url") or "").strip()
     if not url:
         return {}, None
+
+    cache_key = f"nascar:{url}"
+    cached = _profile_metadata_cache_get(cache_key)
+    if cached:
+        return cached
+
     try:
         markdown = _reader_markdown(url)
     except Exception:
         return {}, None
 
+    # The official directory exposes name + badge number and links each driver
+    # to a NASCAR-owned profile. Those profiles expose TEAM and manufacturer.
     pairs: list[tuple[str, str]] = []
-    patterns = (
+    for pattern in (
         r"!\[([^\]]+?)\s+Badge Number\s+([A-Za-z0-9]+)\]\(",
         r"Image:\s*([^\n]+?)\s+Badge Number\s+([A-Za-z0-9]+)",
-    )
-    for pattern in patterns:
+    ):
         pairs.extend(re.findall(pattern, markdown, flags=re.IGNORECASE))
+
+    profile_links: dict[str, str] = {}
+    for label, href in re.findall(r"\[([^\]]+)\]\((https?://www\.nascar\.com/drivers/[^)]+|/drivers/[^)]+)\)", markdown):
+        name = " ".join(str(label or "").split()).strip()
+        key = _identity_key(name)
+        if not key:
+            continue
+        profile_links[key] = urljoin("https://www.nascar.com/", href.strip())
 
     out: dict[str, dict[str, str | None]] = {}
     for raw_name, raw_number in pairs:
@@ -1435,7 +1505,27 @@ def _official_metadata_nascar_driver_directory(
         key = _identity_key(name)
         if key and number:
             out[key] = {"number": number, "team": None, "manufacturer": None}
-    return out, url if out else None
+
+    def fetch_one(item: tuple[str, str]) -> tuple[str, str | None, str | None]:
+        key, profile_url = item
+        team, manufacturer = _nascar_profile_identity(profile_url)
+        return key, team, manufacturer
+
+    links = [(key, href) for key, href in profile_links.items() if key in out]
+    with ThreadPoolExecutor(max_workers=min(8, max(1, len(links)))) as pool:
+        futures = [pool.submit(fetch_one, item) for item in links]
+        for future in as_completed(futures):
+            try:
+                key, team, manufacturer = future.result()
+            except Exception:
+                continue
+            if key in out:
+                out[key]["team"] = team
+                out[key]["manufacturer"] = manufacturer
+
+    source = url if out else None
+    _profile_metadata_cache_set(cache_key, out, source)
+    return out, source
 
 
 def _official_metadata_arca_driver_directory(
@@ -1554,6 +1644,75 @@ def _official_metadata_motogp_riders(
     return out, url if out else None
 
 
+def _indycar_profile_identity(url: str) -> tuple[str | None, str | None, str | None]:
+    try:
+        markdown = _reader_markdown(url)
+    except Exception:
+        return None, None, None
+
+    # Official profiles use prose such as:
+    # "Driving the No. 10 Honda for Chip Ganassi Racing..."
+    match = re.search(
+        r"Driving\s+the\s+No\.\s*([A-Za-z0-9]+)\s+([A-Za-z]+)\s+for\s+([^\n.,]+(?:\s+Racing|\s+Motorsports|\s+Global|\s+ECR|\s+Team\s+Penske|\s+Arrow\s+McLaren|\s+Chip\s+Ganassi\s+Racing|\s+Rahal\s+Letterman\s+Lanigan\s+Racing))",
+        markdown,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return None, None, None
+    number = match.group(1).strip()
+    manufacturer = match.group(2).strip().title()
+    team = " ".join(match.group(3).split()).strip()
+    return number or None, team or None, manufacturer or None
+
+
+def _official_metadata_indycar_driver_directory(
+    config: dict[str, Any],
+    season: int,
+) -> tuple[dict[str, dict[str, str | None]], str | None]:
+    url = str(config.get("metadata_url") or "").strip()
+    if not url:
+        return {}, None
+
+    cache_key = f"indycar:{url}"
+    cached = _profile_metadata_cache_get(cache_key)
+    if cached:
+        return cached
+
+    try:
+        markdown = _reader_markdown(url)
+    except Exception:
+        return {}, None
+
+    links: dict[str, str] = {}
+    for label, href in re.findall(r"\[([^\]]+)\]\((https?://www\.indycar\.com/Drivers/[^)]+|/Drivers/[^)]+)\)", markdown):
+        clean = " ".join(str(label or "").split()).strip()
+        clean = re.sub(r"^\d+\s+\d+\s+Wins\s+\d+\s+Poles\s+\d+\s+Points\s+", "", clean, flags=re.IGNORECASE)
+        clean = re.sub(r"\s+(?:United States|USA|Spain|Mexico|New Zealand|Sweden|Netherlands|Australia|France|Denmark|Norway|Brazil|Japan|England|United Kingdom|Cayman Islands)\s+Driver Details$", "", clean, flags=re.IGNORECASE)
+        key = _identity_key(clean)
+        if key:
+            links[key] = urljoin("https://www.indycar.com/", href.strip())
+
+    out: dict[str, dict[str, str | None]] = {}
+    def fetch_one(item: tuple[str, str]) -> tuple[str, str | None, str | None, str | None]:
+        key, profile_url = item
+        number, team, manufacturer = _indycar_profile_identity(profile_url)
+        return key, number, team, manufacturer
+
+    with ThreadPoolExecutor(max_workers=min(8, max(1, len(links)))) as pool:
+        futures = [pool.submit(fetch_one, item) for item in links.items()]
+        for future in as_completed(futures):
+            try:
+                key, number, team, manufacturer = future.result()
+            except Exception:
+                continue
+            if number or team or manufacturer:
+                out[key] = {"number": number, "team": team, "manufacturer": manufacturer}
+
+    source = url if out else None
+    _profile_metadata_cache_set(cache_key, out, source)
+    return out, source
+
+
 def _official_metadata(
     config: dict[str, Any],
     season: int,
@@ -1565,6 +1724,8 @@ def _official_metadata(
         return _official_metadata_arca_driver_directory(config, season)
     if provider == "motogp_riders":
         return _official_metadata_motogp_riders(config, season)
+    if provider == "indycar_driver_directory":
+        return _official_metadata_indycar_driver_directory(config, season)
     return _official_metadata_from_tables(config, season)
 
 
@@ -1834,13 +1995,17 @@ def _discover_official_logo(
             response = client.get(source_url)
             response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
-        for image in soup.find_all("img"):
+        for image in soup.find_all(["img", "source"]):
             raw_url = (
                 image.get("src")
                 or image.get("data-src")
                 or image.get("data-lazy-src")
+                or image.get("srcset")
+                or image.get("data-srcset")
                 or ""
             )
+            if "," in str(raw_url):
+                raw_url = str(raw_url).split(",", 1)[0].strip().split(" ", 1)[0]
             raw_url = str(raw_url).strip()
             if not raw_url:
                 continue

@@ -19,14 +19,15 @@ const statusBadge=series=>{
   const label=status==='live'?'Live':status==='stale'?'Cached':'Unavailable';
   return `<span class="status ${esc(status)}">${label}</span>`;
 };
+const normalizeSearch=value=>String(value??'').trim().toLowerCase();
 const seriesVisible=series=>{
   const groupOk=state.group==='All'||series.group===state.group;
-  const q=state.search.trim().toLowerCase();
+  const q=normalizeSearch(state.search);
   if(!q)return groupOk;
   const hay=[
     series.series_name,series.short_name,series.group,
-    ...(series.entries||[]).slice(0,20).flatMap(x=>[x.name,x.number,x.team,x.manufacturer])
-  ].join(' ').toLowerCase();
+    ...(series.entries||[]).flatMap(x=>[x.name,x.number,x.team,x.manufacturer])
+  ].filter(Boolean).join(' ').toLowerCase();
   return groupOk&&hay.includes(q);
 };
 function miniRows(series){
@@ -117,7 +118,18 @@ document.addEventListener('click',event=>{
   const card=event.target.closest('[data-key]');
   if(card){openSeries(card.dataset.key);return;}
 });
-$('#searchInput').addEventListener('input',event=>{state.search=event.target.value;renderLeaders();renderGroups();});
+const applySearch=value=>{
+  state.search=String(value??'');
+  renderLeaders();
+  renderGroups();
+  bindLogoErrors();
+};
+document.addEventListener('input',event=>{
+  if(event.target?.id==='searchInput')applySearch(event.target.value);
+});
+document.addEventListener('search',event=>{
+  if(event.target?.id==='searchInput')applySearch(event.target.value);
+});
 $('#dialogClose').addEventListener('click',()=>$('#standingsDialog').close());
 $('#standingsDialog').addEventListener('click',event=>{if(event.target===$('#standingsDialog'))$('#standingsDialog').close();});
 $('#jumpLive').addEventListener('click',()=>$('#standingsStart').scrollIntoView({behavior:'smooth'}));
