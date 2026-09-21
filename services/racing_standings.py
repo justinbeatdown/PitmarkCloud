@@ -249,7 +249,7 @@ SERIES: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "nhra-top-fuel",
-        "logo_source_url": "https://www.nhra.com/",
+        "logo_source_url": "https://www.nhra.com/media-center/logos",
         "name": "NHRA Top Fuel",
         "short_name": "NHRA Top Fuel",
         "group": "Drag Racing",
@@ -263,7 +263,7 @@ SERIES: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "nhra-funny-car",
-        "logo_source_url": "https://www.nhra.com/",
+        "logo_source_url": "https://www.nhra.com/media-center/logos",
         "name": "NHRA Funny Car",
         "short_name": "NHRA Funny Car",
         "group": "Drag Racing",
@@ -277,7 +277,7 @@ SERIES: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "nhra-pro-stock",
-        "logo_source_url": "https://www.nhra.com/",
+        "logo_source_url": "https://www.nhra.com/media-center/logos",
         "name": "NHRA Pro Stock",
         "short_name": "NHRA Pro Stock",
         "group": "Drag Racing",
@@ -291,7 +291,7 @@ SERIES: tuple[dict[str, Any], ...] = (
     },
     {
         "key": "nhra-pro-stock-motorcycle",
-        "logo_source_url": "https://www.nhra.com/",
+        "logo_source_url": "https://www.nhra.com/media-center/logos",
         "name": "NHRA Pro Stock Motorcycle",
         "short_name": "NHRA PSM",
         "group": "Drag Racing",
