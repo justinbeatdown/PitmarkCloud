@@ -141,7 +141,7 @@ SERIES: tuple[dict[str, Any], ...] = (
         "provider": "column_sections",
         "column_title": "Driver Standings",
         "official_url": "https://www.usacracing.com/series-point-standings/national-sprint",
-        "logo_source_url": "https://www.usacracing.com/",
+        "logo_disabled": True,
         "source_name": "USAC official standings",
         "name_headers": ("driver",),
         "points_headers": ("points",),
@@ -157,7 +157,7 @@ SERIES: tuple[dict[str, Any], ...] = (
         "provider": "column_sections",
         "column_title": "Driver Standings",
         "official_url": "https://www.usacracing.com/series-point-standings/national-midget",
-        "logo_source_url": "https://www.usacracing.com/",
+        "logo_disabled": True,
         "source_name": "USAC official standings",
         "name_headers": ("driver",),
         "points_headers": ("points",),
@@ -309,7 +309,7 @@ SERIES: tuple[dict[str, Any], ...] = (
         "metadata_url": "https://www.formula1.com/en/results/2026/races/1287/spain/race-result",
         "name_headers": ("driver",),
         "team_headers": ("team",),
-        "logo_source_url": "https://www.formula1.com/",
+        "logo_disabled": True,
 
     },
     {
@@ -1552,6 +1552,35 @@ def _identity_key(value: Any) -> str:
     return re.sub(r"[^a-z0-9]+", "", text)
 
 
+def _identity_metadata_lookup(
+    metadata: dict[str, dict[str, str | None]],
+    name: Any,
+) -> dict[str, str | None] | None:
+    target = _identity_key(name)
+    if not target:
+        return None
+    direct = metadata.get(target)
+    if direct:
+        return direct
+
+    # Official directories sometimes wrap accessible labels with "Image" or
+    # return surname-first display text. Accept only one unambiguous match.
+    candidates = [
+        values for key, values in metadata.items()
+        if key and (key.endswith(target) or target.endswith(key))
+    ]
+    if len(candidates) == 1:
+        return candidates[0]
+
+    words = re.findall(r"[A-Za-zÀ-ÖØ-öø-ÿ0-9]+", str(name or ""))
+    if len(words) >= 2:
+        reversed_key = _identity_key(" ".join(reversed(words)))
+        direct = metadata.get(reversed_key)
+        if direct:
+            return direct
+    return None
+
+
 def _profile_metadata_cache_get(cache_key: str) -> tuple[dict[str, dict[str, str | None]], str | None] | None:
     now = utcnow()
     with _profile_metadata_lock:
@@ -1646,6 +1675,7 @@ def _official_metadata_nascar_driver_directory(
             if key:
                 profile_links[key] = urljoin(url, href)
 
+    directory_manufacturers: dict[str, str] = {}
     if not numbers or not profile_links:
         try:
             markdown = _reader_markdown(url)
@@ -1666,6 +1696,25 @@ def _official_metadata_nascar_driver_directory(
                 key = _identity_key(" ".join(str(label or "").split()))
                 if key:
                     profile_links[key] = urljoin("https://www.nascar.com/", href.strip())
+
+            # Pair each badge block with the following official Manufacturer Logo.
+            badge_matches = list(re.finditer(
+                r"(?:Image:\s*|!\[)([^\]\n]+?)\s+Badge Number\s+([A-Za-z0-9]+)",
+                markdown,
+                flags=re.IGNORECASE,
+            ))
+            for index, badge in enumerate(badge_matches):
+                block_end = badge_matches[index + 1].start() if index + 1 < len(badge_matches) else min(len(markdown), badge.end() + 1200)
+                block = markdown[badge.end():block_end]
+                make = re.search(
+                    r"https?://[^)\s]*(Chevrolet|Toyota|Ford)[^)\s]*\.(?:png|jpg|jpeg|webp|svg)",
+                    block,
+                    flags=re.IGNORECASE,
+                )
+                if make:
+                    key = _identity_key(badge.group(1))
+                    if key:
+                        directory_manufacturers[key] = make.group(1).title()
         except Exception as exc:
             log.warning(
                 "NASCAR official identity reader failed series=%s error=%s",
@@ -1674,7 +1723,11 @@ def _official_metadata_nascar_driver_directory(
             )
 
     out: dict[str, dict[str, str | None]] = {
-        key: {"number": number, "team": None, "manufacturer": None}
+        key: {
+            "number": number,
+            "team": None,
+            "manufacturer": directory_manufacturers.get(key),
+        }
         for key, number in numbers.items()
     }
 
@@ -1683,7 +1736,18 @@ def _official_metadata_nascar_driver_directory(
         team, manufacturer = _nascar_profile_identity(profile_url)
         return key, team, manufacturer
 
-    links = [(key, href) for key, href in profile_links.items() if key in out]
+    links: list[tuple[str, str]] = []
+    for key in out:
+        href = profile_links.get(key)
+        if not href:
+            matches = [
+                value for profile_key, value in profile_links.items()
+                if profile_key.endswith(key) or key.endswith(profile_key)
+            ]
+            if len(matches) == 1:
+                href = matches[0]
+        if href:
+            links.append((key, href))
     if links:
         with ThreadPoolExecutor(max_workers=min(8, len(links))) as pool:
             futures = [pool.submit(fetch_one, item) for item in links]
@@ -1701,7 +1765,7 @@ def _official_metadata_nascar_driver_directory(
         "NASCAR official identity: series=%s numbers=%s profiles=%s enriched=%s",
         config.get("key"),
         len(numbers),
-        len(profile_links),
+        len(links),
         sum(1 for value in out.values() if value.get("team") or value.get("manufacturer")),
     )
     _profile_metadata_cache_set(cache_key, out, source)
@@ -2099,7 +2163,7 @@ def _enrich_official_identity(
     if metadata:
         matched = False
         for item in entries:
-            values = metadata.get(_identity_key(item.get("name")))
+            values = _identity_metadata_lookup(metadata, item.get("name"))
             if not values:
                 continue
             for field in ("number", "team", "manufacturer"):
@@ -2388,7 +2452,7 @@ def _fallback(config: dict[str, Any], season: int, error: Exception) -> dict[str
             matched = False
             if metadata:
                 for entry in cached["entries"]:
-                    values = metadata.get(_identity_key(entry.get("name")))
+                    values = _identity_metadata_lookup(metadata, entry.get("name"))
                     if not values:
                         continue
                     for field in ("number", "team", "manufacturer"):
