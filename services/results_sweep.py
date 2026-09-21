@@ -557,14 +557,32 @@ def _page_image_candidates(page_url: str, html_text: str, result: dict) -> list[
 
 def _usable_image_bytes(client: httpx.Client, url: str) -> tuple[bytes, str, int, int] | None:
     try:
-        response = client.get(url, timeout=12.0, follow_redirects=True)
-        if response.status_code != 200:
-            return None
-        media_type = (response.headers.get("content-type") or "").split(";", 1)[0].lower()
-        if not media_type.startswith("image/"):
-            return None
-        data = response.content
-        if len(data) < 20_000 or len(data) > 8 * 1024 * 1024:
+        # Stream candidate images with a hard cap. Buffering response.content
+        # first allowed a huge remote file to be fully resident before the size
+        # check, which can kill a 512 MB Render instance.
+        max_bytes = _int("PITMARK_RESULTS_SWEEP_MAX_IMAGE_BYTES", 6 * 1024 * 1024, 1 * 1024 * 1024, 8 * 1024 * 1024)
+        with client.stream("GET", url, timeout=12.0, follow_redirects=True) as response:
+            if response.status_code != 200:
+                return None
+            media_type = (response.headers.get("content-type") or "").split(";", 1)[0].lower()
+            if not media_type.startswith("image/"):
+                return None
+            content_length = response.headers.get("content-length")
+            if content_length:
+                try:
+                    if int(content_length) > max_bytes:
+                        return None
+                except ValueError:
+                    pass
+            chunks: list[bytes] = []
+            total = 0
+            for chunk in response.iter_bytes(chunk_size=64 * 1024):
+                total += len(chunk)
+                if total > max_bytes:
+                    return None
+                chunks.append(chunk)
+            data = b"".join(chunks)
+        if len(data) < 20_000:
             return None
         with Image.open(BytesIO(data)) as image:
             width, height = image.size
@@ -1344,11 +1362,21 @@ def run_if_due():
     if not _bool("PITMARK_RESULTS_SWEEP_ENABLED", True):
         return {"ran":False,"reason":"disabled"}
 
-    repair = repair_pending_images()
-    roundup = publish_weekend_roundup_if_ready()
     now = datetime.now(ET)
     due = (now.weekday() == 6 and now.hour >= _int("PITMARK_RESULTS_SWEEP_SUNDAY_HOUR", 21, 17, 23)) or (now.weekday() == 0 and now.hour >= _int("PITMARK_RESULTS_SWEEP_MONDAY_CATCHUP_HOUR", 8, 5, 12))
-    result = run_sweep(False) if due else {"ran":False,"reason":"not_due"}
+
+    # Media repair and roundup generation are the heaviest Results Desk work.
+    # Keep them inside the actual weekend-results window and in a small batch so
+    # the 512 MB service has headroom for the API and other workers.
+    if due:
+        repair = repair_pending_images(limit=_int("PITMARK_RESULTS_SWEEP_REPAIR_BATCH", 2, 1, 4))
+        roundup = publish_weekend_roundup_if_ready()
+        result = run_sweep(False)
+    else:
+        repair = {"attempted": 0, "repaired": 0, "failures": []}
+        roundup = {"published": False, "reason": "not_due"}
+        result = {"ran":False,"reason":"not_due"}
+
     result["image_repair"] = repair
     result["roundup"] = roundup
     return result
