@@ -6,13 +6,17 @@ import json
 import logging
 import os
 import re
+import secrets
 from datetime import datetime, timedelta
+from io import BytesIO
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 import httpx
-from sqlalchemy import DateTime, Float, Integer, String, Text, select, text
+from sqlalchemy import DateTime, Float, Integer, LargeBinary, String, Text, delete, select, text
 from sqlalchemy.orm import Mapped, mapped_column
+from bs4 import BeautifulSoup
+from PIL import Image
 
 from services.autopilot_ai import _extract_output_text
 from services.blog_image_service import generate_and_stage_blog_image
@@ -83,6 +87,16 @@ class ResultsSweepItem(Base):
     detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ResultsSweepMedia(Base):
+    __tablename__ = "pitmark_results_sweep_media"
+    token: Mapped[str] = mapped_column(String(80), primary_key=True)
+    media_type: Mapped[str] = mapped_column(String(80), default="image/jpeg")
+    source_kind: Mapped[str] = mapped_column(String(40), default="generated")
+    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class ResultsSweepRun(Base):
@@ -355,7 +369,7 @@ def _target_state_key(weekend_key: str, entity_name: str) -> str:
     # v2 invalidates the first live pass after adding trusted local-result sources
     # and the completed-result-over-cancellation priority rule.
     digest = hashlib.sha256(entity_name.strip().lower().encode("utf-8")).hexdigest()[:24]
-    return f"results_target:v2:{weekend_key}:{digest}"
+    return f"results_target:v3:{weekend_key}:{digest}"
 
 
 def _quality(result: dict):
@@ -402,32 +416,378 @@ def _article(result: dict):
     return body
 
 
-def _publish(result: dict, fp: str):
+
+IMAGE_PAGE_ALLOWLIST = {
+    "myracepass.com", "nascar.com", "arcaracing.com", "imsa.com", "indycar.com",
+    "worldofoutlaws.com", "lucasdirt.com", "highlimitracing.com", "usacracing.com",
+    "nhra.com", "formula1.com", "motogp.com", "worldsbk.com", "supercars.com",
+    "fiawec.com", "fiaformulae.com",
+}
+IMAGE_REJECT_WORDS = (
+    "logo", "icon", "avatar", "favicon", "sprite", "placeholder", "default-image",
+    "badge", "advert", "sponsor", "pixel", "tracking",
+)
+
+
+def _public_media_url(token: str) -> str:
+    base = (os.getenv("PITMARK_CLOUD_PUBLIC_URL") or "https://pitmarkcloud.onrender.com").rstrip("/")
+    return f"{base}/api/results-sweep/image/{token}"
+
+
+def _cleanup_sweep_media() -> None:
+    cutoff = utcnow() - timedelta(days=30)
+    try:
+        with SessionLocal() as db:
+            db.execute(delete(ResultsSweepMedia).where(ResultsSweepMedia.created_at < cutoff))
+            db.commit()
+    except Exception:
+        log.exception("Results Sweep media cleanup failed")
+
+
+def _store_media_bytes(data: bytes, *, media_type: str, source_kind: str, source_url: str | None = None) -> dict:
+    if not data or len(data) < 2048:
+        raise RuntimeError("Results Sweep image payload was empty or too small")
+    if len(data) > 8 * 1024 * 1024:
+        raise RuntimeError("Results Sweep image payload exceeded 8 MB")
+    _cleanup_sweep_media()
+    token = secrets.token_urlsafe(30)
+    with SessionLocal() as db:
+        db.add(ResultsSweepMedia(
+            token=token,
+            media_type=(media_type or "image/jpeg")[:80],
+            source_kind=(source_kind or "generated")[:40],
+            source_url=(source_url or "")[:4000] or None,
+            data=data,
+        ))
+        db.commit()
+    return {
+        "token": token,
+        "url": _public_media_url(token),
+        "media_type": media_type or "image/jpeg",
+        "source_kind": source_kind,
+        "source_url": source_url,
+    }
+
+
+def resolve_media(token: str) -> dict | None:
+    if not re.fullmatch(r"[A-Za-z0-9_-]{20,96}", str(token or "")):
+        return None
+    with SessionLocal() as db:
+        row = db.get(ResultsSweepMedia, token)
+        if row is None:
+            return None
+        return {
+            "data": bytes(row.data),
+            "media_type": row.media_type,
+            "source_kind": row.source_kind,
+            "source_url": row.source_url,
+        }
+
+
+def _official_image_page(result: dict, url: str) -> bool:
+    host = _domain(url)
+    if not host:
+        return False
+    if any(host == d or host.endswith("." + d) for d in IMAGE_PAGE_ALLOWLIST):
+        return True
+    entity_tokens = _tokens(str(result.get("entity_name") or ""))
+    winner_tokens = _tokens(str(result.get("winner") or ""))
+    return any(token in host for token in (entity_tokens + winner_tokens)[:8])
+
+
+def _page_image_candidates(page_url: str, html_text: str, result: dict) -> list[dict]:
+    soup = BeautifulSoup(html_text or "", "html.parser")
+    rows: list[dict] = []
+
+    def add(url: str | None, *, alt: str = "", base_score: int = 0) -> None:
+        raw = str(url or "").strip()
+        if not raw:
+            return
+        try:
+            absolute = str(httpx.URL(page_url).join(raw))
+        except Exception:
+            absolute = raw
+        if not absolute.startswith(("http://", "https://")):
+            return
+        low = f"{absolute} {alt}".lower()
+        if any(word in low for word in IMAGE_REJECT_WORDS):
+            return
+        score = base_score
+        for token in _tokens(str(result.get("winner") or "")):
+            if token in low:
+                score += 20
+        for token in _tokens(str(result.get("entity_name") or "")):
+            if token in low:
+                score += 10
+        if any(word in low for word in ("victory", "winner", "feature", "race", "track", "photo")):
+            score += 8
+        rows.append({"url": absolute, "alt": alt[:240], "score": score})
+
+    for prop, base_score in (("og:image", 120), ("twitter:image", 105)):
+        for node in soup.find_all("meta"):
+            key = str(node.get("property") or node.get("name") or "").lower()
+            if key == prop:
+                add(node.get("content"), alt=str(node.get("alt") or ""), base_score=base_score)
+
+    for img in soup.find_all("img"):
+        src = img.get("src") or img.get("data-src") or img.get("data-lazy-src")
+        if not src:
+            srcset = str(img.get("srcset") or "")
+            if srcset:
+                src = srcset.split(",")[-1].strip().split(" ")[0]
+        add(src, alt=str(img.get("alt") or img.get("title") or ""), base_score=35)
+
+    deduped: dict[str, dict] = {}
+    for row in rows:
+        prior = deduped.get(row["url"])
+        if prior is None or row["score"] > prior["score"]:
+            deduped[row["url"]] = row
+    return sorted(deduped.values(), key=lambda x: x["score"], reverse=True)[:24]
+
+
+def _usable_image_bytes(client: httpx.Client, url: str) -> tuple[bytes, str, int, int] | None:
+    try:
+        response = client.get(url, timeout=12.0, follow_redirects=True)
+        if response.status_code != 200:
+            return None
+        media_type = (response.headers.get("content-type") or "").split(";", 1)[0].lower()
+        if not media_type.startswith("image/"):
+            return None
+        data = response.content
+        if len(data) < 20_000 or len(data) > 8 * 1024 * 1024:
+            return None
+        with Image.open(BytesIO(data)) as image:
+            width, height = image.size
+        if width < 600 or height < 320 or width * height < 300_000:
+            return None
+        return data, media_type, width, height
+    except Exception:
+        return None
+
+
+def _candidate_image_pages(result: dict, evidence: list[dict]) -> list[dict]:
+    rows: list[dict] = []
+    for item in evidence[:8]:
+        url = str(item.get("url") or "").strip()
+        if url and _official_image_page(result, url):
+            rows.append({"url": url, "title": str(item.get("title") or ""), "score": 120})
+
+    entity = str(result.get("entity_name") or "").strip()
+    winner = str(result.get("winner") or "").strip()
+    event_name = str(result.get("event_name") or "").strip()
+    event_date = str(result.get("event_date") or "").strip()
+    queries = [
+        f'"{entity}" "{winner}" {event_date} race',
+        f'"{entity}" "{event_name}" {event_date}',
+        f'"{winner}" "{entity}" photo',
+    ]
+    try:
+        with httpx.Client(timeout=12.0, follow_redirects=True) as client:
+            for query in queries:
+                for item in _bing_search(client, query, limit=8):
+                    url = str(item.get("url") or "").strip()
+                    if not url or not _official_image_page(result, url):
+                        continue
+                    text_blob = f"{item.get('title') or ''} {item.get('snippet') or ''}".lower()
+                    score = 60
+                    score += sum(8 for token in _tokens(entity) if token in text_blob)
+                    score += sum(10 for token in _tokens(winner) if token in text_blob)
+                    rows.append({"url": url, "title": str(item.get("title") or ""), "score": score})
+    except Exception as exc:
+        log.info("Results Sweep image-page discovery failed for %s: %s", entity, exc)
+
+    deduped: dict[str, dict] = {}
+    for row in rows:
+        key = row["url"].lower()
+        if key not in deduped or row["score"] > deduped[key]["score"]:
+            deduped[key] = row
+    return sorted(deduped.values(), key=lambda x: x["score"], reverse=True)[:10]
+
+
+def _select_real_image(result: dict, evidence: list[dict]) -> dict | None:
+    page_rows = _candidate_image_pages(result, evidence)
+    image_rows: list[dict] = []
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; PitmarkResultsDesk/1.0; +https://pitmarkracing.com)"
+    }
+    with httpx.Client(timeout=15.0, follow_redirects=True, headers=headers) as client:
+        for page in page_rows:
+            try:
+                response = client.get(page["url"])
+                if response.status_code != 200:
+                    continue
+                content_type = (response.headers.get("content-type") or "").lower()
+                if "html" not in content_type:
+                    continue
+                for candidate in _page_image_candidates(page["url"], response.text, result):
+                    candidate["score"] += int(page["score"])
+                    candidate["source_page"] = page["url"]
+                    image_rows.append(candidate)
+            except Exception:
+                continue
+
+        deduped: dict[str, dict] = {}
+        for row in image_rows:
+            key = row["url"].lower()
+            if key not in deduped or row["score"] > deduped[key]["score"]:
+                deduped[key] = row
+
+        for candidate in sorted(deduped.values(), key=lambda x: x["score"], reverse=True)[:18]:
+            usable = _usable_image_bytes(client, candidate["url"])
+            if usable is None:
+                continue
+            data, media_type, width, height = usable
+            low = f"{candidate.get('url')} {candidate.get('alt')}".lower()
+            kind = "driver_photo" if any(t in low for t in _tokens(str(result.get("winner") or ""))) else "event_photo"
+            stored = _store_media_bytes(
+                data,
+                media_type=media_type,
+                source_kind=kind,
+                source_url=candidate.get("source_page") or candidate["url"],
+            )
+            stored.update({"width": width, "height": height, "original_url": candidate["url"]})
+            log.info(
+                "Results Sweep selected real %s for %s from %s (%sx%s)",
+                kind,
+                _title(result),
+                candidate.get("source_page") or candidate["url"],
+                width,
+                height,
+            )
+            return stored
+    return None
+
+
+def _generate_durable_hero(result: dict, body: str) -> dict | None:
+    if not _bool("PITMARK_RESULTS_SWEEP_GENERATE_IMAGES", True):
+        return None
+    try:
+        staged = generate_and_stage_blog_image(
+            title=_title(result),
+            body_html=body,
+            content_type="race_results",
+        )
+        data = staged.path.read_bytes()
+        stored = _store_media_bytes(
+            data,
+            media_type=staged.media_type,
+            source_kind="generated",
+            source_url=None,
+        )
+        log.info("Results Sweep generated durable fallback hero for %s", _title(result))
+        return stored
+    except Exception as exc:
+        log.warning("Results Sweep generated hero failed for %s: %s", _title(result), exc)
+        return None
+
+
+def _publish(result: dict, fp: str, evidence: list[dict]):
     title, body = _title(result), _article(result)
     blogs = shopify_service.list_blogs()
-    if not blogs: raise RuntimeError("No Shopify blog is available")
+    if not blogs:
+        raise RuntimeError("No Shopify blog is available")
     blog = next((x for x in blogs if str(x.get("handle") or "").lower() == "racing-culture"), blogs[0])
     if str(blog.get("handle") or "").lower() == "racing-culture":
         body = append_racing_culture_conversion_cta(body, title)
-    image_url = None
-    if _bool("PITMARK_RESULTS_SWEEP_GENERATE_IMAGES", True):
+
+    selected = _select_real_image(result, evidence)
+    image_attempts: list[dict] = []
+    if selected:
+        image_attempts.append(selected)
+    else:
+        generated = _generate_durable_hero(result, body)
+        if generated:
+            image_attempts.append(generated)
+
+    article = None
+    used_image: dict | None = None
+    image_errors: list[str] = []
+
+    for media in image_attempts:
         try:
-            staged = generate_and_stage_blog_image(title=title, body_html=body, content_type="race_results")
-            base = (os.getenv("PITMARK_CLOUD_PUBLIC_URL") or "https://pitmarkcloud.onrender.com").rstrip("/")
-            image_url = f"{base}/api/control/auth/blog/generated-image/{staged.token}"
+            article = shopify_service.publish_article(
+                blog_id=str(blog["id"]),
+                title=title,
+                body_html=body,
+                image_url=media["url"],
+            )
+            used_image = media
+            break
         except Exception as exc:
-            log.warning("Results Sweep hero image failed for %s: %s", title, exc)
-    article = shopify_service.publish_article(blog_id=str(blog["id"]), title=title, body_html=body, image_url=image_url)
+            image_errors.append(f"{media.get('source_kind')}: {type(exc).__name__}: {exc}")
+            log.warning("Results Sweep article image attempt failed for %s: %s", title, exc)
+            if media.get("source_kind") != "generated":
+                generated = _generate_durable_hero(result, body)
+                if generated:
+                    image_attempts.append(generated)
+
+    # Coverage must never be blocked by hero media.
+    if article is None:
+        article = shopify_service.publish_article(
+            blog_id=str(blog["id"]),
+            title=title,
+            body_html=body,
+            image_url=None,
+        )
+
     handle = str(article.get("handle") or "")
     url = f"https://pitmarkracing.com/blogs/{blog.get('handle')}/{handle}" if handle else "https://pitmarkracing.com/blogs/racing-culture"
-    durable = (((article.get("image") or {}).get("originalSrc") or "") if isinstance(article.get("image"), dict) else "") or image_url
+    shopify_image = (
+        ((article.get("image") or {}).get("originalSrc") or "")
+        if isinstance(article.get("image"), dict)
+        else ""
+    )
+    durable = shopify_image or (used_image or {}).get("url") or None
+    image_status = "ok" if durable else "missing"
+    detail = "; ".join(image_errors)[:4000] if image_errors else None
+
     with SessionLocal() as db:
-        draft = BlogDraft(title=title, body_html=body, content_type="race_results", seo_title=title, seo_description=str(result.get("summary") or "")[:320] or None, featured_image_url=durable, status="published")
-        db.add(draft); db.flush()
-        db.add(ShopifyPublishRecord(draft_id=draft.id, shopify_article_id=str(article.get("id") or ""), title=title, url=url, status="published"))
+        draft = BlogDraft(
+            title=title,
+            body_html=body,
+            content_type="race_results",
+            seo_title=title,
+            seo_description=str(result.get("summary") or "")[:320] or None,
+            featured_image_url=durable,
+            status="published",
+        )
+        db.add(draft)
+        db.flush()
+        db.add(ShopifyPublishRecord(
+            draft_id=draft.id,
+            shopify_article_id=str(article.get("id") or ""),
+            title=title,
+            url=url,
+            status="published",
+        ))
         db.commit()
-    queue_event(event_key=f"results-sweep:{fp}", event_type="blog_publish", title=title, summary=str(result.get("summary") or ""), url=url, media_url=durable, payload={"source":"sunday_results_sweep","entity":result.get("entity_name"),"event_date":result.get("event_date"),"winner":result.get("winner")})
-    return str(article.get("id") or ""), url
+
+    queue_event(
+        event_key=f"results-sweep:{fp}",
+        event_type="blog_publish",
+        title=title,
+        summary=str(result.get("summary") or ""),
+        url=url,
+        media_url=durable,
+        payload={
+            "source": "sunday_results_sweep",
+            "entity": result.get("entity_name"),
+            "event_date": result.get("event_date"),
+            "winner": result.get("winner"),
+            "image_status": image_status,
+            "image_kind": (used_image or {}).get("source_kind"),
+            "image_source": (used_image or {}).get("source_url"),
+        },
+    )
+    return {
+        "article_id": str(article.get("id") or ""),
+        "article_url": url,
+        "image_status": image_status,
+        "image_url": durable,
+        "image_kind": (used_image or {}).get("source_kind"),
+        "image_source": (used_image or {}).get("source_url"),
+        "detail": detail,
+    }
 
 
 def _notify(key: str, title: str, detail: str, priority: str = "action"):
@@ -509,7 +869,7 @@ def _cleanup_v1_false_positives(weekend_key: str) -> None:
 def _run_sweep_impl(force: bool = False):
     start, end, weekend_key = _weekend()
     _cleanup_v1_false_positives(weekend_key)
-    state_key = f"results_sweep:v2:{weekend_key}"
+    state_key = f"results_sweep:v3:{weekend_key}"
     if not force and get_runtime_state(state_key) == "complete":
         return {"ran":False,"reason":"already_complete","weekend_key":weekend_key}
     with SessionLocal() as db:
@@ -565,13 +925,23 @@ def _run_sweep_impl(force: bool = False):
             if _autopublish(result):
                 row = _save(result, weekend_key, "publishing")
                 try:
-                    article_id, article_url = _publish(result, fp)
+                    outcome = _publish(result, fp, evidence)
+                    article_id = outcome["article_id"]
+                    article_url = outcome["article_url"]
                     with SessionLocal() as db:
                         current = db.get(ResultsSweepItem, row.id)
                         if current:
-                            current.status="published"; current.article_id=article_id; current.article_url=article_url; current.updated_at=utcnow(); db.commit()
+                            current.status = "published" if outcome.get("image_status") == "ok" else "published_image_pending"
+                            current.article_id = article_id
+                            current.article_url = article_url
+                            current.detail = outcome.get("detail")
+                            current.updated_at = utcnow()
+                            db.commit()
                     c["published_count"] += 1
-                    _notify(f"published:{fp}", f"Results Sweep published — {name}", f"{_title(result)}\n{article_url}", "info")
+                    note = f"{_title(result)}\n{article_url}"
+                    if outcome.get("image_status") != "ok":
+                        note += "\nPublished successfully; hero image is pending repair."
+                    _notify(f"published:{fp}", f"Results Sweep published — {name}", note, "info")
                     set_runtime_state(target_state, "checked")
                 except Exception as exc:
                     c["uncovered_count"] += 1; c["error_count"] += 1
