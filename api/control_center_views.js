@@ -1,4 +1,4 @@
-import { api, clearCache } from './control-center-api.js?v=20260920standings1';
+import { api, clearCache } from './control-center-api.js?v=20260920results1';
 
 export const DOMAIN_META = Object.freeze({
   hq: { title: 'HQ', kicker: 'Corporate Operations', context: 'What matters, what moved, and what needs you.' },
@@ -11,6 +11,7 @@ export const DOMAIN_META = Object.freeze({
   systems: { title: 'Systems', kicker: 'Platform Operations', context: 'Pitmark Cloud, automation, services, and signals.' },
   insights: { title: 'Insights', kicker: 'Operating Intelligence', context: 'Useful momentum from real Pitmark activity.' },
   standings: { title: 'Standings', kicker: 'Racing Intelligence', context: 'One place for the championships Pitmark follows.' },
+  results: { title: 'Results Desk', kicker: 'Weekend Coverage', context: 'Find race results, verify them, and turn them into Pitmark coverage.' },
 });
 
 const esc = (value = '') => String(value ?? '').replace(/[&<>'"]/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[ch]));
@@ -939,6 +940,75 @@ async function renderStandings(root,ctx){
   };
 }
 
+
+async function renderResultsDesk(root,ctx){
+  let payload;
+  try{
+    payload=await api.resultsSweep({maxAge:ctx.force?0:15000});
+  }catch(e){
+    root.innerHTML=viewHeader('Weekend Coverage','Results Desk','Find race results, verify them, and turn them into Pitmark coverage.')+moduleError('Results Desk',e.message,'results');
+    return;
+  }
+  const run=payload?.latest_run||{};
+  const recent=Array.isArray(payload?.recent)?payload.recent:[];
+  const actionable=recent.filter(row=>['uncovered','needs_review','published_image_pending'].includes(low(row.status)));
+  const covered=recent.filter(row=>row.article_url && ['published','duplicate','published_image_pending'].includes(low(row.status)));
+
+  function resultRow(row){
+    const source=(row.source_urls||[])[0]||'';
+    const article=row.article_url ? '<a class="pm-button pm-button-ghost" href="'+esc(row.article_url)+'" target="_blank" rel="noopener">Article ↗</a>' : '';
+    const sourceLink=source ? '<a class="pm-button pm-button-ghost" href="'+esc(source)+'" target="_blank" rel="noopener">Source ↗</a>' : '';
+    const confidence=row.confidence!==undefined ? '<span class="pm-badge">'+Math.round(Number(row.confidence||0)*100)+'% confidence</span>' : '';
+    const winner=row.winner ? ' · '+esc(row.winner) : '';
+    const actions=(article||sourceLink) ? '<div class="pm-row-actions" style="margin-top:10px">'+article+sourceLink+'</div>' : '';
+    return '<div class="pm-row"><div class="pm-row-main"><div class="pm-row-meta">'+statusBadge(row.status||'unknown')+'<span class="pm-badge">'+esc(row.event_date||row.weekend_key||'Weekend')+'</span>'+confidence+'</div><strong>'+esc(row.entity_name||'Racing result')+winner+'</strong><p>'+esc(compact(row.summary||row.detail||[row.event_name,row.class_name].filter(Boolean).join(' · ')||'No additional detail.',190))+'</p>'+actions+'</div><div class="pm-row-side"><span class="pm-muted">'+esc(row.class_name||'')+'</span></div></div>';
+  }
+
+  const metrics='<div class="pm-metric-strip">'
+    +'<div class="pm-metric"><span>Targets checked</span><strong>'+n(run.targets_checked)+'</strong><small>latest sweep</small></div>'
+    +'<div class="pm-metric"><span>Results found</span><strong>'+n(run.results_found)+'</strong><small>verified activity</small></div>'
+    +'<div class="pm-metric"><span>Published</span><strong>'+n(covered.length)+'</strong><small>articles linked</small></div>'
+    +'<div class="pm-metric"><span>Needs attention</span><strong>'+n(actionable.length)+'</strong><small>review or image repair</small></div>'
+    +'<div class="pm-metric"><span>Last run</span><strong>'+(run.completed_at?esc(age(run.completed_at)):'—')+'</strong><small>'+esc(run.status||'no run')+'</small></div>'
+    +'</div>';
+
+  const actionPanel=actionable.length ? panel(
+    'Needs Attention',
+    'UNCOVERED RESULTS',
+    '<div class="pm-row-list">'+actionable.map(resultRow).join('')+'</div>',
+    '<span class="pm-badge warn">'+n(actionable.length)+' open</span>'
+  ) : '';
+
+  root.innerHTML=viewHeader(
+    'Weekend Coverage',
+    'Results Desk',
+    'Pitmark scans public race sources even when tracks never email us. Verified results become coverage; questionable hits stay here for review.',
+    '<button class="pm-button pm-button-primary" type="button" data-results-run>🏁 Run Sweep</button>'
+  )+metrics+actionPanel+panel(
+    'Recent Results',
+    'RESULTS SWEEP',
+    recent.length?'<div class="pm-row-list">'+recent.map(resultRow).join('')+'</div>':empty('No Results Sweep records yet.'),
+    '<span class="pm-badge good">'+n(covered.length)+' covered</span>'
+  );
+
+  root.onclick=async(event)=>{
+    const button=event.target.closest('[data-results-run]');
+    if(!button) return;
+    button.disabled=true;
+    button.textContent='Running…';
+    try{
+      const result=await api.runResultsSweep();
+      clearCache('/api/control/results-sweep');
+      ctx.toast('Results Sweep finished · '+Number(result?.results_found||0)+' found · '+Number(result?.published_count||0)+' published','good');
+      ctx.refresh(true);
+    }catch(e){
+      ctx.toast(e.message||'Results Sweep failed.','bad');
+      button.disabled=false;
+      button.textContent='🏁 Run Sweep';
+    }
+  };
+}
+
 async function renderInsights(root,ctx){const payload=await api.hq();const m=payload.modules||{};const work=unwrap(m.work)||{};const prt=unwrap(m.prt)||{};const content=unwrap(m.content)||{};const rel=unwrap(m.relationships)||{};const s=work.summary||{};root.innerHTML=`${viewHeader('Operating Intelligence','Insights','Current operational momentum from real Pitmark sources—not vanity metrics.')}<div class="pm-metric-strip"><div class="pm-metric"><span>Open work</span><strong>${n(s.open)}</strong><small>${n(s.p1)} P1 · ${n(s.blocked)} blocked</small></div><div class="pm-metric"><span>Completed</span><strong>${n(s.completed)}</strong><small>Master Checklist history</small></div><div class="pm-metric"><span>PRT testers</span><strong>${n(prt.testers?.redeemed)}</strong><small>${n(prt.applications?.new)} new applications</small></div><div class="pm-metric"><span>Content queue</span><strong>${n(content.autopilot?.pending)}</strong><small>${n(content.autopilot?.scheduled)} scheduled</small></div><div class="pm-metric"><span>Relationships</span><strong>${n(rel.total)}</strong><small>${n(rel.waiting_follow_up)} follow-ups</small></div></div><div class="pm-grid pm-grid-2">${panel('Work Momentum','Source of Truth',`<div class="pm-pulse-grid"><div class="pm-pulse"><header><span>Active</span></header><strong>${n(s.active)}</strong><p>currently moving</p></div><div class="pm-pulse"><header><span>Monitoring</span></header><strong>${n(s.monitoring)}</strong><p>being watched</p></div><div class="pm-pulse"><header><span>Waiting</span></header><strong>${n(s.waiting)}</strong><p>external dependencies</p></div><div class="pm-pulse"><header><span>Roadmap</span></header><strong>${n(s.roadmap)}</strong><p>future work</p></div></div>`)}${panel('Growth Activity','Operational Snapshot',`<div class="pm-detail-list"><div class="pm-detail-pair"><span>Founder’s Race pending</span><strong>${n(prt.founders_race?.pending)}</strong></div><div class="pm-detail-pair"><span>PRT feedback</span><strong>${n(prt.feedback?.open??prt.feedback?.total)}</strong></div><div class="pm-detail-pair"><span>Editorial drafts</span><strong>${n(content.editorial?.drafts)}</strong></div><div class="pm-detail-pair"><span>Published social</span><strong>${n(content.autopilot?.published)}</strong></div></div>`)}</div>`;}
 
 export async function renderDomain(domain, root, ctx) {
@@ -955,6 +1025,7 @@ export async function renderDomain(domain, root, ctx) {
     if (domain === 'systems') return await renderSystems(root,ctx);
     if (domain === 'insights') return await renderInsights(root,ctx);
     if (domain === 'standings') return await renderStandings(root,ctx);
+    if (domain === 'results') return await renderResultsDesk(root,ctx);
     throw new Error(`Unknown Pitmark operating area: ${domain}`);
   } catch (error) {
     if (error?.name === 'AbortError') return;
