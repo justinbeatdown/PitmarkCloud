@@ -14,9 +14,9 @@ SEASON = 2026
 # Schedule/watch discovery is intentionally separate from standings. This lets
 # Pitmark cover support series that do not expose a usable public standings feed.
 SERIES_EVENT_CONFIG: dict[str, dict[str, Any]] = {
-    "nascar-cup": {"name":"NASCAR Cup Series","group":"NASCAR","espn_league":"nascar-premier","schedule_url":"https://www.nascar.com/schedule/","watch_name":"NASCAR TV Guide","watch_url":"https://www.nascar.com/tv-schedule/"},
-    "nascar-oreilly": {"name":"NASCAR O'Reilly Auto Parts Series","group":"NASCAR","espn_league":"nascar-secondary","schedule_url":"https://www.nascar.com/schedule/","watch_name":"NASCAR TV Guide","watch_url":"https://www.nascar.com/tv-schedule/"},
-    "nascar-truck": {"name":"NASCAR CRAFTSMAN Truck Series","group":"NASCAR","espn_league":"nascar-truck","schedule_url":"https://www.nascar.com/schedule/","watch_name":"NASCAR TV Guide","watch_url":"https://www.nascar.com/tv-schedule/"},
+    "nascar-cup": {"name":"NASCAR Cup Series","group":"NASCAR","espn_league":"nascar-premier","schedule_url":"https://www.nascar.com/nascar-cup-series/2026/schedule/","watch_name":"NASCAR TV Guide","watch_url":"https://www.nascar.com/tv-schedule/"},
+    "nascar-oreilly": {"name":"NASCAR O'Reilly Auto Parts Series","group":"NASCAR","espn_league":"nascar-secondary","schedule_url":"https://www.nascar.com/nascar-oreilly-auto-parts-series/2026/schedule/","watch_name":"NASCAR TV Guide","watch_url":"https://www.nascar.com/tv-schedule/"},
+    "nascar-truck": {"name":"NASCAR CRAFTSMAN Truck Series","group":"NASCAR","espn_league":"nascar-truck","schedule_url":"https://www.nascar.com/nascar-craftsman-truck-series/2026/schedule/","watch_name":"NASCAR TV Guide","watch_url":"https://www.nascar.com/tv-schedule/"},
     "nascar-whelen-modified": {"name":"NASCAR Whelen Modified Tour","group":"NASCAR","schedule_url":"https://www.nascar.com/whelen-modified-tour/","watch_name":"NASCAR / FloRacing","watch_url":"https://www.nascar.com/tv-schedule/"},
     "arca-menards": {"name":"ARCA Menards Series","group":"NASCAR","schedule_url":"https://www.arcaracing.com/schedule/","watch_name":"ARCA Broadcast Info","watch_url":"https://www.arcaracing.com/","logo_source_url":"https://www.arcaracing.com/competitor-site/","logo_url":"https://www.arcaracing.com/wp-content/uploads/sites/36/2022/11/10/Menards_ANASCARTouringDivision_Primary_4C_BLK.png"},
     "arca-east": {"name":"ARCA Menards Series East","group":"NASCAR","schedule_url":"https://www.arcaracing.com/schedule/","watch_name":"ARCA Broadcast Info","watch_url":"https://www.arcaracing.com/","logo_source_url":"https://www.arcaracing.com/competitor-site/","logo_url":"https://www.arcaracing.com/wp-content/uploads/sites/36/2021/02/02/ArcaMenardsSeries_East_ANASCARTouringDivision_Primary_4C_BLK.png"},
@@ -285,7 +285,10 @@ def _event_summary(events: list[dict[str, Any]], config: dict[str, Any]) -> dict
             dt = datetime.fromisoformat(start)
         except Exception:
             continue
-        if event.get("state") == "pre" and dt >= now - timedelta(minutes=10):
+        if event.get("state") == "pre" and (
+            (event.get("date_only") and dt.date() >= now.date())
+            or (not event.get("date_only") and dt >= now - timedelta(minutes=10))
+        ):
             upcoming.append((dt, event))
         elif event.get("state") == "post":
             recent.append((dt, event))
