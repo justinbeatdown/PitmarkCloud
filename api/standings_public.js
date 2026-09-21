@@ -16,9 +16,22 @@ const seriesMarkText=series=>{
   };
   return special[key]||String(series?.short_name||series?.series_name||'RACING').toUpperCase();
 };
-const logo=series=>series?.series_logo
-  ?`<img class="series-logo" src="${esc(series.series_logo)}" data-direct="${esc(series.series_logo_direct||'')}" alt="${esc(series.series_name||'Series')} official logo">`
-  :`<span class="series-wordmark" title="${esc(series?.series_name||'Series')}">${esc(seriesMarkText(series))}</span>`;
+const logoToneClass=key=>{
+  const light=new Set([
+    'formula-e','arca-menards','arca-east','arca-west',
+    'imsa-weathertech','imsa-michelin-pilot','imsa-vp-racing',
+    'imsa-porsche-carrera-cup','imsa-mustang-challenge',
+    'imsa-lamborghini-super-trofeo','imsa-mx5-cup'
+  ]);
+  return light.has(String(key||''))?'logo-light':'logo-dark';
+};
+const logo=series=>{
+  const key=String(series?.series_key||'');
+  const mark=seriesMarkText(series);
+  return series?.series_logo
+    ?`<img class="series-logo ${logoToneClass(key)}" src="${esc(series.series_logo)}" data-direct="${esc(series.series_logo_direct||'')}" data-fallback="${esc(mark)}" alt="${esc(series.series_name||'Series')} official logo">`
+    :`<span class="series-wordmark" title="${esc(series?.series_name||'Series')}">${esc(mark)}</span>`;
+};
 const identityText=row=>{const values=[row?.team,row?.manufacturer].filter(Boolean).map(String);return [...new Set(values)].join(' · ');};
 const age=iso=>{
   if(!iso)return '—';
@@ -26,21 +39,21 @@ const age=iso=>{
   if(mins<2)return 'just now';if(mins<60)return mins+'m ago';const hrs=Math.round(mins/60);if(hrs<48)return hrs+'h ago';return Math.round(hrs/24)+'d ago';
 };
 const move=(value,ready=true)=>{
-  if(!ready)return '<span class="move flat" title="Tracking baseline captured; no prior Pitmark snapshot exists yet">0</span>';
-  if(value===null||value===undefined||Number(value)===0)return '<span class="move flat" title="No championship position change">—</span>';
+  if(!ready)return '<span class="move flat" title="Tracking baseline captured; no prior trustworthy standings snapshot exists yet">↔0</span>';
+  if(value===null||value===undefined||Number(value)===0)return '<span class="move flat" title="No championship position change">↔0</span>';
   const v=Number(value);
   return v>0
     ?`<span class="move up" title="Up ${Math.abs(v)} championship position${Math.abs(v)===1?'':'s'}">▲${Math.abs(v)}</span>`
     :`<span class="move down" title="Down ${Math.abs(v)} championship position${Math.abs(v)===1?'':'s'}">▼${Math.abs(v)}</span>`;
 };
 const pointsDelta=(value,ready=true)=>{
-  if(!ready)return '<small class="points-delta flat" title="Tracking baseline captured; no prior Pitmark snapshot exists yet">Δ 0</small>';
+  if(!ready)return '<small class="points-delta flat" title="Tracking baseline captured; no prior trustworthy standings snapshot exists yet">Δ 0</small>';
   if(value===null||value===undefined||Number(value)===0)return '<small class="points-delta flat">Δ 0</small>';
   const v=Number(value);
   const display=Math.abs(v).toLocaleString();
   return v>0
-    ?`<small class="points-delta up">+${display}</small>`
-    :`<small class="points-delta down">−${display}</small>`;
+    ?`<small class="points-delta up" title="Points gained since the prior trustworthy snapshot">▲ +${display}</small>`
+    :`<small class="points-delta down" title="Points lost/corrected since the prior trustworthy snapshot">▼ −${display}</small>`;
 };
 const eventTime=event=>{
   const iso=event?.start;
@@ -126,7 +139,12 @@ function bindLogoErrors(){
         img.src=direct;
         return;
       }
-      img.hidden=true;
+      const mark=img.dataset.fallback||'RACING';
+      const span=document.createElement('span');
+      span.className='series-wordmark event-wordmark';
+      span.title=img.alt||mark;
+      span.textContent=mark;
+      img.replaceWith(span);
     });
   });
 }
@@ -134,7 +152,11 @@ function eventLogo(item){
   const matching=(state.payload?.series||[]).find(series=>String(series.series_key)===String(item?.series_key));
   if(matching&&matching.series_logo)return logo(matching);
   const direct=String(item?.logo_url||'').trim();
-  if(direct)return `<img class="series-logo event-series-logo" src="${esc(direct)}" alt="${esc(item?.series_name||'Series')} official logo">`;
+  if(direct){
+    const key=String(item?.series_key||'');
+    const mark=seriesMarkText({series_key:key,series_name:item?.series_name,short_name:item?.series_name});
+    return `<img class="series-logo event-series-logo ${logoToneClass(key)}" src="${esc(direct)}" data-fallback="${esc(mark)}" alt="${esc(item?.series_name||'Series')} official logo">`;
+  }
   const special={
     'f1':'FORMULA 1','motogp':'MotoGP','moto2':'Moto2','moto3':'Moto3','worldsbk':'WorldSBK',
     'nhra-top-fuel':'NHRA','nhra-funny-car':'NHRA','nhra-pro-stock':'NHRA','nhra-pro-stock-motorcycle':'NHRA',
