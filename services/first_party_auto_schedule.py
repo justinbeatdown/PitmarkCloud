@@ -9,6 +9,7 @@ from services.autonomy_control import effective_mode
 from services.control_center import SocialPost, utcnow
 from services.database import SessionLocal
 from services.first_party_models import get_state, set_state
+from services.social_pacing import pacing_decision
 from utils.config import settings
 
 SUPPORTED_PLATFORMS = ("facebook", "instagram", "x")
@@ -386,6 +387,21 @@ def auto_schedule_verified_first_party() -> dict:
             slot, timing_reason = _choose_campaign_slot(now_local, occupied, posts)
             if not slot:
                 skipped.append({"source": key, "reason": timing_reason})
+                continue
+            priority = _content_timing(posts, now_local)["kind"] != "evergreen"
+            blocked = None
+            for post in posts:
+                allowed, reason = pacing_decision(
+                    db,
+                    platform=post.platform,
+                    candidate=slot,
+                    priority=priority,
+                )
+                if not allowed:
+                    blocked = reason
+                    break
+            if blocked:
+                skipped.append({"source": key, "reason": blocked})
                 continue
             slot_iso = slot.isoformat()
             platforms = []
