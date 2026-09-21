@@ -233,7 +233,7 @@ async function load(){
   try{
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),8000);
-    const response=await fetch('/api/public/standings',{headers:{Accept:'application/json'},signal:controller.signal});
+    const response=await fetch('/api/public/standings?v=standings-quality-20260921',{headers:{Accept:'application/json'},cache:'no-store',signal:controller.signal});
     clearTimeout(timeout);
     if(!response.ok)throw new Error('Standings feed unavailable');
     state.payload=await response.json();
