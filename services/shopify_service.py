@@ -436,3 +436,37 @@ def publish_article(*, blog_id: str, title: str, body_html: str, author: str = "
     if not created:
         raise RuntimeError("Shopify did not return the created article")
     return created
+
+
+def update_article_image(*, article_id: str, image_url: str, alt_text: str) -> dict[str, Any]:
+    mutation = """
+    mutation PitmarkUpdateArticleImage($id: ID!, $article: ArticleUpdateInput!) {
+      articleUpdate(id: $id, article: $article) {
+        article { id title handle isPublished image { originalSrc altText } }
+        userErrors { code field message }
+      }
+    }
+    """
+    data = graphql(
+        mutation,
+        {
+            "id": article_id,
+            "article": {
+                "image": {
+                    "url": image_url,
+                    "altText": alt_text,
+                }
+            },
+        },
+    )
+    result = data.get("articleUpdate") or {}
+    errors = result.get("userErrors") or []
+    if errors:
+        raise RuntimeError(
+            "Shopify article image update rejected: "
+            + "; ".join(str(e.get("message", "Unknown error")) for e in errors[:3])
+        )
+    article = result.get("article")
+    if not article:
+        raise RuntimeError("Shopify did not return the updated article")
+    return article
