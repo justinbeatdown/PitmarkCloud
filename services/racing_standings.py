@@ -1701,7 +1701,7 @@ def _official_metadata_nascar_driver_directory(
             ):
                 key = _identity_key(" ".join(str(label or "").split()))
                 if key:
-                    clean_href = re.split(r'(?:\\s+["\\\']|%20%22)', href.strip(), maxsplit=1)[0]
+                    clean_href = re.split(r"(?:\\s+[\"']|%20%22)", href.strip(), maxsplit=1)[0]
                     profile_links[key] = urljoin("https://www.nascar.com/", clean_href)
 
             # Pair each badge block with the following official Manufacturer Logo.
