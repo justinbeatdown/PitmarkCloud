@@ -6,7 +6,7 @@ import threading
 import time
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 
 from services.racing_standings import SERIES as STANDINGS_SERIES, get_series_logo_info, get_standings_snapshot_hub
@@ -60,9 +60,17 @@ def _asset(name: str, media_type: str) -> Response:
 @router.get("/race-center/schedules", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/live", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/standings", response_class=HTMLResponse, include_in_schema=False)
-def public_standings_home():
+def public_standings_home(request: Request):
     html = (ASSET_DIR / "standings_public.html").read_text(encoding="utf-8")
+    path = request.url.path.rstrip("/").lower()
+    view = (
+        "standings" if path == "/standings" or path.endswith("/standings")
+        else "schedules" if path.endswith("/schedules")
+        else "live" if path.endswith("/live")
+        else "hub"
+    )
     html = html.replace("{{PITMARK_VERSION}}", settings.app_version)
+    html = html.replace("{{RACE_CENTER_VIEW}}", view)
     return HTMLResponse(
         html,
         headers={"Cache-Control": "no-cache, no-store"},
