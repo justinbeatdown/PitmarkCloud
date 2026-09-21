@@ -10,7 +10,6 @@ from fastapi.responses import HTMLResponse, Response
 
 from services.racing_standings import get_series_logo_info, get_standings_snapshot_hub
 from services.racing_schedule import get_race_schedule_snapshot
-from services.racing_events import get_racing_event_hub
 from utils.config import settings
 
 router = APIRouter()
@@ -99,8 +98,12 @@ def public_standings_logo(series_key: str):
 @router.get("/api/public/standings", include_in_schema=False)
 def public_standings_data():
     payload = get_standings_snapshot_hub()
-    event_hub = get_racing_event_hub()
-    event_series = event_hub.get("series") or {}
+    schedule_hub = get_race_schedule_snapshot()
+    schedule_series = {
+        str(item.get("key") or ""): item
+        for item in (schedule_hub.get("series") or [])
+        if item.get("key")
+    }
     safe_series = []
     for series in payload.get("series") or []:
         identity_verified = bool(series.get("metadata_verified"))
@@ -114,7 +117,8 @@ def public_standings_data():
             safe_entries.append(entry)
         logo_url = str(series.get("series_logo_url") or "").strip()
         logo_is_http = logo_url.startswith(("https://", "http://"))
-        event_info = event_series.get(str(series.get("series_key") or "")) or {}
+        schedule_info = schedule_series.get(str(series.get("series_key") or "")) or {}
+        schedule_event = schedule_info.get("event") or {}
         safe_series.append(
             {
                 "series_key": series.get("series_key"),
@@ -135,11 +139,11 @@ def public_standings_data():
                 "fetched_at": series.get("fetched_at"),
                 "status": series.get("status"),
                 "stale": bool(series.get("stale")),
-                "event_state": event_info.get("state"),
-                "current_event": event_info.get("event"),
-                "schedule_url": event_info.get("schedule_url"),
-                "watch_name": event_info.get("watch_name"),
-                "watch_url": event_info.get("watch_url"),
+                "event_state": "live" if schedule_event.get("live") else (schedule_event.get("state") or None),
+                "current_event": schedule_event or None,
+                "schedule_url": schedule_info.get("schedule"),
+                "watch_name": schedule_info.get("watch_label"),
+                "watch_url": schedule_info.get("watch"),
                 "entries": safe_entries,
             }
         )
@@ -150,14 +154,8 @@ def public_standings_data():
                 "generated_at": payload.get("generated_at"),
                 "summary": {
                     **(payload.get("summary") or {}),
-                    "events_live": len(event_hub.get("live") or []),
-                    "schedule_series_total": len(event_hub.get("catalog") or []),
-                },
-                "events": {
-                    "generated_at": event_hub.get("generated_at"),
-                    "live": event_hub.get("live") or [],
-                    "next": event_hub.get("next") or [],
-                    "catalog": event_hub.get("catalog") or [],
+                    "events_live": int((schedule_hub.get("summary") or {}).get("live_now") or 0),
+                    "schedule_series_total": int((schedule_hub.get("summary") or {}).get("series_total") or 0),
                 },
                 "series": safe_series,
             },
