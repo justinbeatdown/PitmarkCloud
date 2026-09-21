@@ -2488,26 +2488,61 @@ def _latest_snapshot(series_key: str, season: int, *, excluding: str | None = No
         return db.scalar(stmt.limit(1))
 
 
+def _comparison_snapshot_plausible(previous_entries: list[dict[str, Any]]) -> bool:
+    """Reject parser glitches before they become fake green/red movement arrows."""
+    if not previous_entries:
+        return False
+
+    positions: list[int] = []
+    for item in previous_entries:
+        try:
+            value = int(item.get("position"))
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            positions.append(value)
+
+    if len(positions) < max(3, min(8, len(previous_entries) // 2)):
+        return False
+
+    # A standings rank should broadly live inside the size of the table. This
+    # catches cases where a car number (71, 99, 76, 20RT...) was parsed as rank.
+    limit = max(25, len(previous_entries) * 2)
+    plausible = sum(1 for value in positions if value <= limit)
+    if plausible / max(1, len(positions)) < 0.8:
+        return False
+
+    # Real standings positions are mostly unique. Duplicate/garbled rank
+    # columns are another sign that two incompatible table layouts were parsed.
+    if len(set(positions)) / max(1, len(positions)) < 0.75:
+        return False
+
+    return True
+
+
 def _movement(entries: list[dict[str, Any]], previous: dict[str, Any] | None) -> list[dict[str, Any]]:
     previous_entries = (previous or {}).get("entries", []) or []
+    snapshot_valid = _comparison_snapshot_plausible(previous_entries)
 
     old_by_name: dict[str, dict[str, Any]] = {}
     old_by_number: dict[str, dict[str, Any]] = {}
     duplicate_numbers: set[str] = set()
-    for item in previous_entries:
-        key = _identity_key(item.get("name"))
-        if key:
-            old_by_name[key] = item
-        number = str(item.get("number") or "").strip().lstrip("#")
-        if number:
-            if number in old_by_number:
-                duplicate_numbers.add(number)
-            else:
-                old_by_number[number] = item
-    for number in duplicate_numbers:
-        old_by_number.pop(number, None)
+    if snapshot_valid:
+        for item in previous_entries:
+            key = _identity_key(item.get("name"))
+            if key:
+                old_by_name[key] = item
+            number = str(item.get("number") or "").strip().lstrip("#")
+            if number:
+                if number in old_by_number:
+                    duplicate_numbers.add(number)
+                else:
+                    old_by_number[number] = item
+        for number in duplicate_numbers:
+            old_by_number.pop(number, None)
 
     out: list[dict[str, Any]] = []
+    current_count = max(1, len(entries))
     for item in entries:
         current = dict(item)
         key = _identity_key(current.get("name"))
@@ -2516,9 +2551,6 @@ def _movement(entries: list[dict[str, Any]], previous: dict[str, Any] | None) ->
             number = str(current.get("number") or "").strip().lstrip("#")
             if number:
                 prior_item = old_by_number.get(number)
-
-        comparison_ready = prior_item is not None
-        current["comparison_ready"] = comparison_ready
 
         try:
             prior_pos = int(prior_item.get("position")) if prior_item and prior_item.get("position") is not None else None
@@ -2529,11 +2561,22 @@ def _movement(entries: list[dict[str, Any]], previous: dict[str, Any] | None) ->
         except (TypeError, ValueError):
             now_pos = None
 
-        current["movement"] = (
+        movement = (
             prior_pos - now_pos
             if prior_pos is not None and now_pos is not None
             else None
         )
+
+        # Even after a valid-table check, fail closed on impossible jumps. A
+        # driver can move a lot, but a delta larger than the tracked field is a
+        # parser/layout change, not championship movement.
+        if movement is not None and abs(movement) > current_count:
+            movement = None
+            prior_item = None
+
+        comparison_ready = prior_item is not None
+        current["comparison_ready"] = comparison_ready
+        current["movement"] = movement if comparison_ready else None
 
         prior_points = _num(prior_item.get("points")) if prior_item else None
         current_points = _num(current.get("points"))
