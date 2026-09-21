@@ -2494,36 +2494,84 @@ def _latest_snapshot(series_key: str, season: int, *, excluding: str | None = No
         return db.scalar(stmt.limit(1))
 
 
-def _comparison_snapshot_plausible(previous_entries: list[dict[str, Any]]) -> bool:
-    """Reject parser glitches before they become fake green/red movement arrows."""
-    if not previous_entries:
+def _standings_entries_plausible(entries: list[dict[str, Any]]) -> bool:
+    """Reject malformed scrape/PDF parses before they can become the public standings."""
+    if not isinstance(entries, list) or len(entries) < 3:
         return False
 
+    valid_names = 0
+    numeric_points = 0
     positions: list[int] = []
-    for item in previous_entries:
-        try:
-            value = int(item.get("position"))
-        except (TypeError, ValueError):
+    for item in entries:
+        if not isinstance(item, dict):
             continue
-        if value > 0:
-            positions.append(value)
 
-    if len(positions) < max(3, min(8, len(previous_entries) // 2)):
+        name = " ".join(str(item.get("name") or "").split()).strip()
+        if (
+            name
+            and re.search(r"[A-Za-zÀ-ÖØ-öø-ÿ]", name)
+            and "http://" not in name.casefold()
+            and "https://" not in name.casefold()
+            and "[](" not in name
+        ):
+            valid_names += 1
+
+        try:
+            pos = int(float(str(item.get("position"))))
+            if pos > 0:
+                positions.append(pos)
+        except (TypeError, ValueError):
+            pass
+
+        if _num(item.get("points")) is not None:
+            numeric_points += 1
+
+    total = len(entries)
+    if valid_names / total < 0.75:
+        return False
+    if len(positions) / total < 0.75:
+        return False
+    if numeric_points / total < 0.60:
         return False
 
-    # A standings rank should broadly live inside the size of the table. This
-    # catches cases where a car number (71, 99, 76, 20RT...) was parsed as rank.
-    limit = max(25, len(previous_entries) * 2)
-    plausible = sum(1 for value in positions if value <= limit)
-    if plausible / max(1, len(positions)) < 0.8:
-        return False
-
-    # Real standings positions are mostly unique. Duplicate/garbled rank
-    # columns are another sign that two incompatible table layouts were parsed.
-    if len(set(positions)) / max(1, len(positions)) < 0.75:
+    # This catches a common parser failure where car numbers become positions
+    # (e.g. 71, 99, 76 in a 10-driver table).
+    position_limit = max(30, total * 3)
+    if sum(1 for value in positions if value <= position_limit) / max(1, len(positions)) < 0.80:
         return False
 
     return True
+
+
+def _latest_valid_snapshot(
+    series_key: str,
+    season: int,
+    *,
+    excluding: str | None = None,
+    limit: int = 12,
+) -> RacingStandingSnapshot | None:
+    with SessionLocal() as db:
+        stmt = (
+            select(RacingStandingSnapshot)
+            .where(
+                RacingStandingSnapshot.series_key == series_key,
+                RacingStandingSnapshot.season == season,
+            )
+            .order_by(RacingStandingSnapshot.fetched_at.desc(), RacingStandingSnapshot.id.desc())
+        )
+        if excluding:
+            stmt = stmt.where(RacingStandingSnapshot.fingerprint != excluding)
+        rows = list(db.scalars(stmt.limit(limit)).all())
+
+    for row in rows:
+        payload = _decode_snapshot(row) or {}
+        if _standings_entries_plausible(payload.get("entries") or []):
+            return row
+    return None
+
+
+def _comparison_snapshot_plausible(previous_entries: list[dict[str, Any]]) -> bool:
+    return _standings_entries_plausible(previous_entries)
 
 
 def _movement(entries: list[dict[str, Any]], previous: dict[str, Any] | None) -> list[dict[str, Any]]:
@@ -2598,8 +2646,10 @@ def _movement(entries: list[dict[str, Any]], previous: dict[str, Any] | None) ->
 
 def _persist(config: dict[str, Any], season: int, fetched: dict[str, Any]) -> dict[str, Any]:
     entries = fetched["entries"]
+    if not _standings_entries_plausible(entries):
+        raise RuntimeError("standings payload failed Pitmark data-quality validation")
     fingerprint = _fingerprint(entries)
-    previous_row = _latest_snapshot(config["key"], season, excluding=fingerprint)
+    previous_row = _latest_valid_snapshot(config["key"], season, excluding=fingerprint)
     previous = _decode_snapshot(previous_row)
     normalized = {
         "series_key": config["key"],
@@ -2658,7 +2708,7 @@ def _persist(config: dict[str, Any], season: int, fetched: dict[str, Any]) -> di
 
 
 def _fallback(config: dict[str, Any], season: int, error: Exception) -> dict[str, Any]:
-    latest = _latest_snapshot(config["key"], season)
+    latest = _latest_valid_snapshot(config["key"], season)
     cached = _decode_snapshot(latest)
     if cached:
         cached.update(
@@ -2738,6 +2788,8 @@ def _sanitize_identity_payload(item: dict[str, Any]) -> dict[str, Any]:
 def _load_one(config: dict[str, Any], season: int) -> dict[str, Any]:
     try:
         fetched = _fetch_series(config, season)
+        if not _standings_entries_plausible(fetched.get("entries") or []):
+            raise RuntimeError("remote standings failed Pitmark data-quality validation")
         fetched = _enrich_official_identity(config, season, fetched)
         logo_url, logo_source_url = _discover_official_logo(config, season)
         fetched["series_logo_url"] = logo_url
@@ -2802,11 +2854,11 @@ def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
     now = utcnow()
     ordered: list[dict[str, Any]] = []
     for config in SERIES:
-        latest_row = _latest_snapshot(config["key"], season)
+        latest_row = _latest_valid_snapshot(config["key"], season)
         snapshot = _decode_snapshot(latest_row)
         if snapshot:
             entries = snapshot.get("entries") or []
-            previous_row = _latest_snapshot(
+            previous_row = _latest_valid_snapshot(
                 config["key"],
                 season,
                 excluding=snapshot.get("fingerprint"),
