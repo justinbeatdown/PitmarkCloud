@@ -215,16 +215,54 @@ function render(){
 function openSeries(key){
   const series=(state.payload?.series||[]).find(s=>String(s.series_key)===String(key));
   if(!series)return;
-  const rows=series.entries||[];
-  const body=rows.length?`<div class="table-wrap"><table><thead><tr><th>Pos</th><th>#</th><th>Move</th><th>Driver</th><th>Team</th><th>Manufacturer</th><th>Points</th><th>Behind</th><th>Wins</th></tr></thead><tbody>${rows.map(row=>`<tr>
-    <td><strong>${esc(row.position??'—')}</strong></td><td><strong>${esc(row.number||'—')}</strong></td><td>${move(row.movement,row.comparison_ready!==false)}</td><td><strong>${esc(row.name||'Unknown')}</strong></td>
-    <td>${esc(row.team||'—')}</td><td>${esc(row.manufacturer||'—')}</td><td><strong>${points(row.points)}</strong>${pointsDelta(row.points_delta,row.comparison_ready!==false)}</td><td>${points(row.behind)}</td><td>${points(row.wins)}</td>
-  </tr>`).join('')}</tbody></table></div>`:'<div class="loading-card">No current standings are available from this source yet.</div>';
+
+  const rows=(series.entries||[]).map(row=>({...row}));
+  const hasValue=value=>value!==null&&value!==undefined&&String(value).trim()!=='';
+  const numericValue=value=>{
+    if(!hasValue(value))return null;
+    const cleaned=String(value).replace(/,/g,'').replace(/[^0-9.+-]/g,'').trim();
+    if(!cleaned)return null;
+    const n=Number(cleaned);
+    return Number.isFinite(n)?n:null;
+  };
+  const leaderPoints=rows.length?numericValue(rows[0]?.points):null;
+
+  rows.forEach(row=>{
+    if(!hasValue(row.behind)&&leaderPoints!==null){
+      const rp=numericValue(row.points);
+      if(rp!==null)row._derivedBehind=Math.max(0,leaderPoints-rp);
+    }
+  });
+
+  const any=field=>rows.some(row=>hasValue(row[field]));
+  const anyBehind=rows.some(row=>hasValue(row.behind)||row._derivedBehind!==undefined);
+  const columns=[
+    {key:'position',label:'Pos',always:true,cell:row=>`<strong>${esc(row.position??'—')}</strong>`},
+    {key:'number',label:'#',show:any('number'),cell:row=>`<strong>${esc(row.number||'—')}</strong>`},
+    {key:'movement',label:'Move',always:true,cell:row=>move(row.movement,row.comparison_ready!==false)},
+    {key:'name',label:'Driver',always:true,cell:row=>`<strong>${esc(row.name||'Unknown')}</strong>`},
+    {key:'team',label:'Team',show:any('team'),cell:row=>esc(row.team||'—')},
+    {key:'manufacturer',label:'Manufacturer',show:any('manufacturer'),cell:row=>esc(row.manufacturer||'—')},
+    {key:'points',label:'Points',always:true,cell:row=>`<strong>${points(row.points)}</strong>${pointsDelta(row.points_delta,row.comparison_ready!==false)}`},
+    {key:'behind',label:'Behind',show:anyBehind,cell:row=>{
+      if(hasValue(row.behind))return points(row.behind);
+      if(row._derivedBehind!==undefined)return row._derivedBehind===0?'LEADER':points(row._derivedBehind);
+      return '—';
+    }},
+    {key:'wins',label:'Wins',show:any('wins'),cell:row=>points(row.wins)},
+    {key:'starts',label:'Starts',show:any('starts'),cell:row=>points(row.starts)}
+  ].filter(col=>col.always||col.show);
+
+  const body=rows.length
+    ?`<div class="table-wrap adaptive-table cols-${columns.length}"><table><thead><tr>${columns.map(col=>`<th data-col="${esc(col.key)}">${esc(col.label)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${columns.map(col=>`<td data-col="${esc(col.key)}">${col.cell(row)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+    :'<div class="loading-card">No current standings are available from this source yet.</div>';
+
   const identitySource=series.metadata_source_url?`<a class="official-link identity-source" href="${esc(series.metadata_source_url)}" target="_blank" rel="noopener">Driver identity data: official series source ↗</a>`:'';
   const logoSource=series.series_logo_source_url?`<a class="official-link identity-source" href="${esc(series.series_logo_source_url)}" target="_blank" rel="noopener">Logo source: official series page ↗</a>`:'';
   const scheduleLink=series.schedule_url?`<a class="official-link" href="${esc(series.schedule_url)}" target="_blank" rel="noopener">Official schedule ↗</a>`:'';
   const watchLink=series.watch_url?`<a class="official-link" href="${esc(series.watch_url)}" target="_blank" rel="noopener">${esc(series.watch_name||'Where to watch')} ↗</a>`:'';
   const eventLine=series.current_event?`<div class="dialog-event ${series.event_state==='live'?'is-live':''}"><span class="eyebrow">${series.event_state==='live'?'LIVE NOW':'NEXT / RECENT'}</span><strong>${esc(series.current_event.name||'Event')}</strong><small>${series.current_event.start?esc(eventTime(series.current_event)):''}</small></div>`:'';
+
   $('#dialogContent').innerHTML=`<div class="dialog-title"><div class="dialog-brand">${logo(series)}<div><span class="eyebrow">${esc(series.group||'RACING')} · ${esc(series.season||'')}</span><h2>${esc(series.series_name||'Standings')}</h2><p>${esc(series.source_name||'Series standings')} · updated ${esc(age(series.fetched_at))}</p></div></div></div>${eventLine}${body}<div class="source-links">${scheduleLink}${watchLink}${series.official_url?`<a class="official-link" href="${esc(series.official_url)}" target="_blank" rel="noopener">Open official series standings ↗</a>`:''}${identitySource}${logoSource}</div>`;
   bindLogoErrors();
   $('#standingsDialog').showModal();
