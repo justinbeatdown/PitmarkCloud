@@ -397,21 +397,33 @@ def _article(result: dict):
     event = html.escape(str(result.get("event_name") or ""))
     cls = html.escape(str(result.get("class_name") or ""))
     date = html.escape(str(result.get("event_date") or ""))
-    body = f"<p><strong>{winner}</strong> earned the headline result at <strong>{entity}</strong>{' on ' + date if date else ''}.</p>"
-    if summary: body += f"<p>{summary}</p>"
-    body += "<h2>Weekend result</h2><ul>"
-    body += f"<li><strong>Track / series:</strong> {entity}</li>"
-    if event: body += f"<li><strong>Event:</strong> {event}</li>"
-    if cls: body += f"<li><strong>Class:</strong> {cls}</li>"
-    if date: body += f"<li><strong>Date:</strong> {date}</li>"
+
+    body = f"<p><strong>{winner}</strong> came away with the headline win at <strong>{entity}</strong>"
+    if date:
+        body += f" on {date}"
+    body += ".</p>"
+    if summary:
+        body += f"<p>{summary}</p>"
+
+    body += "<h2>Race Notes</h2><ul>"
+    if event:
+        body += f"<li><strong>Event:</strong> {event}</li>"
+    if cls:
+        body += f"<li><strong>Division:</strong> {cls}</li>"
+    if date:
+        body += f"<li><strong>Date:</strong> {date}</li>"
     body += f"<li><strong>Winner:</strong> {winner}</li></ul>"
-    body += "<p>Pitmark Racing Co. found this result through its Sunday Night Results Sweep, which checks public racing sources even when no release reaches the Pitmark inbox.</p>"
+
     names = list(result.get("source_names") or [])
     links = []
     for i, url in enumerate(result.get("source_urls") or []):
         label = names[i] if i < len(names) and names[i] else _domain(url)
-        links.append(f'<li><a href="{html.escape(str(url), quote=True)}" rel="noopener">{html.escape(str(label))}</a></li>')
-    if links: body += "<h2>Sources</h2><ul>" + "".join(links) + "</ul>"
+        links.append(
+            f'<li><a href="{html.escape(str(url), quote=True)}" rel="noopener">'
+            f'{html.escape(str(label))}</a></li>'
+        )
+    if links:
+        body += "<p><small>Results information: " + " · ".join(links).replace("<li>","").replace("</li>","") + "</small></p>"
     return body
 
 
@@ -1305,16 +1317,10 @@ def publish_weekend_roundup_if_ready() -> dict:
         )
 
     intro = (
-        f"<p>Pitmark’s Results Desk uncovered {len(rows)} verified Pennsylvania dirt-track results "
-        f"from the weekend beginning {html.escape(weekend_key)}, even without relying on track email releases. "
-        "Here’s the quick track-by-track rundown.</p>"
+        f"<p>Pennsylvania dirt tracks produced {len(rows)} headline results over the weekend beginning "
+        f"{html.escape(weekend_key)}. Here’s the quick track-by-track rundown.</p>"
     )
     body = intro + "".join(sections)
-    body += (
-        "<h2>How Pitmark found these results</h2>"
-        "<p>The Sunday Night Results Sweep checks public track, series, and trusted racing-results sources, "
-        "compares them against existing Pitmark coverage, and surfaces anything we have not covered yet.</p>"
-    )
     body = append_racing_culture_conversion_cta(body, title)
 
     blogs = shopify_service.list_blogs()
