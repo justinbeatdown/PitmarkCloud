@@ -250,6 +250,7 @@ SERIES: tuple[dict[str, Any], ...] = (
     {
         "key": "nhra-top-fuel",
         "logo_source_url": "https://www.nhra.com/media-center/logos",
+        "logo_url": "https://upload.wikimedia.org/wikipedia/commons/5/54/National_Hot_Rod_Association_Logo.svg",
         "name": "NHRA Top Fuel",
         "short_name": "NHRA Top Fuel",
         "group": "Drag Racing",
@@ -264,6 +265,7 @@ SERIES: tuple[dict[str, Any], ...] = (
     {
         "key": "nhra-funny-car",
         "logo_source_url": "https://www.nhra.com/media-center/logos",
+        "logo_url": "https://upload.wikimedia.org/wikipedia/commons/5/54/National_Hot_Rod_Association_Logo.svg",
         "name": "NHRA Funny Car",
         "short_name": "NHRA Funny Car",
         "group": "Drag Racing",
@@ -278,6 +280,7 @@ SERIES: tuple[dict[str, Any], ...] = (
     {
         "key": "nhra-pro-stock",
         "logo_source_url": "https://www.nhra.com/media-center/logos",
+        "logo_url": "https://upload.wikimedia.org/wikipedia/commons/5/54/National_Hot_Rod_Association_Logo.svg",
         "name": "NHRA Pro Stock",
         "short_name": "NHRA Pro Stock",
         "group": "Drag Racing",
@@ -292,6 +295,7 @@ SERIES: tuple[dict[str, Any], ...] = (
     {
         "key": "nhra-pro-stock-motorcycle",
         "logo_source_url": "https://www.nhra.com/media-center/logos",
+        "logo_url": "https://upload.wikimedia.org/wikipedia/commons/5/54/National_Hot_Rod_Association_Logo.svg",
         "name": "NHRA Pro Stock Motorcycle",
         "short_name": "NHRA PSM",
         "group": "Drag Racing",
@@ -314,6 +318,7 @@ SERIES: tuple[dict[str, Any], ...] = (
         "name_headers": ("driver",),
         "team_headers": ("team",),
         "logo_source_url": "https://www.formula1.com/",
+        "logo_url": "https://upload.wikimedia.org/wikipedia/commons/3/33/F1.svg",
     },
     {
         "key": "indycar",
@@ -419,6 +424,7 @@ SERIES: tuple[dict[str, Any], ...] = (
         "metadata_provider": "motogp_riders",
         "metadata_url": "https://www.motogp.com/en/riders/",
         "logo_source_url": "https://www.motogp.com/",
+        "logo_url": "https://upload.wikimedia.org/wikipedia/commons/f/f9/MotoGP_logo_%282024%29.svg",
         "source_name": "MotoGP official statistics",
         "name_headers": ("rider",),
         "points_headers": ("points", "pts"),
