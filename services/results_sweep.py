@@ -171,6 +171,26 @@ def _search(name: str, start: datetime, end: datetime, local: bool) -> list[dict
             rows.extend(_google_news_search(client, q, limit=8))
             if local:
                 rows.extend(_ddg_search(client, q, limit=8))
+
+        # Local dirt-track results are frequently published to specialist result
+        # aggregators instead of track websites or email lists. Search those
+        # sources explicitly, and always include the Pennsylvania weekly-results
+        # roundup as a fallback source for the local-track lane.
+        if local:
+            for q in (
+                f'site:dirtondirt.com/results.php "{name}" {start.strftime("%B")} {start.year}',
+                f'site:myracepass.com "{name}" results {start.year}',
+            ):
+                rows.extend(_bing_search(client, q, limit=8))
+            rows.append({
+                "title": f"Pennsylvania Weekly Late Model Results — {name}",
+                "source": "Dirt on Dirt",
+                "url": "https://www.dirtondirt.com/results.php?month=all&search=true&state=PA&track=all",
+                "snippet": (
+                    f"Trusted Pennsylvania weekly race-results roundup. "
+                    f"Check {name} for {start.date().isoformat()} through {end.date().isoformat()}."
+                ),
+            })
     keep = {}
     for item in rows:
         key = (item.get("url") or item.get("title") or "").strip().lower()
