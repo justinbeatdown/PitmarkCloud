@@ -26,7 +26,7 @@ const age=iso=>{
   if(mins<2)return 'just now';if(mins<60)return mins+'m ago';const hrs=Math.round(mins/60);if(hrs<48)return hrs+'h ago';return Math.round(hrs/24)+'d ago';
 };
 const move=(value,ready=true)=>{
-  if(!ready)return '<span class="move base" title="Baseline captured; movement appears after the next standings change">BASE</span>';
+  if(!ready)return '<span class="move flat" title="Tracking baseline captured; no prior Pitmark snapshot exists yet">0</span>';
   if(value===null||value===undefined||Number(value)===0)return '<span class="move flat" title="No championship position change">—</span>';
   const v=Number(value);
   return v>0
@@ -34,7 +34,7 @@ const move=(value,ready=true)=>{
     :`<span class="move down" title="Down ${Math.abs(v)} championship position${Math.abs(v)===1?'':'s'}">▼${Math.abs(v)}</span>`;
 };
 const pointsDelta=(value,ready=true)=>{
-  if(!ready)return '<small class="points-delta base" title="Baseline captured">Δ BASE</small>';
+  if(!ready)return '<small class="points-delta flat" title="Tracking baseline captured; no prior Pitmark snapshot exists yet">Δ 0</small>';
   if(value===null||value===undefined||Number(value)===0)return '<small class="points-delta flat">Δ 0</small>';
   const v=Number(value);
   const display=Math.abs(v).toLocaleString();
