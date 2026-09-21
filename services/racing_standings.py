@@ -2459,21 +2459,59 @@ def _latest_snapshot(series_key: str, season: int, *, excluding: str | None = No
 
 
 def _movement(entries: list[dict[str, Any]], previous: dict[str, Any] | None) -> list[dict[str, Any]]:
-    old_positions = {
-        str(item.get("name") or "").strip().lower(): int(item.get("position"))
-        for item in (previous or {}).get("entries", [])
-        if item.get("name") and item.get("position") is not None
-    }
+    previous_entries = (previous or {}).get("entries", []) or []
+
+    # Match primarily by normalized identity so harmless formatting changes
+    # (punctuation, accents, Jr./spacing differences) do not erase movement.
+    old_by_name: dict[str, dict[str, Any]] = {}
+    old_by_number: dict[str, dict[str, Any]] = {}
+    duplicate_numbers: set[str] = set()
+    for item in previous_entries:
+        key = _identity_key(item.get("name"))
+        if key:
+            old_by_name[key] = item
+        number = str(item.get("number") or "").strip().lstrip("#")
+        if number:
+            if number in old_by_number:
+                duplicate_numbers.add(number)
+            else:
+                old_by_number[number] = item
+    for number in duplicate_numbers:
+        old_by_number.pop(number, None)
+
     out: list[dict[str, Any]] = []
     for item in entries:
         current = dict(item)
-        key = str(current.get("name") or "").strip().lower()
-        prior = old_positions.get(key)
+        key = _identity_key(current.get("name"))
+        prior_item = old_by_name.get(key) if key else None
+        if prior_item is None:
+            number = str(current.get("number") or "").strip().lstrip("#")
+            if number:
+                prior_item = old_by_number.get(number)
+
         try:
-            now_pos = int(current.get("position"))
+            prior_pos = int(prior_item.get("position")) if prior_item and prior_item.get("position") is not None else None
+        except (TypeError, ValueError):
+            prior_pos = None
+        try:
+            now_pos = int(current.get("position")) if current.get("position") is not None else None
         except (TypeError, ValueError):
             now_pos = None
-        current["movement"] = (prior - now_pos) if prior is not None and now_pos is not None else None
+
+        current["movement"] = (
+            prior_pos - now_pos
+            if prior_pos is not None and now_pos is not None
+            else None
+        )
+
+        prior_points = _num(prior_item.get("points")) if prior_item else None
+        current_points = _num(current.get("points"))
+        if prior_points is not None and current_points is not None:
+            delta = current_points - prior_points
+            current["points_delta"] = int(delta) if float(delta).is_integer() else round(delta, 2)
+        else:
+            current["points_delta"] = None
+
         out.append(current)
     return out
 
