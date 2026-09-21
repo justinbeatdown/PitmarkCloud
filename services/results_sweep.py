@@ -16,9 +16,10 @@ import httpx
 from sqlalchemy import DateTime, Float, Integer, LargeBinary, String, Text, delete, select, text
 from sqlalchemy.orm import Mapped, mapped_column
 from bs4 import BeautifulSoup
-from PIL import Image
+from PIL import Image, ImageDraw, ImageOps, ImageStat
 
 from services.autopilot_ai import _extract_output_text
+from services.blog_image_service import generate_and_stage_track_hero
 from services.control_center import BlogDraft, EcosystemNotification, ShopifyPublishRecord, utcnow
 from services.database import Base, SessionLocal, engine, DATABASE_URL
 from services.first_party_models import queue_event
@@ -64,6 +65,16 @@ TRUSTED = (
 )
 RESULT_WORDS = ("results", "winner", "wins", "won", "victory", "feature", "checkered", "podium", "final", "recap")
 RESULTS_SWEEP_LOCK_KEY = 739245118
+
+# HARD-CODED RESULTS COVERAGE MEDIA POLICY.
+# 1) Prefer a verified real race/event/driver photo.
+# 2) If none exists, find the track's verified official logo and composite it
+#    onto a generated TRACK/VENUE background.
+# 3) NEVER generate a driver, winner likeness, fake victory-lane photo, fake
+#    car number, or fake track logo for Results Sweep coverage.
+RESULTS_MEDIA_POLICY_VERSION = "real-photo-then-official-track-logo-hero-v1"
+RESULTS_GENERATED_DRIVER_ART_ALLOWED = False
+RESULTS_GENERATED_FALLBACK_KIND = "track_logo_hero"
 
 
 class ResultsSweepItem(Base):
@@ -697,6 +708,289 @@ def _select_real_image(result: dict, evidence: list[dict]) -> dict | None:
     return None
 
 
+
+def _logo_candidate_pages(result: dict, evidence: list[dict]) -> list[dict]:
+    entity = str(result.get("entity_name") or "").strip()
+    tokens = _tokens(entity)
+    rows: list[dict] = []
+
+    for item in evidence[:8]:
+        url = str(item.get("url") or "").strip()
+        if url and _official_image_page(result, url):
+            rows.append({"url": url, "score": 110, "title": str(item.get("title") or "")})
+
+    queries = [
+        f'"{entity}" official website',
+        f'"{entity}" official logo',
+        f'site:myracepass.com "{entity}"',
+    ]
+    try:
+        with httpx.Client(timeout=12.0, follow_redirects=True) as client:
+            for query in queries:
+                for item in _bing_search(client, query, limit=8):
+                    url = str(item.get("url") or "").strip()
+                    if not url:
+                        continue
+                    host = _domain(url)
+                    blob = f"{item.get('title') or ''} {item.get('snippet') or ''} {url}".lower()
+                    identity_hits = sum(1 for token in tokens if token in blob or token in host)
+                    if not identity_hits and not host.endswith("myracepass.com"):
+                        continue
+                    score = 50 + identity_hits * 20
+                    if "official" in blob:
+                        score += 20
+                    if "logo" in blob:
+                        score += 10
+                    rows.append({"url": url, "score": score, "title": str(item.get("title") or "")})
+    except Exception as exc:
+        log.info("Results Sweep official-logo page discovery failed for %s: %s", entity, exc)
+
+    deduped: dict[str, dict] = {}
+    for row in rows:
+        key = row["url"].lower()
+        if key not in deduped or row["score"] > deduped[key]["score"]:
+            deduped[key] = row
+    return sorted(deduped.values(), key=lambda row: row["score"], reverse=True)[:12]
+
+
+def _page_logo_candidates(page_url: str, html_text: str, result: dict) -> list[dict]:
+    soup = BeautifulSoup(html_text or "", "html.parser")
+    entity_tokens = _tokens(str(result.get("entity_name") or ""))
+    page_identity = " ".join([
+        str(soup.title.string if soup.title and soup.title.string else ""),
+        " ".join(x.get_text(" ", strip=True) for x in soup.find_all(["h1", "h2"])[:4]),
+    ]).lower()
+    host = _domain(page_url)
+    identity_hits = sum(1 for token in entity_tokens if token in page_identity or token in host)
+    if not identity_hits and not host.endswith("myracepass.com"):
+        return []
+
+    rows: list[dict] = []
+    for img in soup.find_all("img"):
+        src = img.get("src") or img.get("data-src") or img.get("data-lazy-src")
+        if not src:
+            srcset = str(img.get("srcset") or "")
+            if srcset:
+                src = srcset.split(",")[-1].strip().split(" ")[0]
+        raw = str(src or "").strip()
+        if not raw:
+            continue
+        try:
+            absolute = str(httpx.URL(page_url).join(raw))
+        except Exception:
+            absolute = raw
+        if not absolute.startswith(("http://", "https://")):
+            continue
+        if absolute.lower().endswith(".svg"):
+            continue
+
+        metadata = " ".join([
+            absolute,
+            str(img.get("alt") or ""),
+            str(img.get("title") or ""),
+            " ".join(str(x) for x in (img.get("class") or [])),
+            str(img.get("id") or ""),
+        ]).lower()
+        token_hits = sum(1 for token in entity_tokens if token in metadata)
+        logo_signal = any(word in metadata for word in ("logo", "brand", "site-logo", "header-logo"))
+        if not logo_signal and not token_hits:
+            continue
+
+        score = 0
+        if logo_signal:
+            score += 100
+        score += token_hits * 35
+        if any(word in metadata for word in ("header", "navbar", "masthead", "site-brand")):
+            score += 20
+        if absolute.lower().endswith((".png", ".webp")):
+            score += 15
+        if any(word in metadata for word in ("sponsor", "advert", "banner", "partner")):
+            score -= 80
+        rows.append({"url": absolute, "score": score, "page_url": page_url})
+
+    deduped: dict[str, dict] = {}
+    for row in rows:
+        key = row["url"].lower()
+        if key not in deduped or row["score"] > deduped[key]["score"]:
+            deduped[key] = row
+    return sorted(deduped.values(), key=lambda row: row["score"], reverse=True)[:20]
+
+
+def _usable_logo_bytes(client: httpx.Client, url: str) -> tuple[bytes, str, int, int] | None:
+    try:
+        with client.stream("GET", url, timeout=12.0, follow_redirects=True) as response:
+            if response.status_code != 200:
+                return None
+            media_type = (response.headers.get("content-type") or "").split(";", 1)[0].lower()
+            if not media_type.startswith("image/") or "svg" in media_type:
+                return None
+            chunks: list[bytes] = []
+            total = 0
+            for chunk in response.iter_bytes(chunk_size=64 * 1024):
+                total += len(chunk)
+                if total > 4 * 1024 * 1024:
+                    return None
+                chunks.append(chunk)
+            data = b"".join(chunks)
+        if len(data) < 1024:
+            return None
+        with Image.open(BytesIO(data)) as image:
+            width, height = image.size
+        if width < 80 or height < 40:
+            return None
+        return data, media_type, width, height
+    except Exception:
+        return None
+
+
+def _find_official_track_logo(result: dict, evidence: list[dict]) -> dict | None:
+    entity = str(result.get("entity_name") or "").strip()
+    candidates: list[dict] = []
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; PitmarkResultsDesk/1.0; +https://pitmarkracing.com)"
+    }
+    with httpx.Client(timeout=15.0, follow_redirects=True, headers=headers) as client:
+        for page in _logo_candidate_pages(result, evidence):
+            try:
+                response = client.get(page["url"])
+                if response.status_code != 200:
+                    continue
+                content_type = (response.headers.get("content-type") or "").lower()
+                if "html" not in content_type:
+                    continue
+                for candidate in _page_logo_candidates(page["url"], response.text, result):
+                    candidate["score"] += int(page["score"])
+                    candidates.append(candidate)
+            except Exception:
+                continue
+
+        deduped: dict[str, dict] = {}
+        for candidate in candidates:
+            key = candidate["url"].lower()
+            if key not in deduped or candidate["score"] > deduped[key]["score"]:
+                deduped[key] = candidate
+
+        for candidate in sorted(deduped.values(), key=lambda row: row["score"], reverse=True)[:20]:
+            usable = _usable_logo_bytes(client, candidate["url"])
+            if usable is None:
+                continue
+            data, media_type, width, height = usable
+            log.info(
+                "Results Sweep verified official track logo for %s from %s (%sx%s)",
+                entity,
+                candidate["page_url"],
+                width,
+                height,
+            )
+            return {
+                "data": data,
+                "media_type": media_type,
+                "width": width,
+                "height": height,
+                "logo_url": candidate["url"],
+                "source_page": candidate["page_url"],
+            }
+    return None
+
+
+def _build_track_logo_hero(result: dict, evidence: list[dict], body_html: str) -> dict | None:
+    """Only permitted generated fallback for Results Sweep coverage.
+
+    The model generates a venue/background only. A verified official track logo
+    is composited afterward as the exact source asset. No generated driver,
+    winner likeness, car number, sponsor livery, or fake logo is allowed.
+    """
+    if RESULTS_GENERATED_DRIVER_ART_ALLOWED:
+        raise RuntimeError("Results media policy violation: generated driver art must remain disabled")
+
+    logo = _find_official_track_logo(result, evidence)
+    if logo is None:
+        log.warning(
+            "Results Sweep found no verified official track logo for %s; refusing generated fallback",
+            result.get("entity_name"),
+        )
+        return None
+
+    try:
+        staged = generate_and_stage_track_hero(
+            track_name=str(result.get("entity_name") or "Racing venue"),
+            article_context=body_html,
+        )
+        with Image.open(staged.path) as background_image:
+            background = background_image.convert("RGBA")
+        with Image.open(BytesIO(logo["data"])) as logo_image:
+            official_logo = logo_image.convert("RGBA")
+
+        resampling = getattr(Image, "Resampling", Image)
+        max_logo = (max(180, int(background.width * 0.30)), max(100, int(background.height * 0.22)))
+        official_logo = ImageOps.contain(official_logo, max_logo, method=resampling.LANCZOS)
+
+        alpha = official_logo.getchannel("A")
+        try:
+            mean_luma = ImageStat.Stat(official_logo.convert("L"), mask=alpha).mean[0]
+        except Exception:
+            mean_luma = 160
+
+        pad_x = max(24, int(background.width * 0.018))
+        pad_y = max(18, int(background.height * 0.018))
+        panel_w = official_logo.width + pad_x * 2
+        panel_h = official_logo.height + pad_y * 2
+        margin = max(28, int(background.width * 0.026))
+        x0 = background.width - panel_w - margin
+        y0 = background.height - panel_h - margin
+        x1 = x0 + panel_w
+        y1 = y0 + panel_h
+
+        overlay = Image.new("RGBA", background.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+        if mean_luma < 115:
+            panel_fill = (248, 248, 248, 224)
+            outline = (20, 20, 20, 80)
+        else:
+            panel_fill = (12, 12, 12, 210)
+            outline = (255, 255, 255, 95)
+        draw.rounded_rectangle(
+            (x0, y0, x1, y1),
+            radius=max(16, int(panel_h * 0.08)),
+            fill=panel_fill,
+            outline=outline,
+            width=max(2, int(background.width * 0.002)),
+        )
+        background = Image.alpha_composite(background, overlay)
+        background.alpha_composite(official_logo, (x0 + pad_x, y0 + pad_y))
+
+        output = BytesIO()
+        background.convert("RGB").save(output, format="JPEG", quality=92, optimize=True)
+        stored = _store_media_bytes(
+            output.getvalue(),
+            media_type="image/jpeg",
+            source_kind=RESULTS_GENERATED_FALLBACK_KIND,
+            source_url=str(logo["source_page"]),
+        )
+        stored["logo_url"] = logo["logo_url"]
+        stored["logo_source"] = logo["source_page"]
+        log.info(
+            "Results Sweep created track-logo fallback hero for %s using official logo %s",
+            result.get("entity_name"),
+            logo["logo_url"],
+        )
+        return stored
+    except Exception as exc:
+        log.warning("Results Sweep track-logo hero failed for %s: %s", result.get("entity_name"), exc)
+        return None
+
+
+def _enforce_results_media_policy(media: dict | None) -> None:
+    if not media:
+        return
+    kind = str(media.get("source_kind") or "")
+    prohibited = {"generated", "generated_driver", "driver_hero", "winner_hero", "ai_driver"}
+    if kind in prohibited:
+        raise RuntimeError(f"Results media policy violation: prohibited generated media kind {kind}")
+    if kind.startswith("generated") and kind != RESULTS_GENERATED_FALLBACK_KIND:
+        raise RuntimeError(f"Results media policy violation: unsupported generated media kind {kind}")
+
+
 def _publish(result: dict, fp: str, evidence: list[dict]):
     title, body = _title(result), _article(result)
     blogs = shopify_service.list_blogs()
@@ -706,9 +1000,14 @@ def _publish(result: dict, fp: str, evidence: list[dict]):
     if str(blog.get("handle") or "").lower() == "racing-culture":
         body = append_racing_culture_conversion_cta(body, title)
 
-    # Results coverage is real-photo-only. If we cannot verify a legitimate
-    # event/track/driver image, publish clean with no hero instead of fabricating one.
+    # HARD-CODED media policy:
+    # verified real photo -> use it;
+    # otherwise official track logo + generated TRACK/VENUE background;
+    # never generate a driver/winner likeness.
     selected = _select_real_image(result, evidence)
+    if selected is None:
+        selected = _build_track_logo_hero(result, evidence, body)
+    _enforce_results_media_policy(selected)
     article = None
     used_image: dict | None = None
     image_errors: list[str] = []
@@ -743,7 +1042,7 @@ def _publish(result: dict, fp: str, evidence: list[dict]):
         else ""
     )
     durable = shopify_image or (used_image or {}).get("url") or None
-    image_status = "real" if durable else "none"
+    image_status = (used_image or {}).get("source_kind") or ("real" if durable else "none")
     detail = "; ".join(image_errors)[:4000] if image_errors else None
 
     with SessionLocal() as db:
@@ -847,6 +1146,7 @@ def repair_pending_images(limit: int = 8) -> dict:
             draft = db.get(BlogDraft, record.draft_id) if record else None
             featured = str(draft.featured_image_url or "") if draft else ""
             if not featured:
+                candidates.append((row.id, True))
                 continue
             probe_result = {
                 "entity_name": row.entity_name,
@@ -891,12 +1191,17 @@ def repair_pending_images(limit: int = 8) -> dict:
             body = _article(result)
             media = _select_real_image(result, evidence)
             if media is None:
-                # No real photo is fine. Leave the article clean instead of making art.
+                media = _build_track_logo_hero(result, evidence, body)
+            _enforce_results_media_policy(media)
+            if media is None:
                 with SessionLocal() as db:
                     current = db.get(ResultsSweepItem, row.id)
                     if current:
-                        current.status = "published"
-                        current.detail = "No verified real race/event photo found; article intentionally published without a hero image."
+                        current.status = "published_image_pending"
+                        current.detail = (
+                            "No verified real photo and no verified official track logo was found. "
+                            "Generated driver art is prohibited; hero requires manual logo/source review."
+                        )
                         current.updated_at = utcnow()
                         db.commit()
                 continue
@@ -1347,6 +1652,26 @@ def publish_weekend_roundup_if_ready() -> dict:
                 break
         except Exception as exc:
             log.info("Results Sweep roundup real-photo lookup failed for %s: %s", row.entity_name, exc)
+
+    if hero is None:
+        for row in rows:
+            try:
+                result = {
+                    "entity_name": row.entity_name,
+                    "event_name": row.event_name or "",
+                    "event_date": row.event_date or "",
+                    "class_name": row.class_name or "",
+                    "winner": row.winner or "",
+                    "summary": row.summary or "",
+                }
+                local = any(word in row.entity_name.lower() for word in ("speedway", "raceway", "track"))
+                evidence = _search(row.entity_name, start, end, local)
+                hero = _build_track_logo_hero(result, evidence, body)
+                if hero:
+                    break
+            except Exception as exc:
+                log.info("Results Sweep roundup track-logo fallback failed for %s: %s", row.entity_name, exc)
+    _enforce_results_media_policy(hero)
 
     try:
         article = shopify_service.publish_article(
