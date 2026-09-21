@@ -74,6 +74,15 @@
       </a>
     </section>
 
+    <section class="live-section">
+      <div class="section-head">
+        <div><span class="eyebrow">LIVE + NEXT</span><h2>What’s happening now</h2></div>
+        <p id="eventStatusText">Checking official schedules…</p>
+      </div>
+      <div id="liveNow"></div>
+      <div class="event-strip" id="nextEvents"></div>
+    </section>
+
     <section class="leaders-section">
       <div class="section-head">
         <div><span class="eyebrow">CHAMPIONSHIP LEADERS</span><h2>Who's on top right now</h2></div>
@@ -82,6 +91,14 @@
       <div class="leader-strip" id="leaderStrip">
         <div class="loading-card">Loading racing world…</div>
       </div>
+    </section>
+
+    <section class="schedule-section" id="schedules">
+      <div class="section-head">
+        <div><span class="eyebrow">SCHEDULES + WATCH</span><h2>Find the next race</h2></div>
+        <p>Official schedule and broadcast links for every series Pitmark tracks.</p>
+      </div>
+      <div class="schedule-grid" id="scheduleCatalog"></div>
     </section>
 
     <section class="series-section">
@@ -114,6 +131,6 @@
     <small>Standings are aggregated from official or structured series sources when available. Driver numbers, team/manufacturer identity, and series logos are displayed only when Pitmark can trace them to an official series-owned source. Missing identity data is intentionally left blank rather than inferred. Always use the linked official series source for rules and final classification decisions.</small>
   </footer>
 
-  <script src="/standings.js?v={{PITMARK_VERSION}}-imsa-pdf-20260920" defer></script>
+  <script src="/standings.js?v={{PITMARK_VERSION}}-events-20260920" defer></script>
 </body>
 </html>
