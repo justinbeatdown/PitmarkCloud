@@ -1,4 +1,4 @@
-import { api, clearCache } from './control-center-api.js?v=20260920results1';
+import { api, clearCache } from './control-center-api.js?v=20260920results2';
 
 export const DOMAIN_META = Object.freeze({
   hq: { title: 'HQ', kicker: 'Corporate Operations', context: 'What matters, what moved, and what needs you.' },
@@ -949,10 +949,22 @@ async function renderResultsDesk(root,ctx){
     root.innerHTML=viewHeader('Weekend Coverage','Results Desk','Find race results, verify them, and turn them into Pitmark coverage.')+moduleError('Results Desk',e.message,'results');
     return;
   }
+
   const run=payload?.latest_run||{};
   const recent=Array.isArray(payload?.recent)?payload.recent:[];
-  const actionable=recent.filter(row=>['uncovered','needs_review','published_image_pending'].includes(low(row.status)));
-  const covered=recent.filter(row=>row.article_url && ['published','duplicate','published_image_pending'].includes(low(row.status)));
+  const archived=recent.filter(row=>low(row.status)==='superseded');
+  const visible=recent.filter(row=>low(row.status)!=='superseded');
+  const actionable=visible.filter(row=>['uncovered','needs_review','published_image_pending'].includes(low(row.status)));
+  const covered=visible.filter(row=>row.article_url && ['published','duplicate','published_image_pending'].includes(low(row.status)));
+  const notes=visible.filter(row=>['cancelled','postponed'].includes(low(row.status)));
+
+  function displayStatus(row){
+    const s=low(row.status);
+    if(row.article_url && (s==='duplicate'||s==='published'||s==='published_image_pending')){
+      return s==='published_image_pending' ? 'published · image pending' : 'covered';
+    }
+    return row.status||'unknown';
+  }
 
   function resultRow(row){
     const source=(row.source_urls||[])[0]||'';
@@ -961,13 +973,14 @@ async function renderResultsDesk(root,ctx){
     const confidence=row.confidence!==undefined ? '<span class="pm-badge">'+Math.round(Number(row.confidence||0)*100)+'% confidence</span>' : '';
     const winner=row.winner ? ' · '+esc(row.winner) : '';
     const actions=(article||sourceLink) ? '<div class="pm-row-actions" style="margin-top:10px">'+article+sourceLink+'</div>' : '';
-    return '<div class="pm-row"><div class="pm-row-main"><div class="pm-row-meta">'+statusBadge(row.status||'unknown')+'<span class="pm-badge">'+esc(row.event_date||row.weekend_key||'Weekend')+'</span>'+confidence+'</div><strong>'+esc(row.entity_name||'Racing result')+winner+'</strong><p>'+esc(compact(row.summary||row.detail||[row.event_name,row.class_name].filter(Boolean).join(' · ')||'No additional detail.',190))+'</p>'+actions+'</div><div class="pm-row-side"><span class="pm-muted">'+esc(row.class_name||'')+'</span></div></div>';
+    const status=displayStatus(row);
+    return '<div class="pm-row"><div class="pm-row-main"><div class="pm-row-meta">'+statusBadge(status)+'<span class="pm-badge">'+esc(row.event_date||row.weekend_key||'Weekend')+'</span>'+confidence+'</div><strong>'+esc(row.entity_name||'Racing result')+winner+'</strong><p>'+esc(compact(row.summary||row.detail||[row.event_name,row.class_name].filter(Boolean).join(' · ')||'No additional detail.',190))+'</p>'+actions+'</div><div class="pm-row-side"><span class="pm-muted">'+esc(row.class_name||'')+'</span></div></div>';
   }
 
   const metrics='<div class="pm-metric-strip">'
     +'<div class="pm-metric"><span>Targets checked</span><strong>'+n(run.targets_checked)+'</strong><small>latest sweep</small></div>'
     +'<div class="pm-metric"><span>Results found</span><strong>'+n(run.results_found)+'</strong><small>verified activity</small></div>'
-    +'<div class="pm-metric"><span>Published</span><strong>'+n(covered.length)+'</strong><small>articles linked</small></div>'
+    +'<div class="pm-metric"><span>Covered</span><strong>'+n(covered.length)+'</strong><small>articles linked</small></div>'
     +'<div class="pm-metric"><span>Needs attention</span><strong>'+n(actionable.length)+'</strong><small>review or image repair</small></div>'
     +'<div class="pm-metric"><span>Last run</span><strong>'+(run.completed_at?esc(age(run.completed_at)):'—')+'</strong><small>'+esc(run.status||'no run')+'</small></div>'
     +'</div>';
@@ -979,17 +992,37 @@ async function renderResultsDesk(root,ctx){
     '<span class="pm-badge warn">'+n(actionable.length)+' open</span>'
   ) : '';
 
-  root.innerHTML=viewHeader(
-    'Weekend Coverage',
-    'Results Desk',
-    'Pitmark scans public race sources even when tracks never email us. Verified results become coverage; questionable hits stay here for review.',
-    '<button class="pm-button pm-button-primary" type="button" data-results-run>🏁 Run Sweep</button>'
-  )+metrics+actionPanel+panel(
-    'Recent Results',
-    'RESULTS SWEEP',
-    recent.length?'<div class="pm-row-list">'+recent.map(resultRow).join('')+'</div>':empty('No Results Sweep records yet.'),
-    '<span class="pm-badge good">'+n(covered.length)+' covered</span>'
-  );
+  const notesPanel=notes.length ? panel(
+    'Weekend Notes',
+    'CANCELLATIONS / POSTPONEMENTS',
+    '<div class="pm-row-list">'+notes.map(resultRow).join('')+'</div>',
+    '<span class="pm-badge">'+n(notes.length)+' noted</span>'
+  ) : '';
+
+  const coverageRows=visible.filter(row=>!['cancelled','postponed'].includes(low(row.status)));
+
+  const archivePanel=archived.length
+    ? '<details class="pm-surface pm-panel pm-results-archive"><summary><span><small>ARCHIVED MATCHES</small><strong>'+n(archived.length)+' superseded result'+(archived.length===1?'':'s')+'</strong></span><span>Show ▾</span></summary><div class="pm-row-list">'+archived.map(resultRow).join('')+'</div></details>'
+    : '';
+
+  root.innerHTML='<div class="pm-results-desk">'
+    +viewHeader(
+      'Weekend Coverage',
+      'Results Desk',
+      'Pitmark scans public race sources even when tracks never email us. Verified results become coverage; questionable hits stay here for review.',
+      '<button class="pm-button pm-button-primary" type="button" data-results-run>🏁 Run Sweep</button>'
+    )
+    +metrics
+    +actionPanel
+    +notesPanel
+    +panel(
+      'Current Coverage',
+      'RESULTS SWEEP',
+      coverageRows.length?'<div class="pm-row-list">'+coverageRows.map(resultRow).join('')+'</div>':empty('No current Results Sweep records yet.'),
+      '<span class="pm-badge good">'+n(covered.length)+' covered</span>'
+    )
+    +archivePanel
+    +'</div>';
 
   root.onclick=async(event)=>{
     const button=event.target.closest('[data-results-run]');
