@@ -102,6 +102,18 @@ async def gmail_sync_loop() -> None:
         await asyncio.sleep(interval)
 
 
+async def racing_events_sync_loop() -> None:
+    interval = _env_int("PITMARK_RACING_EVENTS_SYNC_SECONDS", 600, 300, 3600)
+    while True:
+        try:
+            from services.racing_events import get_racing_event_hub
+            result = await asyncio.to_thread(get_racing_event_hub, force=True)
+            log.info("Race Center events sync: series=%s live_now=%s", len(result.get("catalog") or []), len(result.get("live") or []))
+        except Exception as exc:
+            log.warning("Race Center events background sync failed: %s", exc)
+        await asyncio.sleep(interval)
+
+
 async def racing_standings_sync_loop() -> None:
     interval = _env_int("PITMARK_STANDINGS_SYNC_SECONDS", 14400, 1800, 43200)
     while True:
@@ -182,6 +194,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(gmail_sync_loop(), name="gmail-shield"),
         asyncio.create_task(runtime_maintenance_loop(), name="runtime-memory-maintenance"),
         asyncio.create_task(racing_standings_sync_loop(), name="racing-standings"),
+        asyncio.create_task(racing_events_sync_loop(), name="race-center-events"),
     ]
     log.info(
         "Pitmark Cloud runtime started: background_threads=%s gmail_sync_min=%ss gmail_batch<=%s social_operator=%s",
