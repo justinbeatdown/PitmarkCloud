@@ -14,6 +14,7 @@ from services.control_center import SocialPost, utcnow
 from services.database import SessionLocal
 from services.openai_image_service import generate_image
 from services.social_asset_pool import add_asset, public_asset_url, store_uploaded_image
+from services.social_pacing import pacing_decision
 from services.social_daily_campaign import (
     REQUIRED_IG_SLIDES,
     REQUIRED_VERTICAL_ASSETS,
@@ -340,12 +341,21 @@ def _schedule_for(platform: str) -> str | None:
         zone = timezone.utc
     now = datetime.now(zone)
     hour, minute = _PLATFORM_SLOTS[platform]
-    candidate = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    if candidate <= now + timedelta(minutes=15):
-        candidate = (now + timedelta(days=1)).replace(
-            hour=hour, minute=minute, second=0, microsecond=0
-        )
-    return candidate.isoformat()
+    for day_offset in range(0, 3):
+        day = (now + timedelta(days=day_offset)).date()
+        candidate = datetime(day.year, day.month, day.day, hour, minute, tzinfo=zone)
+        if candidate <= now + timedelta(minutes=15):
+            continue
+        with SessionLocal() as db:
+            allowed, _ = pacing_decision(
+                db,
+                platform=platform,
+                candidate=candidate,
+                priority=False,
+            )
+        if allowed:
+            return candidate.isoformat()
+    return None
 
 
 def sync_campaign_queue(campaign: dict, package: dict) -> dict:
@@ -406,6 +416,7 @@ def sync_campaign_queue(campaign: dict, package: dict) -> dict:
                 settings.social_operator_autopublish_low_risk
                 and platform in _PLATFORM_SLOTS
             )
+            scheduled_for = _schedule_for(platform) if autopublish else None
             post = SocialPost(
                 platform=platform,
                 title=(campaign.get("title") or "Pitmark daily campaign")[:180],
@@ -417,9 +428,9 @@ def sync_campaign_queue(campaign: dict, package: dict) -> dict:
                 ),
                 source=source,
                 risk="copy_only" if platform == "discord" else "low",
-                status="scheduled" if autopublish else "pending",
+                status="scheduled" if autopublish and scheduled_for else "pending",
                 media_url=lead_image if platform == "instagram" else None,
-                scheduled_for=_schedule_for(platform) if autopublish else None,
+                scheduled_for=scheduled_for,
             )
             db.add(post)
             created += 1
