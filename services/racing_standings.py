@@ -360,6 +360,7 @@ SERIES: tuple[dict[str, Any], ...] = (
         "logo_source_url": "https://www.imsa.com/media-center/",
         "logo_url": "https://www.imsa.com/wp-content/uploads/sites/32/2025/12/08/2025_IMPC_Logo_MediaCenter.png",
         "pdf_link_text": "click here",
+        "pdf_url": "https://www.imsa.com/wp-content/uploads/sites/32/2026/08/31/2026_IMPC_VIR_OfficialPoints.pdf",
         "pdf_section_title": "IMSA Michelin Pilot Challenge Grand Sport Drivers",
         "source_name": "IMSA Michelin Pilot Challenge official points",
     },
@@ -373,6 +374,7 @@ SERIES: tuple[dict[str, Any], ...] = (
         "logo_source_url": "https://www.imsa.com/media-center/",
         "logo_url": "https://www.imsa.com/wp-content/uploads/sites/32/2025/12/08/2025_VPRC_Logo_MediaCenter.png",
         "pdf_link_text": "click here",
+        "pdf_url": "https://www.imsa.com/wp-content/uploads/sites/32/2026/08/31/2026_VPRC_VIR_OfficialPoints.pdf",
         "pdf_section_title": "IMSA VP Racing Sportscar Challenge P3 Drivers",
         "source_name": "IMSA VP Racing SportsCar Challenge official points",
     },
@@ -1094,7 +1096,10 @@ def _parse_imsa_points_section(
 
 
 def _fetch_imsa_linked_pdf(config: dict[str, Any], season: int) -> dict[str, Any]:
-    pdf_url = _linked_pdf_url(config, season)
+    # IMSA can block Render from the HTML standings page. Prefer a configured
+    # IMSA-owned official points PDF when present; link discovery remains the
+    # automatic path for series whose page is reachable.
+    pdf_url = str(config.get("pdf_url") or "").strip() or _linked_pdf_url(config, season)
     text = _imsa_official_pdf_text(pdf_url)
     entries = _parse_imsa_points_section(
         text,
