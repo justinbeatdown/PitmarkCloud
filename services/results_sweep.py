@@ -490,9 +490,19 @@ def _official_image_page(result: dict, url: str) -> bool:
         return False
     if any(host == d or host.endswith("." + d) for d in IMAGE_PAGE_ALLOWLIST):
         return True
+
+    # Track/series-owned domains are safe when the entity identity is in the host.
     entity_tokens = _tokens(str(result.get("entity_name") or ""))
+    if any(token in host for token in entity_tokens[:5]):
+        return True
+
+    # Driver sites must match the surname AND look like a racing domain.
+    # Never trust a generic first-name domain (e.g. dave.com for Dave Hess Jr.).
     winner_tokens = _tokens(str(result.get("winner") or ""))
-    return any(token in host for token in (entity_tokens + winner_tokens)[:8])
+    surname = winner_tokens[-1] if winner_tokens else ""
+    if surname and surname in host and any(word in host for word in ("racing", "race", "motorsport", "speed")):
+        return True
+    return False
 
 
 def _page_image_candidates(page_url: str, html_text: str, result: dict) -> list[dict]:
@@ -791,10 +801,12 @@ def _publish(result: dict, fp: str, evidence: list[dict]):
 
 
 
-def repair_pending_images(limit: int = 6) -> dict:
+def repair_pending_images(limit: int = 8) -> dict:
     repaired = 0
     attempted = 0
     failures: list[str] = []
+    candidates: list[tuple[int, bool]] = []
+
     with SessionLocal() as db:
         pending = list(
             db.scalars(
@@ -804,12 +816,66 @@ def repair_pending_images(limit: int = 6) -> dict:
                     ResultsSweepItem.article_id.is_not(None),
                 )
                 .order_by(ResultsSweepItem.id.asc())
-                .limit(max(1, min(limit, 12)))
+                .limit(max(1, min(limit, 16)))
             ).all()
         )
+        candidates.extend((row.id, True) for row in pending)
 
-    for row in pending:
+        # Also audit recently published Results Sweep heroes that were sourced by
+        # this pipeline. If a now-disallowed source slipped through, repair it.
+        published = list(
+            db.scalars(
+                select(ResultsSweepItem)
+                .where(
+                    ResultsSweepItem.status == "published",
+                    ResultsSweepItem.article_id.is_not(None),
+                )
+                .order_by(ResultsSweepItem.id.desc())
+                .limit(30)
+            ).all()
+        )
+        media_rows = list(
+            db.scalars(
+                select(ResultsSweepMedia)
+                .where(ResultsSweepMedia.source_kind != "generated")
+                .order_by(ResultsSweepMedia.created_at.desc())
+                .limit(60)
+            ).all()
+        )
+        for row in published:
+            record = db.scalar(
+                select(ShopifyPublishRecord)
+                .where(ShopifyPublishRecord.shopify_article_id == str(row.article_id))
+                .order_by(ShopifyPublishRecord.id.desc())
+                .limit(1)
+            )
+            draft = db.get(BlogDraft, record.draft_id) if record else None
+            featured = str(draft.featured_image_url or "") if draft else ""
+            if not featured:
+                continue
+            probe_result = {
+                "entity_name": row.entity_name,
+                "winner": row.winner or "",
+            }
+            for media in media_rows:
+                if media.token not in featured:
+                    continue
+                source_url = str(media.source_url or "")
+                if source_url and not _official_image_page(probe_result, source_url):
+                    candidates.append((row.id, True))
+                    break
+
+    seen: set[int] = set()
+    for row_id, force_replace in candidates:
+        if row_id in seen or attempted >= max(1, min(limit, 16)):
+            continue
+        seen.add(row_id)
         attempted += 1
+        with SessionLocal() as db:
+            row = db.get(ResultsSweepItem, row_id)
+            if row is None or not row.article_id:
+                continue
+
         try:
             start = datetime.fromisoformat(row.weekend_key).replace(tzinfo=ET)
             end = start + timedelta(days=2, hours=23, minutes=59, seconds=59)
@@ -832,7 +898,7 @@ def repair_pending_images(limit: int = 6) -> dict:
             if media is None:
                 media = _generate_durable_hero(result, body)
             if media is None:
-                raise RuntimeError("No usable real photo and generated fallback failed")
+                raise RuntimeError("No usable official/event photo and generated fallback failed")
 
             updated = shopify_service.update_article_image(
                 article_id=str(row.article_id),
@@ -851,7 +917,6 @@ def repair_pending_images(limit: int = 6) -> dict:
                     current.status = "published"
                     current.detail = None
                     current.updated_at = utcnow()
-                    db.commit()
                 publish_record = db.scalar(
                     select(ShopifyPublishRecord)
                     .where(ShopifyPublishRecord.shopify_article_id == str(row.article_id))
@@ -862,7 +927,7 @@ def repair_pending_images(limit: int = 6) -> dict:
                     draft = db.get(BlogDraft, publish_record.draft_id)
                     if draft:
                         draft.featured_image_url = durable
-                        db.commit()
+                db.commit()
 
             repaired += 1
             log.info(
@@ -875,6 +940,7 @@ def repair_pending_images(limit: int = 6) -> dict:
             log.warning("Results Sweep hero repair failed for %s: %s", row.entity_name, exc)
 
     return {"attempted": attempted, "repaired": repaired, "failures": failures}
+
 
 
 def _notify(key: str, title: str, detail: str, priority: str = "action"):
