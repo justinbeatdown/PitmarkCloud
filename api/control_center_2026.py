@@ -5,6 +5,7 @@ from collections import Counter
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from services import persistent_store
 from services.control_auth import require_control_user
 from services.founders_race import leaderboard
 from services.prt_application_admin import set_application_status
@@ -30,6 +31,64 @@ def _application_row(row: dict) -> dict:
         "role": application_role_from_placement(row.get("placement")),
     }
 
+
+
+def _enrich_tester_invites(invites: list[dict], applications: list[dict]) -> list[dict]:
+    """Attach the human/application identity and live Discord identity to tester invites."""
+    applications_by_email: dict[str, dict] = {}
+    for application in applications:
+        email = str(application.get("email") or "").strip().lower()
+        if email and email not in applications_by_email:
+            applications_by_email[email] = application
+
+    enriched: list[dict] = []
+    for invite in invites:
+        item = dict(invite)
+        email = str(item.get("email") or "").strip().lower()
+        application = applications_by_email.get(email)
+
+        if application:
+            item["applicant_name"] = str(
+                item.get("applicant_name") or application.get("full_name") or ""
+            ).strip()
+            item["discord"] = str(
+                item.get("discord") or application.get("discord_username") or ""
+            ).strip()
+            item["application_id"] = application.get("id")
+            item["iracing_name"] = str(application.get("iracing_name") or "").strip()
+            item["role"] = str(
+                application.get("role")
+                or application_role_from_placement(application.get("placement"))
+                or ""
+            ).strip()
+        else:
+            item["applicant_name"] = str(item.get("applicant_name") or "").strip()
+            item["discord"] = str(item.get("discord") or "").strip()
+            item["application_id"] = None
+            item["iracing_name"] = str(item.get("iracing_name") or "").strip()
+            item["role"] = str(item.get("role") or "").strip()
+
+        bound_device_id = str(item.get("bound_device_id") or "").strip()
+        link = persistent_store.get_link(bound_device_id) if bound_device_id else None
+        connected = bool(link and str(link.status or "").strip().lower() == "connected")
+        item["discord_connected"] = connected
+
+        if connected:
+            item["discord_user_id"] = str(link.discord_user_id or "").strip()
+            item["discord_username"] = str(
+                link.username or item.get("discord") or ""
+            ).strip()
+            item["discord_display_name"] = str(
+                link.global_name or link.username or ""
+            ).strip()
+        else:
+            item["discord_user_id"] = ""
+            item["discord_username"] = str(item.get("discord") or "").strip()
+            item["discord_display_name"] = ""
+
+        enriched.append(item)
+
+    return enriched
 
 def _tester_rollup(invites: list[dict]) -> dict:
     status_counts = Counter(str(row.get("status") or "unknown").lower() for row in invites)
@@ -91,8 +150,12 @@ def ops_overview(request: Request):
 def ops_testers(request: Request, limit: int = 80):
     _auth(request)
     safe_limit = max(1, min(int(limit), 200))
-    applications = [_application_row(row) for row in list_applications(limit=safe_limit)]
-    invites = list_early_access_invites(limit=500)
+    all_applications = [_application_row(row) for row in list_applications(limit=200)]
+    applications = all_applications[:safe_limit]
+    invites = _enrich_tester_invites(
+        list_early_access_invites(limit=500),
+        all_applications,
+    )
     return {
         "applications": applications,
         "application_counts": dict(Counter(str(row.get("status") or "new").lower() for row in applications)),
