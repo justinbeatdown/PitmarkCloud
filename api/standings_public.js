@@ -1,4 +1,12 @@
-const state={payload:null,group:'All',search:''};
+const routePath=(location.pathname.replace(/\/+$/,'')||'/').toLowerCase();
+const pageView=routePath==='/standings'||routePath.endsWith('/standings')
+  ?'standings'
+  :routePath.endsWith('/schedules')
+    ?'schedules'
+    :routePath.endsWith('/live')
+      ?'live'
+      :'hub';
+const state={payload:null,group:'All',search:'',view:pageView};
 const $=selector=>document.querySelector(selector);
 const $$=selector=>[...document.querySelectorAll(selector)];
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -14,6 +22,59 @@ const numericValue=value=>{
   const result=Number(cleaned);
   return Number.isFinite(result)?result:null;
 };
+
+function configurePage(){
+  document.body.dataset.view=state.view;
+  $('[data-race-view]').forEach(link=>{
+    const active=link.dataset.raceView===state.view;
+    link.classList.toggle('active',active);
+    if(active)link.setAttribute('aria-current','page');
+    else link.removeAttribute('aria-current');
+  });
+
+  const config={
+    hub:{
+      title:'The racing world,<br><em>organized.</em>',
+      intro:'Standings, movement, schedules, live events and official watch links across the series you actually care about — without living in forty tabs.',
+      primary:['Open standings','/race-center/standings'],
+      secondary:['Find the next race','/race-center/schedules'],
+      pageTitle:'Pitmark Race Center V3 — Racing Hub'
+    },
+    standings:{
+      title:'Championships,<br><em>at a glance.</em>',
+      intro:'The full Pitmark standings board with current leaders, verified position movement and source-backed championship data.',
+      primary:['Browse standings','#standingsBoard'],
+      secondary:['Schedules + watch','/race-center/schedules'],
+      pageTitle:'Standings — Pitmark Race Center V3'
+    },
+    schedules:{
+      title:'Race calendar,<br><em>without the hunt.</em>',
+      intro:'Official schedule and viewing links across the racing world, organized into one searchable board.',
+      primary:['Browse schedules','#schedules'],
+      secondary:['Live + next','/race-center/live'],
+      pageTitle:'Schedules — Pitmark Race Center V3'
+    },
+    live:{
+      title:'What’s racing,<br><em>right now.</em>',
+      intro:'Live events and the next races across Pitmark’s tracked series, with direct official watch and schedule links.',
+      primary:['Open race weekend','#raceWeekend'],
+      secondary:['Full schedules','/race-center/schedules'],
+      pageTitle:'Live + Next — Pitmark Race Center V3'
+    }
+  }[state.view];
+
+  $('#heroTitle').innerHTML=config.title;
+  $('#heroIntro').textContent=config.intro;
+  $('#heroActions').innerHTML=`<a class="button primary" href="${config.primary[1]}">${config.primary[0]}</a><a class="button secondary" href="${config.secondary[1]}">${config.secondary[0]}</a>`;
+  document.title=config.pageTitle;
+
+  const search=$('#searchInput');
+  if(search){
+    search.placeholder=state.view==='schedules'||state.view==='live'
+      ?'Search series, event, broadcast…'
+      :'Search series, driver, team…';
+  }
+}
 
 const seriesMarkText=series=>{
   const key=String(series?.series_key||'');
@@ -208,7 +269,7 @@ function renderSummary(){
 }
 
 function renderLeaders(){
-  const leaders=visibleSeries().filter(series=>series.entries?.length).slice(0,8);
+  const leaders=visibleSeries().filter(series=>series.entries?.length).slice(0,state.view==='hub'?4:8);
   $('#leaderStrip').innerHTML=leaders.length?leaders.map(series=>{
     const leader=series.entries[0];
     return `<article class="leader-card" data-key="${esc(series.series_key)}" role="button" tabindex="0">
@@ -234,7 +295,7 @@ function renderMovers(){
     });
   });
   movers.sort((a,b)=>b.score-a.score);
-  const top=movers.slice(0,8);
+  const top=movers.slice(0,state.view==='hub'?4:8);
   $('#moversStrip').innerHTML=top.length?top.map(item=>`<article class="mover-card" data-key="${esc(item.series.series_key)}" role="button" tabindex="0">
     <span class="mover-rank">${esc(item.row.position??'—')}</span>
     <div><strong>${esc(item.row.name||'Unknown')}</strong><small>${esc(item.series.short_name||item.series.series_name)}</small></div>
@@ -323,7 +384,8 @@ function renderEvents(){
     ?`${live.length} event${live.length===1?'':'s'} live right now`
     :next.length?'Nothing live in this view — here’s what’s next.':'No upcoming events match this view.';
   $('#liveNow').innerHTML=live.length?`<div class="live-grid">${live.map(eventCard).join('')}</div>`:'';
-  $('#nextEvents').innerHTML=next.length?next.slice(0,8).map(eventCard).join(''):'<div class="loading-card">No upcoming events match this view.</div>';
+  const nextLimit=state.view==='hub'?4:12;
+  $('#nextEvents').innerHTML=next.length?next.slice(0,nextLimit).map(eventCard).join(''):'<div class="loading-card">No upcoming events match this view.</div>';
 }
 
 function renderScheduleCatalog(){
@@ -352,6 +414,18 @@ function render(){
   renderScheduleCatalog();
   bindLogoErrors();
   $('#clearSearch').hidden=!normalizeSearch(state.search);
+
+  if(state.view==='schedules'){
+    const count=(state.payload?.events?.catalog||[]).filter(scheduleVisible).length;
+    $('#resultCount').textContent=`${count} schedules`;
+  }else if(state.view==='live'){
+    const events=state.payload?.events||{};
+    const matches=[...(events.live||[]),...(events.next||[])].filter(item=>{
+      if(state.group!=='All'&&item.group!==state.group)return false;
+      return !normalizeSearch(state.search)||scheduleVisible(item);
+    });
+    $('#resultCount').textContent=`${matches.length} live / upcoming`;
+  }
 }
 
 function openSeries(key){
@@ -515,6 +589,12 @@ $('#standingsDialog').addEventListener('click',event=>{
   if(event.target===$('#standingsDialog'))$('#standingsDialog').close();
 });
 $('#standingsDialog').addEventListener('close',()=>document.body.classList.remove('dialog-open'));
-$('#jumpLive').addEventListener('click',()=>$('#standingsStart').scrollIntoView({behavior:'smooth',block:'start'}));
 
+const backToTop=$('#backToTop');
+window.addEventListener('scroll',()=>{
+  backToTop.hidden=window.scrollY<900;
+},{passive:true});
+backToTop.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
+
+configurePage();
 load();
