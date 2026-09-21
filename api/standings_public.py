@@ -111,9 +111,9 @@ def public_standings_data():
                 entry["team"] = None
                 entry["manufacturer"] = None
             safe_entries.append(entry)
-        logo_url = str(series.get("series_logo_url") or "").strip()
-        logo_is_http = logo_url.startswith(("https://", "http://"))
-        event_info = event_series.get(str(series.get("series_key") or "")) or {}
+        series_key = str(series.get("series_key") or "")
+        logo_info = get_series_logo_info(series_key)
+        event_info = event_series.get(series_key) or {}
         safe_series.append(
             {
                 "series_key": series.get("series_key"),
@@ -125,12 +125,9 @@ def public_standings_data():
                 "source_name": series.get("source_name"),
                 "metadata_source_url": series.get("metadata_source_url") if identity_verified else None,
                 "metadata_verified": identity_verified,
-                "series_logo": (
-                    f"/standings-logo/{series.get('series_key')}"
-                    if logo_is_http and series.get("series_logo_source_url")
-                    else None
-                ),
-                "series_logo_source_url": series.get("series_logo_source_url"),
+                "series_logo": f"/standings-logo/{series_key}" if logo_info else None,
+                "series_logo_direct": logo_info.get("url") if logo_info else None,
+                "series_logo_source_url": logo_info.get("source_url") if logo_info else None,
                 "fetched_at": series.get("fetched_at"),
                 "status": series.get("status"),
                 "stale": bool(series.get("stale")),

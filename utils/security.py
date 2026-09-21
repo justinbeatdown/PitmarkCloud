@@ -92,11 +92,17 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 if request.url.path.startswith("/prt")
                 else ""
             )
+            image_src = (
+                "img-src 'self' https:; "
+                if request.url.path.startswith(("/standings", "/race-center"))
+                else "img-src 'self'; "
+            )
             response.headers["Content-Security-Policy"] = (
                 "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; "
                 + frame_src
-                + "frame-ancestors 'none'; base-uri 'none'; form-action 'none'; img-src 'self'; "
-                "font-src 'self'"
+                + "frame-ancestors 'none'; base-uri 'none'; form-action 'none'; "
+                + image_src
+                + "font-src 'self'"
             )
         elif request.url.path.startswith(("/racing-desk", "/submit-racing-news", "/racing-network.css")):
             # Racing Desk uses same-origin CSS and a same-origin submission form.

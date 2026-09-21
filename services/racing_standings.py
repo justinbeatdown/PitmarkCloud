@@ -465,6 +465,62 @@ NUMBER_HEADERS = (
 TEAM_HEADERS = ("team", "entrant", "organization")
 MANUFACTURER_HEADERS = ("manufacturer", "make", "marque", "bike", "constructor")
 
+# Verified 2026 NASCAR identity fallback. NASCAR blocks Render's datacenter IPs
+# and the rendered-reader service can rate-limit. These values come from
+# NASCAR-owned 2026 driver profiles; live official directory data overrides
+# them whenever it is available.
+NASCAR_2026_IDENTITY_FALLBACK: dict[str, dict[str, dict[str, str | None]]] = {
+    "nascar-cup": {
+        "kylelarson": {"number": "5", "team": "Hendrick Motorsports", "manufacturer": "Chevrolet"},
+        "dennyhamlin": {"number": "11", "team": "Joe Gibbs Racing", "manufacturer": "Toyota"},
+        "joeylogano": {"number": "22", "team": "Team Penske", "manufacturer": "Ford"},
+        "christopherbell": {"number": "20", "team": "Joe Gibbs Racing", "manufacturer": "Toyota"},
+        "tygibbs": {"number": "54", "team": "Joe Gibbs Racing", "manufacturer": "Toyota"},
+    },
+    "nascar-oreilly": {
+        "sheldoncreed": {"number": "00", "team": "Haas Factory Team", "manufacturer": "Chevrolet"},
+        "justinallgaier": {"number": "7", "team": "JR Motorsports", "manufacturer": "Chevrolet"},
+        "carsonkvapil": {"number": "1", "team": "JR Motorsports", "manufacturer": "Chevrolet"},
+        "jesselove": {"number": "2", "team": "Richard Childress Racing", "manufacturer": "Chevrolet"},
+        "sammayer": {"number": "41", "team": "Haas Factory Team", "manufacturer": "Chevrolet"},
+    },
+    "nascar-truck": {
+        "layneriggs": {"number": "34", "team": "Front Row Motorsports", "manufacturer": "Ford"},
+        "kadenhoneycutt": {"number": "11", "team": "TRICON Garage", "manufacturer": "Toyota"},
+        "chandlersmith": {"number": "38", "team": "Front Row Motorsports", "manufacturer": "Ford"},
+        "tymajeski": {"number": "88", "team": "ThorSport Racing", "manufacturer": "Ford"},
+        "giovanniruggiero": {"number": "17", "team": "TRICON Garage", "manufacturer": "Toyota"},
+    },
+}
+
+IMSA_2026_STANDINGS_FALLBACK: dict[str, list[tuple[int, str, int]]] = {
+    "imsa-michelin-pilot": [
+        (1, "Dillon Machavern", 2010), (1, "Luca Mars", 2010),
+        (2, "Austin Krainz", 1930), (2, "Stevan McAleer", 1930),
+        (3, "Robert Noaker", 1910), (4, "Nate Cicero", 1810),
+        (5, "Bryce Ward", 1780), (6, "Caio Chaves", 1780),
+        (7, "Michael Cooper", 1720), (7, "Moisey Uretsky", 1720),
+        (8, "Trenton Estep", 1710), (8, "Allen Patten", 1710),
+        (9, "Hannah Greenemeier", 1630), (9, "Hannah Grisham", 1630),
+        (10, "Morgan Burkhard", 1510), (10, "Gordon Scully", 1510),
+    ],
+    "imsa-vp-racing": [
+        (1, "Ari Balogh", 1230), (1, "Garett Grist", 1230),
+        (2, "Wyatt Brichacek", 1190), (3, "Valentino Catalano", 1180),
+        (3, "Oscar Tunjo", 1180), (4, "Patrick Kujala", 1160),
+        (4, "Brian Thienes", 1160), (5, "Danny Soufi", 1050),
+        (5, "Jake Williamson", 1050), (6, "Travis Hill", 1010),
+        (7, "Lincoln Day", 840), (8, "Matt Forbush", 790),
+        (9, "Jagger Jones", 760), (9, "Farhan Siddiqi", 760),
+        (10, "Nicole Havrda", 760), (11, "Jules Caranta", 550),
+        (12, "Jon Hirshberg", 510), (12, "Patrick Liddy", 510),
+        (13, "Daniel Oliver", 460), (14, "Titus Sherlock", 350),
+        (15, "Andy Lee", 260), (15, "Slade Stewart", 260),
+        (16, "Tom Long", 240), (17, "Brady Clapham", 220),
+        (17, "Chris McMurry", 220), (18, "Martin Bruhat", 210),
+    ],
+}
+
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -1096,19 +1152,45 @@ def _parse_imsa_points_section(
 
 
 def _fetch_imsa_linked_pdf(config: dict[str, Any], season: int) -> dict[str, Any]:
-    # IMSA can block Render from the HTML standings page. Prefer a configured
-    # IMSA-owned official points PDF when present; link discovery remains the
-    # automatic path for series whose page is reachable.
-    pdf_url = str(config.get("pdf_url") or "").strip() or _linked_pdf_url(config, season)
-    text = _imsa_official_pdf_text(pdf_url)
-    entries = _parse_imsa_points_section(
-        text,
-        section_title=str(config.get("pdf_section_title") or ""),
-    )
+    # IMSA can block Render from both HTML and PDF assets. Use the live
+    # IMSA-owned document when reachable; otherwise retain the most recently
+    # verified 2026 official standings snapshot embedded below.
+    pdf_url = str(config.get("pdf_url") or "").strip()
+    try:
+        if not pdf_url:
+            pdf_url = _linked_pdf_url(config, season)
+        text = _imsa_official_pdf_text(pdf_url)
+        entries = _parse_imsa_points_section(
+            text,
+            section_title=str(config.get("pdf_section_title") or ""),
+        )
+        provider_url = pdf_url
+        source_name = str(config.get("source_name") or "IMSA official points")
+    except Exception:
+        fallback = IMSA_2026_STANDINGS_FALLBACK.get(str(config.get("key") or ""), [])
+        if not fallback:
+            raise
+        entries = [
+            {
+                "position": position,
+                "name": name,
+                "number": None,
+                "team": None,
+                "manufacturer": None,
+                "points": points,
+                "behind": None,
+                "wins": None,
+                "starts": None,
+            }
+            for position, name, points in fallback
+        ]
+        provider_url = str(config.get("official_url") or "")
+        source_name = str(config.get("source_name") or "IMSA official standings") + " · verified fallback snapshot"
+
     return {
         "entries": entries,
-        "source_name": str(config.get("source_name") or "IMSA official points"),
-        "provider_url": pdf_url,
+        "source_name": source_name,
+        "provider_url": provider_url,
     }
 
 
@@ -1738,12 +1820,22 @@ def _official_metadata_nascar_driver_directory(
         for key, number in numbers.items()
     }
 
+    # Do not let a temporary official-site block erase verified 2026 identity.
+    verified_fallback = NASCAR_2026_IDENTITY_FALLBACK.get(str(config.get("key") or ""), {})
+    wanted_keys = {_identity_key(name) for name in (wanted_names or []) if _identity_key(name)}
+    for key, values in verified_fallback.items():
+        if wanted_keys and key not in wanted_keys:
+            continue
+        current = out.setdefault(key, {"number": None, "team": None, "manufacturer": None})
+        for field in ("number", "team", "manufacturer"):
+            if not current.get(field) and values.get(field):
+                current[field] = values[field]
+
     def fetch_one(item: tuple[str, str]) -> tuple[str, str | None, str | None]:
         key, profile_url = item
         team, manufacturer = _nascar_profile_identity(profile_url)
         return key, team, manufacturer
 
-    wanted_keys = {_identity_key(name) for name in (wanted_names or []) if _identity_key(name)}
     links: list[tuple[str, str]] = []
     for key in out:
         if wanted_keys and not any(key == wanted or key.endswith(wanted) or wanted.endswith(key) for wanted in wanted_keys):
