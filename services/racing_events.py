@@ -50,6 +50,11 @@ SERIES_EVENT_CONFIG: dict[str, dict[str, Any]] = {
     "imsa-lamborghini-super-trofeo": {"name":"Lamborghini Super Trofeo North America","group":"Sports Cars","schedule_url":"https://www.imsa.com/events/","watch_name":"Peacock / IMSA.TV","watch_url":"https://www.imsa.com/tv/"},
     "imsa-mx5-cup": {"name":"Mazda MX-5 Cup","group":"Sports Cars","schedule_url":"https://www.imsa.com/events/","watch_name":"IMSA.TV / YouTube","watch_url":"https://www.imsa.com/tv/"},
     "wec": {"name":"FIA World Endurance Championship","group":"Sports Cars","schedule_url":"https://www.fiawec.com/en/calendar/80","watch_name":"FIA WEC TV","watch_url":"https://fiawec.tv/"},
+    "gtwc-america": {"name":"GT World Challenge America","group":"Sports Cars","schedule_url":"https://www.gt-world-challenge-america.com/calendar","watch_name":"GTWorld","watch_url":"https://www.youtube.com/@GTWorld"},
+    "trans-am": {"name":"Trans Am Series","group":"Sports Cars","schedule_url":"https://gotransam.com/events/","watch_name":"Trans Am Official Broadcast Info","watch_url":"https://gotransam.com/"},
+    "dtm": {"name":"DTM","group":"Touring Cars","schedule_url":"https://www.dtm.com/en/events","watch_name":"DTM Official TV Guide","watch_url":"https://www.dtm.com/en/tv"},
+    "btcc": {"name":"British Touring Car Championship","group":"Touring Cars","schedule_url":"https://btcc.net/calendar/","watch_name":"BTCC Watch Live","watch_url":"https://btcc.net/watch-live/"},
+
 
     "supercars": {"name":"Repco Supercars Championship","group":"Touring Cars","schedule_url":"https://www.supercars.com/calendar","watch_name":"Supercars Ways to Watch","watch_url":"https://www.supercars.com/ways-to-watch"},
 
@@ -134,6 +139,53 @@ def _f1_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
+def _reader_markdown(url: str) -> str:
+    target = "https://r.jina.ai/http://" + url.split("://", 1)[-1]
+    with httpx.Client(timeout=5.0, follow_redirects=True, headers={"User-Agent": USER_AGENT, "X-Return-Format": "markdown"}) as client:
+        response = client.get(target)
+        response.raise_for_status()
+        return response.text
+
+
+def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
+    url = str(config.get("schedule_url") or "").strip()
+    if not url:
+        return []
+    try:
+        text = _reader_markdown(url)
+    except Exception:
+        return []
+    now = datetime.now(timezone.utc)
+    month_map = {m.lower(): i for i, m in enumerate(("January","February","March","April","May","June","July","August","September","October","November","December"), 1)}
+    short = {"jan":1,"feb":2,"mar":3,"apr":4,"may":5,"jun":6,"jul":7,"aug":8,"sep":9,"sept":9,"oct":10,"nov":11,"dec":12}
+    lines = [" ".join(line.split()) for line in text.splitlines() if line.strip()]
+    found: list[tuple[datetime, str, bool]] = []
+    pattern = re.compile(r"(?P<m>January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?\s+(?P<d>\d{1,2})(?:\s*[-–]\s*\d{1,2})?(?:,?\s*(?P<y>20\d{2}))?", re.I)
+    for i, line in enumerate(lines):
+        for match in pattern.finditer(line):
+            token = match.group("m").lower().rstrip(".")
+            month = month_map.get(token) or short.get(token[:4]) or short.get(token[:3])
+            if not month:
+                continue
+            try:
+                dt = datetime(int(match.group("y") or now.year), month, int(match.group("d")), tzinfo=timezone.utc)
+            except Exception:
+                continue
+            if dt < now - timedelta(days=1) or dt > now + timedelta(days=370):
+                continue
+            context = " · ".join(lines[max(0, i-1):min(len(lines), i+2)])
+            live_text = bool(re.search(r"\b(live now|watch live|live)\b", context, re.I)) and dt.date() == now.date()
+            found.append((dt, context[:220], live_text))
+    if not found:
+        return []
+    found.sort(key=lambda item: item[0])
+    out = []
+    for dt, context, live_text in found[:20]:
+        state = "in" if live_text else ("pre" if dt.date() >= now.date() else "post")
+        out.append({"name": context or config.get("name"), "start": dt.isoformat(), "state": state, "completed": state=="post", "broadcast": None, "source_url": url})
+    return out
+
+
 def _event_summary(events: list[dict[str, Any]], config: dict[str, Any]) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     live = next((e for e in events if e.get("state") == "in"), None)
@@ -172,6 +224,8 @@ def _build_one(key: str, config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
             events = _espn_schedule(config)
         elif config.get("provider") == "f1":
             events = _f1_schedule(config)
+        else:
+            events = _official_page_schedule(config)
     except Exception:
         events = []
 
@@ -180,13 +234,37 @@ def _build_one(key: str, config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     return key, summary
 
 
+def _build_one_static(key: str, config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    return key, {
+        "state": "schedule",
+        "event": None,
+        "schedule_url": config.get("schedule_url"),
+        "watch_name": config.get("watch_name"),
+        "watch_url": config.get("watch_url"),
+        "series_key": key,
+        "series_name": config["name"],
+        "group": config["group"],
+    }
+
+
 def get_racing_event_hub(force: bool = False) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     with _cache_lock:
-        cached_at = _cache.get("at")
         cached = _cache.get("value")
-        if not force and cached_at and cached and (now - cached_at).total_seconds() < 300:
+        if not force and cached:
             return cached
+
+    if not force:
+        # Cold-start response is immediate; background refresh fills live/next state.
+        by_series = {}
+        for key, cfg in SERIES_EVENT_CONFIG.items():
+            _, item = _build_one_static(key, cfg)
+            by_series[key] = item
+        value = {"generated_at": now.isoformat(), "live": [], "next": [], "series": by_series, "catalog": list(by_series.values()), "warming": True}
+        with _cache_lock:
+            _cache["at"] = now
+            _cache["value"] = value
+        return value
 
     by_series: dict[str, Any] = {}
     dynamic = [(key, cfg) for key, cfg in SERIES_EVENT_CONFIG.items() if cfg.get("espn_league") or cfg.get("provider")]
@@ -218,6 +296,7 @@ def get_racing_event_hub(force: bool = False) -> dict[str, Any]:
         "next": next_items[:12],
         "series": by_series,
         "catalog": list(by_series.values()),
+        "warming": False,
     }
     with _cache_lock:
         _cache["at"] = now
