@@ -305,6 +305,11 @@ def _fingerprint(result: dict, weekend_key: str):
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
+def _target_state_key(weekend_key: str, entity_name: str) -> str:
+    digest = hashlib.sha256(entity_name.strip().lower().encode("utf-8")).hexdigest()[:24]
+    return f"results_target:{weekend_key}:{digest}"
+
+
 def _quality(result: dict):
     urls = [str(x) for x in result.get("source_urls") or []]
     domains = {_domain(x) for x in urls if _domain(x)}
@@ -412,26 +417,55 @@ def run_sweep(force: bool = False):
     if not force and get_runtime_state(state_key) == "complete":
         return {"ran":False,"reason":"already_complete","weekend_key":weekend_key}
     with SessionLocal() as db:
-        run = ResultsSweepRun(weekend_key=weekend_key); db.add(run); db.commit(); db.refresh(run); run_id = run.id
+        stale_runs = db.scalars(
+            select(ResultsSweepRun).where(
+                ResultsSweepRun.weekend_key == weekend_key,
+                ResultsSweepRun.status == "running",
+            )
+        ).all()
+        for stale in stale_runs:
+            stale.status = "interrupted"
+            stale.note = "Interrupted by a service restart; the next pass resumes from the last completed target."
+            stale.completed_at = utcnow()
+        run = ResultsSweepRun(weekend_key=weekend_key)
+        db.add(run)
+        db.commit()
+        db.refresh(run)
+        run_id = run.id
     targets, articles = _targets(start, end), _shopify_articles()
     c = {"targets_checked":0,"results_found":0,"uncovered_count":0,"published_count":0,"duplicate_count":0,"cancelled_count":0,"error_count":0}
     for name, local in targets:
+        target_state = _target_state_key(weekend_key, name)
+        if not force and get_runtime_state(target_state) == "checked":
+            continue
         c["targets_checked"] += 1
         try:
             evidence = _search(name, start, end, local)
-            if not evidence: continue
+            if not evidence:
+                set_runtime_state(target_state, "checked")
+                continue
             result = _extract(name, start, end, evidence)
-            if not result.get("event_found"): continue
+            if not result.get("event_found"):
+                set_runtime_state(target_state, "checked")
+                continue
             c["results_found"] += 1
             status, fp = str(result.get("status") or "unknown").lower(), _fingerprint(result, weekend_key)
             if status in {"cancelled","postponed"}:
-                _save(result, weekend_key, status); c["cancelled_count"] += 1; continue
+                _save(result, weekend_key, status)
+                c["cancelled_count"] += 1
+                set_runtime_state(target_state, "checked")
+                continue
             if status != "completed":
-                _save(result, weekend_key, "needs_review"); c["uncovered_count"] += 1
+                _save(result, weekend_key, "needs_review")
+                c["uncovered_count"] += 1
                 _notify(f"review:{fp}", f"UNCOVERED RESULTS — {name}", str(result.get("summary") or "Possible result needs verification."))
+                set_runtime_state(target_state, "checked")
                 continue
             if _duplicate(result, articles):
-                _save(result, weekend_key, "duplicate"); c["duplicate_count"] += 1; continue
+                _save(result, weekend_key, "duplicate")
+                c["duplicate_count"] += 1
+                set_runtime_state(target_state, "checked")
+                continue
             if _autopublish(result):
                 row = _save(result, weekend_key, "publishing")
                 try:
@@ -442,6 +476,7 @@ def run_sweep(force: bool = False):
                             current.status="published"; current.article_id=article_id; current.article_url=article_url; current.updated_at=utcnow(); db.commit()
                     c["published_count"] += 1
                     _notify(f"published:{fp}", f"Results Sweep published — {name}", f"{_title(result)}\n{article_url}", "info")
+                    set_runtime_state(target_state, "checked")
                 except Exception as exc:
                     c["uncovered_count"] += 1; c["error_count"] += 1
                     with SessionLocal() as db:
@@ -449,11 +484,14 @@ def run_sweep(force: bool = False):
                         if current:
                             current.status="needs_review"; current.detail=f"Automatic publish failed: {type(exc).__name__}: {exc}"[:5000]; current.updated_at=utcnow(); db.commit()
                     _notify(f"failed:{fp}", f"UNCOVERED RESULTS — {name}", f"{result.get('summary') or ''}\nAutomatic publish failed.")
+                    set_runtime_state(target_state, "checked")
             else:
                 domains, trusted = _quality(result)
                 detail = f"Confidence {float(result.get('confidence') or 0):.0%}; {domains} supporting domain(s); {trusted} trusted result source(s)."
-                _save(result, weekend_key, "uncovered", detail); c["uncovered_count"] += 1
+                _save(result, weekend_key, "uncovered", detail)
+                c["uncovered_count"] += 1
                 _notify(f"uncovered:{fp}", f"UNCOVERED RESULTS — {name}", f"{result.get('summary') or ''}\n{detail}")
+                set_runtime_state(target_state, "checked")
         except Exception as exc:
             c["error_count"] += 1
             log.warning("Results Sweep failed for %s: %s", name, exc)
