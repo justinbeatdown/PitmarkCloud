@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, Response
 
 from services.racing_standings import get_series_logo_info, get_standings_snapshot_hub
+from services.racing_schedule import get_race_schedule_snapshot
 from utils.config import settings
 
 router = APIRouter()
@@ -146,4 +147,13 @@ def public_standings_data():
         ),
         media_type="application/json",
         headers={"Cache-Control": "public, max-age=300, stale-while-revalidate=600"},
+    )
+
+
+@router.get("/api/public/race-schedule", include_in_schema=False)
+def public_race_schedule():
+    return Response(
+        __import__("json").dumps(get_race_schedule_snapshot(), ensure_ascii=False, default=str),
+        media_type="application/json",
+        headers={"Cache-Control":"public, max-age=60, stale-while-revalidate=300"},
     )
