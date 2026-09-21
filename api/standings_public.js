@@ -14,16 +14,19 @@ const move=value=>{
   if(value===null||value===undefined||Number(value)===0)return '<span class="move flat">—</span>';
   const v=Number(value);return v>0?`<span class="move up">▲${Math.abs(v)}</span>`:`<span class="move down">▼${Math.abs(v)}</span>`;
 };
-const eventTime=iso=>{
+const eventTime=event=>{
+  const iso=event?.start;
   if(!iso)return '';
   const d=new Date(iso);
+  if(Number.isNaN(d.getTime()))return '';
+  if(event?.date_only)return d.toLocaleDateString(undefined,{month:'short',day:'numeric',timeZone:'UTC'});
   return d.toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
 };
 const statusBadge=series=>{
   const state=String(series.event_state||'').toLowerCase();
   const event=series.current_event||{};
   if(state==='live')return '<span class="status live">LIVE NOW</span>';
-  if(state==='next'&&event.start)return `<span class="status next">NEXT ${esc(eventTime(event.start))}</span>`;
+  if(state==='next'&&event.start)return `<span class="status next">NEXT ${esc(eventTime(event))}</span>`;
   return '';
 };
 const normalizeSearch=value=>String(value??'').trim().toLowerCase();
@@ -99,13 +102,23 @@ function bindLogoErrors(){
     });
   });
 }
+function eventLogo(item){
+  const matching=(state.payload?.series||[]).find(series=>String(series.series_key)===String(item?.series_key));
+  if(matching&&matching.series_logo)return logo(matching);
+  const direct=String(item?.logo_url||'').trim();
+  if(direct)return `<img class="series-logo event-series-logo" src="${esc(direct)}" alt="${esc(item?.series_name||'Series')} official logo">`;
+  const initials=String(item?.series_name||'R').split(/\s+/).filter(Boolean).slice(0,3).map(part=>part[0]).join('').toUpperCase();
+  return `<span class="series-mark" aria-hidden="true">${esc(initials)}</span>`;
+}
+function eventWhen(event){return event?.start?eventTime(event):'See official schedule';}
+
 function eventCard(item,compact=false){
   const event=item?.event||{};
   const live=item?.state==='live';
   return `<article class="event-card ${live?'is-live':''}">
-    <div><span class="eyebrow">${live?'LIVE NOW':'NEXT UP'}</span><h3>${esc(item.series_name||'Series')}</h3></div>
+    <div class="event-brand">${eventLogo(item)}<div><span class="eyebrow">${live?'LIVE NOW':'NEXT UP'}</span><h3>${esc(item.series_name||'Series')}</h3></div></div>
     <strong>${esc(event.name||'Official schedule')}</strong>
-    <p>${event.start?esc(eventTime(event.start)):'See official schedule'}${item.watch_name?' · '+esc(item.watch_name):''}</p>
+    <p>${esc(eventWhen(event))}${item.watch_name?' · '+esc(item.watch_name):''}</p>
     <div class="event-actions">
       ${item.watch_url?`<a href="${esc(item.watch_url)}" target="_blank" rel="noopener">Watch info ↗</a>`:''}
       ${item.schedule_url?`<a href="${esc(item.schedule_url)}" target="_blank" rel="noopener">Schedule ↗</a>`:''}
@@ -123,9 +136,8 @@ function renderEvents(){
 function renderScheduleCatalog(){
   const catalog=state.payload?.events?.catalog||[];
   $('#scheduleCatalog').innerHTML=catalog.map(item=>`<article class="schedule-card">
-    <span class="eyebrow">${esc(item.group||'RACING')}</span>
-    <h3>${esc(item.series_name||'Series')}</h3>
-    <p>${item.state==='live'?'LIVE NOW':item.state==='next'&&item.event?.start?'Next: '+esc(eventTime(item.event.start)):'Official 2026 schedule'}</p>
+    <div class="event-brand">${eventLogo(item)}<div><span class="eyebrow">${esc(item.group||'RACING')}</span><h3>${esc(item.series_name||'Series')}</h3></div></div>
+    <p>${item.state==='live'?'LIVE NOW':item.state==='next'&&item.event?.start?'Next: '+esc(eventTime(item.event)):'Official 2026 schedule'}</p>
     <div class="event-actions">
       ${item.schedule_url?`<a href="${esc(item.schedule_url)}" target="_blank" rel="noopener">Schedule ↗</a>`:''}
       ${item.watch_url?`<a href="${esc(item.watch_url)}" target="_blank" rel="noopener">${esc(item.watch_name||'Where to watch')} ↗</a>`:''}
@@ -147,7 +159,7 @@ function openSeries(key){
   const logoSource=series.series_logo_source_url?`<a class="official-link identity-source" href="${esc(series.series_logo_source_url)}" target="_blank" rel="noopener">Logo source: official series page ↗</a>`:'';
   const scheduleLink=series.schedule_url?`<a class="official-link" href="${esc(series.schedule_url)}" target="_blank" rel="noopener">Official schedule ↗</a>`:'';
   const watchLink=series.watch_url?`<a class="official-link" href="${esc(series.watch_url)}" target="_blank" rel="noopener">${esc(series.watch_name||'Where to watch')} ↗</a>`:'';
-  const eventLine=series.current_event?`<div class="dialog-event ${series.event_state==='live'?'is-live':''}"><span class="eyebrow">${series.event_state==='live'?'LIVE NOW':'NEXT / RECENT'}</span><strong>${esc(series.current_event.name||'Event')}</strong><small>${series.current_event.start?esc(eventTime(series.current_event.start)):''}</small></div>`:'';
+  const eventLine=series.current_event?`<div class="dialog-event ${series.event_state==='live'?'is-live':''}"><span class="eyebrow">${series.event_state==='live'?'LIVE NOW':'NEXT / RECENT'}</span><strong>${esc(series.current_event.name||'Event')}</strong><small>${series.current_event.start?esc(eventTime(series.current_event)):''}</small></div>`:'';
   $('#dialogContent').innerHTML=`<div class="dialog-title"><div class="dialog-brand">${logo(series)}<div><span class="eyebrow">${esc(series.group||'RACING')} · ${esc(series.season||'')}</span><h2>${esc(series.series_name||'Standings')}</h2><p>${esc(series.source_name||'Series standings')} · updated ${esc(age(series.fetched_at))}</p></div></div></div>${eventLine}${body}<div class="source-links">${scheduleLink}${watchLink}${series.official_url?`<a class="official-link" href="${esc(series.official_url)}" target="_blank" rel="noopener">Open official series standings ↗</a>`:''}${identitySource}${logoSource}</div>`;
   bindLogoErrors();
   $('#standingsDialog').showModal();
