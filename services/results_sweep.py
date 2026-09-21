@@ -1163,15 +1163,194 @@ def run_sweep(force: bool = False):
                 log.exception("Results Sweep advisory lock release failed")
 
 
+
+def publish_weekend_roundup_if_ready() -> dict:
+    start, end, weekend_key = _weekend()
+    state_key = f"results_roundup:v1:{weekend_key}"
+    if get_runtime_state(state_key) == "complete":
+        return {"published": False, "reason": "already_complete"}
+
+    with SessionLocal() as db:
+        rows = list(
+            db.scalars(
+                select(ResultsSweepItem).where(
+                    ResultsSweepItem.weekend_key == weekend_key,
+                    ResultsSweepItem.article_url.is_not(None),
+                    ResultsSweepItem.winner.is_not(None),
+                ).order_by(ResultsSweepItem.event_date.asc(), ResultsSweepItem.entity_name.asc())
+            ).all()
+        )
+
+    unique: dict[str, ResultsSweepItem] = {}
+    for row in rows:
+        key = row.entity_name.strip().lower()
+        if key not in unique or row.updated_at > unique[key].updated_at:
+            unique[key] = row
+    rows = list(unique.values())
+    if len(rows) < 3:
+        return {"published": False, "reason": "not_enough_results", "count": len(rows)}
+
+    names = [str(row.winner or "").strip() for row in rows if row.winner]
+    lead_names = ", ".join(names[:3]) + (f" and {names[3]}" if len(names) == 4 else (f" + {len(names)-3} more" if len(names) > 3 else ""))
+    title = f"Pennsylvania Dirt Weekend Roundup: {lead_names} Score Wins"[:235]
+
+    recent_articles = _shopify_articles()
+    if any(str(item.get("title") or "").strip().lower() == title.lower() for item in recent_articles):
+        set_runtime_state(state_key, "complete")
+        return {"published": False, "reason": "already_published"}
+
+    sections: list[str] = []
+    image_candidates: list[str] = []
+    for row in rows:
+        image_url = ""
+        with SessionLocal() as db:
+            record = db.scalar(
+                select(ShopifyPublishRecord)
+                .where(ShopifyPublishRecord.shopify_article_id == str(row.article_id or ""))
+                .order_by(ShopifyPublishRecord.id.desc())
+                .limit(1)
+            )
+            if record:
+                draft = db.get(BlogDraft, record.draft_id)
+                if draft and draft.featured_image_url:
+                    image_url = str(draft.featured_image_url)
+                    image_candidates.append(image_url)
+
+        heading = f"{html.escape(str(row.winner or 'Winner'))} — {html.escape(row.entity_name)}"
+        if image_url:
+            sections.append(
+                f'<figure style="margin:22px 0"><img src="{html.escape(image_url, quote=True)}" '
+                f'alt="{html.escape(str(row.winner or ""))} at {html.escape(row.entity_name)}" '
+                f'style="width:100%;height:auto;border-radius:8px"></figure>'
+            )
+        sections.append(f"<h2>{heading}</h2>")
+        if row.summary:
+            sections.append(f"<p>{html.escape(row.summary)}</p>")
+        facts = []
+        if row.event_name:
+            facts.append(f"<li><strong>Event:</strong> {html.escape(row.event_name)}</li>")
+        if row.class_name:
+            facts.append(f"<li><strong>Class:</strong> {html.escape(row.class_name)}</li>")
+        if row.event_date:
+            facts.append(f"<li><strong>Date:</strong> {html.escape(row.event_date)}</li>")
+        if facts:
+            sections.append("<ul>" + "".join(facts) + "</ul>")
+        sections.append(
+            f'<p><a href="{html.escape(str(row.article_url), quote=True)}">Read the full Pitmark recap →</a></p>'
+        )
+
+    intro = (
+        f"<p>Pitmark’s Results Desk uncovered {len(rows)} verified Pennsylvania dirt-track results "
+        f"from the weekend beginning {html.escape(weekend_key)}, even without relying on track email releases. "
+        "Here’s the quick track-by-track rundown.</p>"
+    )
+    body = intro + "".join(sections)
+    body += (
+        "<h2>How Pitmark found these results</h2>"
+        "<p>The Sunday Night Results Sweep checks public track, series, and trusted racing-results sources, "
+        "compares them against existing Pitmark coverage, and surfaces anything we have not covered yet.</p>"
+    )
+    body = append_racing_culture_conversion_cta(body, title)
+
+    blogs = shopify_service.list_blogs()
+    if not blogs:
+        return {"published": False, "reason": "no_blog"}
+    blog = next((x for x in blogs if str(x.get("handle") or "").lower() == "racing-culture"), blogs[0])
+
+    hero = None
+    try:
+        staged = generate_and_stage_blog_image(title=title, body_html=body, content_type="race_results_roundup")
+        hero = _store_media_bytes(
+            staged.path.read_bytes(),
+            media_type=staged.media_type,
+            source_kind="generated",
+            source_url=None,
+        )
+    except Exception as exc:
+        log.warning("Results Sweep roundup hero generation failed: %s", exc)
+
+    try:
+        article = shopify_service.publish_article(
+            blog_id=str(blog["id"]),
+            title=title,
+            body_html=body,
+            image_url=(hero or {}).get("url"),
+        )
+    except Exception as exc:
+        log.warning("Results Sweep roundup hero publish failed; retrying without image: %s", exc)
+        article = shopify_service.publish_article(
+            blog_id=str(blog["id"]),
+            title=title,
+            body_html=body,
+            image_url=None,
+        )
+
+    handle = str(article.get("handle") or "")
+    article_url = (
+        f"https://pitmarkracing.com/blogs/{blog.get('handle')}/{handle}"
+        if handle else "https://pitmarkracing.com/blogs/racing-culture"
+    )
+    shopify_image = (
+        ((article.get("image") or {}).get("originalSrc") or "")
+        if isinstance(article.get("image"), dict)
+        else ""
+    )
+
+    with SessionLocal() as db:
+        draft = BlogDraft(
+            title=title,
+            body_html=body,
+            content_type="race_results_roundup",
+            seo_title=title,
+            seo_description=f"Pitmark weekend racing roundup covering {len(rows)} verified Pennsylvania dirt-track results.",
+            featured_image_url=shopify_image or (hero or {}).get("url"),
+            status="published",
+        )
+        db.add(draft)
+        db.flush()
+        db.add(ShopifyPublishRecord(
+            draft_id=draft.id,
+            shopify_article_id=str(article.get("id") or ""),
+            title=title,
+            url=article_url,
+            status="published",
+        ))
+        db.commit()
+
+    queue_event(
+        event_key=f"results-roundup:{weekend_key}",
+        event_type="blog_publish",
+        title=title,
+        summary=f"{len(rows)} verified Pennsylvania dirt-track results from Pitmark’s weekend sweep.",
+        url=article_url,
+        media_url=shopify_image or (hero or {}).get("url"),
+        payload={
+            "source": "sunday_results_sweep_roundup",
+            "weekend_key": weekend_key,
+            "result_count": len(rows),
+        },
+    )
+    set_runtime_state(state_key, "complete")
+    _notify(
+        f"results-roundup:{weekend_key}",
+        "Results Sweep published weekend roundup",
+        f"{title}\n{article_url}",
+        "info",
+    )
+    return {"published": True, "url": article_url, "title": title, "count": len(rows)}
+
+
 def run_if_due():
     if not _bool("PITMARK_RESULTS_SWEEP_ENABLED", True):
         return {"ran":False,"reason":"disabled"}
 
     repair = repair_pending_images()
+    roundup = publish_weekend_roundup_if_ready()
     now = datetime.now(ET)
     due = (now.weekday() == 6 and now.hour >= _int("PITMARK_RESULTS_SWEEP_SUNDAY_HOUR", 21, 17, 23)) or (now.weekday() == 0 and now.hour >= _int("PITMARK_RESULTS_SWEEP_MONDAY_CATCHUP_HOUR", 8, 5, 12))
     result = run_sweep(False) if due else {"ran":False,"reason":"not_due"}
     result["image_repair"] = repair
+    result["roundup"] = roundup
     return result
 
 
