@@ -47,6 +47,39 @@ Visual direction: authentic grassroots American motorsports, short-track and rac
 Important restrictions: no readable words, no typography, no logos, no sponsor marks, no manufacturer trademarks, no copyrighted team liveries, no watermarks, and no UI. Do not recreate any real brand logo. Keep cars and people generic when the article context does not establish exact visual details. Compose for a wide blog header with the main action centered and safe crop room around the edges."""
 
 
+def build_track_hero_prompt(*, track_name: str, article_context: str) -> str:
+    track = _clean_text(track_name, 180)
+    context = _clean_text(article_context, 900)
+    return f"""Create one original landscape editorial background for a Pitmark Racing Co. race-results article about {track}.
+
+Article context: {context}
+
+This is a TRACK / VENUE hero background, not a driver image and not a recreation of a factual race photo.
+
+Visual direction:
+- authentic American short-track motorsports venue atmosphere
+- focus on the racing surface, fencing, grandstands, lights, pit or infield environment
+- dramatic dusk or night lighting, gritty but believable editorial photography
+- premium racing-news composition
+- leave clean negative space in the lower-right area for an official track logo that will be composited afterward
+
+HARD RESTRICTIONS:
+- NO driver portrait
+- NO identifiable person as the subject
+- NO winner celebration
+- NO face close-up
+- NO named or recognizable race car
+- NO readable car number
+- NO sponsor livery
+- NO team identity
+- NO text or typography
+- NO logos or fake logos
+- NO watermarks
+- do not imply this generated background is an actual photograph from the reported event
+
+The final official track logo will be added separately from a verified real logo asset. Do not attempt to recreate it."""
+
+
 def _cleanup_old_files() -> None:
     try:
         _STAGE_DIR.mkdir(parents=True, exist_ok=True)
@@ -134,6 +167,33 @@ def _request_image_bytes(prompt: str) -> bytes:
 
     assert last_error is not None
     raise last_error
+
+
+def generate_and_stage_track_hero(*, track_name: str, article_context: str) -> StagedBlogImage:
+    """Generate only the venue/background layer for Results Sweep fallback art.
+
+    This function is deliberately track-focused. Results Sweep composites a
+    verified official track logo afterward; this generator must never create a
+    driver/winner likeness or fake track logo.
+    """
+    _cleanup_old_files()
+    prompt = build_track_hero_prompt(track_name=track_name, article_context=article_context)
+    data = _request_image_bytes(prompt)
+    if len(data) < 2048:
+        raise RuntimeError('Generated track hero payload was unexpectedly small')
+
+    suffix, media_type = _detect_image_type(data)
+    _STAGE_DIR.mkdir(parents=True, exist_ok=True)
+    token = secrets.token_urlsafe(32)
+    path = _STAGE_DIR / f'{token}{suffix}'
+    path.write_bytes(data)
+    return StagedBlogImage(
+        token=token,
+        path=path,
+        media_type=media_type,
+        model=settings.pitmark_image_model,
+        attempts=max(1, min(3, int(settings.pitmark_image_max_attempts))),
+    )
 
 
 def generate_and_stage_blog_image(*, title: str, body_html: str, content_type: str) -> StagedBlogImage:
