@@ -19,9 +19,11 @@ const seriesMarkText=series=>{
 const logoToneClass=key=>{
   const light=new Set([
     'formula-e','arca-menards','arca-east','arca-west',
+    'nhra-top-fuel','nhra-funny-car','nhra-pro-stock','nhra-pro-stock-motorcycle',
     'imsa-weathertech','imsa-michelin-pilot','imsa-vp-racing',
     'imsa-porsche-carrera-cup','imsa-mustang-challenge',
-    'imsa-lamborghini-super-trofeo','imsa-mx5-cup'
+    'imsa-lamborghini-super-trofeo','imsa-mx5-cup',
+    'motogp','moto2','moto3','btcc'
   ]);
   return light.has(String(key||''))?'logo-light':'logo-dark';
 };
