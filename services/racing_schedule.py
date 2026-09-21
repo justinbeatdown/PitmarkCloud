@@ -87,7 +87,7 @@ def _espn_event(league: str) -> dict[str, Any] | None:
 def _reader_markdown(url: str) -> str:
     parts=url.split("://",1)[-1]
     reader="https://r.jina.ai/http://"+parts
-    with httpx.Client(timeout=12.0,follow_redirects=True,headers={"User-Agent":USER_AGENT,"X-Return-Format":"markdown"}) as client:
+    with httpx.Client(timeout=7.0,follow_redirects=True,headers={"User-Agent":USER_AGENT,"X-Return-Format":"markdown"}) as client:
         r=client.get(reader); r.raise_for_status(); return r.text
 
 def _official_next_event(url: str) -> dict[str, Any] | None:
@@ -120,18 +120,15 @@ def _official_next_event(url: str) -> dict[str, Any] | None:
     dt,context=found[0]
     return {"name":context or "Official schedule event","start":_iso(dt),"live":False,"state":"today" if dt.date()==now.date() else "pre","status_text":"Today" if dt.date()==now.date() else "Upcoming","source_url":url}
 
-def get_race_schedule() -> dict[str, Any]:
+def refresh_race_schedule() -> dict[str, Any]:
     now=datetime.now(timezone.utc)
-    with _lock:
-        if _cache["at"] and _cache["value"] and (now-_cache["at"]).total_seconds()<CACHE_SECONDS:
-            return _cache["value"]
     items=[]
     def load(cfg):
         event=_espn_event(cfg["espn"]) if cfg.get("espn") else None
         if not event:event=_official_next_event(cfg["schedule"])
         return {**cfg,"event":event}
     from concurrent.futures import ThreadPoolExecutor,as_completed
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    with ThreadPoolExecutor(max_workers=16) as pool:
         futures=[pool.submit(load,cfg) for cfg in SERIES_SCHEDULES]
         for f in as_completed(futures):
             try:items.append(f.result())
@@ -143,3 +140,14 @@ def get_race_schedule() -> dict[str, Any]:
     value={"generated_at":_iso(now),"live":live,"upcoming":upcoming,"series":items,"summary":{"series_total":len(items),"live_now":len(live)}}
     with _lock:_cache["at"]=now;_cache["value"]=value
     return value
+
+
+def get_race_schedule_snapshot() -> dict[str, Any]:
+    now=datetime.now(timezone.utc)
+    with _lock:
+        if _cache["value"]:
+            return _cache["value"]
+    # Fast cold-start response: directory is complete immediately; real-time
+    # events fill in as the background refresh completes.
+    items=[{**cfg,"event":None} for cfg in SERIES_SCHEDULES]
+    return {"generated_at":_iso(now),"live":[],"upcoming":[],"series":items,"summary":{"series_total":len(items),"live_now":0,"warming":True}}
