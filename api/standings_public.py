@@ -8,7 +8,7 @@ import httpx
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, Response
 
-from services.racing_standings import get_series_logo_info, get_standings_snapshot_hub
+from services.racing_standings import SERIES as STANDINGS_SERIES, get_series_logo_info, get_standings_snapshot_hub
 from services.racing_events import get_racing_event_hub
 from utils.config import settings
 
@@ -17,6 +17,26 @@ ASSET_DIR = Path(__file__).resolve().parent
 LOGO_MAX_BYTES = 2 * 1024 * 1024
 _logo_cache_lock = threading.Lock()
 _logo_cache: dict[str, tuple[float, bytes, str]] = {}
+
+
+def _fallback_series_logo(series_key: str) -> Response:
+    config = next((item for item in STANDINGS_SERIES if item.get("key") == series_key), None)
+    label = str((config or {}).get("short_name") or (config or {}).get("name") or series_key.replace("-", " ")).strip()
+    safe = (
+        label.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;")
+    )
+    # Last-resort brand tile so a broken upstream image can never leave a
+    # blank hole in the public hub. Official/discovered logos are always tried first.
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="360" height="120" viewBox="0 0 360 120">
+<rect width="360" height="120" rx="18" fill="#111315"/>
+<rect x="4" y="4" width="352" height="112" rx="15" fill="none" stroke="#34383d" stroke-width="2"/>
+<text x="180" y="68" fill="#f4f1eb" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="800" text-anchor="middle">{safe}</text>
+</svg>"""
+    return Response(svg, media_type="image/svg+xml", headers={"Cache-Control": "public, max-age=3600"})
 
 
 def _public_payload() -> dict:
@@ -57,7 +77,7 @@ def public_standings_js():
 def public_standings_logo(series_key: str):
     info = get_series_logo_info(series_key)
     if not info:
-        raise HTTPException(status_code=404, detail="Official series logo is not available.")
+        return _fallback_series_logo(series_key)
 
     remote_url = info["url"]
     now = time.monotonic()
@@ -71,12 +91,29 @@ def public_standings_logo(series_key: str):
         "Accept": "image/avif,image/webp,image/png,image/svg+xml,image/jpeg,*/*;q=0.5",
         "Referer": info["source_url"],
     }
-    try:
-        with httpx.Client(timeout=14.0, follow_redirects=True, headers=headers) as client:
-            response = client.get(remote_url)
-            response.raise_for_status()
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail="Official series logo could not be retrieved.") from exc
+    response = None
+    attempts = (
+        headers,
+        {
+            "User-Agent": headers["User-Agent"],
+            "Accept": headers["Accept"],
+        },
+        {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/144 Safari/537.36",
+            "Accept": headers["Accept"],
+        },
+    )
+    for attempt_headers in attempts:
+        try:
+            with httpx.Client(timeout=14.0, follow_redirects=True, headers=attempt_headers) as client:
+                candidate = client.get(remote_url)
+                candidate.raise_for_status()
+                response = candidate
+                break
+        except Exception:
+            continue
+    if response is None:
+        return _fallback_series_logo(series_key)
 
     content = response.content
     media_type = (response.headers.get("content-type") or "").split(";", 1)[0].strip().lower()
@@ -85,7 +122,7 @@ def public_standings_logo(series_key: str):
         "image/svg+xml", "image/avif",
     }
     if media_type not in allowed or not content or len(content) > LOGO_MAX_BYTES:
-        raise HTTPException(status_code=502, detail="Official series logo response was invalid.")
+        return _fallback_series_logo(series_key)
 
     with _logo_cache_lock:
         _logo_cache[remote_url] = (now, content, media_type)
@@ -125,7 +162,7 @@ def public_standings_data():
                 "source_name": series.get("source_name"),
                 "metadata_source_url": series.get("metadata_source_url") if identity_verified else None,
                 "metadata_verified": identity_verified,
-                "series_logo": f"/standings-logo/{series_key}" if logo_info else None,
+                "series_logo": f"/standings-logo/{series_key}",
                 "series_logo_direct": logo_info.get("url") if logo_info else None,
                 "series_logo_source_url": logo_info.get("source_url") if logo_info else None,
                 "fetched_at": series.get("fetched_at"),
