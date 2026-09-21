@@ -198,5 +198,5 @@ def public_standings_data():
             default=str,
         ),
         media_type="application/json",
-        headers={"Cache-Control": "public, max-age=300, stale-while-revalidate=600"},
+        headers={"Cache-Control": "no-store, max-age=0"},
     )
