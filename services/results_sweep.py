@@ -11,13 +11,13 @@ from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 import httpx
-from sqlalchemy import DateTime, Float, Integer, String, Text, select
+from sqlalchemy import DateTime, Float, Integer, String, Text, select, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from services.autopilot_ai import _extract_output_text
 from services.blog_image_service import generate_and_stage_blog_image
 from services.control_center import BlogDraft, EcosystemNotification, ShopifyPublishRecord, utcnow
-from services.database import Base, SessionLocal
+from services.database import Base, SessionLocal, engine, DATABASE_URL
 from services.first_party_models import queue_event
 from services.persistent_store import get_runtime_state, set_runtime_state
 from services.racing_community import CommunityEntity
@@ -60,6 +60,7 @@ TRUSTED = (
     "fiaformulae.com", "race-monitor.com",
 )
 RESULT_WORDS = ("results", "winner", "wins", "won", "victory", "feature", "checkered", "podium", "final", "recap")
+RESULTS_SWEEP_LOCK_KEY = 739245118
 
 
 class ResultsSweepItem(Base):
@@ -411,7 +412,7 @@ def _save(result: dict, weekend_key: str, status: str, detail: str = ""):
         return row
 
 
-def run_sweep(force: bool = False):
+def _run_sweep_impl(force: bool = False):
     start, end, weekend_key = _weekend()
     state_key = f"results_sweep:{weekend_key}"
     if not force and get_runtime_state(state_key) == "complete":
@@ -502,6 +503,37 @@ def run_sweep(force: bool = False):
             run.status="complete"; run.completed_at=utcnow(); run.note=f"Checked {c['targets_checked']} targets; published {c['published_count']}; uncovered {c['uncovered_count']}; duplicates {c['duplicate_count']}."; db.commit()
     set_runtime_state(state_key, "complete")
     return {"ran":True,"weekend_key":weekend_key,**c}
+
+
+
+def run_sweep(force: bool = False):
+    """Run one sweep with a cross-instance Postgres advisory lock.
+
+    Render rolling deploys can briefly keep old and new instances alive together.
+    The lock guarantees that only one instance can discover/publish results at a time.
+    """
+    if DATABASE_URL.startswith("sqlite"):
+        return _run_sweep_impl(force=force)
+
+    with engine.connect() as lock_conn:
+        acquired = bool(
+            lock_conn.scalar(
+                text("SELECT pg_try_advisory_lock(:lock_key)"),
+                {"lock_key": RESULTS_SWEEP_LOCK_KEY},
+            )
+        )
+        if not acquired:
+            return {"ran": False, "reason": "already_running_elsewhere"}
+        try:
+            return _run_sweep_impl(force=force)
+        finally:
+            try:
+                lock_conn.execute(
+                    text("SELECT pg_advisory_unlock(:lock_key)"),
+                    {"lock_key": RESULTS_SWEEP_LOCK_KEY},
+                )
+            except Exception:
+                log.exception("Results Sweep advisory lock release failed")
 
 
 def run_if_due():
