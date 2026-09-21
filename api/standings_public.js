@@ -550,51 +550,78 @@ const applySearch=value=>{
   },70);
 };
 
-document.addEventListener('click',event=>{
-  const filter=event.target.closest('[data-group]');
-  if(filter){
-    state.group=filter.dataset.group;
-    render();
-    return;
+function safeBind(selector,eventName,handler){
+  const el=$(selector);
+  if(el)el.addEventListener(eventName,handler);
+}
+
+function bootRaceCenter(){
+  // Kick off the data request first. UI wiring must never be allowed to block it.
+  load();
+
+  try{configurePage();}catch(error){
+    console.error('Race Center page configuration failed',error);
   }
-  if(event.target.closest('a,button,input'))return;
-  const card=event.target.closest('[data-key]');
-  if(card)openSeries(card.dataset.key);
-});
 
-document.addEventListener('keydown',event=>{
-  if(event.key!=='Enter'&&event.key!==' ')return;
-  const card=event.target.closest('[data-key]');
-  if(!card||event.target.closest('a,button,input'))return;
-  event.preventDefault();
-  openSeries(card.dataset.key);
-});
+  document.addEventListener('click',event=>{
+    const filter=event.target.closest('[data-group]');
+    if(filter){
+      state.group=filter.dataset.group;
+      render();
+      return;
+    }
+    if(event.target.closest('a,button,input'))return;
+    const card=event.target.closest('[data-key]');
+    if(card)openSeries(card.dataset.key);
+  });
 
-document.addEventListener('input',event=>{
-  if(event.target?.id==='searchInput')applySearch(event.target.value);
-});
-document.addEventListener('search',event=>{
-  if(event.target?.id==='searchInput')applySearch(event.target.value);
-});
+  document.addEventListener('keydown',event=>{
+    if(event.key!=='Enter'&&event.key!==' ')return;
+    const card=event.target.closest('[data-key]');
+    if(!card||event.target.closest('a,button,input'))return;
+    event.preventDefault();
+    openSeries(card.dataset.key);
+  });
 
-$('#clearSearch').addEventListener('click',()=>{
-  $('#searchInput').value='';
-  state.search='';
-  render();
-  $('#searchInput').focus();
-});
+  document.addEventListener('input',event=>{
+    if(event.target?.id==='searchInput')applySearch(event.target.value);
+  });
+  document.addEventListener('search',event=>{
+    if(event.target?.id==='searchInput')applySearch(event.target.value);
+  });
 
-$('#dialogClose').addEventListener('click',()=>$('#standingsDialog').close());
-$('#standingsDialog').addEventListener('click',event=>{
-  if(event.target===$('#standingsDialog'))$('#standingsDialog').close();
-});
-$('#standingsDialog').addEventListener('close',()=>document.body.classList.remove('dialog-open'));
+  safeBind('#clearSearch','click',()=>{
+    const input=$('#searchInput');
+    if(input)input.value='';
+    state.search='';
+    if(state.payload)render();
+    if(input)input.focus();
+  });
 
-const backToTop=$('#backToTop');
-window.addEventListener('scroll',()=>{
-  backToTop.hidden=window.scrollY<900;
-},{passive:true});
-backToTop.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
+  safeBind('#dialogClose','click',()=>{
+    const dialog=$('#standingsDialog');
+    if(dialog?.open)dialog.close();
+  });
 
-configurePage();
-load();
+  const dialog=$('#standingsDialog');
+  if(dialog){
+    dialog.addEventListener('click',event=>{
+      if(event.target===dialog&&dialog.open)dialog.close();
+    });
+    dialog.addEventListener('close',()=>document.body.classList.remove('dialog-open'));
+  }
+
+  const backToTop=$('#backToTop');
+  if(backToTop){
+    window.addEventListener('scroll',()=>{
+      backToTop.hidden=window.scrollY<900;
+    },{passive:true});
+    backToTop.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
+  }
+}
+
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',bootRaceCenter,{once:true});
+}else{
+  bootRaceCenter();
+}
