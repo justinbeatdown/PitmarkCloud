@@ -790,6 +790,93 @@ def _publish(result: dict, fp: str, evidence: list[dict]):
     }
 
 
+
+def repair_pending_images(limit: int = 6) -> dict:
+    repaired = 0
+    attempted = 0
+    failures: list[str] = []
+    with SessionLocal() as db:
+        pending = list(
+            db.scalars(
+                select(ResultsSweepItem)
+                .where(
+                    ResultsSweepItem.status == "published_image_pending",
+                    ResultsSweepItem.article_id.is_not(None),
+                )
+                .order_by(ResultsSweepItem.id.asc())
+                .limit(max(1, min(limit, 12)))
+            ).all()
+        )
+
+    for row in pending:
+        attempted += 1
+        try:
+            start = datetime.fromisoformat(row.weekend_key).replace(tzinfo=ET)
+            end = start + timedelta(days=2, hours=23, minutes=59, seconds=59)
+            local = any(word in row.entity_name.lower() for word in ("speedway", "raceway", "track"))
+            evidence = _search(row.entity_name, start, end, local)
+            result = {
+                "entity_name": row.entity_name,
+                "event_name": row.event_name or "",
+                "event_date": row.event_date or "",
+                "class_name": row.class_name or "",
+                "winner": row.winner or "",
+                "summary": row.summary or "",
+                "source_urls": json.loads(row.source_urls_json or "[]"),
+                "source_names": json.loads(row.source_names_json or "[]"),
+                "status": "completed",
+                "confidence": row.confidence,
+            }
+            body = _article(result)
+            media = _select_real_image(result, evidence)
+            if media is None:
+                media = _generate_durable_hero(result, body)
+            if media is None:
+                raise RuntimeError("No usable real photo and generated fallback failed")
+
+            updated = shopify_service.update_article_image(
+                article_id=str(row.article_id),
+                image_url=str(media["url"]),
+                alt_text=_title(result),
+            )
+            durable = (
+                ((updated.get("image") or {}).get("originalSrc") or "")
+                if isinstance(updated.get("image"), dict)
+                else ""
+            ) or media["url"]
+
+            with SessionLocal() as db:
+                current = db.get(ResultsSweepItem, row.id)
+                if current:
+                    current.status = "published"
+                    current.detail = None
+                    current.updated_at = utcnow()
+                    db.commit()
+                publish_record = db.scalar(
+                    select(ShopifyPublishRecord)
+                    .where(ShopifyPublishRecord.shopify_article_id == str(row.article_id))
+                    .order_by(ShopifyPublishRecord.id.desc())
+                    .limit(1)
+                )
+                if publish_record:
+                    draft = db.get(BlogDraft, publish_record.draft_id)
+                    if draft:
+                        draft.featured_image_url = durable
+                        db.commit()
+
+            repaired += 1
+            log.info(
+                "Results Sweep repaired hero image for %s using %s",
+                row.entity_name,
+                media.get("source_kind"),
+            )
+        except Exception as exc:
+            failures.append(f"{row.entity_name}: {type(exc).__name__}: {exc}"[:500])
+            log.warning("Results Sweep hero repair failed for %s: %s", row.entity_name, exc)
+
+    return {"attempted": attempted, "repaired": repaired, "failures": failures}
+
+
 def _notify(key: str, title: str, detail: str, priority: str = "action"):
     dedupe = hashlib.sha256(key.encode()).hexdigest()[:40]
     with SessionLocal() as db:
@@ -1013,9 +1100,13 @@ def run_sweep(force: bool = False):
 def run_if_due():
     if not _bool("PITMARK_RESULTS_SWEEP_ENABLED", True):
         return {"ran":False,"reason":"disabled"}
+
+    repair = repair_pending_images()
     now = datetime.now(ET)
     due = (now.weekday() == 6 and now.hour >= _int("PITMARK_RESULTS_SWEEP_SUNDAY_HOUR", 21, 17, 23)) or (now.weekday() == 0 and now.hour >= _int("PITMARK_RESULTS_SWEEP_MONDAY_CATCHUP_HOUR", 8, 5, 12))
-    return run_sweep(False) if due else {"ran":False,"reason":"not_due"}
+    result = run_sweep(False) if due else {"ran":False,"reason":"not_due"}
+    result["image_repair"] = repair
+    return result
 
 
 def list_items(limit: int = 100, status: str | None = None):
