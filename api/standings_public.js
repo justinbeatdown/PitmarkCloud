@@ -30,8 +30,12 @@ const logoToneClass=key=>{
 const logo=series=>{
   const key=String(series?.series_key||'');
   const mark=seriesMarkText(series);
-  return series?.series_logo
-    ?`<img class="series-logo ${logoToneClass(key)}" src="${esc(series.series_logo)}" data-direct="${esc(series.series_logo_direct||'')}" data-fallback="${esc(mark)}" alt="${esc(series.series_name||'Series')} official logo">`
+  const direct=String(series?.series_logo_direct||'').trim();
+  const proxy=String(series?.series_logo||'').trim();
+  const primary=direct||proxy;
+  const fallback=direct&&proxy?proxy:'';
+  return primary
+    ?`<img class="series-logo ${logoToneClass(key)}" src="${esc(primary)}" data-direct="${esc(fallback)}" data-fallback="${esc(mark)}" alt="${esc(series.series_name||'Series')} official logo">`
     :`<span class="series-wordmark" title="${esc(series?.series_name||'Series')}">${esc(mark)}</span>`;
 };
 const identityText=row=>{const values=[row?.team,row?.manufacturer].filter(Boolean).map(String);return [...new Set(values)].join(' · ');};
