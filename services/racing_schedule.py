@@ -19,6 +19,8 @@ SERIES_SCHEDULES = (
     {"key":"nascar-truck","name":"NASCAR CRAFTSMAN Truck Series","group":"NASCAR","espn":"nascar-truck","schedule":"https://www.nascar.com/nascar-craftsman-truck-series/2026/schedule/","watch":"https://www.nascar.com/watch/","watch_label":"NASCAR broadcast guide"},
     {"key":"nascar-whelen-modified","name":"NASCAR Whelen Modified Tour","group":"Stock Cars","schedule":"https://www.nascar.com/whelen-modified-tour/2026/schedule/","watch":"https://www.floracing.com/","watch_label":"FloRacing / official event guide"},
     {"key":"arca-menards","name":"ARCA Menards Series","group":"Stock Cars","schedule":"https://www.arcaracing.com/schedule/","watch":"https://www.arcaracing.com/","watch_label":"ARCA official broadcast information"},
+    {"key":"arca-east","name":"ARCA Menards Series East","group":"Stock Cars","schedule":"https://www.arcaracing.com/schedule/","watch":"https://www.arcaracing.com/","watch_label":"ARCA official broadcast information"},
+    {"key":"arca-west","name":"ARCA Menards Series West","group":"Stock Cars","schedule":"https://www.arcaracing.com/schedule/","watch":"https://www.arcaracing.com/","watch_label":"ARCA official broadcast information"},
     {"key":"world-of-outlaws-sprint","name":"World of Outlaws Sprint Car Series","group":"Dirt","schedule":"https://worldofoutlaws.com/sprintcars/schedule/","watch":"https://www.dirtvision.com/","watch_label":"DIRTVision"},
     {"key":"world-of-outlaws-late-models","name":"World of Outlaws Late Model Series","group":"Dirt","schedule":"https://worldofoutlaws.com/latemodels/schedule/","watch":"https://www.dirtvision.com/","watch_label":"DIRTVision"},
     {"key":"lucas-oil-late-models","name":"Lucas Oil Late Model Dirt Series","group":"Dirt","schedule":"https://www.lucasdirt.com/schedule/","watch":"https://www.floracing.com/","watch_label":"FloRacing"},
@@ -49,6 +51,7 @@ SERIES_SCHEDULES = (
     {"key":"motogp","name":"MotoGP","group":"Motorcycles","schedule":"https://www.motogp.com/en/calendar","watch":"https://www.motogp.com/en/videopass","watch_label":"MotoGP VideoPass / local broadcaster"},
     {"key":"moto2","name":"Moto2","group":"Motorcycles","schedule":"https://www.motogp.com/en/calendar","watch":"https://www.motogp.com/en/videopass","watch_label":"MotoGP VideoPass / local broadcaster"},
     {"key":"moto3","name":"Moto3","group":"Motorcycles","schedule":"https://www.motogp.com/en/calendar","watch":"https://www.motogp.com/en/videopass","watch_label":"MotoGP VideoPass / local broadcaster"},
+    {"key":"worldsbk","name":"FIM Superbike World Championship","group":"Motorcycles","schedule":"https://www.worldsbk.com/en/calendar","watch":"https://www.worldsbk.com/en/videos","watch_label":"WorldSBK VideoPass / official broadcaster"},
 )
 
 _MONTHS = {name.lower(): i for i,name in enumerate(("January","February","March","April","May","June","July","August","September","October","November","December"),1)}
@@ -128,7 +131,7 @@ def refresh_race_schedule() -> dict[str, Any]:
         if not event:event=_official_next_event(cfg["schedule"])
         return {**cfg,"event":event}
     from concurrent.futures import ThreadPoolExecutor,as_completed
-    with ThreadPoolExecutor(max_workers=16) as pool:
+    with ThreadPoolExecutor(max_workers=6) as pool:
         futures=[pool.submit(load,cfg) for cfg in SERIES_SCHEDULES]
         for f in as_completed(futures):
             try:items.append(f.result())
