@@ -19,6 +19,7 @@ from services.meta_publish_service import (
     reply_instagram_comment,
 )
 from services.social_operator_logic import counts_toward_daily_coverage, summarize_channel_health
+from services.social_pacing import pacing_decision
 from services.autonomy_control import effective_mode
 from services.first_party_auto_schedule import auto_schedule_verified_first_party
 from services.first_party_media import reconcile_first_party_drafts
@@ -366,6 +367,16 @@ def _ensure_growth_posts() -> int:
         schedule = _next_growth_slot(platform)
         day_key = schedule.date().isoformat()
         if _operator_post_exists(platform, day_key):
+            continue
+        with SessionLocal() as db:
+            allowed, pacing_reason = pacing_decision(
+                db,
+                platform=platform,
+                candidate=schedule,
+                priority=False,
+            )
+        if not allowed:
+            log.info("Social Operator skipped %s growth post: %s", platform, pacing_reason)
             continue
         body = _pick(_prompt_set(platform), f"{platform}:{day_key}")
         auto_mode = effective_mode("low_risk_social_publish", uncertainty=0.05, fallback="auto")
