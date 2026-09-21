@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Header, Request
+from fastapi import APIRouter, Header, Request, Response
 
 from services.control_auth import require_control_user
 from services import results_sweep
 
 router = APIRouter()
+public_router = APIRouter()
 
 
 def _auth(request: Request, key: str | None):
@@ -38,3 +39,18 @@ def items(
 def run(request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     _auth(request, x_pitmark_admin_key)
     return results_sweep.run_sweep(force=True)
+
+
+@public_router.get("/image/{token}")
+def public_image(token: str):
+    media = results_sweep.resolve_media(token)
+    if media is None:
+        return Response(status_code=404)
+    return Response(
+        content=media["data"],
+        media_type=media["media_type"],
+        headers={
+            "Cache-Control": "public, max-age=86400",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
