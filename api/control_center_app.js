@@ -1,5 +1,5 @@
-import { api, abortScope, clearCache } from './control-center-api.js?v=20260920results1';
-import { DOMAIN_META, renderDomain } from './control-center-views.js?v=20260920results1';
+import { api, abortScope, clearCache } from './control-center-api.js?v=20260920results2';
+import { DOMAIN_META, renderDomain } from './control-center-views.js?v=20260920results2';
 
 const VALID_DOMAINS = new Set(Object.keys(DOMAIN_META));
 const root = document.getElementById('pitmark-control');
@@ -87,6 +87,7 @@ async function renderCurrent(force = false) {
   const sequence = ++renderSequence;
   const domain = state.domain;
   setDocumentState(domain);
+  if (workspace) workspace.scrollTop = 0;
   refreshButton.disabled = true;
   refreshButton.innerHTML = '<span class="pm-spinner"></span><span class="pm-hide-small">Loading</span>';
   try {
@@ -101,7 +102,7 @@ async function renderCurrent(force = false) {
     });
     if (sequence !== renderSequence) return;
     workspace?.focus({ preventScroll: true });
-    workspace?.scrollTo({ top: 0, behavior: 'instant' });
+    if (workspace) workspace.scrollTop = 0;
   } finally {
     if (sequence === renderSequence) {
       refreshButton.disabled = false;
