@@ -383,6 +383,7 @@ app.include_router(prt_ui.router)
 app.include_router(standings_public.router, tags=["public-standings"])
 app.include_router(racing_network.router, tags=["racing-network"])
 app.include_router(results_sweep.router, prefix="/api/control/results-sweep", tags=["results-sweep"])
+app.include_router(results_sweep.public_router, prefix="/api/results-sweep", tags=["public-results-sweep-media"])
 app.include_router(prt_testimonial_asset.router)
 app.include_router(early_access_admin.router)
 
