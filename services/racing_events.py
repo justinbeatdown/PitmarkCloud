@@ -5,8 +5,10 @@ from datetime import datetime, timedelta, timezone
 import re
 import threading
 from typing import Any
+from urllib.parse import urljoin, urlsplit
 
 import httpx
+from bs4 import BeautifulSoup
 
 USER_AGENT = "PitmarkRaceCenter/1.0 (+https://pitmarkracing.com)"
 SEASON = 2026
@@ -34,22 +36,22 @@ SERIES_EVENT_CONFIG: dict[str, dict[str, Any]] = {
     "asa-stars": {"name":"ASA STARS National Tour","group":"Short Track","schedule_url":"https://starsnationaltour.com/schedule/","watch_name":"Official Broadcast Info","watch_url":"https://starsnationaltour.com/"},
     "smart-modified": {"name":"SMART Modified Tour","group":"Short Track","schedule_url":"https://smartmodifiedtour.com/schedule","watch_name":"Official Broadcast Info","watch_url":"https://smartmodifiedtour.com/"},
 
-    "nhra-top-fuel": {"name":"NHRA Top Fuel","group":"Drag Racing","schedule_url":"https://www.nhra.com/schedule/2026","watch_name":"NHRA TV Schedule","watch_url":"https://www.nhra.com/tv-schedule"},
-    "nhra-funny-car": {"name":"NHRA Funny Car","group":"Drag Racing","schedule_url":"https://www.nhra.com/schedule/2026","watch_name":"NHRA TV Schedule","watch_url":"https://www.nhra.com/tv-schedule"},
-    "nhra-pro-stock": {"name":"NHRA Pro Stock","group":"Drag Racing","schedule_url":"https://www.nhra.com/schedule/2026","watch_name":"NHRA TV Schedule","watch_url":"https://www.nhra.com/tv-schedule"},
-    "nhra-pro-stock-motorcycle": {"name":"NHRA Pro Stock Motorcycle","group":"Drag Racing","schedule_url":"https://www.nhra.com/schedule/2026","watch_name":"NHRA TV Schedule","watch_url":"https://www.nhra.com/tv-schedule"},
+    "nhra-top-fuel": {"name":"NHRA Top Fuel","group":"Drag Racing","schedule_url":"https://www.nhra.com/schedule/2026","logo_source_url":"https://www.nhra.com/media-center/logos","watch_name":"NHRA TV Schedule","watch_url":"https://www.nhra.com/tv-schedule"},
+    "nhra-funny-car": {"name":"NHRA Funny Car","group":"Drag Racing","schedule_url":"https://www.nhra.com/schedule/2026","logo_source_url":"https://www.nhra.com/media-center/logos","watch_name":"NHRA TV Schedule","watch_url":"https://www.nhra.com/tv-schedule"},
+    "nhra-pro-stock": {"name":"NHRA Pro Stock","group":"Drag Racing","schedule_url":"https://www.nhra.com/schedule/2026","logo_source_url":"https://www.nhra.com/media-center/logos","watch_name":"NHRA TV Schedule","watch_url":"https://www.nhra.com/tv-schedule"},
+    "nhra-pro-stock-motorcycle": {"name":"NHRA Pro Stock Motorcycle","group":"Drag Racing","schedule_url":"https://www.nhra.com/schedule/2026","logo_source_url":"https://www.nhra.com/media-center/logos","watch_name":"NHRA TV Schedule","watch_url":"https://www.nhra.com/tv-schedule"},
 
     "f1": {"name":"Formula 1","group":"Open Wheel","provider":"f1","schedule_url":"https://www.formula1.com/en/racing/2026","watch_name":"F1 TV","watch_url":"https://f1tv.formula1.com/"},
     "indycar": {"name":"NTT INDYCAR SERIES","group":"Open Wheel","espn_league":"irl","schedule_url":"https://www.indycar.com/Schedule","watch_name":"INDYCAR Ways to Watch","watch_url":"https://www.indycar.com/ways-to-watch","logo_source_url":"https://www.indycar.com/Support","logo_url":"https://www.indycar.com/-/media/IndyCar/Content/Footer/indycar-horizontal.png"},
-    "formula-e": {"name":"ABB FIA Formula E World Championship","group":"Open Wheel","schedule_url":"https://www.fiaformulae.com/en/calendar","watch_name":"Formula E Ways to Watch","watch_url":"https://www.fiaformulae.com/en/ways-to-watch"},
+    "formula-e": {"name":"ABB FIA Formula E World Championship","group":"Open Wheel","schedule_url":"https://www.fiaformulae.com/en/calendar","logo_source_url":"https://www.fiaformulae.com/","logo_url":"https://www.fiaformulae.com/images/formula-e-footer.svg","watch_name":"Formula E Ways to Watch","watch_url":"https://www.fiaformulae.com/en/ways-to-watch"},
 
-    "imsa-weathertech": {"name":"IMSA WeatherTech SportsCar Championship","group":"Sports Cars","schedule_url":"https://www.imsa.com/events/","watch_name":"NBC / Peacock / IMSA.TV","watch_url":"https://www.imsa.com/tv/"},
-    "imsa-michelin-pilot": {"name":"IMSA Michelin Pilot Challenge","group":"Sports Cars","schedule_url":"https://www.imsa.com/events/","watch_name":"Peacock / IMSA.TV","watch_url":"https://www.imsa.com/tv/"},
-    "imsa-vp-racing": {"name":"IMSA VP Racing SportsCar Challenge","group":"Sports Cars","schedule_url":"https://www.imsa.com/events/","watch_name":"Peacock / IMSA.TV","watch_url":"https://www.imsa.com/tv/"},
-    "imsa-porsche-carrera-cup": {"name":"Porsche Carrera Cup North America","group":"Sports Cars","schedule_url":"https://www.imsa.com/events/","watch_name":"Peacock / IMSA.TV","watch_url":"https://www.imsa.com/tv/"},
-    "imsa-mustang-challenge": {"name":"Mustang Challenge","group":"Sports Cars","schedule_url":"https://www.imsa.com/events/","watch_name":"Peacock / IMSA.TV","watch_url":"https://www.imsa.com/tv/"},
-    "imsa-lamborghini-super-trofeo": {"name":"Lamborghini Super Trofeo North America","group":"Sports Cars","schedule_url":"https://www.imsa.com/events/","watch_name":"Peacock / IMSA.TV","watch_url":"https://www.imsa.com/tv/"},
-    "imsa-mx5-cup": {"name":"Mazda MX-5 Cup","group":"Sports Cars","schedule_url":"https://www.imsa.com/events/","watch_name":"IMSA.TV / YouTube","watch_url":"https://www.imsa.com/tv/"},
+    "imsa-weathertech": {"name":"IMSA WeatherTech SportsCar Championship","group":"Sports Cars","schedule_url":"https://www.imsa.com/events/","logo_source_url":"https://www.imsa.com/media-center/","watch_name":"NBC / Peacock / IMSA.TV","watch_url":"https://www.imsa.com/tv/"},
+    "imsa-michelin-pilot": {"name":"IMSA Michelin Pilot Challenge","group":"Sports Cars","schedule_url":"https://www.imsa.com/events/","logo_source_url":"https://www.imsa.com/media-center/","watch_name":"Peacock / IMSA.TV","watch_url":"https://www.imsa.com/tv/"},
+    "imsa-vp-racing": {"name":"IMSA VP Racing SportsCar Challenge","group":"Sports Cars","schedule_url":"https://www.imsa.com/events/","logo_source_url":"https://www.imsa.com/media-center/","watch_name":"Peacock / IMSA.TV","watch_url":"https://www.imsa.com/tv/"},
+    "imsa-porsche-carrera-cup": {"name":"Porsche Carrera Cup North America","group":"Sports Cars","schedule_url":"https://www.imsa.com/events/","logo_source_url":"https://www.imsa.com/media-center/","watch_name":"Peacock / IMSA.TV","watch_url":"https://www.imsa.com/tv/"},
+    "imsa-mustang-challenge": {"name":"Mustang Challenge","group":"Sports Cars","schedule_url":"https://www.imsa.com/events/","logo_source_url":"https://www.imsa.com/media-center/","watch_name":"Peacock / IMSA.TV","watch_url":"https://www.imsa.com/tv/"},
+    "imsa-lamborghini-super-trofeo": {"name":"Lamborghini Super Trofeo North America","group":"Sports Cars","schedule_url":"https://www.imsa.com/events/","logo_source_url":"https://www.imsa.com/media-center/","watch_name":"Peacock / IMSA.TV","watch_url":"https://www.imsa.com/tv/"},
+    "imsa-mx5-cup": {"name":"Mazda MX-5 Cup","group":"Sports Cars","schedule_url":"https://www.imsa.com/events/","logo_source_url":"https://www.imsa.com/media-center/","watch_name":"IMSA.TV / YouTube","watch_url":"https://www.imsa.com/tv/"},
     "wec": {"name":"FIA World Endurance Championship","group":"Sports Cars","schedule_url":"https://www.fiawec.com/en/calendar/80","watch_name":"FIA WEC TV","watch_url":"https://fiawec.tv/"},
     "gtwc-america": {"name":"GT World Challenge America","group":"Sports Cars","schedule_url":"https://www.gt-world-challenge-america.com/calendar","watch_name":"GTWorld","watch_url":"https://www.youtube.com/@GTWorld"},
     "trans-am": {"name":"Trans Am Series","group":"Sports Cars","schedule_url":"https://gotransam.com/events/","watch_name":"Trans Am Official Broadcast Info","watch_url":"https://gotransam.com/"},
@@ -66,6 +68,120 @@ SERIES_EVENT_CONFIG: dict[str, dict[str, Any]] = {
 
 _cache_lock = threading.Lock()
 _cache: dict[str, Any] = {"at": None, "value": None}
+_logo_lock = threading.Lock()
+_logo_cache: dict[str, tuple[datetime, str | None, str | None]] = {}
+_LOGO_RESTRICTED = {"f1", "motogp", "moto2", "moto3", "worldsbk"}
+
+
+def _logo_tokens(config: dict[str, Any]) -> tuple[str, ...]:
+    name = str(config.get("name") or "").casefold()
+    drop = {
+        "series","championship","world","racing","national","tour","challenge",
+        "north","america","presented","by","the","fia","fim","sports","car"
+    }
+    tokens = [
+        token for token in re.findall(r"[a-z0-9]+", name)
+        if len(token) >= 3 and token not in drop
+    ]
+    return tuple(dict.fromkeys(tokens[:6]))
+
+
+def _image_url(value: str) -> bool:
+    raw = str(value or "").strip().lower()
+    if not raw.startswith(("http://","https://","/")):
+        return False
+    path = urlsplit(raw if raw.startswith("http") else "https://example.com"+raw).path.lower()
+    return any(path.endswith(ext) for ext in (".png",".jpg",".jpeg",".webp",".gif",".svg",".avif"))
+
+
+def _logo_candidate_score(label: str, url: str, config: dict[str, Any]) -> int:
+    hay = f"{label} {url}".casefold()
+    tokens = _logo_tokens(config)
+    score = 0
+    if "logo" in hay:
+        score += 6
+    for token in tokens:
+        if token in hay:
+            score += 3
+    if any(bad in hay for bad in ("sponsor","ticket","flag","icon-","favicon","social","app-store","google-play")):
+        score -= 5
+    return score
+
+
+def _discover_official_event_logo(key: str, config: dict[str, Any]) -> tuple[str | None, str | None]:
+    if key in _LOGO_RESTRICTED:
+        return None, None
+    explicit = str(config.get("logo_url") or "").strip()
+    source_url = str(config.get("logo_source_url") or config.get("schedule_url") or "").strip()
+    if explicit:
+        return explicit, source_url or str(config.get("schedule_url") or "")
+
+    now = datetime.now(timezone.utc)
+    with _logo_lock:
+        cached = _logo_cache.get(key)
+        if cached and (now - cached[0]).total_seconds() < 24 * 3600:
+            return cached[1], cached[2]
+
+    candidates: list[tuple[int, str]] = []
+    if source_url:
+        headers = {
+            "User-Agent": USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        try:
+            with httpx.Client(timeout=6.0, follow_redirects=True, headers=headers) as client:
+                response = client.get(source_url)
+                response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            for meta in soup.find_all("meta"):
+                prop = str(meta.get("property") or meta.get("name") or "").casefold()
+                if prop in {"og:image","twitter:image","twitter:image:src"}:
+                    raw = str(meta.get("content") or "").strip()
+                    if raw:
+                        absolute = urljoin(source_url, raw)
+                        score = _logo_candidate_score(prop, absolute, config)
+                        if score >= 6:
+                            candidates.append((score, absolute))
+
+            for image in soup.find_all(["img","source"]):
+                raw = image.get("src") or image.get("data-src") or image.get("data-lazy-src") or image.get("srcset") or image.get("data-srcset") or ""
+                raw = str(raw).strip()
+                if "," in raw:
+                    raw = raw.split(",",1)[0].strip().split(" ",1)[0]
+                if not raw:
+                    continue
+                absolute = urljoin(source_url, raw)
+                if not _image_url(absolute):
+                    continue
+                label = " ".join(str(v or "") for v in (
+                    image.get("alt"), image.get("title"), image.get("id"),
+                    " ".join(image.get("class") or []),
+                ))
+                score = _logo_candidate_score(label, absolute, config)
+                if score >= 6:
+                    candidates.append((score, absolute))
+        except Exception:
+            pass
+
+        if not candidates:
+            try:
+                markdown = _reader_markdown(source_url)
+                for alt, raw in re.findall(r"!\[([^\]]*)\]\(([^)]+)\)", markdown):
+                    absolute = urljoin(source_url, raw.strip())
+                    if not _image_url(absolute):
+                        continue
+                    score = _logo_candidate_score(alt, absolute, config)
+                    if score >= 6:
+                        candidates.append((score, absolute))
+            except Exception:
+                pass
+
+    logo = max(candidates, key=lambda item:item[0])[1] if candidates else None
+    with _logo_lock:
+        _logo_cache[key] = (now, logo, source_url or None)
+    return logo, source_url or None
 
 
 def _iso(value: Any) -> str | None:
@@ -323,6 +439,10 @@ def _build_one(key: str, config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         events = _official_page_schedule(config)
 
     summary = _event_summary(events, config)
+    if not summary.get("logo_url"):
+        logo_url, logo_source_url = _discover_official_event_logo(key, config)
+        summary["logo_url"] = logo_url
+        summary["logo_source_url"] = logo_source_url
     summary.update({"series_key": key, "series_name": config["name"], "group": config["group"]})
     return key, summary
 
