@@ -19,7 +19,6 @@ from bs4 import BeautifulSoup
 from PIL import Image
 
 from services.autopilot_ai import _extract_output_text
-from services.blog_image_service import generate_and_stage_blog_image
 from services.control_center import BlogDraft, EcosystemNotification, ShopifyPublishRecord, utcnow
 from services.database import Base, SessionLocal, engine, DATABASE_URL
 from services.first_party_models import queue_event
@@ -686,29 +685,6 @@ def _select_real_image(result: dict, evidence: list[dict]) -> dict | None:
     return None
 
 
-def _generate_durable_hero(result: dict, body: str) -> dict | None:
-    if not _bool("PITMARK_RESULTS_SWEEP_GENERATE_IMAGES", True):
-        return None
-    try:
-        staged = generate_and_stage_blog_image(
-            title=_title(result),
-            body_html=body,
-            content_type="race_results",
-        )
-        data = staged.path.read_bytes()
-        stored = _store_media_bytes(
-            data,
-            media_type=staged.media_type,
-            source_kind="generated",
-            source_url=None,
-        )
-        log.info("Results Sweep generated durable fallback hero for %s", _title(result))
-        return stored
-    except Exception as exc:
-        log.warning("Results Sweep generated hero failed for %s: %s", _title(result), exc)
-        return None
-
-
 def _publish(result: dict, fp: str, evidence: list[dict]):
     title, body = _title(result), _article(result)
     blogs = shopify_service.list_blogs()
@@ -1032,6 +1008,105 @@ def _cleanup_v1_false_positives(weekend_key: str) -> None:
             db.commit()
 
 
+
+def _cleanup_bad_ai_results_batch() -> None:
+    """One-time cleanup for the first Results Sweep batch that used generated art.
+
+    The live Shopify articles were corrected manually. This keeps PitmarkCloud's
+    internal records and scheduled social queue from reusing the retired AI media.
+    """
+    state_key = "results_ai_batch_cleanup:v1"
+    if get_runtime_state(state_key) == "complete":
+        return
+
+    real_eriez = (
+        "https://cdn.shopify.com/s/files/1/1067/3913/8641/articles/"
+        "N0yw5Nzyf9V8kEMBA6YkbNbj-2TxJOQSkX2jmtzZ_22f50509-83e3-4ff4-9410-d7cc1a22b127.jpg?v=1789959014"
+    )
+    roundup_eriez = (
+        "https://cdn.shopify.com/s/files/1/1067/3913/8641/articles/"
+        "N0yw5Nzyf9V8kEMBA6YkbNbj-2TxJOQSkX2jmtzZ.jpg?v=1789959020"
+    )
+
+    with SessionLocal() as db:
+        # Keep internal article metadata aligned with the corrected live Shopify articles.
+        db.execute(text("""
+            UPDATE autopilot_blog_drafts
+               SET title = CASE id
+                   WHEN 10 THEN 'Colton Flinner Takes Friday Super Late Model Win at Dog Hollow'
+                   WHEN 11 THEN 'Marino Angelicchio Wins $1,000 Fall Fest Crate Feature at Latrobe'
+                   WHEN 12 THEN 'Treyton Lee Tops Limited Late Model Field at Path Valley'
+                   WHEN 13 THEN 'Dave Hess Jr. Sweeps Eriez Speedway’s September Sweep'
+                   WHEN 14 THEN 'Pennsylvania Dirt Weekend Roundup: Hess Sweeps Eriez, Flinner, Angelicchio and Lee Win'
+                   ELSE title END,
+                   featured_image_url = CASE id
+                   WHEN 10 THEN NULL
+                   WHEN 11 THEN NULL
+                   WHEN 12 THEN NULL
+                   WHEN 13 THEN :eriez
+                   WHEN 14 THEN :roundup
+                   ELSE featured_image_url END,
+                   updated_at = NOW()
+             WHERE id IN (10,11,12,13,14)
+        """), {"eriez": real_eriez, "roundup": roundup_eriez})
+
+        db.execute(text("""
+            UPDATE shopify_publish_records
+               SET title = CASE draft_id
+                   WHEN 10 THEN 'Colton Flinner Takes Friday Super Late Model Win at Dog Hollow'
+                   WHEN 11 THEN 'Marino Angelicchio Wins $1,000 Fall Fest Crate Feature at Latrobe'
+                   WHEN 12 THEN 'Treyton Lee Tops Limited Late Model Field at Path Valley'
+                   WHEN 13 THEN 'Dave Hess Jr. Sweeps Eriez Speedway’s September Sweep'
+                   WHEN 14 THEN 'Pennsylvania Dirt Weekend Roundup: Hess Sweeps Eriez, Flinner, Angelicchio and Lee Win'
+                   ELSE title END
+             WHERE draft_id IN (10,11,12,13,14)
+        """))
+
+        # Archive every scheduled social derivative from the bad visual batch.
+        # These can be rebuilt later from the corrected articles with real media only.
+        db.execute(text("""
+            UPDATE autopilot_social_posts
+               SET status = 'archived',
+                   media_url = NULL,
+                   updated_at = NOW()
+             WHERE status = 'scheduled'
+               AND (
+                 title ILIKE '%Dog Hollow%'
+                 OR title ILIKE '%Latrobe%'
+                 OR title ILIKE '%Path Valley%'
+                 OR title ILIKE '%Eriez%'
+                 OR title ILIKE '%Pennsylvania Dirt Weekend%'
+               )
+        """))
+
+        # Retire bad media references from processed first-party events as well.
+        db.execute(text("""
+            UPDATE autopilot_first_party_events
+               SET media_url = CASE
+                   WHEN url ILIKE '%eriez%' THEN :eriez
+                   WHEN event_key ILIKE '%results-roundup%' THEN :roundup
+                   ELSE NULL END,
+                   title = CASE
+                   WHEN url ILIKE '%dog-hollow%' THEN 'Colton Flinner Takes Friday Super Late Model Win at Dog Hollow'
+                   WHEN url ILIKE '%latrobe%' THEN 'Marino Angelicchio Wins $1,000 Fall Fest Crate Feature at Latrobe'
+                   WHEN url ILIKE '%path-valley%' THEN 'Treyton Lee Tops Limited Late Model Field at Path Valley'
+                   WHEN url ILIKE '%eriez%' THEN 'Dave Hess Jr. Sweeps Eriez Speedway’s September Sweep'
+                   WHEN event_key ILIKE '%results-roundup%' THEN 'Pennsylvania Dirt Weekend Roundup: Hess Sweeps Eriez, Flinner, Angelicchio and Lee Win'
+                   ELSE title END,
+                   updated_at = NOW()
+             WHERE url ILIKE '%dog-hollow%'
+                OR url ILIKE '%latrobe%'
+                OR url ILIKE '%path-valley%'
+                OR url ILIKE '%eriez%'
+                OR event_key ILIKE '%results-roundup%'
+        """), {"eriez": real_eriez, "roundup": roundup_eriez})
+
+        db.commit()
+
+    set_runtime_state(state_key, "complete")
+    log.info("Cleaned retired AI media from the first Results Sweep batch")
+
+
 def _run_sweep_impl(force: bool = False):
     start, end, weekend_key = _weekend()
     _cleanup_v1_false_positives(weekend_key)
@@ -1339,6 +1414,7 @@ def publish_weekend_roundup_if_ready() -> dict:
 
 
 def run_if_due():
+    _cleanup_bad_ai_results_batch()
     if not _bool("PITMARK_RESULTS_SWEEP_ENABLED", True):
         return {"ran":False,"reason":"disabled"}
 
