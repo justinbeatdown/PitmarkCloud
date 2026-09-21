@@ -14,16 +14,12 @@ const move=value=>{
   if(value===null||value===undefined||Number(value)===0)return '<span class="move flat">—</span>';
   const v=Number(value);return v>0?`<span class="move up">▲${Math.abs(v)}</span>`:`<span class="move down">▼${Math.abs(v)}</span>`;
 };
-const eventTime=iso=>{
-  if(!iso)return '';
-  const d=new Date(iso);
-  return d.toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
-};
+const scheduleFor=key=>(state.schedule?.series||[]).find(item=>String(item.key)===String(key));
 const statusBadge=series=>{
-  const state=String(series.event_state||'').toLowerCase();
-  const event=series.current_event||{};
-  if(state==='live')return '<span class="status live">LIVE NOW</span>';
-  if(state==='next'&&event.start)return `<span class="status next">NEXT ${esc(eventTime(event.start))}</span>`;
+  const item=scheduleFor(series.series_key);
+  const event=item?.event||series.current_event||{};
+  if(event.live||series.event_state==='live')return '<span class="status live">LIVE NOW</span>';
+  if(event.start&&(event.state==='pre'||event.state==='today'))return `<span class="status next">NEXT ${esc(dateLabel(event.start))}</span>`;
   return '';
 };
 const normalizeSearch=value=>String(value??'').trim().toLowerCase();
@@ -87,47 +83,14 @@ function renderSummary(){
 const dateLabel=iso=>{if(!iso)return 'Schedule';const d=new Date(iso);if(Number.isNaN(d.getTime()))return 'Schedule';return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:d.getFullYear()!==new Date().getFullYear()?'numeric':undefined});};
 const eventTime=iso=>{if(!iso)return '';const d=new Date(iso);if(Number.isNaN(d.getTime()))return '';const hasTime=d.getUTCHours()!==0||d.getUTCMinutes()!==0;return hasTime?d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit',timeZoneName:'short'}):'';};
 function scheduleEventCard(item){const event=item.event||{},live=!!event.live,when=live?'LIVE NOW':(event.state==='today'?'TODAY':dateLabel(event.start));return `<article class="event-card ${live?'is-live':''}"><div class="event-top"><span class="eyebrow">${esc(item.group||'RACING')}</span><span class="event-state ${live?'live':''}">${esc(when)}</span></div><h3>${esc(item.name)}</h3><strong class="event-name">${esc(event.name||'See official schedule')}</strong><small>${esc(event.status_text||eventTime(event.start)||'Official schedule')}</small><div class="event-actions"><a href="${esc(item.schedule)}" target="_blank" rel="noopener">Schedule ↗</a><a href="${esc(item.watch)}" target="_blank" rel="noopener">${esc(item.watch_label||'Where to watch')} ↗</a></div></article>`;}
-function renderSchedule(){const s=state.schedule;if(!s)return;const live=s.live||[];$('#liveNow').innerHTML=live.length?`<div class="live-now-banner"><span class="pulse"></span><strong>${live.length} LIVE NOW</strong><span>Across the Pitmark Race Center</span></div>`:'';const upcoming=(s.upcoming||[]).slice(0,12);$('#upcomingEvents').innerHTML=upcoming.length?upcoming.map(scheduleEventCard).join(''):'<div class="loading-card">Schedule directory is ready. Live/upcoming event detection is warming in the background.</div>';$('#scheduleDirectory').innerHTML=(s.series||[]).map(item=>`<article class="schedule-row"><div><span class="eyebrow">${esc(item.group||'RACING')}</span><strong>${esc(item.name)}</strong></div><div class="schedule-row-actions"><a href="${esc(item.schedule)}" target="_blank" rel="noopener">Official schedule ↗</a><a href="${esc(item.watch)}" target="_blank" rel="noopener">${esc(item.watch_label||'Watch info')} ↗</a></div></article>`).join('');const total=s.summary?.series_total||s.series?.length||0,liveCount=s.summary?.live_now||0;$('#scheduleStatus').textContent=`${total} series tracked · ${liveCount} live now · official schedule/watch links${s.summary?.warming?' · live detection warming…':''}`;}
+function renderSchedule(){const s=state.schedule;if(!s)return;const live=s.live||[];$('#seriesCount').textContent=n(s.summary?.series_total||s.series?.length||0);$('#liveCount').textContent=n(s.summary?.live_now||0);$('#liveNow').innerHTML=live.length?`<div class="live-now-banner"><span class="pulse"></span><strong>${live.length} LIVE NOW</strong><span>Across the Pitmark Race Center</span></div>`:'';const upcoming=(s.upcoming||[]).slice(0,12);$('#upcomingEvents').innerHTML=upcoming.length?upcoming.map(scheduleEventCard).join(''):'<div class="loading-card">Schedule directory is ready. Live/upcoming event detection is warming in the background.</div>';$('#scheduleDirectory').innerHTML=(s.series||[]).map(item=>`<article class="schedule-row"><div><span class="eyebrow">${esc(item.group||'RACING')}</span><strong>${esc(item.name)}</strong></div><div class="schedule-row-actions"><a href="${esc(item.schedule)}" target="_blank" rel="noopener">Official schedule ↗</a><a href="${esc(item.watch)}" target="_blank" rel="noopener">${esc(item.watch_label||'Watch info')} ↗</a></div></article>`).join('');const total=s.summary?.series_total||s.series?.length||0,liveCount=s.summary?.live_now||0;$('#scheduleStatus').textContent=`${total} series tracked · ${liveCount} live now · official schedule/watch links${s.summary?.warming?' · live detection warming…':''}`;renderLeaders();renderGroups();bindLogoErrors();}
 async function loadSchedule(){try{const response=await fetch('/api/public/race-schedule',{headers:{Accept:'application/json'}});if(!response.ok)throw new Error('Schedule feed unavailable');state.schedule=await response.json();renderSchedule();if(state.schedule?.summary?.warming)setTimeout(loadSchedule,12000);}catch(error){$('#scheduleStatus').textContent='Schedule feed temporarily unavailable.';}}
 
 function bindLogoErrors(){
   document.querySelectorAll('.series-logo').forEach(img=>img.addEventListener('error',()=>{img.hidden=true;},{once:true}));
 }
-function eventCard(item,compact=false){
-  const event=item?.event||{};
-  const live=item?.state==='live';
-  return `<article class="event-card ${live?'is-live':''}">
-    <div><span class="eyebrow">${live?'LIVE NOW':'NEXT UP'}</span><h3>${esc(item.series_name||'Series')}</h3></div>
-    <strong>${esc(event.name||'Official schedule')}</strong>
-    <p>${event.start?esc(eventTime(event.start)):'See official schedule'}${item.watch_name?' · '+esc(item.watch_name):''}</p>
-    <div class="event-actions">
-      ${item.watch_url?`<a href="${esc(item.watch_url)}" target="_blank" rel="noopener">Watch info ↗</a>`:''}
-      ${item.schedule_url?`<a href="${esc(item.schedule_url)}" target="_blank" rel="noopener">Schedule ↗</a>`:''}
-    </div>
-  </article>`;
-}
-function renderEvents(){
-  const events=state.payload?.events||{};
-  const live=events.live||[];
-  const next=events.next||[];
-  $('#eventStatusText').textContent=live.length?`${live.length} event${live.length===1?'':'s'} live right now`:'Nothing live right now — here’s what’s next.';
-  $('#liveNow').innerHTML=live.length?`<div class="live-grid">${live.map(item=>eventCard(item)).join('')}</div>`:'';
-  $('#nextEvents').innerHTML=next.length?next.slice(0,8).map(item=>eventCard(item,true)).join(''):'<div class="loading-card">Open a series schedule below for the latest event dates.</div>';
-}
-function renderScheduleCatalog(){
-  const catalog=state.payload?.events?.catalog||[];
-  $('#scheduleCatalog').innerHTML=catalog.map(item=>`<article class="schedule-card">
-    <span class="eyebrow">${esc(item.group||'RACING')}</span>
-    <h3>${esc(item.series_name||'Series')}</h3>
-    <p>${item.state==='live'?'LIVE NOW':item.state==='next'&&item.event?.start?'Next: '+esc(eventTime(item.event.start)):'Official 2026 schedule'}</p>
-    <div class="event-actions">
-      ${item.schedule_url?`<a href="${esc(item.schedule_url)}" target="_blank" rel="noopener">Schedule ↗</a>`:''}
-      ${item.watch_url?`<a href="${esc(item.watch_url)}" target="_blank" rel="noopener">${esc(item.watch_name||'Where to watch')} ↗</a>`:''}
-    </div>
-  </article>`).join('');
-}
 function render(){
-  renderSummary();renderFilters();renderEvents();renderScheduleCatalog();renderLeaders();renderGroups();bindLogoErrors();
+  renderSummary();renderFilters();renderLeaders();renderGroups();bindLogoErrors();
 }
 function openSeries(key){
   const series=(state.payload?.series||[]).find(s=>String(s.series_key)===String(key));
@@ -139,9 +102,14 @@ function openSeries(key){
   </tr>`).join('')}</tbody></table></div>`:'<div class="loading-card">No current standings are available from this source yet.</div>';
   const identitySource=series.metadata_source_url?`<a class="official-link identity-source" href="${esc(series.metadata_source_url)}" target="_blank" rel="noopener">Driver identity data: official series source ↗</a>`:'';
   const logoSource=series.series_logo_source_url?`<a class="official-link identity-source" href="${esc(series.series_logo_source_url)}" target="_blank" rel="noopener">Logo source: official series page ↗</a>`:'';
-  const scheduleLink=series.schedule_url?`<a class="official-link" href="${esc(series.schedule_url)}" target="_blank" rel="noopener">Official schedule ↗</a>`:'';
-  const watchLink=series.watch_url?`<a class="official-link" href="${esc(series.watch_url)}" target="_blank" rel="noopener">${esc(series.watch_name||'Where to watch')} ↗</a>`:'';
-  const eventLine=series.current_event?`<div class="dialog-event ${series.event_state==='live'?'is-live':''}"><span class="eyebrow">${series.event_state==='live'?'LIVE NOW':'NEXT / RECENT'}</span><strong>${esc(series.current_event.name||'Event')}</strong><small>${series.current_event.start?esc(eventTime(series.current_event.start)):''}</small></div>`:'';
+  const schedule=scheduleFor(series.series_key)||{};
+  const event=schedule.event||series.current_event||null;
+  const scheduleUrl=schedule.schedule||series.schedule_url;
+  const watchUrl=schedule.watch||series.watch_url;
+  const watchName=schedule.watch_label||series.watch_name;
+  const scheduleLink=scheduleUrl?`<a class="official-link" href="${esc(scheduleUrl)}" target="_blank" rel="noopener">Official schedule ↗</a>`:'';
+  const watchLink=watchUrl?`<a class="official-link" href="${esc(watchUrl)}" target="_blank" rel="noopener">${esc(watchName||'Where to watch')} ↗</a>`:'';
+  const eventLine=event?`<div class="dialog-event ${event.live?'is-live':''}"><span class="eyebrow">${event.live?'LIVE NOW':'NEXT / RECENT'}</span><strong>${esc(event.name||'Event')}</strong><small>${event.start?esc(dateLabel(event.start)+(eventTime(event.start)?' · '+eventTime(event.start):'')):''}</small></div>`:'';
   $('#dialogContent').innerHTML=`<div class="dialog-title"><div class="dialog-brand">${logo(series)}<div><span class="eyebrow">${esc(series.group||'RACING')} · ${esc(series.season||'')}</span><h2>${esc(series.series_name||'Standings')}</h2><p>${esc(series.source_name||'Series standings')} · updated ${esc(age(series.fetched_at))}</p></div></div></div>${eventLine}${body}<div class="source-links">${scheduleLink}${watchLink}${series.official_url?`<a class="official-link" href="${esc(series.official_url)}" target="_blank" rel="noopener">Open official series standings ↗</a>`:''}${identitySource}${logoSource}</div>`;
   bindLogoErrors();
   $('#standingsDialog').showModal();
