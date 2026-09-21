@@ -57,11 +57,11 @@
         <strong>Championship Standings</strong>
         <p>Major pavement, dirt, open-wheel, sports-car, drag, touring-car and motorcycle championships in one searchable board.</p>
       </a>
-      <div class="race-center-tile">
-        <span class="eyebrow">OFFICIAL SOURCES</span>
-        <strong>Schedules + Results</strong>
-        <p>Open any series card for its verified official source. Pitmark leaves unsupported identity data blank instead of guessing.</p>
-      </div>
+      <a class="race-center-tile" href="#raceSchedule">
+        <span class="eyebrow">RACE WEEKEND</span>
+        <strong>Schedules + Live Events</strong>
+        <p>Upcoming events, LIVE NOW status, and official watch information across the racing world.</p>
+      </a>
       <a class="race-center-tile" href="https://pitmarkracing.com/blogs/racing-culture" target="_blank" rel="noopener">
         <span class="eyebrow">PITMARK COVERAGE</span>
         <strong>Racing News + Culture</strong>
@@ -72,6 +72,20 @@
         <strong>Send Pitmark Your News</strong>
         <p>Tracks, teams, drivers, series and promoters can send schedules, results, releases, corrections and media directly to Pitmark.</p>
       </a>
+    </section>
+
+    <section class="schedule-section" id="raceSchedule">
+      <div class="section-head">
+        <div><span class="eyebrow">RACE WEEKEND</span><h2>What’s racing next</h2></div>
+        <p id="scheduleStatus">Loading official schedules and live-event status…</p>
+      </div>
+      <div id="liveNow" class="live-now-strip"></div>
+      <div id="upcomingEvents" class="upcoming-grid"><div class="loading-card">Loading race schedules…</div></div>
+      <div class="section-head schedule-directory-head">
+        <div><span class="eyebrow">SERIES DIRECTORY</span><h2>Schedules + where to watch</h2></div>
+        <p>Official schedule and broadcast links for every series Pitmark tracks here.</p>
+      </div>
+      <div id="scheduleDirectory" class="schedule-directory"></div>
     </section>
 
     <section class="leaders-section">
@@ -114,6 +128,6 @@
     <small>Standings are aggregated from official or structured series sources when available. Driver numbers, team/manufacturer identity, and series logos are displayed only when Pitmark can trace them to an official series-owned source. Missing identity data is intentionally left blank rather than inferred. Always use the linked official series source for rules and final classification decisions.</small>
   </footer>
 
-  <script src="/standings.js?v={{PITMARK_VERSION}}-imsa-pdf-20260920" defer></script>
+  <script src="/standings.js?v={{PITMARK_VERSION}}-schedule-live-20260921" defer></script>
 </body>
 </html>
