@@ -2461,8 +2461,6 @@ def _latest_snapshot(series_key: str, season: int, *, excluding: str | None = No
 def _movement(entries: list[dict[str, Any]], previous: dict[str, Any] | None) -> list[dict[str, Any]]:
     previous_entries = (previous or {}).get("entries", []) or []
 
-    # Match primarily by normalized identity so harmless formatting changes
-    # (punctuation, accents, Jr./spacing differences) do not erase movement.
     old_by_name: dict[str, dict[str, Any]] = {}
     old_by_number: dict[str, dict[str, Any]] = {}
     duplicate_numbers: set[str] = set()
@@ -2488,6 +2486,9 @@ def _movement(entries: list[dict[str, Any]], previous: dict[str, Any] | None) ->
             number = str(current.get("number") or "").strip().lstrip("#")
             if number:
                 prior_item = old_by_number.get(number)
+
+        comparison_ready = prior_item is not None
+        current["comparison_ready"] = comparison_ready
 
         try:
             prior_pos = int(prior_item.get("position")) if prior_item and prior_item.get("position") is not None else None
@@ -2594,7 +2595,13 @@ def _fallback(config: dict[str, Any], season: int, error: Exception) -> dict[str
                 "error": str(error),
             }
         )
-        cached["entries"] = [dict(item, movement=None) for item in cached.get("entries") or []]
+        previous_row = _latest_snapshot(
+            config["key"],
+            season,
+            excluding=cached.get("fingerprint"),
+        )
+        previous = _decode_snapshot(previous_row)
+        cached["entries"] = _movement(cached.get("entries") or [], previous)
         if config.get("metadata_provider") or config.get("metadata_url"):
             try:
                 metadata, metadata_url = _official_metadata(config, season)

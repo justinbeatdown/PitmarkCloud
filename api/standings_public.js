@@ -25,15 +25,17 @@ const age=iso=>{
   const then=new Date(iso).getTime(),now=Date.now(),mins=Math.max(0,Math.round((now-then)/60000));
   if(mins<2)return 'just now';if(mins<60)return mins+'m ago';const hrs=Math.round(mins/60);if(hrs<48)return hrs+'h ago';return Math.round(hrs/24)+'d ago';
 };
-const move=value=>{
-  if(value===null||value===undefined||Number(value)===0)return '<span class="move flat" title="No position change">—</span>';
+const move=(value,ready=true)=>{
+  if(!ready)return '<span class="move base" title="Baseline captured; movement appears after the next standings change">BASE</span>';
+  if(value===null||value===undefined||Number(value)===0)return '<span class="move flat" title="No championship position change">—</span>';
   const v=Number(value);
   return v>0
     ?`<span class="move up" title="Up ${Math.abs(v)} championship position${Math.abs(v)===1?'':'s'}">▲${Math.abs(v)}</span>`
     :`<span class="move down" title="Down ${Math.abs(v)} championship position${Math.abs(v)===1?'':'s'}">▼${Math.abs(v)}</span>`;
 };
-const pointsDelta=value=>{
-  if(value===null||value===undefined||Number(value)===0)return '';
+const pointsDelta=(value,ready=true)=>{
+  if(!ready)return '<small class="points-delta base" title="Baseline captured">Δ BASE</small>';
+  if(value===null||value===undefined||Number(value)===0)return '<small class="points-delta flat">Δ 0</small>';
   const v=Number(value);
   const display=Math.abs(v).toLocaleString();
   return v>0
@@ -73,8 +75,8 @@ function miniRows(series){
     <span class="pos">${esc(row.position??'—')}</span>
     <span class="car-number">${row.number?esc('#'+row.number):''}</span>
     <span class="driver"><strong>${esc(row.name||'Unknown')}</strong><small>${esc(identityText(row))}</small></span>
-    ${move(row.movement)}
-    <span class="pts"><strong>${points(row.points)}</strong>${pointsDelta(row.points_delta)}</span>
+    ${move(row.movement,row.comparison_ready!==false)}
+    <span class="pts"><strong>${points(row.points)}</strong>${pointsDelta(row.points_delta,row.comparison_ready!==false)}</span>
   </div>`).join('')}</div>`;
 }
 function card(series){
@@ -133,8 +135,17 @@ function eventLogo(item){
   if(matching&&matching.series_logo)return logo(matching);
   const direct=String(item?.logo_url||'').trim();
   if(direct)return `<img class="series-logo event-series-logo" src="${esc(direct)}" alt="${esc(item?.series_name||'Series')} official logo">`;
-  const initials=String(item?.series_name||'R').split(/\s+/).filter(Boolean).slice(0,3).map(part=>part[0]).join('').toUpperCase();
-  return `<span class="series-mark" aria-hidden="true">${esc(initials)}</span>`;
+  const special={
+    'f1':'FORMULA 1','motogp':'MotoGP','moto2':'Moto2','moto3':'Moto3','worldsbk':'WorldSBK',
+    'nhra-top-fuel':'NHRA','nhra-funny-car':'NHRA','nhra-pro-stock':'NHRA','nhra-pro-stock-motorcycle':'NHRA',
+    'imsa-weathertech':'IMSA WEATHERTECH','imsa-michelin-pilot':'IMSA MICHELIN PILOT','imsa-vp-racing':'IMSA VP RACING',
+    'imsa-porsche-carrera-cup':'PORSCHE CARRERA CUP','imsa-mustang-challenge':'MUSTANG CHALLENGE',
+    'imsa-lamborghini-super-trofeo':'LAMBORGHINI SUPER TROFEO','imsa-mx5-cup':'MAZDA MX-5 CUP',
+    'gtwc-america':'GT WORLD CHALLENGE','trans-am':'TRANS AM','dtm':'DTM','btcc':'BTCC',
+    'nascar-whelen-modified':'NASCAR WHELEN MODIFIED','arca-east':'ARCA EAST','arca-west':'ARCA WEST'
+  };
+  const mark=special[String(item?.series_key||'')]||String(item?.series_name||'RACING').toUpperCase();
+  return `<span class="series-wordmark event-wordmark" title="${esc(item?.series_name||'Series')}">${esc(mark)}</span>`;
 }
 function eventWhen(event){return event?.start?eventTime(event):'See official schedule';}
 
@@ -178,8 +189,8 @@ function openSeries(key){
   if(!series)return;
   const rows=series.entries||[];
   const body=rows.length?`<div class="table-wrap"><table><thead><tr><th>Pos</th><th>#</th><th>Move</th><th>Driver</th><th>Team</th><th>Manufacturer</th><th>Points</th><th>Behind</th><th>Wins</th></tr></thead><tbody>${rows.map(row=>`<tr>
-    <td><strong>${esc(row.position??'—')}</strong></td><td><strong>${esc(row.number||'—')}</strong></td><td>${move(row.movement)}</td><td><strong>${esc(row.name||'Unknown')}</strong></td>
-    <td>${esc(row.team||'—')}</td><td>${esc(row.manufacturer||'—')}</td><td><strong>${points(row.points)}</strong>${pointsDelta(row.points_delta)}</td><td>${points(row.behind)}</td><td>${points(row.wins)}</td>
+    <td><strong>${esc(row.position??'—')}</strong></td><td><strong>${esc(row.number||'—')}</strong></td><td>${move(row.movement,row.comparison_ready!==false)}</td><td><strong>${esc(row.name||'Unknown')}</strong></td>
+    <td>${esc(row.team||'—')}</td><td>${esc(row.manufacturer||'—')}</td><td><strong>${points(row.points)}</strong>${pointsDelta(row.points_delta,row.comparison_ready!==false)}</td><td>${points(row.behind)}</td><td>${points(row.wins)}</td>
   </tr>`).join('')}</tbody></table></div>`:'<div class="loading-card">No current standings are available from this source yet.</div>';
   const identitySource=series.metadata_source_url?`<a class="official-link identity-source" href="${esc(series.metadata_source_url)}" target="_blank" rel="noopener">Driver identity data: official series source ↗</a>`:'';
   const logoSource=series.series_logo_source_url?`<a class="official-link identity-source" href="${esc(series.series_logo_source_url)}" target="_blank" rel="noopener">Logo source: official series page ↗</a>`:'';
