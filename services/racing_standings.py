@@ -1628,6 +1628,7 @@ def _nascar_profile_identity(url: str) -> tuple[str | None, str | None]:
 def _official_metadata_nascar_driver_directory(
     config: dict[str, Any],
     season: int,
+    wanted_names: list[str] | None = None,
 ) -> tuple[dict[str, dict[str, str | None]], str | None]:
     url = str(config.get("metadata_url") or "").strip()
     if not url:
@@ -1700,7 +1701,8 @@ def _official_metadata_nascar_driver_directory(
             ):
                 key = _identity_key(" ".join(str(label or "").split()))
                 if key:
-                    profile_links[key] = urljoin("https://www.nascar.com/", href.strip())
+                    clean_href = re.split(r"(?:\\s+[\"']|%20%22)", href.strip(), maxsplit=1)[0]
+                    profile_links[key] = urljoin("https://www.nascar.com/", clean_href)
 
             # Pair each badge block with the following official Manufacturer Logo.
             badge_matches = list(re.finditer(
@@ -1741,8 +1743,11 @@ def _official_metadata_nascar_driver_directory(
         team, manufacturer = _nascar_profile_identity(profile_url)
         return key, team, manufacturer
 
+    wanted_keys = {_identity_key(name) for name in (wanted_names or []) if _identity_key(name)}
     links: list[tuple[str, str]] = []
     for key in out:
+        if wanted_keys and not any(key == wanted or key.endswith(wanted) or wanted.endswith(key) for wanted in wanted_keys):
+            continue
         href = profile_links.get(key)
         if not href:
             matches = [
@@ -1754,7 +1759,7 @@ def _official_metadata_nascar_driver_directory(
         if href:
             links.append((key, href))
     if links:
-        with ThreadPoolExecutor(max_workers=min(8, len(links))) as pool:
+        with ThreadPoolExecutor(max_workers=min(2, len(links))) as pool:
             futures = [pool.submit(fetch_one, item) for item in links]
             for future in as_completed(futures):
                 try:
@@ -1964,10 +1969,11 @@ def _official_metadata_indycar_driver_directory(
 def _official_metadata(
     config: dict[str, Any],
     season: int,
+    wanted_names: list[str] | None = None,
 ) -> tuple[dict[str, dict[str, str | None]], str | None]:
     provider = str(config.get("metadata_provider") or "").strip()
     if provider == "nascar_driver_directory":
-        return _official_metadata_nascar_driver_directory(config, season)
+        return _official_metadata_nascar_driver_directory(config, season, wanted_names)
     if provider == "arca_driver_directory":
         return _official_metadata_arca_driver_directory(config, season)
     if provider == "motogp_riders":
@@ -2164,7 +2170,12 @@ def _enrich_official_identity(
     # Independently inspect the configured official series page for identity
     # columns. This can fill missing fields even when the standings provider is
     # a structured third-party feed used only for positions/points.
-    metadata, table_url = _official_metadata(config, season)
+    wanted_names = [
+        str(item.get("name") or "").strip()
+        for item in entries[:5]
+        if str(item.get("name") or "").strip()
+    ]
+    metadata, table_url = _official_metadata(config, season, wanted_names)
     if metadata:
         matched = False
         for item in entries:
