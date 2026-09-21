@@ -269,7 +269,7 @@ Evidence: {json.dumps(evidence, ensure_ascii=False)}"""
 
 def _shopify_articles():
     try:
-        q = """query SweepArticles { blogs(first:12){nodes{handle articles(first:80,sortKey:PUBLISHED_AT,reverse:true){nodes{id title handle publishedAt}}}}}"""
+        q = """query SweepArticles { blogs(first:12){nodes{handle articles(first:80){nodes{id title handle publishedAt}}}}}"""
         data = shopify_service.graphql(q)
         out = []
         for blog in (data.get("blogs") or {}).get("nodes") or []:
