@@ -26,8 +26,19 @@ const age=iso=>{
   if(mins<2)return 'just now';if(mins<60)return mins+'m ago';const hrs=Math.round(mins/60);if(hrs<48)return hrs+'h ago';return Math.round(hrs/24)+'d ago';
 };
 const move=value=>{
-  if(value===null||value===undefined||Number(value)===0)return '<span class="move flat">—</span>';
-  const v=Number(value);return v>0?`<span class="move up">▲${Math.abs(v)}</span>`:`<span class="move down">▼${Math.abs(v)}</span>`;
+  if(value===null||value===undefined||Number(value)===0)return '<span class="move flat" title="No position change">—</span>';
+  const v=Number(value);
+  return v>0
+    ?`<span class="move up" title="Up ${Math.abs(v)} championship position${Math.abs(v)===1?'':'s'}">▲${Math.abs(v)}</span>`
+    :`<span class="move down" title="Down ${Math.abs(v)} championship position${Math.abs(v)===1?'':'s'}">▼${Math.abs(v)}</span>`;
+};
+const pointsDelta=value=>{
+  if(value===null||value===undefined||Number(value)===0)return '';
+  const v=Number(value);
+  const display=Math.abs(v).toLocaleString();
+  return v>0
+    ?`<small class="points-delta up">+${display}</small>`
+    :`<small class="points-delta down">−${display}</small>`;
 };
 const eventTime=event=>{
   const iso=event?.start;
@@ -63,14 +74,14 @@ function miniRows(series){
     <span class="car-number">${row.number?esc('#'+row.number):''}</span>
     <span class="driver"><strong>${esc(row.name||'Unknown')}</strong><small>${esc(identityText(row))}</small></span>
     ${move(row.movement)}
-    <span class="pts">${points(row.points)}</span>
+    <span class="pts"><strong>${points(row.points)}</strong>${pointsDelta(row.points_delta)}</span>
   </div>`).join('')}</div>`;
 }
 function card(series){
   const leader=(series.entries||[])[0];
   return `<article class="series-card" data-key="${esc(series.series_key)}">
     <header><div class="card-brand">${logo(series)}<div><span class="eyebrow">${esc(series.group||'RACING')}</span><h4>${esc(series.short_name||series.series_name)}</h4></div></div>${statusBadge(series)}</header>
-    <div class="card-leader"><span>Championship leader</span><strong>${leader?.number?esc('#'+leader.number+' · '):''}${esc(leader?.name||'—')}</strong><small>${leader?points(leader.points)+' pts'+(identityText(leader)?' · '+esc(identityText(leader)):''):'No data yet'}</small></div>
+    <div class="card-leader"><span>Championship leader</span><strong>${leader?.number?esc('#'+leader.number+' · '):''}${esc(leader?.name||'—')}</strong><small>${leader?points(leader.points)+' pts'+(leader.points_delta?(' ('+(Number(leader.points_delta)>0?'+':'')+esc(leader.points_delta)+')'):'')+(identityText(leader)?' · '+esc(identityText(leader)):''):'No data yet'}</small></div>
     ${miniRows(series)}
     <footer><span>${esc(series.series_name||'Series')}</span><strong>Full standings ›</strong></footer>
   </article>`;
@@ -168,7 +179,7 @@ function openSeries(key){
   const rows=series.entries||[];
   const body=rows.length?`<div class="table-wrap"><table><thead><tr><th>Pos</th><th>#</th><th>Move</th><th>Driver</th><th>Team</th><th>Manufacturer</th><th>Points</th><th>Behind</th><th>Wins</th></tr></thead><tbody>${rows.map(row=>`<tr>
     <td><strong>${esc(row.position??'—')}</strong></td><td><strong>${esc(row.number||'—')}</strong></td><td>${move(row.movement)}</td><td><strong>${esc(row.name||'Unknown')}</strong></td>
-    <td>${esc(row.team||'—')}</td><td>${esc(row.manufacturer||'—')}</td><td><strong>${points(row.points)}</strong></td><td>${points(row.behind)}</td><td>${points(row.wins)}</td>
+    <td>${esc(row.team||'—')}</td><td>${esc(row.manufacturer||'—')}</td><td><strong>${points(row.points)}</strong>${pointsDelta(row.points_delta)}</td><td>${points(row.behind)}</td><td>${points(row.wins)}</td>
   </tr>`).join('')}</tbody></table></div>`:'<div class="loading-card">No current standings are available from this source yet.</div>';
   const identitySource=series.metadata_source_url?`<a class="official-link identity-source" href="${esc(series.metadata_source_url)}" target="_blank" rel="noopener">Driver identity data: official series source ↗</a>`:'';
   const logoSource=series.series_logo_source_url?`<a class="official-link identity-source" href="${esc(series.series_logo_source_url)}" target="_blank" rel="noopener">Logo source: official series page ↗</a>`:'';
