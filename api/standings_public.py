@@ -9,7 +9,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 
-from services.racing_standings import SERIES as STANDINGS_SERIES, get_series_logo_info, get_standings_snapshot_hub
+from services.racing_standings import SERIES as STANDINGS_SERIES, get_series_logo_info, get_series_roster, get_standings_snapshot_hub
 from services.racing_events import get_racing_event_hub
 from utils.config import settings
 
@@ -197,6 +197,11 @@ def public_standings_data():
                 "watch_name": event_info.get("watch_name"),
                 "watch_url": event_info.get("watch_url"),
                 "entries": safe_entries,
+                "roster": get_series_roster(
+                    series_key,
+                    safe_entries,
+                    season=int(series.get("season") or payload.get("season") or 2026),
+                ),
             }
         )
     return Response(
