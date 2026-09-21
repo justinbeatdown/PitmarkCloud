@@ -183,13 +183,10 @@ def _search(name: str, start: datetime, end: datetime, local: bool) -> list[dict
             ):
                 rows.extend(_bing_search(client, q, limit=8))
             rows.append({
-                "title": f"Pennsylvania Weekly Late Model Results — {name}",
+                "title": "Pennsylvania Weekly Late Model Results",
                 "source": "Dirt on Dirt",
                 "url": "https://www.dirtondirt.com/results.php?month=all&search=true&state=PA&track=all",
-                "snippet": (
-                    f"Trusted Pennsylvania weekly race-results roundup. "
-                    f"Check {name} for {start.date().isoformat()} through {end.date().isoformat()}."
-                ),
+                "snippet": "Trusted Pennsylvania weekly Late Model results roundup.",
             })
     keep = {}
     for item in rows:
@@ -225,7 +222,9 @@ def _series_this_weekend(start: datetime, end: datetime) -> list[str]:
 
 
 def _targets(start: datetime, end: datetime):
-    rows = [(x, True) for x in DEFAULT_LOCAL_TRACKS]
+    # RUSH is a series, not a track. It should use series-specific evidence and
+    # must never inherit a generic Pennsylvania track-results roundup.
+    rows = [(x, x != "RUSH Racing Series") for x in DEFAULT_LOCAL_TRACKS]
     try:
         with SessionLocal() as db:
             entities = db.scalars(
@@ -301,7 +300,8 @@ def _extract(name: str, start: datetime, end: datetime, sources: list[dict]) -> 
     prompt = f"""Entity: {name}
 Weekend: {start.date().isoformat()} through {end.date().isoformat()}
 Determine if these sources confirm racing activity in this exact weekend.
-PRIORITY RULE: if ANY completed race result for this entity exists inside the weekend window, status MUST be "completed" and you must report that completed result, even if a different event at the same track was later cancelled, postponed, or rained out. Use "cancelled" or "postponed" only when NO completed result is supported for the entity during the weekend.
+ENTITY MATCH RULE: event_found may be true ONLY when the evidence clearly connects the event/result to the exact entity being checked (the track itself, or that exact series/organization). Never attach a result from a different track or series merely because it appears in the same roundup page.
+PRIORITY RULE: if ANY completed race result for this exact entity exists inside the weekend window, status MUST be "completed" and you must report that completed result, even if a different event at the same track was later cancelled, postponed, or rained out. Use "cancelled" or "postponed" only when NO completed result is supported for the entity during the weekend.
 If multiple classes or completed nights ran, choose the most newsworthy completed headline winner and mention other confirmed weekend winners/results in the summary.
 Return keys: event_found(boolean), status(completed|cancelled|postponed|unknown), event_date(YYYY-MM-DD or empty), event_name, winner, class_name, summary(1-3 factual sentences), confidence(0-1), source_urls(array), source_names(array).
 Evidence: {json.dumps(evidence, ensure_ascii=False)}"""
@@ -472,9 +472,44 @@ def _save(result: dict, weekend_key: str, status: str, detail: str = ""):
         return row
 
 
+def _cleanup_v1_false_positives(weekend_key: str) -> None:
+    """Retire the one legacy cross-entity alert created by the first live pass."""
+    with SessionLocal() as db:
+        changed = False
+        rows = db.scalars(
+            select(ResultsSweepItem).where(
+                ResultsSweepItem.weekend_key == weekend_key,
+                ResultsSweepItem.entity_name == "RUSH Racing Series",
+                ResultsSweepItem.status.in_(["uncovered", "needs_review"]),
+            )
+        ).all()
+        for row in rows:
+            if "eriez" in str(row.event_name or "").lower() or "eriez" in str(row.summary or "").lower():
+                row.status = "superseded"
+                row.detail = "Superseded by Results Sweep V2 entity-matching safeguards."
+                row.updated_at = utcnow()
+                changed = True
+
+        notes = db.scalars(
+            select(EcosystemNotification).where(
+                EcosystemNotification.module == "Results Sweep",
+                EcosystemNotification.title == "UNCOVERED RESULTS — RUSH Racing Series",
+                EcosystemNotification.status == "unread",
+            )
+        ).all()
+        for note in notes:
+            if "eriez" in str(note.detail or "").lower():
+                note.status = "read"
+                note.updated_at = utcnow()
+                changed = True
+        if changed:
+            db.commit()
+
+
 def _run_sweep_impl(force: bool = False):
     start, end, weekend_key = _weekend()
-    state_key = f"results_sweep:{weekend_key}"
+    _cleanup_v1_false_positives(weekend_key)
+    state_key = f"results_sweep:v2:{weekend_key}"
     if not force and get_runtime_state(state_key) == "complete":
         return {"ran":False,"reason":"already_complete","weekend_key":weekend_key}
     with SessionLocal() as db:
