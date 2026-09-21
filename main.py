@@ -65,7 +65,7 @@ def _trim_process_memory() -> tuple[int, bool]:
 
 
 async def runtime_maintenance_loop() -> None:
-    interval = _env_int("PITMARK_MEMORY_TRIM_SECONDS", 600, 300, 3600)
+    interval = _env_int("PITMARK_MEMORY_TRIM_SECONDS", 300, 300, 3600)
     while True:
         await asyncio.sleep(interval)
         try:
@@ -165,7 +165,7 @@ async def results_sweep_loop() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     loop = asyncio.get_running_loop()
-    background_threads = _env_int("PITMARK_BACKGROUND_THREADS", 4, 2, 6)
+    background_threads = _env_int("PITMARK_BACKGROUND_THREADS", 2, 2, 6)
     executor = ThreadPoolExecutor(
         max_workers=background_threads,
         thread_name_prefix="pitmark-bg",
