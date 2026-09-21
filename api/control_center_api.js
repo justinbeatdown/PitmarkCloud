@@ -24,6 +24,8 @@ const ENDPOINTS = Object.freeze({
   storeOverview: '/api/control/store/overview',
   standings: '/api/control/standings',
   standingsRefresh: '/api/control/standings/refresh',
+  resultsSweep: '/api/control/results-sweep/status',
+  resultsSweepRun: '/api/control/results-sweep/run',
   logout: '/api/control/auth/logout',
 });
 
@@ -159,5 +161,7 @@ export const api = Object.freeze({
   storeOverview: (options = {}) => request(ENDPOINTS.storeOverview, { scope: 'store-overview', maxAge: 12000, ...options }),
   standings: (season = '', options = {}) => request(query(ENDPOINTS.standings, { season }), { scope: 'standings', maxAge: 300000, ...options }),
   refreshStandings: (season = '') => request(query(ENDPOINTS.standingsRefresh, { season }), { method: 'POST' }),
+  resultsSweep: (options = {}) => request(ENDPOINTS.resultsSweep, { scope: 'results-sweep', maxAge: 15000, ...options }),
+  runResultsSweep: () => request(ENDPOINTS.resultsSweepRun, { method: 'POST' }),
   logout: () => request(ENDPOINTS.logout, { method: 'POST' }),
 });
