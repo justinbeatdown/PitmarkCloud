@@ -277,7 +277,9 @@ def _extract(name: str, start: datetime, end: datetime, sources: list[dict]) -> 
     } for x in sources[:6]]
     prompt = f"""Entity: {name}
 Weekend: {start.date().isoformat()} through {end.date().isoformat()}
-Determine if these sources confirm a race result in this exact weekend. Distinguish completed races from cancellations/postponements. If multiple classes ran, choose the most newsworthy headline winner and mention only other confirmed winners in the summary.
+Determine if these sources confirm racing activity in this exact weekend.
+PRIORITY RULE: if ANY completed race result for this entity exists inside the weekend window, status MUST be "completed" and you must report that completed result, even if a different event at the same track was later cancelled, postponed, or rained out. Use "cancelled" or "postponed" only when NO completed result is supported for the entity during the weekend.
+If multiple classes or completed nights ran, choose the most newsworthy completed headline winner and mention other confirmed weekend winners/results in the summary.
 Return keys: event_found(boolean), status(completed|cancelled|postponed|unknown), event_date(YYYY-MM-DD or empty), event_name, winner, class_name, summary(1-3 factual sentences), confidence(0-1), source_urls(array), source_names(array).
 Evidence: {json.dumps(evidence, ensure_ascii=False)}"""
     data = _ask_json(prompt)
@@ -327,8 +329,10 @@ def _fingerprint(result: dict, weekend_key: str):
 
 
 def _target_state_key(weekend_key: str, entity_name: str) -> str:
+    # v2 invalidates the first live pass after adding trusted local-result sources
+    # and the completed-result-over-cancellation priority rule.
     digest = hashlib.sha256(entity_name.strip().lower().encode("utf-8")).hexdigest()[:24]
-    return f"results_target:{weekend_key}:{digest}"
+    return f"results_target:v2:{weekend_key}:{digest}"
 
 
 def _quality(result: dict):
@@ -415,6 +419,19 @@ def _notify(key: str, title: str, detail: str, priority: str = "action"):
 def _save(result: dict, weekend_key: str, status: str, detail: str = ""):
     fp = _fingerprint(result, weekend_key)
     with SessionLocal() as db:
+        # A later verified completed result supersedes an earlier cancellation-only
+        # interpretation for the same track/weekend.
+        if status not in {"cancelled", "postponed"}:
+            prior_cancellations = db.scalars(
+                select(ResultsSweepItem).where(
+                    ResultsSweepItem.weekend_key == weekend_key,
+                    ResultsSweepItem.entity_name == str(result.get("entity_name") or "")[:240],
+                    ResultsSweepItem.status.in_(["cancelled", "postponed"]),
+                )
+            ).all()
+            for prior in prior_cancellations:
+                prior.status = "superseded"
+                prior.updated_at = utcnow()
         row = db.scalar(select(ResultsSweepItem).where(ResultsSweepItem.fingerprint == fp))
         if row is None:
             row = ResultsSweepItem(fingerprint=fp, weekend_key=weekend_key, entity_name=str(result.get("entity_name") or "")[:240])
