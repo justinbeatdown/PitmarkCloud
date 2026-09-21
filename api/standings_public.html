@@ -23,7 +23,10 @@
       <nav aria-label="Pitmark navigation">
         <a href="https://pitmarkracing.com">Shop</a>
         <a href="/prt">PRT</a>
-        <a class="active" href="/race-center" aria-current="page">Race Center</a>
+        <a href="/race-center" data-race-view="hub">Race Center</a>
+        <a href="/race-center/standings" data-race-view="standings">Standings</a>
+        <a href="/race-center/schedules" data-race-view="schedules">Schedules</a>
+        <a href="/race-center/live" data-race-view="live">Live + Next</a>
         <a href="/racing-desk">Racing Desk</a>
       </nav>
       <span class="header-health" id="headerStatus"><i></i> Loading data</span>
@@ -38,10 +41,10 @@
           <span class="version-pill">V3</span>
         </div>
         <h1 id="heroTitle">The racing world,<br><em>organized.</em></h1>
-        <p>Standings, movement, schedules, live events and official watch links across the series you actually care about — without living in forty tabs.</p>
-        <div class="hero-actions">
-          <button id="jumpLive" class="button primary" type="button">Open standings</button>
-          <a class="button secondary" href="#schedules">Find the next race</a>
+        <p id="heroIntro">Standings, movement, schedules, live events and official watch links across the series you actually care about — without living in forty tabs.</p>
+        <div class="hero-actions" id="heroActions">
+          <a class="button primary" href="/race-center/standings">Open standings</a>
+          <a class="button secondary" href="/race-center/schedules">Find the next race</a>
         </div>
       </div>
 
@@ -51,6 +54,24 @@
         <div><span>Feed health</span><strong id="feedHealth">—</strong><small>current / cached</small></div>
         <div><span>Last sync</span><strong id="updatedValue">—</strong><small id="seasonValue">Season —</small></div>
       </div>
+    </section>
+
+    <section class="hub-nav-grid" id="hubNavigation" aria-label="Race Center destinations">
+      <a class="hub-nav-card" href="/race-center/standings">
+        <span class="hub-nav-icon">01</span>
+        <div><span class="eyebrow">CHAMPIONSHIPS</span><strong>Standings</strong><p>Full standings, leaders and verified movement.</p></div>
+        <b>→</b>
+      </a>
+      <a class="hub-nav-card" href="/race-center/schedules">
+        <span class="hub-nav-icon">02</span>
+        <div><span class="eyebrow">RACE CALENDAR</span><strong>Schedules + Watch</strong><p>Official dates and viewing links across every tracked series.</p></div>
+        <b>→</b>
+      </a>
+      <a class="hub-nav-card" href="/race-center/live">
+        <span class="hub-nav-icon">03</span>
+        <div><span class="eyebrow">RACE WEEKEND</span><strong>Live + Next</strong><p>What is running now and what is coming up next.</p></div>
+        <b>→</b>
+      </a>
     </section>
 
     <section class="toolbar" id="standingsStart" aria-label="Race Center controls">
@@ -66,14 +87,7 @@
           <button id="clearSearch" class="clear-search" type="button" aria-label="Clear search" hidden>×</button>
         </label>
       </div>
-      <div class="filters" id="filters" aria-label="Standings categories"></div>
-      <nav class="quick-nav" aria-label="Race Center sections">
-        <a href="#raceWeekend">Now</a>
-        <a href="#leaders">Leaders</a>
-        <a href="#movers">Movers</a>
-        <a href="#standingsBoard">Standings</a>
-        <a href="#schedules">Schedules</a>
-      </nav>
+      <div class="filters" id="filters" aria-label="Racing categories"></div>
     </section>
 
     <section class="live-section content-section" id="raceWeekend">
@@ -120,10 +134,7 @@
           <span class="eyebrow">STANDINGS</span>
           <h2>The full racing board</h2>
         </div>
-        <div class="section-head-actions">
-          <p id="statusText">Pulling the latest saved standings…</p>
-          <button id="toggleGroups" class="section-control" type="button">Expand all</button>
-        </div>
+        <p id="statusText">Pulling the latest saved standings…</p>
       </div>
       <div id="seriesGroups"></div>
     </section>
@@ -137,9 +148,6 @@
         <p id="scheduleStatusText">Official schedule and viewing links across Pitmark's racing board.</p>
       </div>
       <div class="schedule-grid" id="scheduleCatalog"></div>
-      <div class="section-more">
-        <button id="scheduleToggle" class="section-control" type="button" hidden>Show all schedules</button>
-      </div>
     </section>
 
     <section class="race-center-grid content-section" aria-label="More Pitmark racing tools">
@@ -183,6 +191,9 @@
         <a href="https://pitmarkracing.com">Pitmark Racing Co.</a>
         <a href="/prt">Pitmark Racing Tools</a>
         <a href="/race-center">Race Center</a>
+        <a href="/race-center/standings">Standings</a>
+        <a href="/race-center/schedules">Schedules</a>
+        <a href="/race-center/live">Live + Next</a>
         <a href="/racing-desk">Racing Desk</a>
       </div>
     </div>
