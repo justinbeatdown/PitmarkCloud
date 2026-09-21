@@ -718,38 +718,27 @@ def _publish(result: dict, fp: str, evidence: list[dict]):
     if str(blog.get("handle") or "").lower() == "racing-culture":
         body = append_racing_culture_conversion_cta(body, title)
 
+    # Results coverage is real-photo-only. If we cannot verify a legitimate
+    # event/track/driver image, publish clean with no hero instead of fabricating one.
     selected = _select_real_image(result, evidence)
-    image_attempts: list[dict] = []
-    if selected:
-        image_attempts.append(selected)
-    else:
-        generated = _generate_durable_hero(result, body)
-        if generated:
-            image_attempts.append(generated)
-
     article = None
     used_image: dict | None = None
     image_errors: list[str] = []
 
-    for media in image_attempts:
+    if selected:
         try:
             article = shopify_service.publish_article(
                 blog_id=str(blog["id"]),
                 title=title,
                 body_html=body,
-                image_url=media["url"],
+                image_url=selected["url"],
             )
-            used_image = media
-            break
+            used_image = selected
         except Exception as exc:
-            image_errors.append(f"{media.get('source_kind')}: {type(exc).__name__}: {exc}")
-            log.warning("Results Sweep article image attempt failed for %s: %s", title, exc)
-            if media.get("source_kind") != "generated":
-                generated = _generate_durable_hero(result, body)
-                if generated:
-                    image_attempts.append(generated)
+            image_errors.append(f"{selected.get('source_kind')}: {type(exc).__name__}: {exc}")
+            log.warning("Results Sweep real-photo publish failed for %s: %s", title, exc)
 
-    # Coverage must never be blocked by hero media.
+    # Image problems never block race coverage.
     if article is None:
         article = shopify_service.publish_article(
             blog_id=str(blog["id"]),
@@ -766,7 +755,7 @@ def _publish(result: dict, fp: str, evidence: list[dict]):
         else ""
     )
     durable = shopify_image or (used_image or {}).get("url") or None
-    image_status = "ok" if durable else "missing"
+    image_status = "real" if durable else "none"
     detail = "; ".join(image_errors)[:4000] if image_errors else None
 
     with SessionLocal() as db:
@@ -914,9 +903,15 @@ def repair_pending_images(limit: int = 8) -> dict:
             body = _article(result)
             media = _select_real_image(result, evidence)
             if media is None:
-                media = _generate_durable_hero(result, body)
-            if media is None:
-                raise RuntimeError("No usable official/event photo and generated fallback failed")
+                # No real photo is fine. Leave the article clean instead of making art.
+                with SessionLocal() as db:
+                    current = db.get(ResultsSweepItem, row.id)
+                    if current:
+                        current.status = "published"
+                        current.detail = "No verified real race/event photo found; article intentionally published without a hero image."
+                        current.updated_at = utcnow()
+                        db.commit()
+                continue
 
             updated = shopify_service.update_article_image(
                 article_id=str(row.article_id),
@@ -1102,7 +1097,7 @@ def _run_sweep_impl(force: bool = False):
                     with SessionLocal() as db:
                         current = db.get(ResultsSweepItem, row.id)
                         if current:
-                            current.status = "published" if outcome.get("image_status") == "ok" else "published_image_pending"
+                            current.status = "published"
                             current.article_id = article_id
                             current.article_url = article_url
                             current.detail = outcome.get("detail")
@@ -1110,8 +1105,6 @@ def _run_sweep_impl(force: bool = False):
                             db.commit()
                     c["published_count"] += 1
                     note = f"{_title(result)}\n{article_url}"
-                    if outcome.get("image_status") != "ok":
-                        note += "\nPublished successfully; hero image is pending repair."
                     _notify(f"published:{fp}", f"Results Sweep published — {name}", note, "info")
                     set_runtime_state(target_state, "checked")
                 except Exception as exc:
@@ -1218,29 +1211,8 @@ def publish_weekend_roundup_if_ready() -> dict:
         return {"published": False, "reason": "already_published"}
 
     sections: list[str] = []
-    image_candidates: list[str] = []
     for row in rows:
-        image_url = ""
-        with SessionLocal() as db:
-            record = db.scalar(
-                select(ShopifyPublishRecord)
-                .where(ShopifyPublishRecord.shopify_article_id == str(row.article_id or ""))
-                .order_by(ShopifyPublishRecord.id.desc())
-                .limit(1)
-            )
-            if record:
-                draft = db.get(BlogDraft, record.draft_id)
-                if draft and draft.featured_image_url:
-                    image_url = str(draft.featured_image_url)
-                    image_candidates.append(image_url)
-
         heading = f"{html.escape(str(row.winner or 'Winner'))} — {html.escape(row.entity_name)}"
-        if image_url:
-            sections.append(
-                f'<figure style="margin:22px 0"><img src="{html.escape(image_url, quote=True)}" '
-                f'alt="{html.escape(str(row.winner or ""))} at {html.escape(row.entity_name)}" '
-                f'style="width:100%;height:auto;border-radius:8px"></figure>'
-            )
         sections.append(f"<h2>{heading}</h2>")
         if row.summary:
             sections.append(f"<p>{html.escape(row.summary)}</p>")
@@ -1275,17 +1247,25 @@ def publish_weekend_roundup_if_ready() -> dict:
         return {"published": False, "reason": "no_blog"}
     blog = next((x for x in blogs if str(x.get("handle") or "").lower() == "racing-culture"), blogs[0])
 
+    # One real photo at most for a roundup. No generated artwork.
     hero = None
-    try:
-        staged = generate_and_stage_blog_image(title=title, body_html=body, content_type="race_results_roundup")
-        hero = _store_media_bytes(
-            staged.path.read_bytes(),
-            media_type=staged.media_type,
-            source_kind="generated",
-            source_url=None,
-        )
-    except Exception as exc:
-        log.warning("Results Sweep roundup hero generation failed: %s", exc)
+    for row in rows:
+        try:
+            result = {
+                "entity_name": row.entity_name,
+                "event_name": row.event_name or "",
+                "event_date": row.event_date or "",
+                "class_name": row.class_name or "",
+                "winner": row.winner or "",
+                "summary": row.summary or "",
+            }
+            local = any(word in row.entity_name.lower() for word in ("speedway", "raceway", "track"))
+            evidence = _search(row.entity_name, start, end, local)
+            hero = _select_real_image(result, evidence)
+            if hero:
+                break
+        except Exception as exc:
+            log.info("Results Sweep roundup real-photo lookup failed for %s: %s", row.entity_name, exc)
 
     try:
         article = shopify_service.publish_article(
@@ -1295,7 +1275,7 @@ def publish_weekend_roundup_if_ready() -> dict:
             image_url=(hero or {}).get("url"),
         )
     except Exception as exc:
-        log.warning("Results Sweep roundup hero publish failed; retrying without image: %s", exc)
+        log.warning("Results Sweep roundup real-photo publish failed; publishing without image: %s", exc)
         article = shopify_service.publish_article(
             blog_id=str(blog["id"]),
             title=title,
