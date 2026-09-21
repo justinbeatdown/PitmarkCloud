@@ -521,6 +521,35 @@ CARS_2026_LMSC_FALLBACK: list[dict[str, Any]] = [
 ]
 
 
+LUCAS_2026_FULL_STANDINGS: list[dict[str, Any]] = [
+    {"position": 1, "number": "1", "name": "Brandon Sheppard", "points": 6305},
+    {"position": 2, "number": "71", "name": "Hudson O'Neal", "points": 6250},
+    {"position": 3, "number": "99", "name": "Devin Moran", "points": 6200},
+    {"position": 4, "number": "76", "name": "Brandon Overton", "points": 5855},
+    {"position": 5, "number": "20RT", "name": "Ricky Thornton Jr", "points": 5800},
+    {"position": 6, "number": "111", "name": "Max Blair", "points": 5720},
+    {"position": 7, "number": "11", "name": "Josh Rice", "points": 5430},
+    {"position": 8, "number": "3s", "name": "Brian Shirley", "points": 5405},
+    {"position": 9, "number": "58", "name": "Garrett Alberson", "points": 5370},
+    {"position": 10, "number": "40B", "name": "Kyle Bronson", "points": 5070},
+    {"position": 11, "number": "6", "name": "Clay Harris", "points": 5060},
+    {"position": 12, "number": "93", "name": "Carson Ferguson", "points": 5015},
+    {"position": 13, "number": "60", "name": "Dan Ebert", "points": 4975},
+    {"position": 14, "number": "8", "name": "Dillon McCowan", "points": 4845},
+    {"position": 15, "number": "22", "name": "Daniel Hilsabeck", "points": 4390},
+    {"position": 16, "number": "17SS", "name": "Brenden Smith", "points": 4035},
+    {"position": 17, "number": "93L", "name": "Cory Lawler", "points": 3720},
+]
+
+HIGH_LIMIT_2026_ROSTER_SUPPLEMENT: list[dict[str, Any]] = [
+    {"number": "5", "name": "Brenham Crouch", "team": "CJB Motorsports"},
+    {"number": "9R", "name": "Chase Randall", "team": "Chase Randall Racing"},
+    {"number": "42", "name": "Sye Lynch", "team": "Mosites Lynch Racing"},
+    {"number": "24D", "name": "Danny Sams III", "team": "Randerson Racing"},
+    {"number": "17GP", "name": "Brock Zearfoss", "team": "Michael Dutcher Motorsports"},
+]
+
+
 IMSA_2026_STANDINGS_FALLBACK: dict[str, list[tuple[int, str, int]]] = {
     "imsa-michelin-pilot": [
         (1, "Dillon Machavern", 2010), (1, "Luca Mars", 2010),
@@ -1437,6 +1466,7 @@ def _fetch_official_table(config: dict[str, Any], season: int) -> dict[str, Any]
         if value:
             urls.append(value.format(season=season, fe_season=max(1, season - 2014)))
 
+    key = str(config.get("key") or "")
     errors: list[str] = []
     seen: set[str] = set()
     for url in urls:
@@ -1444,10 +1474,35 @@ def _fetch_official_table(config: dict[str, Any], season: int) -> dict[str, Any]
             continue
         seen.add(url)
         try:
-            return _fetch_official_table_url(config, url)
+            fetched = _fetch_official_table_url(config, url)
+
+            # Some official standings pages intentionally render only a top-10
+            # summary. Keep the public Race Center complete by replacing that
+            # summary with the latest verified full championship table.
+            if key == "lucas-oil-late-models" and season == 2026:
+                current = fetched.get("entries") or []
+                if len(current) < len(LUCAS_2026_FULL_STANDINGS):
+                    entries = [
+                        {
+                            **row,
+                            "team": None,
+                            "manufacturer": None,
+                            "behind": None,
+                            "wins": None,
+                            "starts": None,
+                        }
+                        for row in LUCAS_2026_FULL_STANDINGS
+                    ]
+                    return {
+                        "entries": entries,
+                        "source_name": "Lucas Oil Late Model Dirt Series standings · verified full-field snapshot",
+                        "provider_url": url,
+                    }
+            return fetched
         except Exception as exc:
             errors.append(f"{url}: {exc}")
-    if str(config.get("key") or "") == "cars-tour-lmsc" and season == 2026:
+
+    if key == "cars-tour-lmsc" and season == 2026:
         entries = [
             {
                 **row,
@@ -1461,6 +1516,25 @@ def _fetch_official_table(config: dict[str, Any], season: int) -> dict[str, Any]
             "source_name": "zMAX CARS Tour official LMSC standings · verified fallback snapshot",
             "provider_url": "https://www.carsracingtour.com/standings-lmsc/",
         }
+
+    if key == "lucas-oil-late-models" and season == 2026:
+        entries = [
+            {
+                **row,
+                "team": None,
+                "manufacturer": None,
+                "behind": None,
+                "wins": None,
+                "starts": None,
+            }
+            for row in LUCAS_2026_FULL_STANDINGS
+        ]
+        return {
+            "entries": entries,
+            "source_name": "Lucas Oil Late Model Dirt Series standings · verified full-field snapshot",
+            "provider_url": _series_url(config, season),
+        }
+
     raise RuntimeError(" ; ".join(errors) or "official standings unavailable")
 
 
@@ -3003,6 +3077,54 @@ def get_series_logo_info(series_key: str, *, season: int | None = None) -> dict[
         return None
     return {"url": logo_url, "source_url": source_url}
 
+
+
+def get_series_roster(
+    series_key: str,
+    entries: list[dict[str, Any]] | None = None,
+    *,
+    season: int | None = None,
+) -> list[dict[str, Any]]:
+    season = int(season or utcnow().year)
+    roster: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    for raw in entries or []:
+        name = str(raw.get("name") or "").strip()
+        key = _identity_key(name)
+        if not name or not key or key in seen:
+            continue
+        seen.add(key)
+        roster.append(
+            {
+                "name": name,
+                "number": raw.get("number"),
+                "team": raw.get("team"),
+                "manufacturer": raw.get("manufacturer"),
+                "in_standings": True,
+            }
+        )
+
+    supplements: list[dict[str, Any]] = []
+    if series_key == "high-limit-sprint" and season == 2026:
+        supplements = HIGH_LIMIT_2026_ROSTER_SUPPLEMENT
+
+    for raw in supplements:
+        name = str(raw.get("name") or "").strip()
+        key = _identity_key(name)
+        if not name or not key or key in seen:
+            continue
+        seen.add(key)
+        roster.append(
+            {
+                "name": name,
+                "number": raw.get("number"),
+                "team": raw.get("team"),
+                "manufacturer": raw.get("manufacturer"),
+                "in_standings": False,
+            }
+        )
+    return roster
 
 
 def clear_standings_cache() -> None:
