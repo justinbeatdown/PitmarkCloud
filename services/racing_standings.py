@@ -1475,11 +1475,7 @@ def _nascar_profile_identity(url: str) -> tuple[str | None, str | None]:
     if team_match:
         team = " ".join(team_match.group(1).split()).strip() or None
 
-    make_match = re.search(
-        r"(?:Image:\s*|!\[)(Chevrolet|Ford|Toyota)(?:\]|\s|\))",
-        markdown,
-        flags=re.IGNORECASE,
-    )
+    make_match = re.search(r"\b(Chevrolet|Ford|Toyota)\b", markdown, flags=re.IGNORECASE)
     if make_match:
         manufacturer = make_match.group(1).title()
     return team, manufacturer
@@ -1503,45 +1499,44 @@ def _official_metadata_nascar_driver_directory(
         "Accept": "text/html,application/xhtml+xml",
         "Accept-Language": "en-US,en;q=0.9",
     }
+
+    numbers: dict[str, str] = {}
+    profile_links: dict[str, str] = {}
+
+    soup = None
     try:
         with httpx.Client(timeout=18.0, follow_redirects=True, headers=headers) as client:
             response = client.get(url)
             response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
     except Exception:
-        return {}, None
+        # NASCAR frequently returns 403 to Render datacenter IPs. Use the
+        # rendered copy of NASCAR's official page instead of abandoning identity.
+        soup = None
 
-    # Official NASCAR directory: badge image alt contains the driver's race
-    # number. Driver anchors on the same official page provide the canonical
-    # NASCAR-owned profile URL.
-    numbers: dict[str, str] = {}
-    for image in soup.find_all("img"):
-        label = " ".join(str(image.get("alt") or "").split()).strip()
-        match = re.search(
-            r"^(.*?)\s+Badge Number\s+([A-Za-z0-9]+)$",
-            label,
-            flags=re.IGNORECASE,
-        )
-        if not match:
-            continue
-        name = match.group(1).strip()
-        key = _identity_key(name)
-        if key:
-            numbers[key] = match.group(2).strip()
+    if soup is not None:
+        for image in soup.find_all("img"):
+            label = " ".join(str(image.get("alt") or "").split()).strip()
+            match = re.search(
+                r"^(.*?)\s+Badge Number\s+([A-Za-z0-9]+)$",
+                label,
+                flags=re.IGNORECASE,
+            )
+            if not match:
+                continue
+            key = _identity_key(match.group(1))
+            if key:
+                numbers[key] = match.group(2).strip()
 
-    profile_links: dict[str, str] = {}
-    for anchor in soup.find_all("a", href=True):
-        href = str(anchor.get("href") or "").strip()
-        if "/drivers/" not in href.lower():
-            continue
-        name = " ".join(anchor.get_text(" ", strip=True).split()).strip()
-        key = _identity_key(name)
-        if not key:
-            continue
-        profile_links[key] = urljoin(url, href)
+        for anchor in soup.find_all("a", href=True):
+            href = str(anchor.get("href") or "").strip()
+            if "/drivers/" not in href.lower():
+                continue
+            key = _identity_key(" ".join(anchor.get_text(" ", strip=True).split()))
+            if key:
+                profile_links[key] = urljoin(url, href)
 
-    # Reader fallback is useful when NASCAR changes the server-rendered card DOM.
-    if not numbers:
+    if not numbers or not profile_links:
         try:
             markdown = _reader_markdown(url)
             for raw_name, raw_number in re.findall(
@@ -1552,8 +1547,21 @@ def _official_metadata_nascar_driver_directory(
                 key = _identity_key(raw_name)
                 if key:
                     numbers[key] = str(raw_number).strip()
-        except Exception:
-            pass
+
+            for label, href in re.findall(
+                r"\[([^\]]+)\]\((https?://www\.nascar\.com/drivers/[^)]+|/drivers/[^)]+)\)",
+                markdown,
+                flags=re.IGNORECASE,
+            ):
+                key = _identity_key(" ".join(str(label or "").split()))
+                if key:
+                    profile_links[key] = urljoin("https://www.nascar.com/", href.strip())
+        except Exception as exc:
+            log.warning(
+                "NASCAR official identity reader failed series=%s error=%s",
+                config.get("key"),
+                exc,
+            )
 
     out: dict[str, dict[str, str | None]] = {
         key: {"number": number, "team": None, "manufacturer": None}
@@ -1588,7 +1596,6 @@ def _official_metadata_nascar_driver_directory(
     )
     _profile_metadata_cache_set(cache_key, out, source)
     return out, source
-
 
 def _official_metadata_arca_driver_directory(
     config: dict[str, Any],
