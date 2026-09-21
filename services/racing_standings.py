@@ -351,6 +351,26 @@ SERIES: tuple[dict[str, Any], ...] = (
         "logo_url": "https://www.imsa.com/wp-content/uploads/sites/32/2025/12/08/2025_IWSC_Logo_MediaCenter.png",
     },
     {
+        "key": "imsa-michelin-pilot",
+        "name": "IMSA Michelin Pilot Challenge",
+        "short_name": "IMSA Pilot",
+        "group": "Sports Cars",
+        "provider": "imsa",
+        "official_url": "https://www.imsa.com/michelinpilotchallenge/standings/",
+        "logo_source_url": "https://www.imsa.com/media-center/",
+        "logo_url": "https://www.imsa.com/wp-content/uploads/sites/32/2025/12/08/2025_IMPC_Logo_MediaCenter.png",
+    },
+    {
+        "key": "imsa-vp-racing",
+        "name": "IMSA VP Racing SportsCar Challenge",
+        "short_name": "IMSA VP Racing",
+        "group": "Sports Cars",
+        "provider": "imsa",
+        "official_url": "https://www.imsa.com/vpracingsportscarchallenge/standings/",
+        "logo_source_url": "https://www.imsa.com/media-center/",
+        "logo_url": "https://www.imsa.com/wp-content/uploads/sites/32/2025/12/08/2025_VPRC_Logo_MediaCenter.png",
+    },
+    {
         "key": "wec",
         "name": "FIA World Endurance Championship",
         "short_name": "WEC",
@@ -423,6 +443,8 @@ OFFICIAL_LOGO_TERMS: dict[str, tuple[str, ...]] = {
     "indycar": ("indycar",),
     "formula-e": ("formula e",),
     "imsa-weathertech": ("imsa", "weathertech"),
+    "imsa-michelin-pilot": ("imsa", "michelin pilot"),
+    "imsa-vp-racing": ("imsa", "vp racing"),
     "wec": ("fia wec", "world endurance championship"),
     "supercars": ("supercars",),
     "motogp": ("motogp",),
@@ -1362,7 +1384,7 @@ def _fetch_imsa(config: dict[str, str], season: int) -> dict[str, Any]:
         raise RuntimeError("IMSA standings rows could not be parsed")
     return {
         "entries": normalized,
-        "source_name": "IMSA official standings",
+        "source_name": f"{config.get('name') or 'IMSA'} official standings",
         "provider_url": config["official_url"],
     }
 
@@ -1476,35 +1498,67 @@ def _official_metadata_nascar_driver_directory(
     if cached:
         return cached
 
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
     try:
-        markdown = _reader_markdown(url)
+        with httpx.Client(timeout=18.0, follow_redirects=True, headers=headers) as client:
+            response = client.get(url)
+            response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
     except Exception:
         return {}, None
 
-    # The official directory exposes name + badge number and links each driver
-    # to a NASCAR-owned profile. Those profiles expose TEAM and manufacturer.
-    pairs: list[tuple[str, str]] = []
-    for pattern in (
-        r"!\[([^\]]+?)\s+Badge Number\s+([A-Za-z0-9]+)\]\(",
-        r"Image:\s*([^\n]+?)\s+Badge Number\s+([A-Za-z0-9]+)",
-    ):
-        pairs.extend(re.findall(pattern, markdown, flags=re.IGNORECASE))
+    # Official NASCAR directory: badge image alt contains the driver's race
+    # number. Driver anchors on the same official page provide the canonical
+    # NASCAR-owned profile URL.
+    numbers: dict[str, str] = {}
+    for image in soup.find_all("img"):
+        label = " ".join(str(image.get("alt") or "").split()).strip()
+        match = re.search(
+            r"^(.*?)\s+Badge Number\s+([A-Za-z0-9]+)$",
+            label,
+            flags=re.IGNORECASE,
+        )
+        if not match:
+            continue
+        name = match.group(1).strip()
+        key = _identity_key(name)
+        if key:
+            numbers[key] = match.group(2).strip()
 
     profile_links: dict[str, str] = {}
-    for label, href in re.findall(r"\[([^\]]+)\]\((https?://www\.nascar\.com/drivers/[^)]+|/drivers/[^)]+)\)", markdown):
-        name = " ".join(str(label or "").split()).strip()
+    for anchor in soup.find_all("a", href=True):
+        href = str(anchor.get("href") or "").strip()
+        if "/drivers/" not in href.lower():
+            continue
+        name = " ".join(anchor.get_text(" ", strip=True).split()).strip()
         key = _identity_key(name)
         if not key:
             continue
-        profile_links[key] = urljoin("https://www.nascar.com/", href.strip())
+        profile_links[key] = urljoin(url, href)
 
-    out: dict[str, dict[str, str | None]] = {}
-    for raw_name, raw_number in pairs:
-        name = " ".join(str(raw_name or "").split()).strip()
-        number = str(raw_number or "").strip()
-        key = _identity_key(name)
-        if key and number:
-            out[key] = {"number": number, "team": None, "manufacturer": None}
+    # Reader fallback is useful when NASCAR changes the server-rendered card DOM.
+    if not numbers:
+        try:
+            markdown = _reader_markdown(url)
+            for raw_name, raw_number in re.findall(
+                r"(?:Image:\s*|!\[)([^\]\n]+?)\s+Badge Number\s+([A-Za-z0-9]+)",
+                markdown,
+                flags=re.IGNORECASE,
+            ):
+                key = _identity_key(raw_name)
+                if key:
+                    numbers[key] = str(raw_number).strip()
+        except Exception:
+            pass
+
+    out: dict[str, dict[str, str | None]] = {
+        key: {"number": number, "team": None, "manufacturer": None}
+        for key, number in numbers.items()
+    }
 
     def fetch_one(item: tuple[str, str]) -> tuple[str, str | None, str | None]:
         key, profile_url = item
@@ -1512,18 +1566,26 @@ def _official_metadata_nascar_driver_directory(
         return key, team, manufacturer
 
     links = [(key, href) for key, href in profile_links.items() if key in out]
-    with ThreadPoolExecutor(max_workers=min(8, max(1, len(links)))) as pool:
-        futures = [pool.submit(fetch_one, item) for item in links]
-        for future in as_completed(futures):
-            try:
-                key, team, manufacturer = future.result()
-            except Exception:
-                continue
-            if key in out:
-                out[key]["team"] = team
-                out[key]["manufacturer"] = manufacturer
+    if links:
+        with ThreadPoolExecutor(max_workers=min(8, len(links))) as pool:
+            futures = [pool.submit(fetch_one, item) for item in links]
+            for future in as_completed(futures):
+                try:
+                    key, team, manufacturer = future.result()
+                except Exception:
+                    continue
+                if key in out:
+                    out[key]["team"] = team
+                    out[key]["manufacturer"] = manufacturer
 
     source = url if out else None
+    log.info(
+        "NASCAR official identity: series=%s numbers=%s profiles=%s enriched=%s",
+        config.get("key"),
+        len(numbers),
+        len(profile_links),
+        sum(1 for value in out.values() if value.get("team") or value.get("manufacturer")),
+    )
     _profile_metadata_cache_set(cache_key, out, source)
     return out, source
 
