@@ -248,23 +248,46 @@ def _targets(start: datetime, end: datetime):
 
 
 def _ask_json(prompt: str) -> dict:
-    payload = {
-        "model": settings.pitmark_ai_model,
-        "instructions": "You are Pitmark Results Desk. Use only supplied public evidence. Never invent results. Return one JSON object only.",
-        "input": prompt,
-        "max_output_tokens": 900,
-    }
+    last_error: Exception | None = None
     with httpx.Client(timeout=max(30.0, float(settings.pitmark_ai_timeout_seconds))) as client:
-        r = client.post("https://api.openai.com/v1/responses", headers={"Authorization": f"Bearer {settings.openai_api_key}", "Content-Type": "application/json"}, json=payload)
-        r.raise_for_status()
-    raw = _extract_output_text(r.json()).strip()
-    fence = chr(96) * 3
-    if raw.startswith(fence):
-        raw = re.sub(r"^.{3}(?:json)?\s*|\s*.{3}$", "", raw, flags=re.I | re.S)
-    data = json.loads(raw)
-    if not isinstance(data, dict):
-        raise RuntimeError("Results extractor returned non-object JSON")
-    return data
+        for attempt in range(2):
+            payload = {
+                "model": settings.pitmark_ai_model,
+                "instructions": (
+                    "You are Pitmark Results Desk. Use only supplied public evidence. "
+                    "Never invent results. Return one complete valid JSON object only. "
+                    "Keep every string concise and never truncate the JSON."
+                ),
+                "input": prompt + (
+                    "\nIMPORTANT: Your previous response was invalid JSON. Return ONLY a complete valid JSON object."
+                    if attempt else ""
+                ),
+                "max_output_tokens": 1200,
+            }
+            r = client.post(
+                "https://api.openai.com/v1/responses",
+                headers={
+                    "Authorization": f"Bearer {settings.openai_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+            r.raise_for_status()
+            raw = _extract_output_text(r.json()).strip()
+            fence = chr(96) * 3
+            if raw.startswith(fence):
+                raw = re.sub(r"^.{3}(?:json)?\s*|\s*.{3}$", "", raw, flags=re.I | re.S)
+            try:
+                data = json.loads(raw)
+            except json.JSONDecodeError as exc:
+                last_error = exc
+                log.warning("Results Sweep JSON extraction retry %s/2: %s", attempt + 1, exc)
+                continue
+            if not isinstance(data, dict):
+                last_error = RuntimeError("Results extractor returned non-object JSON")
+                continue
+            return data
+    raise RuntimeError(f"Results extractor returned invalid JSON twice: {last_error}")
 
 
 def _extract(name: str, start: datetime, end: datetime, sources: list[dict]) -> dict:
@@ -533,13 +556,22 @@ def _run_sweep_impl(force: bool = False):
         except Exception as exc:
             c["error_count"] += 1
             log.warning("Results Sweep failed for %s: %s", name, exc)
+    final_status = "partial" if c["error_count"] else "complete"
     with SessionLocal() as db:
         run = db.get(ResultsSweepRun, run_id)
         if run:
-            for key, value in c.items(): setattr(run, key, value)
-            run.status="complete"; run.completed_at=utcnow(); run.note=f"Checked {c['targets_checked']} targets; published {c['published_count']}; uncovered {c['uncovered_count']}; duplicates {c['duplicate_count']}."; db.commit()
-    set_runtime_state(state_key, "complete")
-    return {"ran":True,"weekend_key":weekend_key,**c}
+            for key, value in c.items():
+                setattr(run, key, value)
+            run.status = final_status
+            run.completed_at = utcnow()
+            run.note = (
+                f"Checked {c['targets_checked']} targets; published {c['published_count']}; "
+                f"uncovered {c['uncovered_count']}; duplicates {c['duplicate_count']}; "
+                f"errors {c['error_count']}."
+            )
+            db.commit()
+    set_runtime_state(state_key, final_status)
+    return {"ran":True,"weekend_key":weekend_key,"status":final_status,**c}
 
 
 
