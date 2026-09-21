@@ -211,15 +211,17 @@ SERIES: tuple[dict[str, Any], ...] = (
         "short_name": "CARS LMSC",
         "group": "Short Track",
         "provider": "official_table",
-        "official_url": "https://www.carsracingtour.com/standings",
-        "logo_source_url": "https://www.carsracingtour.com/2023/11/27/zmax-joins-cars-tour-as-entitlement-sponsor-2024-schedule-unveiled-floracing-continues-as-official-streaming-partner/",
+        "official_url": "https://www.carsracingtour.com/standings-lmsc/",
+        "logo_source_url": "https://www.carsracingtour.com/",
         "logo_url": "https://www.carsracingtour.com/wp-content/uploads/sites/61/2024/05/09/ZMAXGeneric.jpg",
-        "source_name": "CARS Tour official standings",
+        "source_name": "zMAX CARS Tour official LMSC standings",
         "name_headers": ("driver",),
+        "number_headers": ("num", "number", "#"),
         "points_headers": ("points", "pts"),
         "position_headers": ("pos", "position", "rank"),
         "behind_headers": ("gap", "behind"),
         "wins_headers": ("wins",),
+        "starts_headers": ("events", "starts", "races"),
     },
     {
         "key": "asa-stars",
@@ -469,7 +471,7 @@ OFFICIAL_LOGO_TERMS: dict[str, tuple[str, ...]] = {
 }
 
 NUMBER_HEADERS = (
-    "#", "no", "no.", "number", "car", "car #", "car no", "car no.",
+    "#", "no", "no.", "num", "number", "car", "car #", "car no", "car no.",
     "vehicle no", "vehicle #", "bike #", "rider #",
 )
 TEAM_HEADERS = ("team", "entrant", "organization")
@@ -1463,7 +1465,7 @@ def _normalize_official_tables(
             "points": _header_index(header, config.get("points_headers") or ("points", "pts", "total")),
             "behind": _header_index(header, config.get("behind_headers") or ("gap", "behind")),
             "wins": _header_index(header, config.get("wins_headers") or ("wins",)),
-            "starts": _header_index(header, config.get("starts_headers") or ("starts",)),
+            "starts": _header_index(header, config.get("starts_headers") or ("starts", "races", "events")),
             "number": _header_index(header, config.get("number_headers") or NUMBER_HEADERS),
             "team": _header_index(header, config.get("team_headers") or TEAM_HEADERS),
             "manufacturer": _header_index(header, config.get("manufacturer_headers") or MANUFACTURER_HEADERS),
@@ -2692,10 +2694,14 @@ def _persist(config: dict[str, Any], season: int, fetched: dict[str, Any]) -> di
             snapshot_id = row.id
         else:
             # Metadata/logo provenance can improve without the points changing.
+            # A successful poll also refreshes freshness even when the championship
+            # fingerprint itself has not changed.
             existing.source_name = normalized["source_name"]
             existing.source_url = _series_url(config, season)
             existing.payload_json = json.dumps(normalized, ensure_ascii=False, default=str)
+            existing.fetched_at = utcnow()
             db.commit()
+            db.refresh(existing)
             fetched_at = existing.fetched_at
             snapshot_id = existing.id
     normalized["entries"] = _movement(entries, previous)
@@ -2724,7 +2730,7 @@ def _fallback(config: dict[str, Any], season: int, error: Exception) -> dict[str
                 "error": str(error),
             }
         )
-        previous_row = _latest_snapshot(
+        previous_row = _latest_valid_snapshot(
             config["key"],
             season,
             excluding=cached.get("fingerprint"),
