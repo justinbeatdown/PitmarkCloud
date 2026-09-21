@@ -150,6 +150,8 @@ async def results_sweep_loop() -> None:
                     result.get("duplicate_count", 0),
                     result.get("error_count", 0),
                 )
+                if result.get("status") == "partial" or result.get("error_count", 0):
+                    retry_seconds = 60
             elif result.get("reason") == "already_running_elsewhere":
                 # Rolling Render deploys briefly overlap old/new instances. Retry
                 # quickly once the draining instance releases the Postgres lock.
