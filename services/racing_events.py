@@ -18,9 +18,9 @@ SERIES_EVENT_CONFIG: dict[str, dict[str, Any]] = {
     "nascar-oreilly": {"name":"NASCAR O'Reilly Auto Parts Series","group":"NASCAR","espn_league":"nascar-secondary","schedule_url":"https://www.nascar.com/schedule/","watch_name":"NASCAR TV Guide","watch_url":"https://www.nascar.com/tv-schedule/"},
     "nascar-truck": {"name":"NASCAR CRAFTSMAN Truck Series","group":"NASCAR","espn_league":"nascar-truck","schedule_url":"https://www.nascar.com/schedule/","watch_name":"NASCAR TV Guide","watch_url":"https://www.nascar.com/tv-schedule/"},
     "nascar-whelen-modified": {"name":"NASCAR Whelen Modified Tour","group":"NASCAR","schedule_url":"https://www.nascar.com/whelen-modified-tour/","watch_name":"NASCAR / FloRacing","watch_url":"https://www.nascar.com/tv-schedule/"},
-    "arca-menards": {"name":"ARCA Menards Series","group":"NASCAR","schedule_url":"https://www.arcaracing.com/schedule/","watch_name":"ARCA Broadcast Info","watch_url":"https://www.arcaracing.com/"},
-    "arca-east": {"name":"ARCA Menards Series East","group":"NASCAR","schedule_url":"https://www.arcaracing.com/schedule/","watch_name":"ARCA Broadcast Info","watch_url":"https://www.arcaracing.com/"},
-    "arca-west": {"name":"ARCA Menards Series West","group":"NASCAR","schedule_url":"https://www.arcaracing.com/schedule/","watch_name":"ARCA Broadcast Info","watch_url":"https://www.arcaracing.com/"},
+    "arca-menards": {"name":"ARCA Menards Series","group":"NASCAR","schedule_url":"https://www.arcaracing.com/schedule/","watch_name":"ARCA Broadcast Info","watch_url":"https://www.arcaracing.com/","logo_source_url":"https://www.arcaracing.com/competitor-site/","logo_url":"https://www.arcaracing.com/wp-content/uploads/sites/36/2022/11/10/Menards_ANASCARTouringDivision_Primary_4C_BLK.png"},
+    "arca-east": {"name":"ARCA Menards Series East","group":"NASCAR","schedule_url":"https://www.arcaracing.com/schedule/","watch_name":"ARCA Broadcast Info","watch_url":"https://www.arcaracing.com/","logo_source_url":"https://www.arcaracing.com/competitor-site/","logo_url":"https://www.arcaracing.com/wp-content/uploads/sites/36/2021/02/02/ArcaMenardsSeries_East_ANASCARTouringDivision_Primary_4C_BLK.png"},
+    "arca-west": {"name":"ARCA Menards Series West","group":"NASCAR","schedule_url":"https://www.arcaracing.com/schedule/","watch_name":"ARCA Broadcast Info","watch_url":"https://www.arcaracing.com/","logo_source_url":"https://www.arcaracing.com/competitor-site/","logo_url":"https://www.arcaracing.com/wp-content/uploads/sites/36/2021/02/02/ArcaMenardsSeries_West_ANASCARTouringDivision_Primary_4C_BLK.png"},
 
     "world-of-outlaws-sprint": {"name":"World of Outlaws Sprint Car Series","group":"Dirt","schedule_url":"https://worldofoutlaws.com/sprintcars/schedule/","watch_name":"DIRTVision","watch_url":"https://www.dirtvision.com/"},
     "world-of-outlaws-late-models": {"name":"World of Outlaws Late Model Series","group":"Dirt","schedule_url":"https://worldofoutlaws.com/latemodels/schedule/","watch_name":"DIRTVision","watch_url":"https://www.dirtvision.com/"},
@@ -147,6 +147,75 @@ def _reader_markdown(url: str) -> str:
         return response.text
 
 
+def _clean_schedule_text(value: str) -> str:
+    text = str(value or "")
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", text)
+    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"https?://\S+", " ", text)
+    text = re.sub(r"[#*_\x60]+", " ", text)
+    text = re.sub(
+        r"\b(?:buy now|tickets?|ticket info|event guide|event lodging|tv schedule|watch live|watch now|learn more|read more)\b",
+        " ",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(r"\bImage\s*:?\s*[^·|]+(?:flag|logo)\b", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s+", " ", text).strip(" ·|-")
+    return text
+
+
+def _event_title(lines: list[str], index: int, match: re.Match[str], config: dict[str, Any]) -> str:
+    candidates: list[str] = []
+    month_date = re.compile(
+        r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*[-–]\s*\d{1,2}(?:st|nd|rd|th)?)?(?:,?\s*20\d{2})?\b",
+        re.IGNORECASE,
+    )
+    weekday = re.compile(r"\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b,?", re.IGNORECASE)
+
+    for pos in (index, index - 1, index + 1):
+        if pos < 0 or pos >= len(lines):
+            continue
+        value = _clean_schedule_text(lines[pos])
+        value = month_date.sub(" ", value)
+        value = weekday.sub(" ", value)
+        value = re.sub(r"^\s*\d{1,2}\s*[·|:-]\s*", "", value)
+        value = re.sub(r"\s*[·|]\s*", " · ", value)
+        value = re.sub(r"\s+", " ", value).strip(" ·|-")
+        if not value:
+            continue
+
+        # Keep the useful segment and drop CTA/nav fragments.
+        segments = [seg.strip() for seg in value.split(" · ") if seg.strip()]
+        for seg in segments or [value]:
+            low = seg.casefold()
+            if len(seg) < 3 or len(seg) > 110:
+                continue
+            if any(token in low for token in (
+                "schedule", "tickets", "event guide", "event lodging", "tv schedule",
+                "privacy", "cookie", "sign up", "newsletter", "image:", "utm_",
+            )):
+                continue
+            if re.fullmatch(r"\d+", seg):
+                continue
+            candidates.append(seg)
+
+    if candidates:
+        def score(value: str) -> tuple[int, int]:
+            low = value.casefold()
+            points = 0
+            if any(word in low for word in ("grand prix", "nationals", "classic", "championship", "shootout", "arch", "race", "showdown")):
+                points += 6
+            if str(config.get("name") or "").casefold() not in low:
+                points += 2
+            if value.isupper():
+                points += 1
+            return points, -len(value)
+        candidates.sort(key=score, reverse=True)
+        return candidates[0]
+
+    return "See official schedule"
+
+
 def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
     url = str(config.get("schedule_url") or "").strip()
     if not url:
@@ -155,25 +224,52 @@ def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
         text = _reader_markdown(url)
     except Exception:
         return []
+
     now = datetime.now(timezone.utc)
-    month_map = {m.lower(): i for i, m in enumerate(("January","February","March","April","May","June","July","August","September","October","November","December"), 1)}
+    month_map = {m.lower(): i for i, m in enumerate(
+        ("January","February","March","April","May","June","July","August","September","October","November","December"), 1
+    )}
     short = {"jan":1,"feb":2,"mar":3,"apr":4,"may":5,"jun":6,"jul":7,"aug":8,"sep":9,"sept":9,"oct":10,"nov":11,"dec":12}
     lines = [" ".join(line.split()) for line in text.splitlines() if line.strip()]
-    found = []
-    pattern = re.compile(r"(?P<m>January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?\s+(?P<d>\d{1,2})(?:\s*[-–]\s*\d{1,2})?(?:,?\s*(?P<y>20\d{2}))?", re.I)
-    for i,line in enumerate(lines):
+    found: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    pattern = re.compile(
+        r"(?P<m>January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?\s+(?P<d>\d{1,2})(?:st|nd|rd|th)?(?:\s*[-–]\s*\d{1,2}(?:st|nd|rd|th)?)?(?:,?\s*(?P<y>20\d{2}))?",
+        re.IGNORECASE,
+    )
+
+    for i, line in enumerate(lines):
         for match in pattern.finditer(line):
-            token=match.group("m").lower().rstrip(".")
-            month=month_map.get(token) or short.get(token[:4]) or short.get(token[:3])
-            if not month: continue
-            try: dt=datetime(int(match.group("y") or now.year),month,int(match.group("d")),tzinfo=timezone.utc)
-            except Exception: continue
-            if dt < now-timedelta(days=1) or dt > now+timedelta(days=370): continue
-            context=" · ".join(lines[max(0,i-1):min(len(lines),i+2)])[:220]
-            live_text=bool(re.search(r"\b(live now|watch live|live)\b",context,re.I)) and dt.date()==now.date()
-            found.append((dt,context,live_text))
-    found.sort(key=lambda x:x[0])
-    return [{"name":ctx or config.get("name"),"start":dt.isoformat(),"state":"in" if live else ("pre" if dt.date()>=now.date() else "post"),"completed":dt.date()<now.date(),"broadcast":None,"source_url":url} for dt,ctx,live in found[:20]]
+            token = match.group("m").lower().rstrip(".")
+            month = month_map.get(token) or short.get(token[:4]) or short.get(token[:3])
+            if not month:
+                continue
+            try:
+                # Noon UTC is deliberate: generic official pages usually give a DATE,
+                # not a start time. Midnight UTC shifted US dates to the previous day.
+                dt = datetime(int(match.group("y") or now.year), month, int(match.group("d")), 12, 0, tzinfo=timezone.utc)
+            except Exception:
+                continue
+            if dt < now - timedelta(days=2) or dt > now + timedelta(days=370):
+                continue
+            title = _event_title(lines, i, match, config)
+            key = (dt.date().isoformat(), title.casefold())
+            if key in seen:
+                continue
+            seen.add(key)
+            found.append({
+                "name": title,
+                "start": dt.isoformat(),
+                "date_only": True,
+                # Generic page text is not reliable enough to claim LIVE NOW.
+                "state": "pre" if dt.date() >= now.date() else "post",
+                "completed": dt.date() < now.date(),
+                "broadcast": None,
+                "source_url": url,
+            })
+
+    found.sort(key=lambda item: item.get("start") or "")
+    return found[:20]
 
 
 def _event_summary(events: list[dict[str, Any]], config: dict[str, Any]) -> dict[str, Any]:
@@ -204,6 +300,8 @@ def _event_summary(events: list[dict[str, Any]], config: dict[str, Any]) -> dict
         "schedule_url": config.get("schedule_url"),
         "watch_name": (chosen or {}).get("broadcast") or config.get("watch_name"),
         "watch_url": config.get("watch_url"),
+        "logo_url": config.get("logo_url"),
+        "logo_source_url": config.get("logo_source_url"),
     }
 
 
@@ -217,7 +315,9 @@ def _build_one(key: str, config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         else:
             events = _official_page_schedule(config)
     except Exception:
-        events = []
+        # Structured feeds can block datacenter traffic. Fall back to the
+        # official schedule page for date/upcoming info, but never invent LIVE.
+        events = _official_page_schedule(config)
 
     summary = _event_summary(events, config)
     summary.update({"series_key": key, "series_name": config["name"], "group": config["group"]})
@@ -225,7 +325,7 @@ def _build_one(key: str, config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
 
 
 def _build_one_static(key: str, config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    return key, {"state":"schedule","event":None,"schedule_url":config.get("schedule_url"),"watch_name":config.get("watch_name"),"watch_url":config.get("watch_url"),"series_key":key,"series_name":config["name"],"group":config["group"]}
+    return key, {"state":"schedule","event":None,"schedule_url":config.get("schedule_url"),"watch_name":config.get("watch_name"),"watch_url":config.get("watch_url"),"logo_url":config.get("logo_url"),"logo_source_url":config.get("logo_source_url"),"series_key":key,"series_name":config["name"],"group":config["group"]}
 
 
 def get_racing_event_hub(force: bool = False) -> dict[str, Any]:
