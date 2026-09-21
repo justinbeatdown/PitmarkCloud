@@ -505,6 +505,22 @@ NASCAR_2026_IDENTITY_FALLBACK: dict[str, dict[str, dict[str, str | None]]] = {
     },
 }
 
+CARS_2026_LMSC_FALLBACK: list[dict[str, Any]] = [
+    {"position": 1, "number": "88", "name": "Caden Kvapil", "starts": 10, "wins": 2, "points": 380, "behind": 0},
+    {"position": 2, "number": "77L", "name": "Treyten Lapcevich", "starts": 10, "wins": 0, "points": 359, "behind": -21},
+    {"position": 3, "number": "44", "name": "Conner Jones", "starts": 10, "wins": 1, "points": 342, "behind": -38},
+    {"position": 4, "number": "16", "name": "Chad McCumbee", "starts": 10, "wins": 0, "points": 314, "behind": -66},
+    {"position": 5, "number": "5B", "name": "Chase Burrow", "starts": 10, "wins": 0, "points": 305, "behind": -75},
+    {"position": 6, "number": "20", "name": "Carson Loftin", "starts": 10, "wins": 1, "points": 288, "behind": -92},
+    {"position": 7, "number": "5", "name": "Carson Brown", "starts": 9, "wins": 0, "points": 285, "behind": -95},
+    {"position": 8, "number": "57", "name": "Landon Huffman", "starts": 10, "wins": 0, "points": 277, "behind": -103},
+    {"position": 9, "number": "4", "name": "Parker Eatmon", "starts": 9, "wins": 0, "points": 272, "behind": -108},
+    {"position": 10, "number": "29", "name": "Landen Lewis", "starts": 8, "wins": 1, "points": 271, "behind": -109},
+    {"position": 11, "number": "95", "name": "London McKenzie", "starts": 10, "wins": 0, "points": 265, "behind": -115},
+    {"position": 12, "number": "04", "name": "Ronnie Bassett Jr.", "starts": 9, "wins": 0, "points": 211, "behind": -169},
+]
+
+
 IMSA_2026_STANDINGS_FALLBACK: dict[str, list[tuple[int, str, int]]] = {
     "imsa-michelin-pilot": [
         (1, "Dillon Machavern", 2010), (1, "Luca Mars", 2010),
@@ -1431,6 +1447,20 @@ def _fetch_official_table(config: dict[str, Any], season: int) -> dict[str, Any]
             return _fetch_official_table_url(config, url)
         except Exception as exc:
             errors.append(f"{url}: {exc}")
+    if str(config.get("key") or "") == "cars-tour-lmsc" and season == 2026:
+        entries = [
+            {
+                **row,
+                "team": None,
+                "manufacturer": None,
+            }
+            for row in CARS_2026_LMSC_FALLBACK
+        ]
+        return {
+            "entries": entries,
+            "source_name": "zMAX CARS Tour official LMSC standings · verified fallback snapshot",
+            "provider_url": "https://www.carsracingtour.com/standings-lmsc/",
+        }
     raise RuntimeError(" ; ".join(errors) or "official standings unavailable")
 
 
