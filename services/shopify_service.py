@@ -413,7 +413,7 @@ def publish_article(*, blog_id: str, title: str, body_html: str, author: str = "
     mutation = """
     mutation PitmarkPublishArticle($article: ArticleCreateInput!) {
       articleCreate(article: $article) {
-        article { id title handle isPublished }
+        article { id title handle isPublished image { originalSrc } }
         userErrors { code field message }
       }
     }
