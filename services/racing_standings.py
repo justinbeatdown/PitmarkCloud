@@ -355,20 +355,26 @@ SERIES: tuple[dict[str, Any], ...] = (
         "name": "IMSA Michelin Pilot Challenge",
         "short_name": "IMSA Pilot",
         "group": "Sports Cars",
-        "provider": "imsa",
+        "provider": "imsa_linked_pdf",
         "official_url": "https://www.imsa.com/michelinpilotchallenge/standings/",
         "logo_source_url": "https://www.imsa.com/media-center/",
         "logo_url": "https://www.imsa.com/wp-content/uploads/sites/32/2025/12/08/2025_IMPC_Logo_MediaCenter.png",
+        "pdf_link_text": "click here",
+        "pdf_section_title": "IMSA Michelin Pilot Challenge Grand Sport Drivers",
+        "source_name": "IMSA Michelin Pilot Challenge official points",
     },
     {
         "key": "imsa-vp-racing",
         "name": "IMSA VP Racing SportsCar Challenge",
         "short_name": "IMSA VP Racing",
         "group": "Sports Cars",
-        "provider": "imsa",
+        "provider": "imsa_linked_pdf",
         "official_url": "https://www.imsa.com/vpracingsportscarchallenge/standings/",
         "logo_source_url": "https://www.imsa.com/media-center/",
         "logo_url": "https://www.imsa.com/wp-content/uploads/sites/32/2025/12/08/2025_VPRC_Logo_MediaCenter.png",
+        "pdf_link_text": "click here",
+        "pdf_section_title": "IMSA VP Racing Sportscar Challenge P3 Drivers",
+        "source_name": "IMSA VP Racing SportsCar Challenge official points",
     },
     {
         "key": "wec",
@@ -996,6 +1002,110 @@ def _fetch_linked_pdf(config: dict[str, Any], season: int) -> dict[str, Any]:
         "source_name": str(config.get("source_name") or "Official standings"),
         "provider_url": pdf_url,
     }
+
+
+
+def _imsa_official_pdf_text(pdf_url: str) -> str:
+    """Read an IMSA-owned official points PDF, falling back to rendered text."""
+    try:
+        return _pdf_text(pdf_url)
+    except Exception as direct_error:
+        try:
+            return _reader_markdown(pdf_url)
+        except Exception as reader_error:
+            raise RuntimeError(
+                f"official IMSA points PDF unavailable ({direct_error}); "
+                f"rendered PDF fallback failed ({reader_error})"
+            ) from reader_error
+
+
+def _parse_imsa_points_section(
+    text: str,
+    *,
+    section_title: str,
+) -> list[dict[str, Any]]:
+    target = " ".join(str(section_title or "").casefold().split())
+    if not target:
+        raise RuntimeError("IMSA PDF section title is not configured")
+
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    active = False
+
+    for raw in str(text or "").splitlines():
+        line = " ".join(raw.replace("\u00a0", " ").split()).strip()
+        if not line:
+            continue
+        normalized = line.casefold()
+
+        if target in normalized:
+            active = True
+            continue
+
+        if active and normalized.startswith("imsa "):
+            is_identity_heading = any(
+                token in normalized
+                for token in (" drivers", " teams", " manufacturers", " bronze drivers")
+            )
+            if is_identity_heading and target not in normalized and rows:
+                break
+
+        if not active:
+            continue
+
+        # Official IMSA points sheets begin driver rows with:
+        # <position> <driver name> <total points> ...
+        match = re.match(r"^\s*(\d{1,3})\s+(.+?)\s+(\d{1,6})(?:\s|$)", line)
+        if not match:
+            continue
+
+        position = int(match.group(1))
+        name = " ".join(match.group(2).split()).strip()
+        points = _clean_points(match.group(3))
+        if not name or points is None:
+            continue
+        if name.casefold() in {"round", "driver", "pos", "points"}:
+            continue
+
+        key = _identity_key(name)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        rows.append(
+            {
+                "position": position,
+                "name": name,
+                "number": None,
+                "team": None,
+                "manufacturer": None,
+                "points": points,
+                "behind": None,
+                "wins": None,
+                "starts": None,
+            }
+        )
+
+    if len(rows) < 3:
+        raise RuntimeError(
+            f"official IMSA points section could not be parsed ({len(rows)} rows): {section_title}"
+        )
+    rows.sort(key=lambda item: (item["position"], item["name"]))
+    return rows
+
+
+def _fetch_imsa_linked_pdf(config: dict[str, Any], season: int) -> dict[str, Any]:
+    pdf_url = _linked_pdf_url(config, season)
+    text = _imsa_official_pdf_text(pdf_url)
+    entries = _parse_imsa_points_section(
+        text,
+        section_title=str(config.get("pdf_section_title") or ""),
+    )
+    return {
+        "entries": entries,
+        "source_name": str(config.get("source_name") or "IMSA official points"),
+        "provider_url": pdf_url,
+    }
+
 
 
 def _page_tokens(url: str) -> list[str]:
@@ -1936,7 +2046,7 @@ def _provider_identity_provenance(
     # Linked PDFs are discovered by following a link on the configured official
     # standings page. The PDF may live on a CDN, but the official landing page
     # is the provenance anchor.
-    if provider == "linked_pdf" and provider_url:
+    if provider in {"linked_pdf", "imsa_linked_pdf"} and provider_url:
         return True, official_url
 
     # These adapters consume the configured official series URL directly.
@@ -2129,6 +2239,8 @@ def _fetch_series(config: dict[str, Any], season: int) -> dict[str, Any]:
         return _fetch_f1(config, season)
     if provider == "imsa":
         return _fetch_imsa(config, season)
+    if provider == "imsa_linked_pdf":
+        return _fetch_imsa_linked_pdf(config, season)
     if provider == "wec":
         return _fetch_wec(config, season)
     if provider == "official_table":
