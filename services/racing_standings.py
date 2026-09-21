@@ -313,8 +313,7 @@ SERIES: tuple[dict[str, Any], ...] = (
         "metadata_url": "https://www.formula1.com/en/results/2026/races/1287/spain/race-result",
         "name_headers": ("driver",),
         "team_headers": ("team",),
-        "logo_disabled": True,
-
+        "logo_source_url": "https://www.formula1.com/",
     },
     {
         "key": "indycar",
@@ -2351,6 +2350,37 @@ def _discover_official_logo(
             response = client.get(source_url)
             response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
+
+        # Official sites increasingly expose their primary brand mark through
+        # OpenGraph/Twitter metadata or <link rel=...> instead of a normal img.
+        for meta in soup.find_all("meta"):
+            prop = str(meta.get("property") or meta.get("name") or "").casefold()
+            if prop not in {"og:image", "twitter:image", "twitter:image:src"}:
+                continue
+            raw_url = str(meta.get("content") or "").strip()
+            if not raw_url:
+                continue
+            absolute = urljoin(source_url, raw_url)
+            if not _http_image_url(absolute):
+                continue
+            score = _logo_score(prop + " logo", absolute, terms)
+            if score >= 7:
+                candidates.append((score, absolute))
+
+        for link in soup.find_all("link"):
+            rel = " ".join(str(x) for x in (link.get("rel") or [])).casefold()
+            if not any(token in rel for token in ("icon", "logo")):
+                continue
+            raw_url = str(link.get("href") or "").strip()
+            if not raw_url:
+                continue
+            absolute = urljoin(source_url, raw_url)
+            if not _http_image_url(absolute):
+                continue
+            score = _logo_score(rel + " logo", absolute, terms)
+            if score >= 7:
+                candidates.append((score, absolute))
+
         for image in soup.find_all(["img", "source"]):
             raw_url = (
                 image.get("src")
