@@ -82,14 +82,8 @@ def control_reset(request: Request):
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#090a0c">
   <title>Resetting Pitmark Control Center</title>
-  <style>
-    html,body{margin:0;min-height:100%;background:#08090b;color:#f5f5f3;font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif}
-    body{display:grid;place-items:center;padding:24px}
-    main{width:min(520px,100%);padding:24px;border:1px solid rgba(255,255,255,.1);border-radius:18px;background:#111419;text-align:center}
-    .mark{color:#ff5500;font-size:12px;font-weight:900;letter-spacing:.16em}
-    h1{margin:10px 0 8px;font-size:24px}
-    p{margin:0;color:#9aa2ab;line-height:1.5}
-  </style>
+  <link rel="stylesheet" href="/control-reset.css?v=2">
+  <script defer src="/control-reset.js?v=2"></script>
 </head>
 <body>
 <main>
@@ -97,36 +91,6 @@ def control_reset(request: Request):
   <h1>Refreshing Control Center…</h1>
   <p>Clearing retired app caches and reconnecting to the current HQ.</p>
 </main>
-<script>
-(async()=>{
-  try{
-    if('serviceWorker' in navigator){
-      const regs=await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map(reg=>{
-        try{
-          const scope=new URL(reg.scope);
-          if(scope.pathname.startsWith('/control')) return reg.unregister();
-        }catch(_){}
-        return Promise.resolve(false);
-      }));
-    }
-    if('caches' in window){
-      const keys=await caches.keys();
-      await Promise.all(keys.filter(key=>key.startsWith('pitmark-mobile-')||key.startsWith('pitmark-control-')).map(key=>caches.delete(key)));
-    }
-    try{
-      for(let i=localStorage.length-1;i>=0;i--){
-        const key=localStorage.key(i)||'';
-        if(key.toLowerCase().includes('control')||key.toLowerCase().includes('pitmark')) localStorage.removeItem(key);
-      }
-    }catch(_){}
-    try{sessionStorage.clear();}catch(_){}
-  }finally{
-    const url='/control?reset='+Date.now();
-    location.replace(url);
-  }
-})();
-</script>
 </body>
 </html>"""
     return HTMLResponse(
@@ -136,6 +100,51 @@ def control_reset(request: Request):
             'Pragma': 'no-cache',
             'Clear-Site-Data': '"cache"',
         },
+    )
+
+
+@router.get('/control-reset.js', include_in_schema=False)
+def control_reset_js():
+    return Response(
+        """(async()=>{try{
+if('serviceWorker' in navigator){
+  const regs=await navigator.serviceWorker.getRegistrations();
+  await Promise.all(regs.map(reg=>{try{
+    const scope=new URL(reg.scope);
+    if(scope.pathname.startsWith('/control')) return reg.unregister();
+  }catch(_){}
+  return Promise.resolve(false);}));
+}
+if('caches' in window){
+  const keys=await caches.keys();
+  await Promise.all(keys.filter(key=>key.startsWith('pitmark-mobile-')||key.startsWith('pitmark-control-')).map(key=>caches.delete(key)));
+}
+try{
+  for(let i=localStorage.length-1;i>=0;i--){
+    const key=localStorage.key(i)||'';
+    if(key.toLowerCase().includes('control')||key.toLowerCase().includes('pitmark')) localStorage.removeItem(key);
+  }
+}catch(_){}
+try{sessionStorage.clear();}catch(_){}
+}finally{
+  location.replace('/control?reset='+Date.now());
+}})();""",
+        media_type='application/javascript',
+        headers={'Cache-Control': 'no-store, max-age=0'},
+    )
+
+
+@router.get('/control-reset.css', include_in_schema=False)
+def control_reset_css():
+    return Response(
+        """html,body{margin:0;min-height:100%;background:#08090b;color:#f5f5f3;font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif}
+body{display:grid;place-items:center;padding:24px}
+main{width:min(520px,100%);padding:24px;border:1px solid rgba(255,255,255,.1);border-radius:18px;background:#111419;text-align:center}
+.mark{color:#ff5500;font-size:12px;font-weight:900;letter-spacing:.16em}
+h1{margin:10px 0 8px;font-size:24px}
+p{margin:0;color:#9aa2ab;line-height:1.5}""",
+        media_type='text/css',
+        headers={'Cache-Control': 'no-store, max-age=0'},
     )
 
 
