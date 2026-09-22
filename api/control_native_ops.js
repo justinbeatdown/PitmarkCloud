@@ -30,10 +30,13 @@ function row(title,detail,right=''){return '<div class="row"><div><strong>'+esc(
 function renderAnalytics(data){
   const e=data.executive||{}, commerce=data.commerce||{}, growth=data.growth||{}, sources=data.sources||{};
   const googleReady=['ga4','search_console'].some(key=>sources[key]?.live);
+  const googleAuthorized=['ga4','search_console'].some(key=>['live','error','timeout'].includes(String(sources[key]?.status||'')));
   const top=commerce.top_products||[], recs=data.recommendations||[];
   const rel=growth.relationships||{}, prt=growth.prt||{};
   $('#analytics-view').innerHTML=
-    (googleReady?'':'<section class="card" style="margin-bottom:12px"><span class="section-label">Google Data</span><h2>Connect GA4 + Search Console</h2><p style="color:var(--muted)">One read-only authorization unlocks website traffic and Google search performance. YouTube is connected separately so it cannot block this setup.</p><button id="connect-google" type="button" class="native-action">Connect Google Analytics</button></section>')+
+    (googleReady?'':googleAuthorized
+      ? '<section class="card" style="margin-bottom:12px"><span class="section-label">Google Data</span><h2>Google connected · API access needs attention</h2><p style="color:var(--muted)">Authorization succeeded, but Google is denying the Analytics/Search APIs. Check Connector Health below for the exact Google message.</p></section>'
+      : '<section class="card" style="margin-bottom:12px"><span class="section-label">Google Data</span><h2>Connect GA4 + Search Console</h2><p style="color:var(--muted)">One read-only authorization unlocks website traffic and Google search performance. YouTube is connected separately so it cannot block this setup.</p><button id="connect-google" type="button" class="native-action">Connect Google Analytics</button></section>')+
     '<div class="grid metrics">'+
       metric('Revenue',money(e.revenue),num(e.orders)+' orders')+
       metric('AOV',money(e.average_order_value),'Shopify')+

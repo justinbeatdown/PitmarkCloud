@@ -414,6 +414,14 @@ def _google_snapshot(days: int = 30) -> dict[str, Any]:
                     }
                     for row in ((pages.json() or {}).get("rows") or [])
                 ]
+        except httpx.HTTPStatusError as exc:
+            detail = ""
+            try:
+                payload = exc.response.json()
+                detail = str(((payload.get("error") or {}).get("message")) or "")[:220]
+            except Exception:
+                detail = exc.response.text[:220]
+            errors.append("GA4: %s%s" % (exc.response.status_code, (": " + detail) if detail else ""))
         except Exception as exc:
             errors.append("GA4: %s" % str(exc)[:180])
 
@@ -450,6 +458,14 @@ def _google_snapshot(days: int = 30) -> dict[str, Any]:
                     }
                     for row in ((query.json() or {}).get("rows") or [])
                 ]
+        except httpx.HTTPStatusError as exc:
+            detail = ""
+            try:
+                payload = exc.response.json()
+                detail = str(((payload.get("error") or {}).get("message")) or "")[:220]
+            except Exception:
+                detail = exc.response.text[:220]
+            errors.append("Search Console: %s%s" % (exc.response.status_code, (": " + detail) if detail else ""))
         except Exception as exc:
             errors.append("Search Console: %s" % str(exc)[:180])
 
