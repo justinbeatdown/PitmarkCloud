@@ -23,6 +23,7 @@ from services.prt_feedback import list_feedback, summary as feedback_summary
 from services.prt_licensing_store import list_early_access_invites
 from services.control_center import BlogDraft, OutreachContact, SocialPost
 from utils.config import settings
+from services.business_intelligence import overview as business_intelligence_overview
 
 router = APIRouter()
 
@@ -287,6 +288,7 @@ def hq_overview(request: Request):
             "relationships": _guard("relationships", _relationships_hq),
             "systems": _guard("systems", _systems_hq),
             "notifications": _guard("notifications", _notifications_hq),
+            "intelligence": _guard("business_intelligence", business_intelligence_overview),
         },
     }
 
@@ -428,3 +430,9 @@ def control_search(request: Request, q: str = Query(min_length=2, max_length=120
         groups[key] = values[:12]
     total = sum(len(values) for values in groups.values())
     return {"query": q, "total": total, "groups": groups}
+
+
+@router.get("/api/control/intelligence/overview")
+def intelligence_overview(request: Request, days: int = Query(default=30, ge=7, le=90)):
+    _auth(request)
+    return business_intelligence_overview(days)
