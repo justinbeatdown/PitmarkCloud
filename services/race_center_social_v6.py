@@ -233,6 +233,8 @@ def send_friend_request(user_id: int, target_id: int) -> dict:
         row = db.scalar(select(RaceCenterFriendship).where(RaceCenterFriendship.user_low == low, RaceCenterFriendship.user_high == high))
         if row and row.status == "accepted":
             return {"ok": True, "state": "friends"}
+        if row and row.status == "pending" and row.requested_by == user_id:
+            return {"ok": True, "state": "outgoing"}
         if row and row.status == "pending" and row.requested_by == target_id:
             row.status = "accepted"
             row.updated_at = utcnow()
@@ -379,7 +381,12 @@ def list_notifications(user_id: int, limit: int = 40) -> list[dict]:
             "kind": row.kind,
             "text": row.text,
             "read": row.read,
-            "actor": _public_user(db, row.actor_user_id) if row.actor_user_id else None,
+            "actor": ({
+                "id": row.actor_user_id,
+                "display_name": _public_user(db, row.actor_user_id).get("display_name", ""),
+                "handle": _public_user(db, row.actor_user_id).get("handle", ""),
+                "avatar_url": _public_user(db, row.actor_user_id).get("avatar_url", ""),
+            } if row.actor_user_id else None),
             "target_kind": row.target_kind,
             "target_id": row.target_id,
             "created_at": row.created_at.isoformat() if row.created_at else None,
@@ -581,7 +588,13 @@ def search_people(user_id: int, query: str, limit: int = 20) -> list[dict]:
             if extra and extra.profile_visibility=="private":
                 continue
             person=_public_user(db, profile.user_id)
-            person["friend_state"]=friendship_state(user_id, profile.user_id)
+            friend_state=friendship_state(user_id, profile.user_id)
+            person["friend_state"]=friend_state
+            if extra and extra.profile_visibility=="friends" and friend_state!="friends":
+                person["bio"]=""
+                person["favorite_track"]=""
+                person["hometown"]=""
+                person["website_url"]=""
             person["followers"]=db.scalar(select(func.count(RaceCenterConnection.id)).where(
                 RaceCenterConnection.followed_user_id==profile.user_id
             )) or 0
@@ -608,18 +621,28 @@ def can_interact_with_post(user_id: int, post_id: int) -> bool:
         return False
 
 
-def enrich_people(items: list[dict]) -> list[dict]:
+def enrich_people(items: list[dict], viewer_user_id: int | None = None) -> list[dict]:
     if not items:
         return []
     with SessionLocal() as db:
         out=[]
+        friend_set = friend_ids(viewer_user_id) if viewer_user_id else set()
         for item in items:
             person=dict(item)
             user_id=int(person.get("id") or 0)
             if user_id:
                 public=_public_user(db,user_id)
-                for key in ("avatar_url","cover_url","accent_color","hometown","website_url","profile_visibility"):
-                    person[key]=public.get(key)
+                visibility=public.get("profile_visibility") or "public"
+                person["avatar_url"]=public.get("avatar_url") or ""
+                person["cover_url"]=public.get("cover_url") or ""
+                person["accent_color"]=public.get("accent_color") or "#ff5500"
+                person["profile_visibility"]=visibility
+                if visibility=="public" or user_id==viewer_user_id or user_id in friend_set:
+                    person["hometown"]=public.get("hometown") or ""
+                    person["website_url"]=public.get("website_url") or ""
+                else:
+                    person["hometown"]=""
+                    person["website_url"]=""
             out.append(person)
         return out
 
