@@ -22,6 +22,12 @@ _PAGE = """<!doctype html>
 <body><main class="wrap">
   <div class="top"><a class="brand" href="https://pitmarkracing.com" aria-label="Pitmark Racing Co. home"><img class="brand-logo" src="/prt-logo.png" alt="Pitmark Racing Co."><span class="desk-label">RACING DESK</span></a><nav class="nav"><a href="/race-center">Race Center</a><a href="https://pitmarkracing.com">PitmarkRacing.com</a></nav></div>
   <section class="hero"><div class="eyebrow">TRACKS · TEAMS · DRIVERS · SERIES · PROMOTERS</div><h1>Send us<br>the story.</h1><p>Pitmark wants real racing information straight from the people living it. Send schedules, results, press releases, corrections, story leads, photos or video links. This is a coverage lane—not a paid-placement form.</p></section>
+  <section class="network-ways" aria-label="Ways to connect with Pitmark">
+    <a class="network-card primary" href="#racing-desk-form"><span class="network-icon">▤</span><div><small>RACING NEWS</small><strong>Send the Racing Desk a lead</strong><p>Results, schedules, press releases, corrections, photos, video, or something Pitmark should cover.</p></div><b>Use Racing Desk →</b></a>
+    <a class="network-card" href="https://docs.google.com/forms/d/e/1FAIpQLScWmRdjn3BcFLY1vhpPpW0n0h2biXgM6WMwKe0zICrf-AsKLA/viewform" target="_blank" rel="noopener"><span class="network-icon">✦</span><div><small>DRIVERS + TEAMS</small><strong>Tell Pitmark your story</strong><p>Rookie year, new class, family team, comeback, race updates, Q&A interest, or a program we should follow.</p></div><b>Submit your story ↗</b></a>
+    <a class="network-card" href="https://docs.google.com/forms/d/e/1FAIpQLSfJEJAAhYdfPfqD5qGSktbFmK8acwytd_Clx2tMDNMcDrVkhg/viewform" target="_blank" rel="noopener"><span class="network-icon">◎</span><div><small>COMMUNITY RADAR</small><strong>Nominate a grassroots racer</strong><p>Know a rookie, small team, family-built program, comeback story, or racer people should be watching? Put them on our radar.</p></div><b>Nominate someone ↗</b></a>
+  </section>
+  <div id="racing-desk-form" class="anchor-target" aria-hidden="true"></div>
   <section class="panel">
     <div class="panel-head"><div><div class="eyebrow">SUBMIT TO PITMARK</div><h2>Racing Desk Intake</h2></div><p>Give us the facts and the best official source you have. We would rather leave something blank than invent it.</p></div>
     <form method="post" action="/submit-racing-news">
