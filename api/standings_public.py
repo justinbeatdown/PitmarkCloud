@@ -85,6 +85,7 @@ class RacePostCreate(BaseModel):
     body: str = Field(min_length=1, max_length=600)
     series_key: str = Field(default="", max_length=120)
     driver_key: str = Field(default="", max_length=220)
+    visibility: str = Field(default="public", max_length=20)
 
 
 class RaceReactionChange(BaseModel):
@@ -305,6 +306,7 @@ def race_center_feed(request: Request, limit: int = 40):
         limit=limit,
         series_keys=series_keys or None,
         excluded_user_ids=race_center_social_v6.blocked_ids(account.id) if account else None,
+        friend_user_ids=race_center_social_v6.friend_ids(account.id) if account else None,
     )
     return {"posts": race_center_social_v6.enrich_feed_posts(posts)}
 
@@ -319,6 +321,7 @@ def race_center_post_create(request: Request, body: RacePostCreate):
             body=body.body,
             series_key=body.series_key,
             driver_key=body.driver_key,
+            visibility=body.visibility,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
