@@ -541,6 +541,22 @@ def moderate_report(report_id: int, *, action: str, note: str = "") -> dict:
     return {"ok": True, "status": status}
 
 
+def moderated_users(limit: int = 100) -> list[dict]:
+    with SessionLocal() as db:
+        rows = list(db.scalars(
+            select(RaceCenterUserModeration)
+            .where(RaceCenterUserModeration.status.in_(["suspended", "banned"]))
+            .order_by(RaceCenterUserModeration.updated_at.desc())
+            .limit(min(max(limit, 1), 200))
+        ).all())
+        return [{
+            **_public_user(db, row.user_id),
+            "moderation_status": row.status,
+            "moderation_reason": row.reason,
+            "moderation_updated_at": row.updated_at.isoformat() if row.updated_at else None,
+        } for row in rows]
+
+
 def search_people(user_id: int, query: str, limit: int = 20) -> list[dict]:
     term=(query or "").strip().lower()
     if len(term)<2:
