@@ -347,7 +347,8 @@ class ControlCenter2026Contract(unittest.TestCase):
             self.assertIn(token, service)
         self.assertIn('@router.get("/standings"', public_api)
         self.assertIn('@router.get("/api/public/standings"', public_api)
-        self.assertIn("Every championship.", public_html)
+        self.assertIn("The racing world,", public_html)
+        self.assertIn('data-view="{{RACE_CENTER_VIEW}}"', public_html)
         self.assertIn("seriesVisible", public_js)
         self.assertIn("standings_public.router", main)
 
@@ -367,15 +368,17 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('"column_title": "Driver Standings"', service)
         self.assertIn('if provider == "column_sections"', service)
 
-    def test_public_standings_embed_snapshot_and_renderer(self):
+    def test_public_standings_v3_loads_saved_snapshot_api_without_inline_bootstrap(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
         public_js = self.read("api/standings_public.js")
         self.assertIn("get_standings_snapshot_hub()", public_api)
-        self.assertIn("{{PITMARK_STANDINGS_BOOTSTRAP}}", public_html)
-        self.assertIn("{{PITMARK_STANDINGS_INLINE_JS}}", public_html)
-        self.assertIn("pitmark-standings-bootstrap", public_js)
-        self.assertIn("JSON.parse(bootstrap.textContent)", public_js)
+        self.assertIn('html.replace("{{RACE_CENTER_VIEW}}", view)', public_api)
+        self.assertIn("fetch('/api/public/standings", public_js)
+        self.assertIn("AbortController", public_js)
+        self.assertIn("bootRaceCenter", public_js)
+        self.assertNotIn("{{PITMARK_STANDINGS_BOOTSTRAP}}", public_html)
+        self.assertNotIn("{{PITMARK_STANDINGS_INLINE_JS}}", public_html)
 
     def test_control_center_readability_scale_covers_tiny_ui_text(self):
         css = self.read("api/control_center_overhaul.css")
