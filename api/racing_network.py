@@ -51,6 +51,69 @@ _PAGE = """<!doctype html>
 </main></body></html>"""
 
 
+_MEDIA_KIT_PAGE = """<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#090b0e">
+  <title>Pitmark Racing Co. | Media & Partner Kit</title>
+  <link rel="stylesheet" href="/racing-network.css?v=20260921mediakit1">
+</head>
+<body><main class="wrap">
+  <div class="top"><a class="brand" href="https://pitmarkracing.com" aria-label="Pitmark Racing Co. home"><img class="brand-logo" src="/prt-logo.png" alt="Pitmark Racing Co."><span class="desk-label">MEDIA + PARTNER KIT</span></a><nav class="nav"><a href="/racing-desk">Racing Desk</a><a href="/race-center">Race Center</a><a href="https://pitmarkracing.com">Store</a></nav></div>
+
+  <section class="hero media-hero">
+    <div class="eyebrow">GRASSROOTS RACING · MEDIA · TECHNOLOGY · COMMUNITY</div>
+    <h1>Built around<br>the people racing.</h1>
+    <p>Pitmark Racing Co. is an independent motorsports brand rooted in western Pennsylvania. We build racing media, community relationships, apparel, and Pitmark Racing Tools (PRT) around a simple idea: the people, teams, tracks and communities doing the work deserve useful coverage and useful tools.</p>
+    <div class="media-actions"><a class="btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdblkMOvPFtz0y2_3WK9X2C3330zXqzqTaqFC5cHx81e1E0MA/viewform" target="_blank" rel="noopener">Work With Pitmark</a><a class="btn secondary" href="/racing-desk">Send Racing News</a></div>
+  </section>
+
+  <section class="media-grid">
+    <article class="media-card"><div class="eyebrow">RACING MEDIA</div><h2>Racing Desk</h2><p>Race results, schedules, track news, driver and team stories, corrections, interviews and racing-culture coverage. Pitmark prefers direct, verifiable information from the people actually involved.</p></article>
+    <article class="media-card"><div class="eyebrow">RACING TECHNOLOGY</div><h2>PRT</h2><p>Pitmark Racing Tools is our independent iRacing companion platform. Early Access development spans race-night overlays, telemetry, driver analysis, league tools and broadcast workflows.</p></article>
+    <article class="media-card"><div class="eyebrow">GRASSROOTS RELATIONSHIPS</div><h2>Drivers + Teams</h2><p>We actively look for rookie seasons, new-class moves, family teams, comeback stories and smaller programs worth following before everybody already knows their name.</p></article>
+    <article class="media-card"><div class="eyebrow">RACING CULTURE</div><h2>Brand + Store</h2><p>Pitmark apparel and products are built around racing identity, local-track culture and the people who keep showing up. “Leave your mark.” is the core idea behind the brand.</p></article>
+  </section>
+
+  <section class="panel media-panel">
+    <div class="panel-head"><div><div class="eyebrow">WHAT PITMARK COVERS</div><h2>From local pits to sim grids.</h2></div><p>Pitmark starts with grassroots racing, but the audience is not boxed into one class or one discipline.</p></div>
+    <div class="media-pill-grid"><span>Dirt Late Models</span><span>Sprint Cars</span><span>Modifieds</span><span>Stock Cars</span><span>Short Track</span><span>Sports Cars</span><span>iRacing</span><span>Leagues</span><span>Broadcasting</span><span>Tracks + Series</span></div>
+  </section>
+
+  <section class="panel media-panel">
+    <div class="panel-head"><div><div class="eyebrow">HOW WE WORK</div><h2>Useful beats flashy.</h2></div></div>
+    <div class="media-principles">
+      <div><strong>People first.</strong><p>We care about the story behind the car, team, track or project — not just the logo sheet.</p></div>
+      <div><strong>Real information.</strong><p>We verify facts when practical and would rather leave something out than invent a detail.</p></div>
+      <div><strong>Real media.</strong><p>For race coverage, verified real photos and official assets come first. We do not fabricate fake driver or race-action imagery.</p></div>
+      <div><strong>No forced partnership.</strong><p>Most relationships begin with conversation, coverage, feedback or simply staying connected.</p></div>
+    </div>
+  </section>
+
+  <section class="panel media-panel">
+    <div class="panel-head"><div><div class="eyebrow">FASTEST PATH</div><h2>Tell us what lane you’re in.</h2></div><p>Structured intake means less back-and-forth and gets the right opportunity into Pitmark’s pipeline quickly.</p></div>
+    <div class="media-links">
+      <a href="https://docs.google.com/forms/d/e/1FAIpQLScWmRdjn3BcFLY1vhpPpW0n0h2biXgM6WMwKe0zICrf-AsKLA/viewform" target="_blank" rel="noopener"><strong>Driver / Team Story</strong><span>Introduce your program or season story ↗</span></a>
+      <a href="https://docs.google.com/forms/d/e/1FAIpQLSfJEJAAhYdfPfqD5qGSktbFmK8acwytd_Clx2tMDNMcDrVkhg/viewform" target="_blank" rel="noopener"><strong>Nominate a Racer</strong><span>Put somebody on Pitmark’s radar ↗</span></a>
+      <a href="https://docs.google.com/forms/d/e/1FAIpQLSdblkMOvPFtz0y2_3WK9X2C3330zXqzqTaqFC5cHx81e1E0MA/viewform" target="_blank" rel="noopener"><strong>Partnership / Collaboration</strong><span>Tracks, series, leagues, broadcasters, creators and brands ↗</span></a>
+      <a href="/racing-desk"><strong>Racing Desk</strong><span>Send results, news, schedules, media or corrections →</span></a>
+    </div>
+  </section>
+
+  <section class="panel media-panel media-contact">
+    <div><div class="eyebrow">CONTACT</div><h2>Justin Olson · Pitmark Racing Co.</h2><p>Western Pennsylvania · <a href="mailto:justin@pitmarkracing.com">justin@pitmarkracing.com</a> · <a href="https://pitmarkracing.com">pitmarkracing.com</a></p></div>
+    <div class="media-tagline">LEAVE YOUR MARK.</div>
+  </section>
+</main></body></html>"""
+
+
+@router.get("/media-kit", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/press", response_class=HTMLResponse, include_in_schema=False)
+def media_kit():
+    return HTMLResponse(_MEDIA_KIT_PAGE, headers={"Cache-Control": "no-store"})
+
+
 def _success() -> HTMLResponse:
     return HTMLResponse(
         _PAGE.replace(
