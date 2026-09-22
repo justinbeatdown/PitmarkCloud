@@ -470,3 +470,49 @@ def can_interact_with_post(user_id: int, post_id: int) -> bool:
         if post.user_id == user_id:
             return True
         return post.user_id not in blocked_ids(user_id)
+
+
+def enrich_people(items: list[dict]) -> list[dict]:
+    if not items:
+        return []
+    with SessionLocal() as db:
+        out=[]
+        for item in items:
+            person=dict(item)
+            user_id=int(person.get("id") or 0)
+            if user_id:
+                public=_public_user(db,user_id)
+                for key in ("avatar_url","cover_url","accent_color","hometown","website_url","profile_visibility"):
+                    person[key]=public.get(key)
+            out.append(person)
+        return out
+
+
+def enrich_feed_posts(posts: list[dict]) -> list[dict]:
+    if not posts:
+        return []
+    with SessionLocal() as db:
+        out=[]
+        for raw in posts:
+            post=dict(raw)
+            author=dict(post.get("author") or {})
+            author_id=int(author.get("id") or 0)
+            if author_id:
+                public=_public_user(db,author_id)
+                author["avatar_url"]=public.get("avatar_url") or ""
+                author["accent_color"]=public.get("accent_color") or "#ff5500"
+            post["author"]=author
+            comments=[]
+            for raw_comment in post.get("comments") or []:
+                comment=dict(raw_comment)
+                c_author=dict(comment.get("author") or {})
+                c_id=int(c_author.get("id") or 0)
+                if c_id:
+                    public=_public_user(db,c_id)
+                    c_author["avatar_url"]=public.get("avatar_url") or ""
+                    c_author["accent_color"]=public.get("accent_color") or "#ff5500"
+                comment["author"]=c_author
+                comments.append(comment)
+            post["comments"]=comments
+            out.append(post)
+        return out
