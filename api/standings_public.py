@@ -258,14 +258,13 @@ def race_center_feed(request: Request, limit: int = 40):
             for item in race_center_accounts.list_follows(account.id)
             if item.get("kind") == "series" and item.get("key")
         ]
-    return {
-        "posts": race_center_accounts.list_posts(
-            viewer_user_id=account.id if account else None,
-            limit=limit,
-            series_keys=series_keys or None,
-            excluded_user_ids=race_center_social_v6.blocked_ids(account.id) if account else None,
-        )
-    }
+    posts = race_center_accounts.list_posts(
+        viewer_user_id=account.id if account else None,
+        limit=limit,
+        series_keys=series_keys or None,
+        excluded_user_ids=race_center_social_v6.blocked_ids(account.id) if account else None,
+    )
+    return {"posts": race_center_social_v6.enrich_feed_posts(posts)}
 
 
 @router.post("/api/public/race-center/feed", include_in_schema=False)
@@ -476,7 +475,7 @@ def race_center_moderation_resolve(request: Request, report_id: int, body: RaceM
 @router.get("/api/public/race-center/people/search", include_in_schema=False)
 def race_center_people_search(request: Request, q: str = "", limit: int = 20):
     account = _race_account_or_401(request)
-    return {"people": race_center_social_v6.search_people(account.id, q, limit=limit)}
+    return {"people": race_center_social_v6.enrich_people(race_center_social_v6.search_people(account.id, q, limit=limit))}
 
 
 @router.get("/api/public/race-center/people/discover", include_in_schema=False)
@@ -487,7 +486,7 @@ def race_center_people_discover(request: Request, limit: int = 12):
         person for person in race_center_accounts.discover_people(account.id, limit=max(limit * 2, 12))
         if int(person.get("id") or 0) not in blocked
     ][:max(1, min(limit, 30))]
-    return {"people": people}
+    return {"people": race_center_social_v6.enrich_people(people)}
 
 
 @router.get("/api/public/race-center/people/{handle}", include_in_schema=False)
