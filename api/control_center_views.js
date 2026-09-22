@@ -1051,6 +1051,41 @@ async function renderResultsDesk(root,ctx){
   };
 }
 
+async function openGoogleIntelligenceConnect(ctx){
+  let popup=null;
+  try{
+    popup=window.open('about:blank','pitmark-google-intelligence');
+    const start=await api.intelligenceGoogleOAuthStart();
+    if(popup) popup.location.href=start.authorization_url;
+    else window.open(start.authorization_url,'_blank','noopener');
+    const inputId='intelligence-google-oauth-callback';
+    ctx.openSheet({
+      kicker:'Pitmark Intelligence',
+      title:'Connect Google Analytics',
+      body:`<div class="pm-form">
+        <div class="pm-callout"><div><strong>One-time Google authorization</strong><p>Approve read-only access for GA4, Search Console, and YouTube. This uses a separate encrypted token and does not replace the working Gmail/Sheets connection.</p></div></div>
+        <div class="pm-detail-block"><h4>Finish the connection</h4><p>Google will try to open ${esc(start.redirect_uri)}. If the localhost page cannot load, copy the full URL from the browser address bar and paste it below.</p></div>
+        <div class="pm-field"><label>Google localhost callback URL</label><textarea class="pm-textarea" id="${inputId}" style="min-height:110px" placeholder="http://127.0.0.1:8766/?state=...&code=..."></textarea></div>
+      </div>`,
+      actions:[
+        {label:'Cancel',tone:'ghost',run:ctx.closeSheet},
+        {label:'Complete connection',tone:'primary',run:async()=>{
+          const callbackUrl=document.getElementById(inputId)?.value?.trim()||'';
+          if(!callbackUrl){ctx.toast('Paste the full Google callback URL first.','bad');return;}
+          const result=await api.intelligenceGoogleOAuthComplete(callbackUrl);
+          clearCache('/api/control/intelligence');
+          ctx.toast(result?.connected?'Google Intelligence connected.':'Google connection needs attention.',result?.connected?'good':'bad');
+          ctx.closeSheet();
+          ctx.refresh(true);
+        }}
+      ]
+    });
+  }catch(e){
+    try{popup?.close();}catch{}
+    ctx.toast(e.message||'Google Intelligence connection could not start.','bad');
+  }
+}
+
 async function renderInsights(root,ctx){
   let payload;
   try{
@@ -1067,8 +1102,16 @@ async function renderInsights(root,ctx){
   const sources=payload?.sources||{};
   const recommendations=Array.isArray(payload?.recommendations)?payload.recommendations:[];
   const liveSources=Object.values(sources).filter(x=>x?.live).length;
+  const googleNeedsAuth=['ga4','search_console','youtube'].every(key=>['not_configured','planned'].includes(String(sources[key]?.status||'')));
+  const metaSocial=payload?.social?.meta||{};
+  const googleSocial=payload?.social?.google||{};
+  const fb=metaSocial.facebook||{};
+  const ig=metaSocial.instagram||{};
+  const ga4=googleSocial.ga4||{};
+  const search=googleSocial.search_console||{};
+  const youtube=googleSocial.youtube||{};
   const sourceRows=Object.entries(sources).map(([key,value])=>{
-    const label={shopify:'Shopify',pitmark_internal:'Pitmark Cloud',meta_ads:'Meta Ads',ga4:'GA4',search_console:'Search Console',youtube:'YouTube',tiktok:'TikTok'}[key]||key;
+    const label={shopify:'Shopify',pitmark_internal:'Pitmark Cloud',meta:'Meta / Instagram',meta_ads:'Meta Ads',ga4:'GA4',search_console:'Search Console',youtube:'YouTube',tiktok:'TikTok'}[key]||key;
     const tone=value?.live?'good':value?.status==='error'?'bad':'warn';
     return `<div class="pm-detail-pair"><span>${esc(label)}</span><strong><span class="pm-badge ${tone}">${esc(value?.live?'Live':value?.status||'planned')}</span></strong></div>`;
   }).join('');
@@ -1079,7 +1122,7 @@ async function renderInsights(root,ctx){
     ? `${commerce.orders} Shopify order${commerce.orders===1?'':'s'} · $${Number(commerce.revenue||0).toFixed(2)} revenue`
     : 'Commerce is still in first-sale mode.';
   root.innerHTML=`
-    ${viewHeader('Operating Intelligence','Pitmark Intelligence','Our native business-data layer. Real sources only, built to replace paid aggregation tools and tell us what deserves attention.','<span class="pm-badge good">Native · no Supermetrics</span>')}
+    ${viewHeader('Operating Intelligence','Pitmark Intelligence','Our native business-data layer. Real sources only, built to replace paid aggregation tools and tell us what deserves attention.',googleNeedsAuth?'<button class="pm-button pm-button-primary" type="button" data-intelligence-google-connect>Connect Google Analytics</button>':'<span class="pm-badge good">Native · no Supermetrics</span>')}
     <section class="pm-brief"><div><span class="eyebrow">BUSINESS PULSE · LAST ${n(payload?.window_days||30)} DAYS</span><h2>${esc(commerceHeadline)}</h2><p>Generated ${esc(age(payload?.generated_at))}. Pitmark combines storefront, PRT, content, and relationship activity without paying another analytics middleman.</p></div><div class="pm-brief-meta"><span class="pm-badge ${commerce.status==='live'?'good':'warn'}">Shopify ${esc(commerce.status||'unknown')}</span><span class="pm-badge">${n(liveSources)} live sources</span></div></section>
     <div class="pm-metric-strip">
       <div class="pm-metric"><span>Revenue</span><strong>$${Number(commerce.revenue||0).toFixed(2)}</strong><small>Shopify · ${n(commerce.orders)} orders</small></div>
@@ -1107,6 +1150,24 @@ async function renderInsights(root,ctx){
       `,'')}
     </div>
     <div class="pm-grid pm-grid-2 pm-hq-lower">
+      ${panel('Social Performance','Meta Direct',details([
+        ['Facebook followers',n(fb.page?.followers_count??fb.page?.fan_count)],
+        ['Facebook posts',n(fb.posts_count)],
+        ['Facebook engagement actions',n(fb.engagement_actions)],
+        ['Instagram followers',n(ig.profile?.followers_count)],
+        ['Instagram posts',n(ig.posts_count)],
+        ['Instagram engagement actions',n(ig.engagement_actions)]
+      ]))}
+      ${panel('Search & Video','Google Direct',details([
+        ['GA4 sessions',n(ga4.summary?.sessions)],
+        ['GA4 users',n(ga4.summary?.total_users)],
+        ['GA4 page views',n(ga4.summary?.page_views)],
+        ['Search queries loaded',n((search.top_queries||[]).length)],
+        ['YouTube subscribers',n(youtube.summary?.subscribers)],
+        ['YouTube views',n(youtube.summary?.views)]
+      ]) + (googleNeedsAuth?'<div class="pm-callout"><div><strong>One authorization unlocks all three</strong><p>Connect GA4, Search Console, and YouTube without changing the existing Sheets/Gmail connection.</p></div></div>':'')}
+    </div>
+    <div class="pm-grid pm-grid-2 pm-hq-lower">
       ${panel('PRT Growth','Product Demand',details([
         ['Applications',n(prt.applications_total)],
         ['New',n(prt.applications_new)],
@@ -1123,6 +1184,9 @@ async function renderInsights(root,ctx){
       ]))}
     </div>
   `;
+  root.onclick=(event)=>{
+    if(event.target.closest('[data-intelligence-google-connect]')) openGoogleIntelligenceConnect(ctx);
+  };
 }
 
 export async function renderDomain(domain, root, ctx) {
