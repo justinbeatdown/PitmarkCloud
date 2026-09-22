@@ -347,7 +347,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             self.assertIn(token, service)
         self.assertIn('@router.get("/standings"', public_api)
         self.assertIn('@router.get("/api/public/standings"', public_api)
-        self.assertIn("Race day,", public_html)
+        self.assertIn("Your racing world,", public_html)
         self.assertIn('data-view="{{RACE_CENTER_VIEW}}"', public_html)
         self.assertIn("seriesVisible", public_js)
         self.assertIn("standings_public.router", main)
@@ -369,7 +369,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('"column_title": "Driver Standings"', service)
         self.assertIn('if provider == "column_sections"', service)
 
-    def test_public_standings_v4_loads_saved_snapshot_api_without_inline_bootstrap(self):
+    def test_public_standings_v5_loads_saved_snapshot_api_without_inline_bootstrap(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
         public_js = self.read("api/standings_public.js")
@@ -378,11 +378,11 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("fetch('/api/public/standings", public_js)
         self.assertIn("AbortController", public_js)
         self.assertIn("bootRaceCenter", public_js)
-        self.assertIn("Race Center V4", public_html)
+        self.assertIn("Race Center V5", public_html)
         self.assertIn('id="racePulse"', public_html)
         self.assertIn('id="favoritesFilter"', public_html)
         self.assertIn('class="mobile-dock"', public_html)
-        self.assertIn("pitmark-race-center-v4", public_js)
+        self.assertIn("pitmark-race-center-v5", public_js)
         self.assertIn("renderPulse", public_js)
         self.assertIn("renderMySeries", public_js)
         self.assertIn("countdownText", public_js)
@@ -390,7 +390,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertNotIn("{{PITMARK_STANDINGS_BOOTSTRAP}}", public_html)
         self.assertNotIn("{{PITMARK_STANDINGS_INLINE_JS}}", public_html)
 
-    def test_race_center_v4_customer_accounts_and_cloud_follows(self):
+    def test_race_center_v5_customer_accounts_and_cloud_follows(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
         public_js = self.read("api/standings_public.js")
@@ -416,6 +416,52 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("cloudFollow", public_js)
         self.assertIn("data-driver-follow", public_js)
         self.assertIn("credentials:'same-origin'", public_js)
+
+    def test_race_center_v5_social_network_and_live_stage(self):
+        public_api = self.read("api/standings_public.py")
+        public_html = self.read("api/standings_public.html")
+        social_js = self.read("api/race_center_v5.js")
+        accounts = self.read("services/race_center_accounts.py")
+        security = self.read("utils/security.py")
+        for token in (
+            "race_center_profiles",
+            "race_center_posts",
+            "race_center_reactions",
+            "race_center_comments",
+            "def create_post",
+            "def toggle_reaction",
+            "def add_comment",
+            "def list_posts",
+        ):
+            self.assertIn(token, accounts)
+        for route in (
+            "/api/public/race-center/profile",
+            "/api/public/race-center/feed",
+            "/reaction",
+            "/comments",
+            "/race-center-v5.js",
+        ):
+            self.assertIn(route, public_api)
+        for token in (
+            'id="liveStage"',
+            'id="personalFeed"',
+            'id="pitWall"',
+            'id="pitWallComposer"',
+            'id="profileForm"',
+            "/race-center-v5.js",
+        ):
+            self.assertIn(token, public_html)
+        for token in (
+            "v5RenderLive",
+            "v5RenderPersonal",
+            "v5RenderPitWall",
+            "v5YoutubeEmbed",
+            "v5LoadFeed",
+            "Official watch info",
+        ):
+            self.assertIn(token, social_js)
+        self.assertIn('"/standings", "/race-center"', security)
+        self.assertIn("youtube-nocookie.com", security)
 
     def test_control_center_readability_scale_covers_tiny_ui_text(self):
         css = self.read("api/control_center_overhaul.css")
