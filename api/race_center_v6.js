@@ -122,6 +122,30 @@
     }catch(_error){}
   }
 
+
+  async function uploadProfileImage(kind,file){
+    if(!file)return;
+    if(file.size>6*1024*1024)throw new Error('Image must be 6 MB or smaller.');
+    if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Use a JPG, PNG, or WebP image.');
+    const message=$('#profileMessage');
+    if(message)message.textContent='Uploading '+kind+'…';
+    const response=await fetch('/api/public/race-center/profile/image?kind='+encodeURIComponent(kind),{
+      method:'POST',
+      credentials:'same-origin',
+      headers:{'Content-Type':file.type,'X-Pitmark-Filename':file.name||('profile-'+kind)},
+      body:file
+    });
+    let payload={};
+    try{payload=await response.json();}catch(_error){}
+    if(!response.ok)throw new Error(payload.detail||'Could not upload image.');
+    const target=kind==='avatar'?'#profileAvatarUrl':'#profileCoverUrl';
+    if($(target))$(target).value=payload.url||'';
+    if(!state.account.profile_v6)state.account.profile_v6={};
+    state.account.profile_v6[kind+'_url']=payload.url||'';
+    v6RenderProfile();
+    if(message)message.textContent=kind.charAt(0).toUpperCase()+kind.slice(1)+' uploaded. Save profile to keep your changes.';
+  }
+
   async function saveProfileV6(){
     const message=$('#profileMessage');
     if(message)message.textContent='Saving…';
@@ -283,6 +307,17 @@
   }
 
   function init(){
+    const avatarFile=$('#profileAvatarFile');
+    if(avatarFile)avatarFile.addEventListener('change',function(){
+      const file=avatarFile.files&&avatarFile.files[0];
+      if(file)uploadProfileImage('avatar',file).catch(function(error){if($('#profileMessage'))$('#profileMessage').textContent=error.message;});
+    });
+    const coverFile=$('#profileCoverFile');
+    if(coverFile)coverFile.addEventListener('change',function(){
+      const file=coverFile.files&&coverFile.files[0];
+      if(file)uploadProfileImage('cover',file).catch(function(error){if($('#profileMessage'))$('#profileMessage').textContent=error.message;});
+    });
+
     const form=$('#profileForm');
     if(form)form.addEventListener('submit',function(event){
       event.preventDefault();
