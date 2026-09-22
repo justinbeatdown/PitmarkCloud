@@ -127,6 +127,11 @@ class RaceModerationResolve(BaseModel):
     note: str = Field(default="", max_length=1000)
 
 
+class RaceUserModerationChange(BaseModel):
+    status: str = Field(min_length=5, max_length=20)
+    reason: str = Field(default="", max_length=1000)
+
+
 class RacePasswordChange(BaseModel):
     current_password: str = Field(min_length=1, max_length=256)
     new_password: str = Field(min_length=12, max_length=256)
@@ -141,6 +146,10 @@ def _race_account_or_401(request: Request) -> race_center_accounts.RaceCenterAcc
     account = race_center_accounts.account_from_request(request)
     if not account:
         raise HTTPException(status_code=401, detail="Race Center account required.")
+    try:
+        race_center_social_v6.ensure_account_allowed(account.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
     return account
 
 
@@ -162,12 +171,18 @@ def _race_session_response(payload: dict, account: race_center_accounts.RaceCent
 def race_center_account(request: Request):
     account = race_center_accounts.account_from_request(request)
     payload = race_center_accounts.serialize_account(account)
+    if account:
+        try:
+            race_center_social_v6.ensure_account_allowed(account.id)
+        except ValueError as exc:
+            raise HTTPException(status_code=403, detail=str(exc))
     payload["follows"] = race_center_accounts.list_follows(account.id) if account else []
     payload["profile"] = race_center_accounts.ensure_profile(account.id) if account else None
     payload["connections"] = race_center_accounts.connection_counts(account.id) if account else {"followers": 0, "following": 0}
     payload["profile_v6"] = race_center_social_v6.ensure_extra(account.id) if account else None
     payload["friends"] = race_center_social_v6.list_friendship_dashboard(account.id) if account else {"friends": [], "incoming": [], "outgoing": [], "blocked": []}
     payload["notifications"] = race_center_social_v6.list_notifications(account.id, limit=20) if account else []
+    payload["moderation"] = race_center_social_v6.moderation_state(account.id) if account else {"status": "signed_out", "reason": ""}
     return payload
 
 
@@ -198,6 +213,10 @@ def race_center_login(request: Request, body: RaceAccountCredentials):
     account = race_center_accounts.authenticate(body.email, body.password)
     if not account:
         raise HTTPException(status_code=401, detail="Email or password is incorrect.")
+    try:
+        race_center_social_v6.ensure_account_allowed(account.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
     return _race_session_response(
         {
             **race_center_accounts.serialize_account(account),
@@ -325,9 +344,20 @@ def race_center_post_create(request: Request, body: RacePostCreate):
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    posts = race_center_accounts.list_posts(
+        viewer_user_id=account.id,
+        limit=40,
+        series_keys=[
+            str(item.get("key") or "")
+            for item in race_center_accounts.list_follows(account.id)
+            if item.get("kind") == "series" and item.get("key")
+        ] or None,
+        excluded_user_ids=race_center_social_v6.blocked_ids(account.id),
+        friend_user_ids=race_center_social_v6.friend_ids(account.id),
+    )
     return {
         **result,
-        "posts": race_center_accounts.list_posts(viewer_user_id=account.id, limit=40),
+        "posts": race_center_social_v6.enrich_feed_posts(posts),
     }
 
 
@@ -517,6 +547,19 @@ def race_center_moderation_resolve(request: Request, report_id: int, body: RaceM
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@router.post("/api/control/race-center/moderation/users/{user_id}", include_in_schema=False)
+def race_center_moderation_user(request: Request, user_id: int, body: RaceUserModerationChange):
+    require_permission(request, "users")
+    try:
+        return race_center_social_v6.set_user_moderation(
+            user_id,
+            status=body.status,
+            reason=body.reason,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @router.get("/api/public/race-center/people/search", include_in_schema=False)
 def race_center_people_search(request: Request, q: str = "", limit: int = 20):
     account = _race_account_or_401(request)
@@ -551,14 +594,24 @@ def race_center_public_profile(request: Request, handle: str):
         profile["friend_state"] = race_center_social_v6.friendship_state(account.id, profile["id"])
     else:
         profile["friend_state"] = "signed_out"
-    if extra.get("profile_visibility") == "private" and (not account or account.id != profile["id"]):
+    visibility = extra.get("profile_visibility") or "public"
+    is_self = bool(account and account.id == profile["id"])
+    is_friend = bool(account and profile.get("friend_state") == "friends")
+    redact = (
+        visibility == "private" and not is_self
+    ) or (
+        visibility == "friends" and not is_self and not is_friend
+    )
+    if redact:
         profile["bio"] = ""
         profile["favorite_track"] = ""
         profile["series"] = []
         profile["drivers"] = []
-    elif extra.get("profile_visibility") == "friends" and account and account.id != profile["id"] and profile["friend_state"] != "friends":
-        profile["series"] = []
-        profile["drivers"] = []
+        profile["profile_v6"] = {
+            **extra,
+            "hometown": "",
+            "website_url": "",
+        }
     return profile
 
 
@@ -572,10 +625,15 @@ def race_center_people_follow(request: Request, body: RaceUserFollowChange):
         race_center_accounts.follow_user(account.id, body.user_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    blocked = race_center_social_v6.blocked_ids(account.id)
+    people = [
+        person for person in race_center_accounts.discover_people(account.id, limit=24)
+        if int(person.get("id") or 0) not in blocked
+    ][:12]
     return {
         "ok": True,
         "connections": race_center_accounts.connection_counts(account.id),
-        "people": race_center_accounts.discover_people(account.id, limit=12),
+        "people": race_center_social_v6.enrich_people(people),
     }
 
 
