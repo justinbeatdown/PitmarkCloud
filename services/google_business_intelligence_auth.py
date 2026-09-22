@@ -21,7 +21,7 @@ from utils.config import settings
 
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
-ANALYTICS_REDIRECT_URI = "http://127.0.0.1:8766/"
+ANALYTICS_REDIRECT_URI = "http://127.0.0.1:8765/"
 ANALYTICS_SCOPES = " ".join([
     "https://www.googleapis.com/auth/analytics.readonly",
     "https://www.googleapis.com/auth/webmasters.readonly",
