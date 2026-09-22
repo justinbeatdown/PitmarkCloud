@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from collections import Counter
+from datetime import date
+import json
+import math
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -19,6 +22,117 @@ router = APIRouter()
 
 class StatusUpdate(BaseModel):
     status: str = Field(min_length=2, max_length=32)
+
+
+SOCIAL_GROWTH_GOAL_KEY = "social_growth_1k_everywhere_v1"
+SOCIAL_GROWTH_TARGET = 1000
+SOCIAL_GROWTH_START = "2026-09-22"
+SOCIAL_GROWTH_DEADLINE = "2026-10-22"
+SOCIAL_GROWTH_DEFAULTS = {
+    "facebook": {"label": "Facebook", "current": 23, "source": "Metricool"},
+    "instagram": {"label": "Instagram", "current": 192, "source": "Metricool"},
+    "tiktok": {"label": "TikTok", "current": 153, "source": "Metricool"},
+    "youtube": {"label": "YouTube", "current": 4, "source": "Metricool"},
+    "x": {"label": "X", "current": None, "source": "manual"},
+    "discord": {"label": "Discord", "current": None, "source": "manual"},
+}
+
+
+class GrowthCountsUpdate(BaseModel):
+    counts: dict[str, int | None]
+
+
+def _growth_goal_payload() -> dict:
+    raw = persistent_store.get_runtime_state(SOCIAL_GROWTH_GOAL_KEY)
+    state = {}
+    if raw:
+        try:
+            decoded = json.loads(raw)
+            if isinstance(decoded, dict):
+                state = decoded
+        except (TypeError, ValueError, json.JSONDecodeError):
+            state = {}
+
+    counts = state.get("counts") if isinstance(state.get("counts"), dict) else {}
+    start_day = date.fromisoformat(SOCIAL_GROWTH_START)
+    deadline_day = date.fromisoformat(SOCIAL_GROWTH_DEADLINE)
+    today = date.today()
+    total_days = max(1, (deadline_day - start_day).days)
+    elapsed_days = max(0, min(total_days, (today - start_day).days))
+    days_remaining = max(0, (deadline_day - today).days)
+    platforms = []
+    for key, meta in SOCIAL_GROWTH_DEFAULTS.items():
+        current = counts.get(key, meta["current"])
+        if current is not None:
+            try:
+                current = max(0, int(current))
+            except (TypeError, ValueError):
+                current = None
+        gap = max(0, SOCIAL_GROWTH_TARGET - current) if current is not None else None
+        required_daily = math.ceil(gap / max(1, days_remaining)) if gap is not None and days_remaining > 0 else gap
+        start_value = meta["current"] if meta["current"] is not None else current
+        pace_target = None
+        pace_delta = None
+        if current is not None and start_value is not None:
+            pace_target = round(start_value + ((SOCIAL_GROWTH_TARGET - start_value) * elapsed_days / total_days))
+            pace_delta = current - pace_target
+        platforms.append({
+            "id": key,
+            "label": meta["label"],
+            "current": current,
+            "target": SOCIAL_GROWTH_TARGET,
+            "gap": gap,
+            "required_daily": required_daily,
+            "progress_pct": round((current / SOCIAL_GROWTH_TARGET) * 100, 1) if current is not None else None,
+            "pace_target": pace_target,
+            "pace_delta": pace_delta,
+            "status": "pending baseline" if current is None else ("on pace" if pace_delta is not None and pace_delta >= 0 else "behind pace"),
+            "source": meta["source"],
+        })
+    return {
+        "name": "1K Everywhere",
+        "start_date": SOCIAL_GROWTH_START,
+        "deadline": SOCIAL_GROWTH_DEADLINE,
+        "target": SOCIAL_GROWTH_TARGET,
+        "days_remaining": days_remaining,
+        "platforms": platforms,
+        "strategy": {
+            "daily_short_video": 2,
+            "daily_community_post": 1,
+            "weekly_collabs": 4,
+            "weekly_driver_track_features": 3,
+            "conversion_rule": "Every growth post needs a reason to follow: recurring series, follow-up promise, useful racing information, or community participation.",
+            "priority_rule": "Shift extra output toward the platform with the largest pace deficit; do not blindly increase total posting volume.",
+        },
+    }
+
+
+@router.get("/api/control/ops/growth-goal")
+def ops_growth_goal(request: Request):
+    _auth(request)
+    return _growth_goal_payload()
+
+
+@router.patch("/api/control/ops/growth-goal")
+def ops_growth_goal_update(payload: GrowthCountsUpdate, request: Request):
+    _auth(request)
+    existing_raw = persistent_store.get_runtime_state(SOCIAL_GROWTH_GOAL_KEY)
+    state = {}
+    if existing_raw:
+        try:
+            decoded = json.loads(existing_raw)
+            if isinstance(decoded, dict):
+                state = decoded
+        except (TypeError, ValueError, json.JSONDecodeError):
+            state = {}
+    counts = state.get("counts") if isinstance(state.get("counts"), dict) else {}
+    for key, value in payload.counts.items():
+        if key not in SOCIAL_GROWTH_DEFAULTS:
+            continue
+        counts[key] = None if value is None else max(0, int(value))
+    state["counts"] = counts
+    persistent_store.set_runtime_state(SOCIAL_GROWTH_GOAL_KEY, json.dumps(state))
+    return _growth_goal_payload()
 
 
 def _auth(request: Request):
