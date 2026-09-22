@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 import base64
+import io
 import threading
 import time
 
 import httpx
+from PIL import Image, ImageOps
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
@@ -13,6 +15,7 @@ from pydantic import BaseModel, Field
 from services.racing_standings import SERIES as STANDINGS_SERIES, get_series_logo_info, get_series_roster, get_standings_snapshot_hub
 from services.racing_events import get_racing_event_hub
 from services import race_center_accounts, race_center_social_v6
+from services.social_asset_pool import public_asset_url, store_uploaded_image
 from services.control_access import require_permission
 from utils.config import settings
 from utils.security import enforce_rate_limit
@@ -318,6 +321,43 @@ def race_center_comment(request: Request, post_id: int, body: RaceCommentCreate)
 
 
 
+
+
+
+
+@router.post("/api/public/race-center/profile/image", include_in_schema=False)
+async def race_center_profile_image(request: Request, kind: str = "avatar"):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-profile-image", 12, 300)
+    clean_kind = (kind or "avatar").strip().lower()
+    if clean_kind not in {"avatar", "cover"}:
+        raise HTTPException(status_code=400, detail="Image kind must be avatar or cover.")
+    raw = await request.body()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Choose an image first.")
+    if len(raw) > 6 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Profile images must be 6 MB or smaller.")
+    try:
+        image = Image.open(io.BytesIO(raw)).convert("RGB")
+        target = (512, 512) if clean_kind == "avatar" else (1600, 600)
+        image = ImageOps.fit(image, target, method=Image.Resampling.LANCZOS)
+        out = io.BytesIO()
+        image.save(out, format="JPEG", quality=90, optimize=True, progressive=True)
+        stored = store_uploaded_image(
+            data=out.getvalue(),
+            filename=f"race-center-{clean_kind}-{account.id}.jpg",
+            mime_type="image/jpeg",
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Could not process that image: {exc}")
+    return {
+        "ok": True,
+        "kind": clean_kind,
+        "url": public_asset_url(
+            stored["public_token"],
+            request_base_url=str(request.base_url).rstrip("/"),
+        ),
+    }
 
 
 @router.put("/api/public/race-center/profile/v6", include_in_schema=False)
