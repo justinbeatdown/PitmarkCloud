@@ -1062,7 +1062,7 @@ async function openGoogleIntelligenceConnect(ctx){
     ctx.openSheet({
       kicker:'Pitmark Intelligence',
       title:'Connect Google Analytics',
-      body:'<div class="pm-form"><div class="pm-callout"><div><strong>One-time Google authorization</strong><p>Approve read-only GA4, Search Console, and YouTube access. This uses a separate encrypted token and does not replace Gmail or Sheets.</p></div></div><div class="pm-detail-block"><h4>Finish the connection</h4><p>Google will try to open '+esc(start.redirect_uri)+'. If localhost cannot load, copy the full URL from the address bar and paste it below.</p></div><div class="pm-field"><label>Google localhost callback URL</label><textarea class="pm-textarea" id="'+inputId+'" style="min-height:110px" placeholder="http://127.0.0.1:8766/?state=...&code=..."></textarea></div></div>',
+      body:'<div class="pm-form"><div class="pm-callout"><div><strong>One-time Google authorization</strong><p>Approve read-only GA4, Search Console, and YouTube access. This uses a separate encrypted token and does not replace Gmail or Sheets.</p></div></div><div class="pm-detail-block"><h4>Finish the connection</h4><p>Google will try to open '+esc(start.redirect_uri)+'. If localhost cannot load, copy the full URL from the address bar and paste it below.</p></div><div class="pm-field"><label>Google localhost callback URL</label><textarea class="pm-textarea" id="'+inputId+'" style="min-height:110px" placeholder="http://127.0.0.1:8765/?state=...&code=..."></textarea></div></div>',
       actions:[
         {label:'Cancel',tone:'ghost',run:ctx.closeSheet},
         {label:'Complete connection',tone:'primary',run:async()=>{
