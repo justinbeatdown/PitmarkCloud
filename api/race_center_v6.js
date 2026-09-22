@@ -572,8 +572,6 @@
     document.addEventListener('click',function(event){
       const open=event.target.closest('[data-v6-open-handle]');
       if(open&&open.dataset.v6OpenHandle){openProfileV6(open.dataset.v6OpenHandle);return;}
-      const existingProfile=event.target.closest('[data-v5-profile]');
-      if(existingProfile){setTimeout(function(){openProfileV6(existingProfile.dataset.v5Profile);},0);return;}
       const searchFriend=event.target.closest('[data-v6-search-friend]');
       if(searchFriend){friendRequest(searchFriend.dataset.v6SearchFriend).then(function(){searchPeople($('#peopleSearchInput')?.value||'');}).catch(function(error){showToast(error.message||'That action could not be completed.','error');});return;}
       const req=event.target.closest('[data-v6-friend-request]');
