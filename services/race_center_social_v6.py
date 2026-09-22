@@ -425,3 +425,37 @@ def moderate_report(report_id: int, *, action: str, note: str = "") -> dict:
         row.resolved_at = utcnow()
         db.commit()
     return {"ok": True, "status": row.status}
+
+
+def search_people(user_id: int, query: str, limit: int = 20) -> list[dict]:
+    term=(query or "").strip().lower()
+    if len(term)<2:
+        return []
+    blocked=blocked_ids(user_id)
+    with SessionLocal() as db:
+        profiles=list(db.scalars(select(RaceCenterProfile).order_by(RaceCenterProfile.handle.asc()).limit(500)).all())
+        out=[]
+        for profile in profiles:
+            if profile.user_id==user_id or profile.user_id in blocked:
+                continue
+            user=db.get(RaceCenterUser, profile.user_id)
+            haystack=" ".join([
+                profile.handle or "",
+                profile.bio or "",
+                profile.favorite_track or "",
+                user.display_name if user else "",
+            ]).lower()
+            if term not in haystack:
+                continue
+            extra=db.get(RaceCenterProfileExtra, profile.user_id)
+            if extra and extra.profile_visibility=="private":
+                continue
+            person=_public_user(db, profile.user_id)
+            person["friend_state"]=friendship_state(user_id, profile.user_id)
+            person["followers"]=db.scalar(select(func.count(RaceCenterConnection.id)).where(
+                RaceCenterConnection.followed_user_id==profile.user_id
+            )) or 0
+            out.append(person)
+            if len(out)>=max(1,min(limit,50)):
+                break
+        return out
