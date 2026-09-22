@@ -1,4 +1,4 @@
-"""Dedicated Google analytics/search/YouTube OAuth for Pitmark Intelligence."""
+"""Dedicated Google Analytics and Search Console OAuth for Pitmark Intelligence."""
 
 from __future__ import annotations
 
@@ -25,7 +25,6 @@ ANALYTICS_REDIRECT_URI = "http://127.0.0.1:8765/"
 ANALYTICS_SCOPES = " ".join([
     "https://www.googleapis.com/auth/analytics.readonly",
     "https://www.googleapis.com/auth/webmasters.readonly",
-    "https://www.googleapis.com/auth/youtube.readonly",
 ])
 _SECRET_KEY = "google_business_intelligence_refresh_token"
 _OAUTH_TTL_SECONDS = 15 * 60
