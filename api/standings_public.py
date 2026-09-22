@@ -589,12 +589,13 @@ def race_center_people_unfollow(request: Request, body: RaceUserFollowChange):
     }
 
 
+@router.get("/race-center/u/{handle}", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/standings", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/schedules", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/live", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/standings", response_class=HTMLResponse, include_in_schema=False)
-def public_standings_home(request: Request):
+def public_standings_home(request: Request, handle: str | None = None):
     html = (ASSET_DIR / "standings_public.html").read_text(encoding="utf-8")
     path = request.url.path.rstrip("/").lower()
     view = (
@@ -605,6 +606,7 @@ def public_standings_home(request: Request):
     )
     html = html.replace("{{PITMARK_VERSION}}", settings.app_version)
     html = html.replace("{{RACE_CENTER_VIEW}}", view)
+    html = html.replace("{{RACE_CENTER_PROFILE_HANDLE}}", (handle or "").strip().lower())
     return HTMLResponse(
         html,
         headers={"Cache-Control": "no-cache, no-store"},
