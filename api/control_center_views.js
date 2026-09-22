@@ -1107,6 +1107,7 @@ async function renderInsights(root,ctx){
   const googleSocial=payload?.social?.google||{};
   const fb=metaSocial.facebook||{};
   const ig=metaSocial.instagram||{};
+  const metaAds=metaSocial.ads||{};
   const ga4=googleSocial.ga4||{};
   const search=googleSocial.search_console||{};
   const youtube=googleSocial.youtube||{};
@@ -1157,6 +1158,120 @@ async function renderInsights(root,ctx){
         ['Instagram followers',n(ig.profile?.followers_count)],
         ['Instagram posts',n(ig.posts_count)],
         ['Instagram engagement actions',n(ig.engagement_actions)]
+      ]))}
+      ${panel('Paid Media','Meta Ads Direct',details([
+        ['Ad account',metaAds.selected_account?.name||'—'],
+        ['Spend','
+        ['GA4 users',n(ga4.summary?.total_users)],
+        ['GA4 page views',n(ga4.summary?.page_views)],
+        ['Search queries loaded',n((search.top_queries||[]).length)],
+        ['YouTube subscribers',n(youtube.summary?.subscribers)],
+        ['YouTube views',n(youtube.summary?.views)]
+      ]) + (googleNeedsAuth?'<div class="pm-callout"><div><strong>One authorization unlocks all three</strong><p>Connect GA4, Search Console, and YouTube without changing the existing Sheets/Gmail connection.</p></div></div>':'')}
+    </div>
+    <div class="pm-grid pm-grid-2 pm-hq-lower">
+      ${panel('PRT Growth','Product Demand',details([
+        ['Applications',n(prt.applications_total)],
+        ['New',n(prt.applications_new)],
+        ['Accepted',n(prt.applications_accepted)],
+        ['Redeemed testers',n(prt.testers_redeemed)],
+        ['Open feedback',n(prt.feedback_open)]
+      ]))}
+      ${panel('Content & Relationships','Growth Operations',details([
+        ['Pending posts',n(content.pending)],
+        ['Scheduled posts',n(content.scheduled)],
+        ['Published posts',n(content.published)],
+        ['Editorial drafts',n(content.editorial_drafts)],
+        ['Relationship follow-ups',n(rel.waiting_follow_up)]
+      ]))}
+    </div>
+  `;
+  root.onclick=(event)=>{
+    if(event.target.closest('[data-intelligence-google-connect]')) openGoogleIntelligenceConnect(ctx);
+  };
+}
+
+export async function renderDomain(domain, root, ctx) {
+  root.onclick = null;
+  root.innerHTML = `<div class="pm-view-skeleton"><div class="pm-skeleton pm-skeleton-line wide"></div><div class="pm-skeleton-grid"><div class="pm-skeleton block"></div><div class="pm-skeleton block"></div><div class="pm-skeleton block"></div></div></div>`;
+  try {
+    if (domain === 'hq') return await renderHQ(root,ctx);
+    if (domain === 'work') return await renderWork(root,ctx);
+    if (domain === 'prt') return await renderPRT(root,ctx);
+    if (domain === 'partnerships') return await renderPartnerships(root,ctx);
+    if (domain === 'content') return await renderContent(root,ctx);
+    if (domain === 'store') return await renderStore(root,ctx);
+    if (domain === 'people') return await renderPeople(root,ctx);
+    if (domain === 'systems') return await renderSystems(root,ctx);
+    if (domain === 'insights') return await renderInsights(root,ctx);
+    if (domain === 'standings') return await renderStandings(root,ctx);
+    if (domain === 'results') return await renderResultsDesk(root,ctx);
+    throw new Error(`Unknown Pitmark operating area: ${domain}`);
+  } catch (error) {
+    if (error?.name === 'AbortError') return;
+    root.innerHTML = `${viewHeader('Control Center','This workspace hit a problem.','Other Pitmark areas are still available.')} ${moduleError(DOMAIN_META[domain]?.title || domain,error?.message || String(error),domain)}`;
+    root.onclick = (event) => { if (event.target.closest('[data-retry]')) ctx.refresh(true); };
+  }
+}
++Number(metaAds.summary?.spend||0).toFixed(2)],
+        ['Impressions',n(metaAds.summary?.impressions)],
+        ['Reach',n(metaAds.summary?.reach)],
+        ['Clicks',n(metaAds.summary?.clicks)],
+        ['CTR',metaAds.summary?.ctr?Number(metaAds.summary.ctr).toFixed(2)+'%':'—'],
+        ['CPC',metaAds.summary?.cpc?'
+        ['GA4 users',n(ga4.summary?.total_users)],
+        ['GA4 page views',n(ga4.summary?.page_views)],
+        ['Search queries loaded',n((search.top_queries||[]).length)],
+        ['YouTube subscribers',n(youtube.summary?.subscribers)],
+        ['YouTube views',n(youtube.summary?.views)]
+      ]) + (googleNeedsAuth?'<div class="pm-callout"><div><strong>One authorization unlocks all three</strong><p>Connect GA4, Search Console, and YouTube without changing the existing Sheets/Gmail connection.</p></div></div>':'')}
+    </div>
+    <div class="pm-grid pm-grid-2 pm-hq-lower">
+      ${panel('PRT Growth','Product Demand',details([
+        ['Applications',n(prt.applications_total)],
+        ['New',n(prt.applications_new)],
+        ['Accepted',n(prt.applications_accepted)],
+        ['Redeemed testers',n(prt.testers_redeemed)],
+        ['Open feedback',n(prt.feedback_open)]
+      ]))}
+      ${panel('Content & Relationships','Growth Operations',details([
+        ['Pending posts',n(content.pending)],
+        ['Scheduled posts',n(content.scheduled)],
+        ['Published posts',n(content.published)],
+        ['Editorial drafts',n(content.editorial_drafts)],
+        ['Relationship follow-ups',n(rel.waiting_follow_up)]
+      ]))}
+    </div>
+  `;
+  root.onclick=(event)=>{
+    if(event.target.closest('[data-intelligence-google-connect]')) openGoogleIntelligenceConnect(ctx);
+  };
+}
+
+export async function renderDomain(domain, root, ctx) {
+  root.onclick = null;
+  root.innerHTML = `<div class="pm-view-skeleton"><div class="pm-skeleton pm-skeleton-line wide"></div><div class="pm-skeleton-grid"><div class="pm-skeleton block"></div><div class="pm-skeleton block"></div><div class="pm-skeleton block"></div></div></div>`;
+  try {
+    if (domain === 'hq') return await renderHQ(root,ctx);
+    if (domain === 'work') return await renderWork(root,ctx);
+    if (domain === 'prt') return await renderPRT(root,ctx);
+    if (domain === 'partnerships') return await renderPartnerships(root,ctx);
+    if (domain === 'content') return await renderContent(root,ctx);
+    if (domain === 'store') return await renderStore(root,ctx);
+    if (domain === 'people') return await renderPeople(root,ctx);
+    if (domain === 'systems') return await renderSystems(root,ctx);
+    if (domain === 'insights') return await renderInsights(root,ctx);
+    if (domain === 'standings') return await renderStandings(root,ctx);
+    if (domain === 'results') return await renderResultsDesk(root,ctx);
+    throw new Error(`Unknown Pitmark operating area: ${domain}`);
+  } catch (error) {
+    if (error?.name === 'AbortError') return;
+    root.innerHTML = `${viewHeader('Control Center','This workspace hit a problem.','Other Pitmark areas are still available.')} ${moduleError(DOMAIN_META[domain]?.title || domain,error?.message || String(error),domain)}`;
+    root.onclick = (event) => { if (event.target.closest('[data-retry]')) ctx.refresh(true); };
+  }
+}
++Number(metaAds.summary.cpc).toFixed(2):'—'],
+        ['Campaigns',n((metaAds.campaigns||[]).length)]
       ]))}
       ${panel('Search & Video','Google Direct',details([
         ['GA4 sessions',n(ga4.summary?.sessions)],
