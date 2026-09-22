@@ -305,15 +305,15 @@ def intelligence_google_oauth_start(request: Request):
 
 @router.get("/control/google-callback", include_in_schema=False)
 def intelligence_google_callback(request: Request, code: str = Query(...), state: str = Query(...)):
-    user = _auth(request)
-    user_key = user.username if user else "admin"
     from urllib.parse import urlencode
     from services.google_business_intelligence_auth import (
         AnalyticsAuthorizationRequired,
         complete_authorization as complete_analytics_authorization,
+        verified_state_user,
     )
-    callback_url = "http://127.0.0.1:8765/?" + urlencode({"state": state, "code": code})
     try:
+        user_key = verified_state_user(state)
+        callback_url = "http://127.0.0.1:8765/?" + urlencode({"state": state, "code": code})
         complete_analytics_authorization(callback_url, user_key)
         try:
             from services.native_analytics_suite import clear_cache
@@ -321,7 +321,11 @@ def intelligence_google_callback(request: Request, code: str = Query(...), state
         except Exception:
             pass
     except AnalyticsAuthorizationRequired as exc:
-        return RedirectResponse(url="/control/native-ops#analytics", status_code=303, headers={"X-Pitmark-Google-Error": str(exc)[:200]})
+        return RedirectResponse(
+            url="/control/native-ops#analytics",
+            status_code=303,
+            headers={"X-Pitmark-Google-Error": str(exc)[:200]},
+        )
     return RedirectResponse(url="/control/native-ops#analytics", status_code=303)
 
 
