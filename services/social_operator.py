@@ -11,6 +11,7 @@ from sqlalchemy import DateTime, Integer, String, Text, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from services.control_center import SocialPost, utcnow
+from services import persistent_store
 from services.database import Base, SessionLocal
 from services.meta_publish_service import (
     fetch_facebook_page_comments,
@@ -355,6 +356,36 @@ def _prompt_set(platform: str) -> list[str]:
     return X_PROMPTS
 
 
+def _growth_pressure(platform: str) -> dict:
+    """Translate the 1K Everywhere goal into a bounded daily posting pressure.
+
+    This never removes pacing/safety controls. It only lets a badly-behind channel
+    earn one additional low-risk community slot instead of blindly increasing all
+    platforms at once.
+    """
+    try:
+        raw = persistent_store.get_runtime_state("social_growth_1k_everywhere_v1")
+        state = json.loads(raw) if raw else {}
+    except Exception:
+        state = {}
+    counts = state.get("counts") if isinstance(state, dict) and isinstance(state.get("counts"), dict) else {}
+    defaults = {"facebook": 23, "instagram": 192, "x": None}
+    current = counts.get(platform, defaults.get(platform))
+    try:
+        current = int(current) if current is not None else None
+    except (TypeError, ValueError):
+        current = None
+    target = 1000
+    deadline = datetime(2026, 10, 22, 23, 59, tzinfo=_local_now().tzinfo)
+    days_left = max(1, (deadline.date() - _local_now().date()).days)
+    gap = max(0, target - current) if current is not None else None
+    required_daily = ((gap + days_left - 1) // days_left) if gap is not None else None
+    # Pressure is intentionally coarse. We prefer better content/collabs over spam.
+    # 2 means the channel may receive one extra community post when pacing permits.
+    pressure = 2 if required_daily is not None and required_daily >= 20 else 1
+    return {"current": current, "gap": gap, "required_daily": required_daily, "pressure": pressure}
+
+
 def _ensure_growth_posts() -> int:
     if not settings.social_operator_growth_posts_enabled:
         return 0
@@ -365,6 +396,9 @@ def _ensure_growth_posts() -> int:
         "instagram": max(0, int(settings.social_operator_min_instagram_posts_daily)),
         "x": max(0, int(settings.social_operator_min_x_posts_daily)),
     }
+    # 1K Everywhere: raise only channels materially behind pace, never every channel.
+    for platform in list(targets):
+        targets[platform] = max(targets[platform], _growth_pressure(platform)["pressure"])
     for platform, minimum in targets.items():
         if minimum <= 0 or _recent_platform_post_count(platform) >= minimum:
             continue
@@ -372,17 +406,20 @@ def _ensure_growth_posts() -> int:
         day_key = schedule.date().isoformat()
         if _operator_post_exists(platform, day_key):
             continue
+        pressure = _growth_pressure(platform)
         with SessionLocal() as db:
             allowed, pacing_reason = pacing_decision(
                 db,
                 platform=platform,
                 candidate=schedule,
-                priority=False,
+                priority=pressure["pressure"] > 1,
             )
         if not allowed:
             log.info("Social Operator skipped %s growth post: %s", platform, pacing_reason)
             continue
         body = _pick(_prompt_set(platform), f"{platform}:{day_key}")
+        if pressure.get("required_daily"):
+            body += "\n\nFollow Pitmark for more grassroots racing stories, local-track discoveries, and racer features all season."
         auto_mode = effective_mode("low_risk_social_publish", uncertainty=0.05, fallback="auto")
         status = "scheduled" if settings.social_operator_autopublish_low_risk and auto_mode == "auto" else "pending"
         with SessionLocal() as db:
