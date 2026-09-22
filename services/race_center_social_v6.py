@@ -570,6 +570,43 @@ def moderate_report(report_id: int, *, action: str, note: str = "") -> dict:
     return {"ok": True, "status": status}
 
 
+def set_identity(
+    user_id: int,
+    *,
+    account_type: str,
+    verification_status: str,
+    official_label: str = "",
+    external_url: str = "",
+) -> dict:
+    from services.race_center_accounts import RaceCenterIdentity
+    clean_type=(account_type or "fan").strip().lower()
+    clean_status=(verification_status or "unverified").strip().lower()
+    if clean_type not in {"fan","driver","team","series","track","media"}:
+        raise ValueError("Unsupported Race Center account type.")
+    if clean_status not in {"unverified","verified"}:
+        raise ValueError("Verification status must be unverified or verified.")
+    clean_url=_safe_https_url(external_url)
+    with SessionLocal() as db:
+        if not db.get(RaceCenterUser,user_id):
+            raise ValueError("Race Center user not found.")
+        row=db.get(RaceCenterIdentity,user_id)
+        if row is None:
+            row=RaceCenterIdentity(user_id=user_id)
+            db.add(row)
+        row.account_type=clean_type
+        row.verification_status=clean_status
+        row.official_label=(official_label or "").strip()[:120]
+        row.external_url=clean_url
+        row.updated_at=utcnow()
+        db.commit()
+        return {
+            "account_type":row.account_type,
+            "verification_status":row.verification_status,
+            "official_label":row.official_label,
+            "external_url":row.external_url,
+        }
+
+
 def moderated_users(limit: int = 100) -> list[dict]:
     with SessionLocal() as db:
         rows = list(db.scalars(
