@@ -359,7 +359,8 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("def get_standings_snapshot_hub", service)
         self.assertIn("get_standings_snapshot_hub()", public_api)
         self.assertNotIn("get_standings_hub(force=False)", public_api)
-        self.assertIn("await asyncio.sleep(15)", main)
+        self.assertIn("await asyncio.sleep(interval)", main)
+        self.assertIn('PITMARK_STANDINGS_SYNC_SECONDS", 14400, 1800, 43200', main)
 
     def test_usac_uses_column_section_parser(self):
         service = self.read("services/racing_standings.py")
