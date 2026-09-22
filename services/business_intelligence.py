@@ -4,6 +4,7 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import httpx
 from sqlalchemy import select
 
 from services.control_center import BlogDraft, OutreachContact, SocialPost
@@ -12,6 +13,7 @@ from services.prt_applications import list_applications
 from services.prt_feedback import summary as feedback_summary
 from services.prt_licensing_store import list_early_access_invites
 from services.shopify_service import configured as shopify_configured, graphql
+from utils.config import settings
 
 
 def _money(value: Any) -> float:
@@ -154,6 +156,115 @@ def _shopify_window(days: int = 30) -> dict[str, Any]:
             "recent_orders": [],
             "error": str(exc)[:400],
         }
+
+
+
+def _meta_snapshot(days: int = 30) -> dict[str, Any]:
+    token = (settings.meta_system_user_access_token or settings.meta_page_access_token or "").strip()
+    page_id = (settings.meta_page_id or "").strip()
+    ig_id = (settings.meta_instagram_account_id or "").strip()
+    if not token or not page_id:
+        return {
+            "status": "not_configured",
+            "facebook": {},
+            "instagram": {},
+            "error": "Meta page credentials are not configured.",
+        }
+
+    base = "https://graph.facebook.com/%s" % settings.meta_graph_version
+    facebook: dict[str, Any] = {}
+    instagram: dict[str, Any] = {}
+    errors: list[str] = []
+    since = int((datetime.now(timezone.utc) - timedelta(days=days)).timestamp())
+    until = int(datetime.now(timezone.utc).timestamp())
+
+    with httpx.Client(timeout=20.0) as client:
+        try:
+            page = client.get(
+                base + "/" + page_id,
+                params={
+                    "fields": "id,name,fan_count,followers_count,link",
+                    "access_token": token,
+                },
+            )
+            page.raise_for_status()
+            facebook["page"] = page.json()
+        except Exception as exc:
+            errors.append("Facebook page: %s" % str(exc)[:180])
+
+        try:
+            posts = client.get(
+                base + "/" + page_id + "/posts",
+                params={
+                    "fields": "id,message,created_time,permalink_url,shares,likes.summary(true),comments.summary(true)",
+                    "limit": 25,
+                    "since": since,
+                    "until": until,
+                    "access_token": token,
+                },
+            )
+            posts.raise_for_status()
+            rows = list((posts.json() or {}).get("data") or [])
+            facebook["posts"] = rows
+            facebook["posts_count"] = len(rows)
+            facebook["engagement_actions"] = sum(
+                int(((row.get("likes") or {}).get("summary") or {}).get("total_count") or 0)
+                + int(((row.get("comments") or {}).get("summary") or {}).get("total_count") or 0)
+                + int((row.get("shares") or {}).get("count") or 0)
+                for row in rows
+            )
+        except Exception as exc:
+            errors.append("Facebook posts: %s" % str(exc)[:180])
+
+        if ig_id:
+            try:
+                profile = client.get(
+                    base + "/" + ig_id,
+                    params={
+                        "fields": "id,username,followers_count,media_count",
+                        "access_token": token,
+                    },
+                )
+                profile.raise_for_status()
+                instagram["profile"] = profile.json()
+            except Exception as exc:
+                errors.append("Instagram profile: %s" % str(exc)[:180])
+
+            try:
+                media = client.get(
+                    base + "/" + ig_id + "/media",
+                    params={
+                        "fields": "id,caption,media_type,timestamp,permalink,like_count,comments_count",
+                        "limit": 25,
+                        "access_token": token,
+                    },
+                )
+                media.raise_for_status()
+                rows = list((media.json() or {}).get("data") or [])
+                cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+                recent = []
+                for row in rows:
+                    ts = _parse_dt(row.get("timestamp"))
+                    if not ts or ts >= cutoff:
+                        recent.append(row)
+                instagram["posts"] = recent
+                instagram["posts_count"] = len(recent)
+                instagram["engagement_actions"] = sum(
+                    int(row.get("like_count") or 0) + int(row.get("comments_count") or 0)
+                    for row in recent
+                )
+            except Exception as exc:
+                errors.append("Instagram media: %s" % str(exc)[:180])
+
+    facebook.setdefault("posts", [])
+    instagram.setdefault("posts", [])
+    live = bool(facebook.get("page"))
+    return {
+        "status": "live" if live else "error",
+        "facebook": facebook,
+        "instagram": instagram,
+        "error": "; ".join(errors)[:500] if errors else None,
+    }
 
 
 def _internal_growth() -> dict[str, Any]:
@@ -334,6 +445,7 @@ def overview(days: int = 30) -> dict[str, Any]:
     safe_days = max(7, min(int(days), 90))
     shopify = _shopify_window(safe_days)
     growth = _internal_growth()
+    meta = _meta_snapshot(safe_days)
     return {
         "version": "2.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -341,6 +453,7 @@ def overview(days: int = 30) -> dict[str, Any]:
         "sources": {
             "shopify": {"status": shopify.get("status"), "live": shopify.get("status") == "live", "error": shopify.get("error")},
             "pitmark_internal": {"status": "live", "live": True, "error": None},
+            "meta": {"status": meta.get("status"), "live": meta.get("status") == "live", "error": meta.get("error")},
             "meta_ads": {"status": "planned", "live": False, "error": None},
             "ga4": {"status": "planned", "live": False, "error": None},
             "search_console": {"status": "planned", "live": False, "error": None},
@@ -348,6 +461,7 @@ def overview(days: int = 30) -> dict[str, Any]:
             "tiktok": {"status": "planned", "live": False, "error": None},
         },
         "commerce": shopify,
+        "social": {"meta": meta},
         "growth": growth,
         "recommendations": _recommendations(shopify, growth),
     }
