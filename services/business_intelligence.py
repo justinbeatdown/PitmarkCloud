@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 from sqlalchemy import select
@@ -169,12 +170,14 @@ def _meta_snapshot(days: int = 30) -> dict[str, Any]:
             "status": "not_configured",
             "facebook": {},
             "instagram": {},
+            "ads": {},
             "error": "Meta page credentials are not configured.",
         }
 
     base = "https://graph.facebook.com/%s" % settings.meta_graph_version
     facebook: dict[str, Any] = {}
     instagram: dict[str, Any] = {}
+    ads: dict[str, Any] = {}
     errors: list[str] = []
     since = int((datetime.now(timezone.utc) - timedelta(days=days)).timestamp())
     until = int(datetime.now(timezone.utc).timestamp())
@@ -216,6 +219,53 @@ def _meta_snapshot(days: int = 30) -> dict[str, Any]:
             )
         except Exception as exc:
             errors.append("Facebook posts: %s" % str(exc)[:180])
+
+        try:
+            ad_accounts = client.get(
+                base + "/me/adaccounts",
+                params={
+                    "fields": "id,name,account_status,currency",
+                    "limit": 50,
+                    "access_token": token,
+                },
+            )
+            ad_accounts.raise_for_status()
+            accounts = list((ad_accounts.json() or {}).get("data") or [])
+            selected_ad = next(
+                (row for row in accounts if "pitmark" in str(row.get("name") or "").lower()),
+                None,
+            )
+            ads["accounts"] = accounts
+            ads["selected_account"] = selected_ad
+            if selected_ad and selected_ad.get("id"):
+                account_id = selected_ad["id"]
+                time_range = '{"since":"%s","until":"%s"}' % (
+                    (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat(),
+                    datetime.now(timezone.utc).date().isoformat(),
+                )
+                insights = client.get(
+                    base + "/" + account_id + "/insights",
+                    params={
+                        "fields": "spend,impressions,reach,clicks,ctr,cpc,actions",
+                        "time_range": time_range,
+                        "access_token": token,
+                    },
+                )
+                insights.raise_for_status()
+                rows = list((insights.json() or {}).get("data") or [])
+                ads["summary"] = rows[0] if rows else {}
+                campaigns = client.get(
+                    base + "/" + account_id + "/campaigns",
+                    params={
+                        "fields": "id,name,status,effective_status,daily_budget,lifetime_budget,start_time,stop_time",
+                        "limit": 50,
+                        "access_token": token,
+                    },
+                )
+                campaigns.raise_for_status()
+                ads["campaigns"] = list((campaigns.json() or {}).get("data") or [])
+        except Exception as exc:
+            errors.append("Meta Ads: %s" % str(exc)[:180])
 
         if ig_id:
             try:
@@ -264,6 +314,7 @@ def _meta_snapshot(days: int = 30) -> dict[str, Any]:
         "status": "live" if live else "error",
         "facebook": facebook,
         "instagram": instagram,
+        "ads": ads,
         "error": "; ".join(errors)[:500] if errors else None,
     }
 
@@ -367,9 +418,9 @@ def _google_snapshot(days: int = 30) -> dict[str, Any]:
             search_console["selected_site"] = selected
             if selected and selected.get("siteUrl"):
                 site = selected["siteUrl"]
+                encoded = quote(site, safe="")
                 query = client.post(
-                    "https://www.googleapis.com/webmasters/v3/sites/%s/searchAnalytics/query"
-                    % httpx.URL(site).raw_path.decode("utf-8").strip("/").replace("/", "%2F"),
+                    "https://www.googleapis.com/webmasters/v3/sites/%s/searchAnalytics/query" % encoded,
                     json={
                         "startDate": start_date.isoformat(),
                         "endDate": end_date.isoformat(),
@@ -377,17 +428,6 @@ def _google_snapshot(days: int = 30) -> dict[str, Any]:
                         "rowLimit": 10,
                     },
                 )
-                if query.status_code == 404:
-                    encoded = __import__("urllib.parse", fromlist=["quote"]).quote(site, safe="")
-                    query = client.post(
-                        "https://www.googleapis.com/webmasters/v3/sites/%s/searchAnalytics/query" % encoded,
-                        json={
-                            "startDate": start_date.isoformat(),
-                            "endDate": end_date.isoformat(),
-                            "dimensions": ["query"],
-                            "rowLimit": 10,
-                        },
-                    )
                 query.raise_for_status()
                 search_console["top_queries"] = [
                     {
@@ -620,7 +660,7 @@ def overview(days: int = 30) -> dict[str, Any]:
             "shopify": {"status": shopify.get("status"), "live": shopify.get("status") == "live", "error": shopify.get("error")},
             "pitmark_internal": {"status": "live", "live": True, "error": None},
             "meta": {"status": meta.get("status"), "live": meta.get("status") == "live", "error": meta.get("error")},
-            "meta_ads": {"status": "planned", "live": False, "error": None},
+            "meta_ads": {"status": meta.get("status"), "live": bool((meta.get("ads") or {}).get("selected_account")), "error": meta.get("error")},
             "ga4": {"status": google.get("status"), "live": bool((google.get("ga4") or {}).get("selected_property")), "error": google.get("error")},
             "search_console": {"status": google.get("status"), "live": bool((google.get("search_console") or {}).get("selected_site")), "error": google.get("error")},
             "youtube": {"status": google.get("status"), "live": bool((google.get("youtube") or {}).get("channels")), "error": google.get("error")},
