@@ -15,6 +15,7 @@ from services.database import Base, SessionLocal
 from services.meta_publish_service import (
     fetch_facebook_page_comments,
     fetch_instagram_comments,
+    fetch_audience_metrics,
     reply_facebook_comment,
     reply_instagram_comment,
 )
@@ -413,6 +414,7 @@ def run_operator_once() -> dict:
 
     try:
         scanned, review, replied, channels = _sync_meta_engagement()
+        audience = fetch_audience_metrics()
         planned = _ensure_growth_posts()
         try:
             first_party_media = reconcile_first_party_drafts()
@@ -429,6 +431,7 @@ def run_operator_once() -> dict:
             {
                 "summary": health_note or "All configured engagement reads healthy.",
                 "channels": channels,
+                "audience": audience,
                 "first_party_media": first_party_media,
                 "first_party_schedule": first_party_schedule,
             },
@@ -454,6 +457,7 @@ def run_operator_once() -> dict:
             "replied": replied,
             "posts_planned": planned,
             "channels": channels,
+            "audience": audience,
             "first_party_media": first_party_media,
             "first_party_schedule": first_party_schedule,
             "warning": health_note or None,
@@ -502,6 +506,7 @@ def operator_status() -> dict:
             "instagram": settings.social_operator_min_instagram_posts_daily,
             "x": settings.social_operator_min_x_posts_daily,
         },
+        "audience": fetch_audience_metrics(),
         "latest_run": None
         if not latest
         else {
