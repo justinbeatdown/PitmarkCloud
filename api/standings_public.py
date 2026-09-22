@@ -71,6 +71,26 @@ class RaceFollowChange(BaseModel):
     series_key: str = Field(default="", max_length=120)
 
 
+class RaceProfileChange(BaseModel):
+    handle: str = Field(min_length=3, max_length=40)
+    bio: str = Field(default="", max_length=280)
+    favorite_track: str = Field(default="", max_length=120)
+
+
+class RacePostCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=600)
+    series_key: str = Field(default="", max_length=120)
+    driver_key: str = Field(default="", max_length=220)
+
+
+class RaceReactionChange(BaseModel):
+    reaction: str = Field(min_length=2, max_length=20)
+
+
+class RaceCommentCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=280)
+
+
 def _race_account_or_401(request: Request) -> race_center_accounts.RaceCenterAccount:
     account = race_center_accounts.account_from_request(request)
     if not account:
@@ -97,6 +117,7 @@ def race_center_account(request: Request):
     account = race_center_accounts.account_from_request(request)
     payload = race_center_accounts.serialize_account(account)
     payload["follows"] = race_center_accounts.list_follows(account.id) if account else []
+    payload["profile"] = race_center_accounts.ensure_profile(account.id) if account else None
     return payload
 
 
@@ -111,6 +132,7 @@ def race_center_signup(request: Request, body: RaceAccountCredentials):
         {
             **race_center_accounts.serialize_account(account),
             "follows": [],
+            "profile": race_center_accounts.ensure_profile(account.id),
             "message": "Welcome to My Race Center.",
         },
         account,
@@ -127,6 +149,7 @@ def race_center_login(request: Request, body: RaceAccountCredentials):
         {
             **race_center_accounts.serialize_account(account),
             "follows": race_center_accounts.list_follows(account.id),
+            "profile": race_center_accounts.ensure_profile(account.id),
         },
         account,
     )
@@ -160,6 +183,94 @@ def race_center_unfollow(request: Request, body: RaceFollowChange):
     account = _race_account_or_401(request)
     race_center_accounts.remove_follow(account.id, kind=body.kind, key=body.key)
     return {"ok": True, "follows": race_center_accounts.list_follows(account.id)}
+
+
+
+
+@router.put("/api/public/race-center/profile", include_in_schema=False)
+def race_center_profile_update(request: Request, body: RaceProfileChange):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-profile", 20, 300)
+    try:
+        profile = race_center_accounts.update_profile(
+            account.id,
+            handle=body.handle,
+            bio=body.bio,
+            favorite_track=body.favorite_track,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"ok": True, "profile": profile}
+
+
+@router.get("/api/public/race-center/feed", include_in_schema=False)
+def race_center_feed(request: Request, limit: int = 40):
+    account = race_center_accounts.account_from_request(request)
+    series_keys: list[str] = []
+    if account:
+        series_keys = [
+            str(item.get("key") or "")
+            for item in race_center_accounts.list_follows(account.id)
+            if item.get("kind") == "series" and item.get("key")
+        ]
+    return {
+        "posts": race_center_accounts.list_posts(
+            viewer_user_id=account.id if account else None,
+            limit=limit,
+            series_keys=series_keys or None,
+        )
+    }
+
+
+@router.post("/api/public/race-center/feed", include_in_schema=False)
+def race_center_post_create(request: Request, body: RacePostCreate):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-post", 12, 300)
+    try:
+        result = race_center_accounts.create_post(
+            account.id,
+            body=body.body,
+            series_key=body.series_key,
+            driver_key=body.driver_key,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {
+        **result,
+        "posts": race_center_accounts.list_posts(viewer_user_id=account.id, limit=40),
+    }
+
+
+@router.delete("/api/public/race-center/feed/{post_id}", include_in_schema=False)
+def race_center_post_delete(request: Request, post_id: int):
+    account = _race_account_or_401(request)
+    try:
+        race_center_accounts.delete_post(account.id, post_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    return {"ok": True}
+
+
+@router.post("/api/public/race-center/feed/{post_id}/reaction", include_in_schema=False)
+def race_center_react(request: Request, post_id: int, body: RaceReactionChange):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-reaction", 60, 300)
+    try:
+        result = race_center_accounts.toggle_reaction(account.id, post_id, body.reaction)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return result
+
+
+@router.post("/api/public/race-center/feed/{post_id}/comments", include_in_schema=False)
+def race_center_comment(request: Request, post_id: int, body: RaceCommentCreate):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-comment", 30, 300)
+    try:
+        result = race_center_accounts.add_comment(account.id, post_id, body.body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return result
 
 
 @router.get("/race-center", response_class=HTMLResponse, include_in_schema=False)
