@@ -61,63 +61,120 @@
     </section>
 
 
-    <section class="v5-home" id="v5Home" aria-label="My Race Center">
-      <section class="live-stage" id="liveStage">
-        <div class="live-stage-copy">
-          <div class="live-stage-kicker"><span class="live-dot"></span><span id="liveStageKicker">RACE DAY</span></div>
-          <h2 id="liveStageTitle">Your racing home is waking up.</h2>
-          <p id="liveStageText">When a tracked race is live, Race Center puts it here first — with official viewing access when Pitmark can legally provide it.</p>
-          <div class="live-stage-actions" id="liveStageActions"></div>
-        </div>
-        <div class="live-stage-media" id="liveStageMedia">
-          <div class="broadcast-placeholder">
-            <span>LIVE BOARD</span>
-            <strong id="broadcastPlaceholderTitle">No race is live right now.</strong>
-            <small>We’ll surface official live viewing here when an embeddable source is available.</small>
+    <section class="race-social" id="v5Home" aria-label="Race Center social network">
+      <aside class="social-left">
+        <section class="social-profile-card">
+          <div class="social-profile-avatar" id="socialProfileAvatar">RC</div>
+          <div class="social-profile-copy">
+            <strong id="socialProfileName">My Race Center</strong>
+            <span id="socialProfileHandle">Sign in to personalize</span>
           </div>
-        </div>
-      </section>
+          <button class="social-profile-edit" id="socialProfileOpen" type="button">View profile</button>
+          <div class="social-profile-stats">
+            <div><strong id="socialFollowingCount">0</strong><span>Following</span></div>
+            <div><strong id="socialFollowersCount">0</strong><span>Followers</span></div>
+            <div><strong id="socialRacingCount">0</strong><span>Racing follows</span></div>
+          </div>
+        </section>
 
-      <section class="personal-grid">
-        <div class="personal-column">
-          <div class="section-head compact">
-            <div><span class="eyebrow">FOR YOU</span><h2>My Race Center</h2></div>
+        <nav class="social-nav" aria-label="Race Center social navigation">
+          <a class="active" href="/race-center"><span>⌂</span><strong>Home</strong></a>
+          <a href="/race-center/standings"><span>≡</span><strong>Standings</strong></a>
+          <a href="/race-center/schedules"><span>◷</span><strong>Schedules</strong></a>
+          <a href="/race-center/live"><span>●</span><strong>Live + Next</strong></a>
+          <button id="socialMyRacing" type="button"><span>★</span><strong>My Racing</strong></button>
+          <button id="socialFindPeople" type="button"><span>◎</span><strong>Find People</strong></button>
+        </nav>
+
+        <section class="social-left-card">
+          <div class="rail-heading"><span>MY RACING</span><button id="railManageRacing" type="button">Manage</button></div>
+          <div id="socialMyRacingList" class="rail-list">
+            <p>Follow a series or driver and it will live here.</p>
+          </div>
+        </section>
+      </aside>
+
+      <main class="social-center">
+        <section class="social-composer-card">
+          <button class="composer-avatar" id="composerAvatar" type="button">RC</button>
+          <div class="social-composer-body">
+            <textarea id="pitWallInput" maxlength="600" placeholder="What’s happening in your racing world?"></textarea>
+            <div class="social-composer-tools">
+              <select id="pitWallSeries" aria-label="Attach a series"><option value="">Post to all racing</option></select>
+              <span id="pitWallCount">0 / 600</span>
+              <button class="button primary" id="pitWallPost" type="button">Post</button>
+            </div>
+            <small id="pitWallComposerNote">Sign in to post. Everyone can read the public feed.</small>
+          </div>
+        </section>
+
+        <section class="live-stage social-live-card" id="liveStage">
+          <div class="live-stage-copy">
+            <div class="live-stage-kicker"><span class="live-dot"></span><span id="liveStageKicker">RACE DAY</span></div>
+            <h2 id="liveStageTitle">Your racing home is waking up.</h2>
+            <p id="liveStageText">Live racing and the next green flag show up directly in your feed.</p>
+            <div class="live-stage-actions" id="liveStageActions"></div>
+          </div>
+          <div class="live-stage-media" id="liveStageMedia">
+            <div class="broadcast-placeholder">
+              <span>LIVE BOARD</span>
+              <strong>No race is live right now.</strong>
+              <small>Official viewing appears here when Pitmark can legally surface it.</small>
+            </div>
+          </div>
+        </section>
+
+        <section class="social-for-you">
+          <div class="feed-heading">
+            <div><span class="eyebrow">FOR YOU</span><h2>Racing updates</h2></div>
             <p id="personalStatus">Follow drivers and series to build your feed.</p>
           </div>
-          <div class="personal-feed" id="personalFeed">
+          <div class="personal-feed social-racing-feed" id="personalFeed">
             <div class="loading-card">Building your racing board…</div>
           </div>
+        </section>
 
-          <section class="people-discovery" id="peopleDiscovery">
-            <div class="people-head">
-              <div><span class="eyebrow">YOUR PEOPLE</span><h3>Fans on your wavelength</h3></div>
-              <p>People who follow the same racing you do.</p>
-            </div>
-            <div class="people-grid" id="peopleGrid">
-              <div class="loading-card">Sign in and follow racing to discover people.</div>
-            </div>
-          </section>
-        </div>
+        <section class="social-feed-card" id="pitWall">
+          <div class="feed-heading">
+            <div><span class="eyebrow">YOUR FEED</span><h2>Pit Wall</h2></div>
+            <span class="social-live-pill">RACING SOCIAL</span>
+          </div>
+          <div class="pit-wall-feed social-post-feed" id="pitWallFeed">
+            <div class="loading-card">Loading your racing feed…</div>
+          </div>
+        </section>
+      </main>
 
-        <aside class="pit-wall" id="pitWall">
-          <div class="pit-wall-head">
-            <div><span class="eyebrow">PIT WALL</span><h2>Race talk, without the noise.</h2></div>
-            <span class="social-live-pill">V5 SOCIAL</span>
+      <aside class="social-right">
+        <section class="social-right-card people-discovery" id="peopleDiscovery">
+          <div class="right-card-head">
+            <div><span class="eyebrow">PEOPLE</span><h3>Who to follow</h3></div>
+            <button id="discoverRefresh" type="button">Refresh</button>
           </div>
-          <div class="composer" id="pitWallComposer">
-            <textarea id="pitWallInput" maxlength="600" placeholder="What are you watching, thinking, or calling before the green?"></textarea>
-            <div class="composer-row">
-              <select id="pitWallSeries" aria-label="Attach a series"><option value="">General racing</option></select>
-              <span id="pitWallCount">0 / 600</span>
-              <button class="button primary" id="pitWallPost" type="button">Post to Pit Wall</button>
-            </div>
-            <p class="composer-note" id="pitWallComposerNote">Sign in to post. Everyone can read the public Pit Wall.</p>
+          <div class="people-grid social-people-list" id="peopleGrid">
+            <div class="loading-card">Sign in and follow racing to discover people.</div>
           </div>
-          <div class="pit-wall-feed" id="pitWallFeed">
-            <div class="loading-card">Loading the Pit Wall…</div>
+        </section>
+
+        <section class="social-right-card">
+          <div class="right-card-head"><div><span class="eyebrow">RACE PULSE</span><h3>Right now</h3></div></div>
+          <div class="right-pulse-grid">
+            <div><span>Live</span><strong id="pulseLive">—</strong><small id="pulseLiveText">Checking…</small></div>
+            <div><span>Next green</span><strong id="pulseCountdown">—</strong><small id="pulseNextText">Loading…</small></div>
+            <div><span>Movement</span><strong id="pulseMoves">—</strong><small>championship changes</small></div>
+            <div><span>My series</span><strong id="pulseFavorites">0</strong><small id="pulseFavoriteText">nothing followed yet</small></div>
           </div>
-        </aside>
-      </section>
+        </section>
+
+        <section class="social-right-card">
+          <div class="right-card-head"><div><span class="eyebrow">DISCOVER</span><h3>Explore racing</h3></div></div>
+          <div class="social-discover-links">
+            <a href="/race-center/standings"><strong>Championships</strong><span>Browse every tracked series →</span></a>
+            <a href="/race-center/schedules"><strong>Race calendar</strong><span>Find what’s next →</span></a>
+            <a href="/race-center/live"><strong>Race weekend</strong><span>See what’s live →</span></a>
+          </div>
+        </section>
+      </aside>
     </section>
 
     <section class="race-pulse" id="racePulse" aria-label="Race Pulse">
