@@ -578,3 +578,15 @@ def delete_account(user_id: int, password: str) -> dict:
         db.delete(user)
         db.commit()
     return {"ok":True}
+
+
+def friend_ids(user_id: int) -> set[int]:
+    with SessionLocal() as db:
+        rows=list(db.scalars(select(RaceCenterFriendship).where(
+            RaceCenterFriendship.status=="accepted",
+            or_(RaceCenterFriendship.user_low==user_id,RaceCenterFriendship.user_high==user_id),
+        )).all())
+        return {
+            row.user_high if row.user_low==user_id else row.user_low
+            for row in rows
+        }
