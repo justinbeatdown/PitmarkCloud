@@ -464,7 +464,7 @@ def race_center_moderation_reports(request: Request, status: str = "open", limit
 def race_center_moderation_resolve(request: Request, report_id: int, body: RaceModerationResolve):
     require_permission(request, "users")
     try:
-        return race_center_social_v6.resolve_report(report_id, status=body.status, note=body.note)
+        return race_center_social_v6.moderate_report(report_id, action=body.status, note=body.note)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -472,7 +472,12 @@ def race_center_moderation_resolve(request: Request, report_id: int, body: RaceM
 @router.get("/api/public/race-center/people/discover", include_in_schema=False)
 def race_center_people_discover(request: Request, limit: int = 12):
     account = _race_account_or_401(request)
-    return {"people": race_center_accounts.discover_people(account.id, limit=limit)}
+    blocked = race_center_social_v6.blocked_ids(account.id)
+    people = [
+        person for person in race_center_accounts.discover_people(account.id, limit=max(limit * 2, 12))
+        if int(person.get("id") or 0) not in blocked
+    ][:max(1, min(limit, 30))]
+    return {"people": people}
 
 
 @router.get("/api/public/race-center/people/{handle}", include_in_schema=False)
@@ -507,6 +512,8 @@ def race_center_public_profile(request: Request, handle: str):
 def race_center_people_follow(request: Request, body: RaceUserFollowChange):
     account = _race_account_or_401(request)
     enforce_rate_limit(request, "race-center-people-follow", 60, 300)
+    if body.user_id in race_center_social_v6.blocked_ids(account.id):
+        raise HTTPException(status_code=400, detail="Follow unavailable.")
     try:
         race_center_accounts.follow_user(account.id, body.user_id)
     except ValueError as exc:
