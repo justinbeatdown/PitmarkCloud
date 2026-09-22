@@ -39,14 +39,20 @@
     const series=v5SeriesForItem(item);
     const logoUrl=series&&String(series.series_logo||series.series_logo_direct||'').trim();
     const logo=logoUrl
-      ?'<img class="broadcast-series-logo" src="'+esc(logoUrl)+'" alt="'+esc(item.series_name||'Series')+' logo">'
-      :'<div class="broadcast-series-mark">'+esc(String(item.series_name||'RACING').slice(0,22))+'</div>';
-    const source=series&&series.series_logo_source_url
-      ?'<a class="broadcast-source" href="'+esc(series.series_logo_source_url)+'" target="_blank" rel="noopener">Series identity source ↗</a>'
-      :'';
-    return '<div class="broadcast-identity-bg"><div class="broadcast-speed-lines"></div><div class="broadcast-logo-wrap">'+logo+'</div><div class="broadcast-copy"><span>'+(live?'LIVE RACE':'NEXT GREEN FLAG')+'</span><strong>'+esc(event.name||item.series_name||'Race weekend')+'</strong><small>'+(item.watch_url?'Official viewing is available through the broadcaster/series link.':'No official embeddable broadcast source is available yet.')+'</small>'+source+'</div></div>';
+      ?'<img class="broadcast-series-logo compact" src="'+esc(logoUrl)+'" alt="'+esc(item.series_name||'Series')+' logo">'
+      :'<div class="broadcast-series-mark compact">'+esc(String(item.series_name||'RACING').slice(0,22))+'</div>';
+    return '<div class="broadcast-event-card">'+
+      '<div class="broadcast-event-top">'+
+        '<div class="broadcast-brand-chip">'+logo+'</div>'+
+        '<span class="broadcast-event-state">'+(live?'LIVE RACE':'NEXT GREEN FLAG')+'</span>'+
+      '</div>'+
+      '<div class="broadcast-event-body">'+
+        '<small>'+esc(item.series_name||'Racing')+'</small>'+
+        '<strong>'+esc(event.name||item.series_name||'Race weekend')+'</strong>'+
+        '<p>'+(item.watch_url?'Official viewing is available through the broadcaster/series link.':'No official embeddable broadcast source is available yet.')+'</p>'+
+      '</div>'+
+    '</div>';
   }
-
   function v5RenderLive(){
     const stage=$('#liveStage');
     if(!stage||!state.payload)return;
@@ -63,7 +69,7 @@
       $('#liveStageTitle').textContent='Your racing home is quiet. For now.';
       $('#liveStageText').textContent='No tracked event has a start time on the board right now. Standings, follows, and the Pit Wall are still live.';
       if(actions)actions.innerHTML='<a class="button" href="/race-center/schedules">Browse schedules</a>';
-      if(media)media.innerHTML='<div class="broadcast-identity-bg empty"><div class="broadcast-speed-lines"></div><div class="broadcast-series-mark">PITMARK</div><div class="broadcast-copy"><span>LIVE BOARD</span><strong>No race is live right now.</strong><small>Official viewing appears here only when Pitmark has a source it can surface safely.</small></div></div>';
+      if(media)media.innerHTML='<div class="broadcast-event-card empty"><div class="broadcast-event-top"><div class="broadcast-brand-chip"><div class="broadcast-series-mark compact">PITMARK</div></div><span class="broadcast-event-state">LIVE BOARD</span></div><div class="broadcast-event-body"><small>Race Center</small><strong>No race is live right now.</strong><p>Official viewing appears here only when Pitmark has a source it can surface safely.</p></div></div>';
       return;
     }
 
