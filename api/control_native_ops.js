@@ -149,17 +149,17 @@ async function connectGoogle(){
 }
 document.addEventListener('click',event=>{if(event.target.closest('#connect-google'))connectGoogle();});
 
-$('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>{
+$$('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>{
   tab=btn.dataset.tab;
   history.replaceState(null,'','#'+tab);
-  $('[data-tab]').forEach(x=>x.classList.toggle('is-active',x===btn));
+  $$('[data-tab]').forEach(x=>x.classList.toggle('is-active',x===btn));
   applyDeskIdentity();
   $('#analytics-view').hidden=tab!=='analytics';$('#social-view').hidden=tab!=='social';load(false);
 }));
 $$('[data-days]').forEach(btn=>btn.addEventListener('click',()=>{
   days=Number(btn.dataset.days)||30;$$('[data-days]').forEach(x=>x.classList.toggle('is-active',x===btn));load(false);
 }));
-$('[data-tab]').forEach(btn=>btn.classList.toggle('is-active',btn.dataset.tab===tab));
+$$('[data-tab]').forEach(btn=>btn.classList.toggle('is-active',btn.dataset.tab===tab));
 applyDeskIdentity();
 $('#analytics-view').hidden=tab!=='analytics';
 $('#social-view').hidden=tab!=='social';
