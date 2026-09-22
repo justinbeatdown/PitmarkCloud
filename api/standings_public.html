@@ -358,8 +358,8 @@
           <form class="profile-form v6-profile-form" id="profileForm">
             <label>Display name<input id="profileDisplayName" name="display_name" maxlength="80" placeholder="Your name"></label>
             <label>Handle<input id="profileHandle" name="handle" maxlength="40" pattern="[a-z0-9_]{3,40}" placeholder="your_handle"></label>
-            <label>Avatar image URL<input id="profileAvatarUrl" name="avatar_url" type="url" maxlength="1000" placeholder="https://..."></label>
-            <label>Cover image URL<input id="profileCoverUrl" name="cover_url" type="url" maxlength="1000" placeholder="https://..."></label>
+            <label>Avatar photo<input id="profileAvatarFile" type="file" accept="image/jpeg,image/png,image/webp"><small>Square crop · JPG, PNG or WebP · max 6 MB</small><input id="profileAvatarUrl" name="avatar_url" type="hidden"></label>
+            <label>Cover photo<input id="profileCoverFile" type="file" accept="image/jpeg,image/png,image/webp"><small>Wide crop · JPG, PNG or WebP · max 6 MB</small><input id="profileCoverUrl" name="cover_url" type="hidden"></label>
             <label>Hometown / region<input id="profileHometown" name="hometown" maxlength="100" placeholder="Pittsburgh, PA"></label>
             <label>Favorite track<input id="profileTrack" name="favorite_track" maxlength="120" placeholder="Your home track"></label>
             <label>Website<input id="profileWebsite" name="website_url" type="url" maxlength="1000" placeholder="https://..."></label>
