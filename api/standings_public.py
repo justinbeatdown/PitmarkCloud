@@ -301,6 +301,8 @@ def race_center_post_delete(request: Request, post_id: int):
 def race_center_react(request: Request, post_id: int, body: RaceReactionChange):
     account = _race_account_or_401(request)
     enforce_rate_limit(request, "race-center-reaction", 60, 300)
+    if not race_center_social_v6.can_interact_with_post(account.id, post_id):
+        raise HTTPException(status_code=404, detail="Post not found.")
     try:
         result = race_center_accounts.toggle_reaction(account.id, post_id, body.reaction)
     except ValueError as exc:
@@ -312,6 +314,8 @@ def race_center_react(request: Request, post_id: int, body: RaceReactionChange):
 def race_center_comment(request: Request, post_id: int, body: RaceCommentCreate):
     account = _race_account_or_401(request)
     enforce_rate_limit(request, "race-center-comment", 30, 300)
+    if not race_center_social_v6.can_interact_with_post(account.id, post_id):
+        raise HTTPException(status_code=404, detail="Post not found.")
     try:
         result = race_center_accounts.add_comment(account.id, post_id, body.body)
     except ValueError as exc:
