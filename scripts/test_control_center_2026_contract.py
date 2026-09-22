@@ -379,7 +379,8 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("AbortController", public_js)
         self.assertIn("bootRaceCenter", public_js)
         self.assertIn("Race Center V5", public_html)
-        self.assertIn('id="racePulse"', public_html)
+        self.assertIn('class="race-social"', public_html)
+        self.assertIn('id="pulseLive"', public_html)
         self.assertIn('id="favoritesFilter"', public_html)
         self.assertIn('class="mobile-dock"', public_html)
         self.assertIn("pitmark-race-center-v5", public_js)
@@ -446,7 +447,8 @@ class ControlCenter2026Contract(unittest.TestCase):
             'id="liveStage"',
             'id="personalFeed"',
             'id="pitWall"',
-            'id="pitWallComposer"',
+            'class="social-composer-card"',
+            'id="pitWallInput"',
             'id="profileForm"',
             "/race-center-v5.js",
         ):
@@ -492,7 +494,8 @@ class ControlCenter2026Contract(unittest.TestCase):
             self.assertIn(token, public_html)
         for token in (
             "v5BroadcastGraphic",
-            "broadcast-series-logo",
+            "broadcast-photo-card",
+            "Photo:",
             "v5LoadPeople",
             "v5OpenProfile",
             "data-v5-follow-user",
