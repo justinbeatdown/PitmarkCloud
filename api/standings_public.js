@@ -7,6 +7,7 @@ const pageView=routePath==='/standings'||routePath.endsWith('/standings')
       ?'live'
       :'hub';
 const PREF_KEY='pitmark-race-center-v4';
+const CACHE_KEY='pitmark-race-center-v4-feed';
 const readPrefs=()=>{
   try{
     const raw=JSON.parse(localStorage.getItem(PREF_KEY)||'{}');
@@ -23,6 +24,17 @@ const prefs=readPrefs();
 const state={
   payload:null,group:'All',search:'',view:pageView,
   favorites:prefs.favorites,lastSeries:prefs.lastSeries,favoritesOnly:prefs.favoritesOnly
+};
+const readCachedPayload=()=>{
+  try{
+    const raw=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');
+    if(!raw?.payload||!raw?.savedAt)return null;
+    if(Date.now()-Number(raw.savedAt)>6*60*60*1000)return null;
+    return raw.payload;
+  }catch(_error){return null;}
+};
+const saveCachedPayload=payload=>{
+  try{localStorage.setItem(CACHE_KEY,JSON.stringify({savedAt:Date.now(),payload}));}catch(_error){}
 };
 const savePrefs=()=>{
   try{
@@ -653,6 +665,7 @@ async function load(){
     clearTimeout(timeout);
     if(!response.ok)throw new Error('Race Center feed unavailable');
     state.payload=await response.json();
+    saveCachedPayload(state.payload);
     render();
   }catch(error){
     setLoadError(error?.name==='AbortError'?'Race Center timed out. Refresh to retry.':(error.message||'Unable to load Race Center.'));
@@ -680,7 +693,17 @@ function safeBind(selector,eventName,handler){
 }
 
 function bootRaceCenter(){
-  // Kick off the data request first. UI wiring must never be allowed to block it.
+  // Render a recent saved board instantly, then refresh from the durable API.
+  const cached=readCachedPayload();
+  if(cached){
+    state.payload=cached;
+    render();
+    const status=$('#headerStatus');
+    if(status){
+      status.className='header-health warn';
+      status.innerHTML='<i></i> Refreshing live board';
+    }
+  }
   load();
   setInterval(()=>{if(state.payload)renderPulse();},30000);
 
