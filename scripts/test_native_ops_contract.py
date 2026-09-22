@@ -54,6 +54,18 @@ class NativeOpsContractTests(unittest.TestCase):
         self.assertIn("def social_desk", service)
         self.assertIn("def clear_cache", service)
 
+    def test_control_center_links_are_static_only(self):
+        views = (ROOT / "api" / "control_center_views.js").read_text(encoding="utf-8")
+        self.assertIn('/control/native-ops?tab=social', views)
+        self.assertIn('/control/native-ops?tab=analytics', views)
+        self.assertNotIn("native_analytics_suite", views)
+
+    def test_x_credit_depletion_stops_retry_loop(self):
+        worker = (ROOT / "services" / "social_publish_worker.py").read_text(encoding="utf-8")
+        self.assertIn('"credits depleted" in str(exc).lower()', worker)
+        self.assertIn('post.status = "approved"', worker)
+        self.assertIn("instead of retrying every minute", worker)
+
     def test_shopify_paginates(self):
         service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
         self.assertIn("pageInfo { hasNextPage endCursor }", service)
