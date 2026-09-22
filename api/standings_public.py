@@ -596,6 +596,9 @@ def race_center_people_unfollow(request: Request, body: RaceUserFollowChange):
 @router.get("/race-center/live", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/standings", response_class=HTMLResponse, include_in_schema=False)
 def public_standings_home(request: Request, handle: str | None = None):
+    clean_handle = (handle or "").strip().lower()
+    if clean_handle and not race_center_accounts.HANDLE_RE.fullmatch(clean_handle):
+        raise HTTPException(status_code=404, detail="Race Center profile not found.")
     html = (ASSET_DIR / "standings_public.html").read_text(encoding="utf-8")
     path = request.url.path.rstrip("/").lower()
     view = (
@@ -606,7 +609,7 @@ def public_standings_home(request: Request, handle: str | None = None):
     )
     html = html.replace("{{PITMARK_VERSION}}", settings.app_version)
     html = html.replace("{{RACE_CENTER_VIEW}}", view)
-    html = html.replace("{{RACE_CENTER_PROFILE_HANDLE}}", (handle or "").strip().lower())
+    html = html.replace("{{RACE_CENTER_PROFILE_HANDLE}}", clean_handle)
     return HTMLResponse(
         html,
         headers={"Cache-Control": "no-cache, no-store"},
