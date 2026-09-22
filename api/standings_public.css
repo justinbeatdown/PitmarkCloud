@@ -1543,3 +1543,15 @@ body[data-view="hub"] .site-footer{
 @media(max-width:680px){
   .v6-toast{bottom:76px}
 }
+
+
+.profile-posts{margin-top:18px;padding-top:14px;border-top:1px solid #252e37}
+.profile-posts>strong{display:block;margin-bottom:8px;color:#8795a8;font-size:8px;font-weight:1000;text-transform:uppercase;letter-spacing:.08em}
+.profile-posts>div{display:grid;gap:7px}
+.profile-post{padding:10px;border:1px solid #29333d;border-radius:10px;background:#0b1015}
+.profile-post p{margin:0;color:#d9e0e7;font-size:10px;line-height:1.5;white-space:pre-wrap}
+.profile-post>div{display:flex;justify-content:space-between;gap:10px;margin-top:7px;color:#667487;font-size:7px}
+.profile-post-empty{margin:0;color:#68778a;font-size:9px}
+.moderation-users-section{margin-top:18px;padding-top:14px;border-top:1px solid #252e37}
+.moderated-user-row .moderation-reason{border-color:rgba(255,170,90,.34);background:rgba(255,170,90,.07);color:#ffc08a}
+.mini-action.danger-mini{border-color:rgba(255,92,92,.4);background:rgba(255,92,92,.08);color:#ffb0b0}
