@@ -82,8 +82,13 @@ def compose_platform_copy(campaign: dict, platform: str) -> str:
     prompt = (
         "Create the finished daily Pitmark Racing Co. campaign copy for this verified topic. "
         "This is one platform variant in a coordinated daily package, so preserve the same core "
-        "story while writing natively for the platform. Do not label the output or mention that it "
-        "is automated. " + _campaign_context(campaign)
+        "story while writing natively for the platform. Lead with the strongest concrete hook instead "
+        "of a generic brand introduction. Give the audience a reason to stop, care, and respond. When it "
+        "fits naturally, use ONE specific distribution action: tag the relevant racer/track/friend, share "
+        "with a racing buddy, save the useful information, submit a story/build, or follow Pitmark for more "
+        "grassroots racing coverage. Never beg for engagement, stack multiple CTAs, promise a follow-back, "
+        "or use spammy engagement bait. Prefer specific grassroots-racing language over generic marketing "
+        "phrases. Do not label the output or mention that it is automated. " + _campaign_context(campaign)
     )
     if platform == "discord":
         prompt += "\nUse concise Discord Markdown with a natural community tone."
@@ -122,11 +127,11 @@ def build_slide_plan(campaign: dict) -> dict:
     url = (campaign.get("url") or "").strip()
     ig = [
         {"headline": title, "beat": "Opening hook: establish the campaign topic with the strongest relevant racing atmosphere."},
-        {"headline": "Why It Matters", "beat": f"Show the human racing-community context behind this topic. {summary}"},
-        {"headline": "Inside the Story", "beat": f"Editorial detail frame grounded only in this supplied context: {summary}"},
-        {"headline": "Built Around Racing", "beat": "Connect the verified topic to grassroots motorsports, sim racing, race teams, fans, tracks, garages, or leagues without inventing specifics."},
-        {"headline": "Your Turn", "beat": "Create a discussion-driving visual frame that invites the racing community to react or share their perspective."},
-        {"headline": "Leave Your Mark.", "beat": f"Closing campaign frame with strong branding-safe negative space. Public destination: {url or 'Pitmark links/site'}."},
+        {"headline": "Why Racers Care", "beat": f"Show the human racing-community consequence behind this topic. {summary}"},
+        {"headline": "What You Need to Know", "beat": f"Editorial detail frame grounded only in this supplied context: {summary}"},
+        {"headline": "From the Racing Community", "beat": "Connect the verified topic to grassroots motorsports, sim racing, race teams, fans, tracks, garages, or leagues without inventing specifics."},
+        {"headline": "Who Should See This?", "beat": "Create a useful discussion/discovery frame that naturally gives racers a reason to tag or share with somebody relevant."},
+        {"headline": "Follow the Next Story", "beat": f"Closing frame that positions Pitmark as ongoing grassroots racing coverage without making unsupported promises. Public destination: {url or 'Pitmark links/site'}."},
     ]
     vertical = [
         {"headline": title, "beat": "Vertical opening hook with immediate racing energy and central subject safety."},
