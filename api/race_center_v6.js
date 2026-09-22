@@ -2,6 +2,7 @@
   let activeSafetyTarget=null;
   let activeProfile=null;
   let toastTimer=null;
+  let v6CanModerate=false;
 
   function showToast(message,type){
     const toast=$('#v6Toast');
@@ -290,6 +291,11 @@
       const safety=(state.account&&state.account.authenticated&&state.account.id!==profile.id)
         ?'<button class="button danger-outline" type="button" data-v6-safety-user="'+profile.id+'" data-v6-safety-label="@'+esc(profile.handle)+'">Report / block</button>'
         :'';
+      const verifyControls=v6CanModerate
+        ?'<div class="identity-admin"><label>Account type<select data-v6-identity-type="'+profile.id+'">'+
+          ['fan','driver','team','series','track','media'].map(function(type){return '<option value="'+type+'" '+(String(identity.account_type||'fan')===type?'selected':'')+'>'+type+'</option>';}).join('')+
+          '</select></label><label>Official label<input data-v6-identity-label="'+profile.id+'" maxlength="120" value="'+esc(identity.official_label||'')+'" placeholder="Official Driver"></label><label>Official link<input data-v6-identity-url="'+profile.id+'" maxlength="1000" value="'+esc(identity.external_url||'')+'" placeholder="https://..."></label><div><button class="mini-action primary" type="button" data-v6-verify-user="'+profile.id+'">'+(identity.verification_status==='verified'?'Update verified identity':'Verify account')+'</button>'+(identity.verification_status==='verified'?'<button class="mini-action" type="button" data-v6-unverify-user="'+profile.id+'">Remove verification</button>':'')+'</div></div>'
+        :'';
       const series=(profile.series||[]).map(function(x){return '<span>'+esc(x.label||x.key)+'</span>';}).join('');
       const drivers=(profile.drivers||[]).map(function(x){return '<span>'+esc(x.label||x.key)+'</span>';}).join('');
       host.innerHTML='<div class="v6-public-profile">'+
@@ -302,6 +308,7 @@
         '<div class="profile-action-row">'+friendButton+followButton+safety+'<a class="button" href="/race-center/u/'+encodeURIComponent(profile.handle)+'">Profile link ↗</a>'+(extra.website_url?'<a class="button" href="'+esc(extra.website_url)+'" target="_blank" rel="noopener">Website ↗</a>':'')+'</div>'+
         (series?'<div class="profile-tags"><strong>Series</strong><div>'+series+'</div></div>':'')+
         (drivers?'<div class="profile-tags"><strong>Drivers</strong><div>'+drivers+'</div></div>':'')+
+        verifyControls+
         '<div class="profile-posts"><strong>Recent posts</strong><div>'+
           ((profile.posts||[]).length?(profile.posts||[]).map(function(post){
             return '<article class="profile-post"><p>'+esc(post.body||'')+'</p><div><span>'+esc(post.visibility==='friends'?'Friends':'Public')+'</span><span>'+esc(post.created_at?new Date(post.created_at).toLocaleString():'')+'</span></div></article>';
@@ -408,6 +415,7 @@
     try{
       const payload=await apiJson('/api/control/race-center/moderation/reports?status=open&limit=100',{method:'GET'});
       const reports=payload.reports||[];
+      v6CanModerate=true;
       const tab=$('#moderationTabButton');
       if(tab)tab.hidden=false;
       if($('#moderationBadge'))$('#moderationBadge').textContent=reports.length?String(reports.length):'';
@@ -420,6 +428,7 @@
         if(usersHost)usersHost.innerHTML=moderated.length?moderated.map(moderatedUserRow).join(''):'<p class="empty-account-list">No suspended or banned accounts.</p>';
       }catch(_error){}
     }catch(_error){
+      v6CanModerate=false;
       const tab=$('#moderationTabButton');
       if(tab)tab.hidden=true;
     }
@@ -443,6 +452,25 @@
     });
     showToast('Race Center account restored.','success');
     await loadModeration();
+  }
+
+
+  async function setOfficialIdentity(userId,verified){
+    const type=$('[data-v6-identity-type="'+String(userId)+'"]');
+    const label=$('[data-v6-identity-label="'+String(userId)+'"]');
+    const url=$('[data-v6-identity-url="'+String(userId)+'"]');
+    const payload=await apiJson('/api/control/race-center/identity/'+String(Number(userId)),{
+      method:'PUT',
+      body:JSON.stringify({
+        account_type:String(type&&type.value||'fan'),
+        verification_status:verified?'verified':'unverified',
+        official_label:String(label&&label.value||''),
+        external_url:String(url&&url.value||'')
+      })
+    });
+    showToast(verified?'Official identity verified.':'Verification removed.','success');
+    if(activeProfile)await openProfileV6(activeProfile.handle);
+    return payload;
   }
 
 
@@ -573,6 +601,16 @@
       }
       const moderation=event.target.closest('[data-v6-moderate]');
       if(moderation){moderate(Number(moderation.dataset.v6Moderate),moderation.dataset.action).catch(function(error){showToast(error.message||'Moderation action failed.','error');});return;}
+      const verifyUser=event.target.closest('[data-v6-verify-user]');
+      if(verifyUser){
+        setOfficialIdentity(verifyUser.dataset.v6VerifyUser,true).catch(function(error){showToast(error.message||'Could not verify account.','error');});
+        return;
+      }
+      const unverifyUser=event.target.closest('[data-v6-unverify-user]');
+      if(unverifyUser){
+        setOfficialIdentity(unverifyUser.dataset.v6UnverifyUser,false).catch(function(error){showToast(error.message||'Could not remove verification.','error');});
+        return;
+      }
       const restoreUser=event.target.closest('[data-v6-restore-user]');
       if(restoreUser){
         restoreModeratedUser(restoreUser.dataset.v6RestoreUser).catch(function(error){showToast(error.message||'Could not restore account.','error');});
@@ -618,6 +656,12 @@
       if(state.account&&state.account.authenticated)v6RefreshAccount();
     },60000);
   }
+
+  window.PitmarkRaceCenterV6={
+    openProfile:openProfileV6,
+    refreshAccount:v6RefreshAccount,
+    showToast:showToast
+  };
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
   else init();
