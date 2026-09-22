@@ -77,6 +77,17 @@ class NativeOpsContractTests(unittest.TestCase):
         self.assertGreaterEqual(client.count("$$('[data-tab]').forEach"), 3)
         self.assertIn("location.hash", client)
 
+    def test_recommendations_execute_with_currency_values(self):
+        import importlib.util
+        import sys
+        from types import ModuleType
+
+        # Static contract: old-style comma currency formatting must never return.
+        service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
+        self.assertNotIn("%,.2f", service)
+        self.assertIn("{revenue:,.2f}", service)
+        self.assertIn("{ad_spend:,.2f}", service)
+
     def test_intelligence_has_bounded_wait(self):
         service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
         self.assertIn("ThreadPoolExecutor", service)
