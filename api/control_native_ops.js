@@ -4,7 +4,7 @@ const esc=(v='')=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','
 const num=v=>Number(v||0).toLocaleString();
 const money=v=>'$'+Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 let days=30;
-const initialTab=new URLSearchParams(location.search).get('tab');
+const initialTab=(location.hash||'').replace(/^#/,'').toLowerCase() || new URLSearchParams(location.search).get('tab');
 let tab=initialTab==='social'?'social':'analytics';
 
 function toast(message){const el=$('#toast');el.textContent=message;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2600)}
@@ -105,6 +105,16 @@ function renderSocial(data){
     '</div>';
 }
 
+function applyDeskIdentity(){
+  const title=document.querySelector('.top h1');
+  const copy=document.querySelector('.top p');
+  if(title) title.textContent=tab==='social'?'Pitmark Social Desk':'Pitmark Analytics';
+  if(copy) copy.textContent=tab==='social'
+    ? 'Calendar, publishing, channel health, engagement, and social performance without Metricool.'
+    : 'Sales, traffic, ads, PRT, outreach, and business performance without Supermetrics.';
+  document.title=(tab==='social'?'Pitmark Social Desk':'Pitmark Analytics')+' · Control Center';
+}
+
 async function load(force=false){
   $('#status').textContent='Loading Pitmark data…';
   try{
@@ -140,13 +150,17 @@ async function connectGoogle(){
 document.addEventListener('click',event=>{if(event.target.closest('#connect-google'))connectGoogle();});
 
 $('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>{
-  tab=btn.dataset.tab;$$('[data-tab]').forEach(x=>x.classList.toggle('is-active',x===btn));
+  tab=btn.dataset.tab;
+  history.replaceState(null,'','#'+tab);
+  $('[data-tab]').forEach(x=>x.classList.toggle('is-active',x===btn));
+  applyDeskIdentity();
   $('#analytics-view').hidden=tab!=='analytics';$('#social-view').hidden=tab!=='social';load(false);
 }));
 $$('[data-days]').forEach(btn=>btn.addEventListener('click',()=>{
   days=Number(btn.dataset.days)||30;$$('[data-days]').forEach(x=>x.classList.toggle('is-active',x===btn));load(false);
 }));
 $('[data-tab]').forEach(btn=>btn.classList.toggle('is-active',btn.dataset.tab===tab));
+applyDeskIdentity();
 $('#analytics-view').hidden=tab!=='analytics';
 $('#social-view').hidden=tab!=='social';
 
