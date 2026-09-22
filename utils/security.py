@@ -52,7 +52,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         if content_length:
             try:
                 path = request.url.path
-                if path == "/api/control/social/assets/upload":
+                if path in {"/api/control/social/assets/upload", "/api/public/race-center/profile/image"}:
                     limit = SOCIAL_UPLOAD_MAX_REQUEST_BODY
                 elif path == "/api/discord/share/racecard-image":
                     limit = RACE_CARD_UPLOAD_MAX_REQUEST_BODY
