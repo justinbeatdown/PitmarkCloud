@@ -282,7 +282,7 @@
         '<div class="profile-stats"><div><strong>'+String(profile.followers||0)+'</strong><span>Followers</span></div><div><strong>'+String(profile.following||0)+'</strong><span>Following</span></div><div><strong>'+String((profile.series||[]).length+(profile.drivers||[]).length)+'</strong><span>Racing follows</span></div></div>'+
         (extra.hometown?'<p class="profile-track">From <strong>'+esc(extra.hometown)+'</strong></p>':'')+
         (profile.favorite_track?'<p class="profile-track">Favorite track <strong>'+esc(profile.favorite_track)+'</strong></p>':'')+
-        '<div class="profile-action-row">'+friendButton+followButton+safety+(extra.website_url?'<a class="button" href="'+esc(extra.website_url)+'" target="_blank" rel="noopener">Website ↗</a>':'')+'</div>'+
+        '<div class="profile-action-row">'+friendButton+followButton+safety+'<a class="button" href="/race-center/u/'+encodeURIComponent(profile.handle)+'">Profile link ↗</a>'+(extra.website_url?'<a class="button" href="'+esc(extra.website_url)+'" target="_blank" rel="noopener">Website ↗</a>':'')+'</div>'+
         (series?'<div class="profile-tags"><strong>Series</strong><div>'+series+'</div></div>':'')+
         (drivers?'<div class="profile-tags"><strong>Drivers</strong><div>'+drivers+'</div></div>':'')+
       '</div>';
@@ -542,6 +542,8 @@
 
     setTimeout(v6RefreshAccount,250);
     setTimeout(loadModeration,500);
+    const deepLinkedHandle=String(document.body?.dataset?.profileHandle||'').trim();
+    if(deepLinkedHandle)setTimeout(function(){openProfileV6(deepLinkedHandle);},550);
     setInterval(function(){
       if(state.account&&state.account.authenticated)v6RefreshAccount();
     },60000);
