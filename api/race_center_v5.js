@@ -274,28 +274,6 @@
     if(note)note.textContent=authed
       ?'Posting as @'+String(profile.handle||'racer')+'.'
       :'Sign in to post. Everyone can read the public Pit Wall.';
-    const peopleClose=$('#peopleDialogClose');
-    if(peopleClose)peopleClose.addEventListener('click',function(){$('#peopleDialog')?.close();});
-
-    const profileOpen=$('#socialProfileOpen');
-    if(profileOpen)profileOpen.addEventListener('click',function(){
-      if(state.account&&state.account.authenticated){
-        $('#accountDialog')?.showModal();
-      }else{
-        $('#accountDialog')?.showModal();
-      }
-    });
-    const composerAvatar=$('#composerAvatar');
-    if(composerAvatar)composerAvatar.addEventListener('click',function(){$('#accountDialog')?.showModal();});
-    const findPeople=$('#socialFindPeople');
-    if(findPeople)findPeople.addEventListener('click',function(){$('#peopleDiscovery')?.scrollIntoView({behavior:'smooth',block:'center'});});
-    const myRacing=$('#socialMyRacing');
-    if(myRacing)myRacing.addEventListener('click',function(){$('#personalFeed')?.scrollIntoView({behavior:'smooth',block:'start'});});
-    const manageRacing=$('#railManageRacing');
-    if(manageRacing)manageRacing.addEventListener('click',function(){location.href='/race-center/standings';});
-    const refreshPeople=$('#discoverRefresh');
-    if(refreshPeople)refreshPeople.addEventListener('click',v5LoadPeople);
-
     const postButton=$('#pitWallPost');
     if(postButton)postButton.disabled=!authed;
   }
@@ -436,6 +414,21 @@
   }
 
   function initV5(){
+    const peopleClose=$('#peopleDialogClose');
+    if(peopleClose)peopleClose.addEventListener('click',function(){$('#peopleDialog')?.close();});
+    const profileOpen=$('#socialProfileOpen');
+    if(profileOpen)profileOpen.addEventListener('click',function(){$('#accountDialog')?.showModal();});
+    const composerAvatar=$('#composerAvatar');
+    if(composerAvatar)composerAvatar.addEventListener('click',function(){$('#accountDialog')?.showModal();});
+    const findPeople=$('#socialFindPeople');
+    if(findPeople)findPeople.addEventListener('click',function(){$('#peopleDiscovery')?.scrollIntoView({behavior:'smooth',block:'center'});});
+    const myRacing=$('#socialMyRacing');
+    if(myRacing)myRacing.addEventListener('click',function(){$('#personalFeed')?.scrollIntoView({behavior:'smooth',block:'start'});});
+    const manageRacing=$('#railManageRacing');
+    if(manageRacing)manageRacing.addEventListener('click',function(){location.href='/race-center/standings';});
+    const refreshPeople=$('#discoverRefresh');
+    if(refreshPeople)refreshPeople.addEventListener('click',v5LoadPeople);
+
     try{
       const baseRender=render;
       render=function(){
