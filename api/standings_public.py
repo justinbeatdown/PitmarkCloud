@@ -525,6 +525,11 @@ def public_race_center_v5_js():
     return _asset("race_center_v5.js", "application/javascript")
 
 
+@router.get("/race-center-v6.js", include_in_schema=False)
+def public_race_center_v6_js():
+    return _asset("race_center_v6.js", "application/javascript")
+
+
 @router.get("/race-center-assets/arca.webp", include_in_schema=False)
 def public_arca_logo():
     return Response(
