@@ -76,6 +76,7 @@
   function v6RenderFriends(){
     if(!(state.account&&state.account.authenticated))return;
     const dashboard=state.account.friends||{friends:[],incoming:[],outgoing:[],blocked:[]};
+    if($('#socialFriendsCount'))$('#socialFriendsCount').textContent=String(dashboard.friends.length);
     const incoming=$('#incomingFriends'), friends=$('#friendsList'), outgoing=$('#outgoingFriends'), blocked=$('#blockedList');
     if(incoming)incoming.innerHTML=dashboard.incoming.length
       ?dashboard.incoming.map(function(p){return personRow(p,'<button class="mini-action primary" data-v6-friend-accept="'+p.id+'">Accept</button><button class="mini-action" data-v6-friend-decline="'+p.id+'">Decline</button>');}).join('')
