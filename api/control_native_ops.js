@@ -29,11 +29,11 @@ function row(title,detail,right=''){return '<div class="row"><div><strong>'+esc(
 
 function renderAnalytics(data){
   const e=data.executive||{}, commerce=data.commerce||{}, growth=data.growth||{}, sources=data.sources||{};
-  const googleReady=['ga4','search_console','youtube'].some(key=>sources[key]?.live);
+  const googleReady=['ga4','search_console'].some(key=>sources[key]?.live);
   const top=commerce.top_products||[], recs=data.recommendations||[];
   const rel=growth.relationships||{}, prt=growth.prt||{};
   $('#analytics-view').innerHTML=
-    (googleReady?'':'<section class="card" style="margin-bottom:12px"><span class="section-label">Google Data</span><h2>Connect GA4 + Search Console + YouTube</h2><p style="color:var(--muted)">One read-only authorization unlocks website traffic, search performance, and YouTube metrics.</p><button id="connect-google" type="button" class="native-action">Connect Google Analytics</button></section>')+
+    (googleReady?'':'<section class="card" style="margin-bottom:12px"><span class="section-label">Google Data</span><h2>Connect GA4 + Search Console</h2><p style="color:var(--muted)">One read-only authorization unlocks website traffic and Google search performance. YouTube is connected separately so it cannot block this setup.</p><button id="connect-google" type="button" class="native-action">Connect Google Analytics</button></section>')+
     '<div class="grid metrics">'+
       metric('Revenue',money(e.revenue),num(e.orders)+' orders')+
       metric('AOV',money(e.average_order_value),'Shopify')+
@@ -78,6 +78,7 @@ function groupCalendar(items){
 function renderSocial(data){
   const s=data.summary||{}, op=data.operator||{}, cal=data.calendar||{}, windows=data.posting_windows||{};
   const groups=groupCalendar(cal.items||[]).slice(0,21);
+  const failures=(cal.failures||[]).slice(0,8);
   $('#social-view').innerHTML=
     '<div class="grid metrics">'+
       metric('Published',num(s.published),'all tracked')+
@@ -90,6 +91,7 @@ function renderSocial(data){
     '<div class="grid two" style="margin-top:12px">'+
       '<section class="card"><span class="section-label">Publishing Calendar</span><h2>Current social schedule</h2>'+
         (groups.length?'<div class="calendar">'+groups.map(([day,items])=>'<div class="day"><strong>'+esc(day)+'</strong>'+items.slice(0,6).map(item=>'<div class="event"><b>'+esc(item.platform||'platform')+'</b><span>'+esc(item.status||'')+' · '+esc((item.title||item.body||'').slice(0,70))+'</span></div>').join('')+'</div>').join('')+'</div>':'<div class="empty">No calendar items in this window.</div>')+
+        (failures.length?'<div style="margin-top:14px"><span class="section-label">Publishing issues</span>'+rows(failures.map(item=>row(item.platform||'platform',(item.title||item.body||'').slice(0,85),badge(item.status||'failed'))))+'</div>':'')+
       '</section>'+
       '<section class="card"><span class="section-label">Posting Windows</span><h2>Cadence guardrails</h2>'+
         rows(Object.entries(windows).map(([platform,times])=>row(platform,times.join(' · '),badge(num((data.platforms||{})[platform])+' tracked'))))+
@@ -97,7 +99,11 @@ function renderSocial(data){
     '</div>'+
     '<div class="grid two" style="margin-top:12px">'+
       '<section class="card"><span class="section-label">Channel Health</span><h2>Social Operator</h2>'+
-        rows(Object.entries(op.channels||{}).map(([name,value])=>row(name,(value?.error||('scanned '+num(value?.scanned))),badge(value?.ok===false?'degraded':'healthy'))),'No channel health run recorded yet.')+
+        rows(Object.entries(op.channels||{}).map(([name,value])=>{
+          const status=value?.status==='limited'?'limited':(value?.ok===false?'degraded':'healthy');
+          const detail=value?.note||value?.error||('scanned '+num(value?.scanned));
+          return row(name,detail,badge(status));
+        }),'No channel health run recorded yet.')+
       '</section>'+
       '<section class="card"><span class="section-label">Recommendations</span><h2>What to do next</h2>'+
         rows((data.recommendations||[]).map(r=>'<div class="recommendation">'+badge(r.priority||'info')+'<h3>'+esc(r.title||'Recommendation')+'</h3><p>'+esc(r.detail||'')+'</p></div>'),'No social operations warnings right now.')+
@@ -136,7 +142,7 @@ async function connectGoogle(){
     popup=window.open('about:blank','pitmark-google-intelligence');
     const start=await request('/api/control/intelligence/google/oauth/start',{method:'POST'});
     if(popup)popup.location.href=start.authorization_url;else window.open(start.authorization_url,'_blank','noopener');
-    const callback=prompt('After Google redirects to localhost, copy the full URL from the address bar and paste it here.');
+    const callback=prompt('Approve GA4 + Search Console. After Google redirects to localhost, copy the full URL from the address bar and paste it here.');
     if(!callback)return;
     await request('/api/control/intelligence/google/oauth/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({callback_url:callback.trim()})});
     await request('/api/control/native-ops/refresh',{method:'POST'});
