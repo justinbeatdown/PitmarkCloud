@@ -369,7 +369,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('"column_title": "Driver Standings"', service)
         self.assertIn('if provider == "column_sections"', service)
 
-    def test_public_standings_v3_loads_saved_snapshot_api_without_inline_bootstrap(self):
+    def test_public_standings_v4_loads_saved_snapshot_api_without_inline_bootstrap(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
         public_js = self.read("api/standings_public.js")
@@ -378,6 +378,15 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("fetch('/api/public/standings", public_js)
         self.assertIn("AbortController", public_js)
         self.assertIn("bootRaceCenter", public_js)
+        self.assertIn("Race Center V4", public_html)
+        self.assertIn('id="racePulse"', public_html)
+        self.assertIn('id="favoritesFilter"', public_html)
+        self.assertIn('class="mobile-dock"', public_html)
+        self.assertIn("pitmark-race-center-v4", public_js)
+        self.assertIn("renderPulse", public_js)
+        self.assertIn("renderMySeries", public_js)
+        self.assertIn("countdownText", public_js)
+        self.assertIn("data-favorite-key", public_js)
         self.assertNotIn("{{PITMARK_STANDINGS_BOOTSTRAP}}", public_html)
         self.assertNotIn("{{PITMARK_STANDINGS_INLINE_JS}}", public_html)
 
