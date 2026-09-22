@@ -1,6 +1,9 @@
 const ENDPOINTS = Object.freeze({
   hq: '/api/control/hq/overview',
   intelligence: '/api/control/intelligence/overview',
+  intelligenceGoogleStatus: '/api/control/intelligence/google/status',
+  intelligenceGoogleOAuthStart: '/api/control/intelligence/google/oauth/start',
+  intelligenceGoogleOAuthComplete: '/api/control/intelligence/google/oauth/complete',
   work: '/api/control/work',
   search: '/api/control/search',
   prtOverview: '/api/control/ops/overview',
@@ -130,6 +133,9 @@ export const api = Object.freeze({
   // first render before anything reaches the screen.
   hq: (options = {}) => request(ENDPOINTS.hq, { maxAge: 15000, ...options }),
   intelligence: (days = 30, options = {}) => request(query(ENDPOINTS.intelligence, { days }), { scope: 'business-intelligence', maxAge: 30000, ...options }),
+  intelligenceGoogleStatus: (options = {}) => request(ENDPOINTS.intelligenceGoogleStatus, { scope: 'business-intelligence-google-status', maxAge: 5000, ...options }),
+  intelligenceGoogleOAuthStart: () => request(ENDPOINTS.intelligenceGoogleOAuthStart, { method: 'POST' }),
+  intelligenceGoogleOAuthComplete: (callbackUrl) => request(ENDPOINTS.intelligenceGoogleOAuthComplete, { method: 'POST', body: { callback_url: callbackUrl } }),
   work: (view = 'now', options = {}) => request(query(ENDPOINTS.work, { view }), { scope: 'work', maxAge: 12000, ...options }),
   updateWork: (rowNumber, body) => request(`${ENDPOINTS.work}/${encodeURIComponent(rowNumber)}`, { method: 'PATCH', body }),
   search: (q) => request(query(ENDPOINTS.search, { q }), { scope: 'search' }),
