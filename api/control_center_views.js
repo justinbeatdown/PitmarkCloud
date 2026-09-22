@@ -116,6 +116,8 @@ async function renderHQ(root, ctx) {
     <button type="button" data-go="prt"><span>P</span><strong>PRT</strong><small>Testers, feedback, Founder’s Race</small></button>
     <button type="button" data-go="content"><span>▤</span><strong>Content</strong><small>Generated, approvals, editorial</small></button>
     <button type="button" data-go="partnerships"><span>↔</span><strong>Partnerships</strong><small>Tracks, leagues, follow-ups</small></button>
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLScWmRdjn3BcFLY1vhpPpW0n0h2biXgM6WMwKe0zICrf-AsKLA/viewform" target="_blank" rel="noopener"><span>✦</span><strong>Story Intake</strong><small>Driver & team submissions</small></a>
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLSfJEJAAhYdfPfqD5qGSktbFmK8acwytd_Clx2tMDNMcDrVkhg/viewform" target="_blank" rel="noopener"><span>◎</span><strong>Nominate Racer</strong><small>Find stories beyond our network</small></a>
     <button type="button" data-go="store"><span>◇</span><strong>Store & Brand</strong><small>Commerce and brand work</small></button>
     <button type="button" data-go="systems"><span>⌁</span><strong>Systems</strong><small>Cloud, automation, signals</small></button>
     <button type="button" data-go="insights"><span>↗</span><strong>Insights</strong><small>Operating momentum</small></button>
