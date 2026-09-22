@@ -500,6 +500,41 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, social_js + css)
 
+    def test_race_center_v5_social_home_keeps_racing_data_central(self):
+        public_html = self.read("api/standings_public.html")
+        public_js = self.read("api/standings_public.js")
+        social_js = self.read("api/race_center_v5.js")
+        css = self.read("api/standings_public.css")
+        for token in (
+            'class="race-social"',
+            'class="social-left"',
+            'class="social-center"',
+            'class="social-right"',
+            'id="socialMyRacingList"',
+            'id="personalFeed"',
+            'id="pitWallFeed"',
+            'id="peopleGrid"',
+            'id="pulseLive"',
+        ):
+            self.assertIn(token, public_html)
+        for token in (
+            "network-standing-row",
+            "CHAMPIONSHIP",
+            "DRIVER YOU FOLLOW",
+            "v5RenderSocialShell",
+            "socialMyRacingList",
+        ):
+            self.assertIn(token, social_js)
+        for token in (
+            ".race-social",
+            ".network-object",
+            ".network-standings",
+            ".social-nav",
+            ".social-post-feed",
+        ):
+            self.assertIn(token, css)
+        self.assertIn("pulseFavorites", public_js)
+
     def test_control_center_readability_scale_covers_tiny_ui_text(self):
         css = self.read("api/control_center_overhaul.css")
         self.assertIn("Readability pass — 2026-09-20", css)
