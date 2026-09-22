@@ -222,10 +222,10 @@
       return '<div class="wall-comment" data-v6-comment-id="'+String(item.id||'')+'" data-v6-comment-author="'+String(item.author&&item.author.id||'')+'"><strong>'+esc(author)+'</strong> '+esc(item.body)+'</div>';
     }).join('');
 
-    let context='';
+    let context=post.visibility==='friends'?'<span class="wall-context audience">Friends only</span>':'';
     if(post.series_key){
       const series=(state.payload&&state.payload.series||[]).find(function(x){return String(x.series_key)===String(post.series_key);});
-      context='<span class="wall-context"># '+esc(series&&series.short_name||post.series_key)+'</span>';
+      context+='<span class="wall-context"># '+esc(series&&series.short_name||post.series_key)+'</span>';
     }
 
     let actions=reaction('checkered','🏁')+reaction('fire','🔥')+reaction('eyes','👀');
@@ -320,12 +320,13 @@
     const body=String(input&&input.value||'').trim();
     if(!body)return;
     const seriesKey=String($('#pitWallSeries')&&$('#pitWallSeries').value||'');
+    const visibility=String($('#pitWallVisibility')&&$('#pitWallVisibility').value||'public');
     const button=$('#pitWallPost');
     if(button)button.disabled=true;
     try{
       const payload=await apiJson('/api/public/race-center/feed',{
         method:'POST',
-        body:JSON.stringify({body:body,series_key:seriesKey,driver_key:''})
+        body:JSON.stringify({body:body,series_key:seriesKey,driver_key:'',visibility:visibility})
       });
       state.socialPosts=payload.posts||[];
       input.value='';
