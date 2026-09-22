@@ -18,18 +18,11 @@ from services.google_workspace_auth import (
     credential_source,
     workspace_credentials_configured,
 )
-from services.google_business_intelligence_auth import (
-    AnalyticsAuthorizationRequired,
-    begin_authorization as begin_analytics_authorization,
-    complete_authorization as complete_analytics_authorization,
-    configured as analytics_credentials_configured,
-)
 from services.prt_applications import application_role_from_placement, list_applications
 from services.prt_feedback import list_feedback, summary as feedback_summary
 from services.prt_licensing_store import list_early_access_invites
 from services.control_center import BlogDraft, OutreachContact, SocialPost
 from utils.config import settings
-from services.business_intelligence import overview as business_intelligence_overview
 
 router = APIRouter()
 
@@ -286,9 +279,11 @@ def workspace_oauth_complete(payload: WorkspaceOAuthComplete, request: Request):
 @router.get("/api/control/intelligence/google/status")
 def intelligence_google_status(request: Request):
     _auth(request)
+    from services.google_business_intelligence_auth import configured as analytics_credentials_configured
+    connected = analytics_credentials_configured()
     return {
-        "configured": analytics_credentials_configured(),
-        "connected": analytics_credentials_configured(),
+        "configured": connected,
+        "connected": connected,
         "scopes": ["GA4", "Search Console", "YouTube"],
     }
 
@@ -297,6 +292,10 @@ def intelligence_google_status(request: Request):
 def intelligence_google_oauth_start(request: Request):
     user = _auth(request)
     user_key = user.username if user else "admin"
+    from services.google_business_intelligence_auth import (
+        AnalyticsAuthorizationRequired,
+        begin_authorization as begin_analytics_authorization,
+    )
     try:
         return begin_analytics_authorization(user_key)
     except AnalyticsAuthorizationRequired as exc:
@@ -307,6 +306,10 @@ def intelligence_google_oauth_start(request: Request):
 def intelligence_google_oauth_complete(payload: WorkspaceOAuthComplete, request: Request):
     user = _auth(request)
     user_key = user.username if user else "admin"
+    from services.google_business_intelligence_auth import (
+        AnalyticsAuthorizationRequired,
+        complete_authorization as complete_analytics_authorization,
+    )
     try:
         complete_analytics_authorization(payload.callback_url, user_key)
     except AnalyticsAuthorizationRequired as exc:
@@ -472,4 +475,5 @@ def control_search(request: Request, q: str = Query(min_length=2, max_length=120
 @router.get("/api/control/intelligence/overview")
 def intelligence_overview(request: Request, days: int = Query(default=30, ge=7, le=90)):
     _auth(request)
+    from services.business_intelligence import overview as business_intelligence_overview
     return business_intelligence_overview(days)
