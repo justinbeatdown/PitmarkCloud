@@ -219,13 +219,13 @@
 
     const comments=(post.comments||[]).map(function(item){
       const author=item.author&&item.author.handle?'@'+item.author.handle:(item.author&&item.author.display_name||'Racer');
-      return '<div class="wall-comment"><strong>'+esc(author)+'</strong> '+esc(item.body)+'</div>';
+      return '<div class="wall-comment" data-v6-comment-id="'+String(item.id||'')+'" data-v6-comment-author="'+String(item.author&&item.author.id||'')+'"><strong>'+esc(author)+'</strong> '+esc(item.body)+'</div>';
     }).join('');
 
-    let context='';
+    let context=post.visibility==='friends'?'<span class="wall-context audience">Friends only</span>':'';
     if(post.series_key){
       const series=(state.payload&&state.payload.series||[]).find(function(x){return String(x.series_key)===String(post.series_key);});
-      context='<span class="wall-context"># '+esc(series&&series.short_name||post.series_key)+'</span>';
+      context+='<span class="wall-context"># '+esc(series&&series.short_name||post.series_key)+'</span>';
     }
 
     let actions=reaction('checkered','🏁')+reaction('fire','🔥')+reaction('eyes','👀');
@@ -237,7 +237,10 @@
       commentForm='<div class="wall-comment-form"><input id="v5-comment-'+String(post.id)+'" maxlength="280" placeholder="Reply to the Pit Wall…"><button type="button" data-v5-comment="'+String(post.id)+'">Reply</button></div>';
     }
 
-    return '<article class="wall-post"><div class="wall-post-head"><div class="wall-author"><span class="wall-avatar">'+esc(initials)+'</span><div><strong>'+esc(display)+'</strong><small>'+esc(handle)+'</small></div></div><span class="wall-post-time">'+esc(v5Time(post.created_at))+'</span></div><p class="wall-body">'+esc(post.body)+'</p>'+context+'<div class="wall-actions">'+actions+'</div>'+(comments?'<div class="wall-comments">'+comments+'</div>':'')+commentForm+'</article>';
+    const avatar=post.author&&post.author.avatar_url
+      ?'<span class="wall-avatar image" style="background-image:url(\''+esc(post.author.avatar_url)+'\')"></span>'
+      :'<span class="wall-avatar" style="background-color:'+esc(post.author&&post.author.accent_color||'#ff5500')+'">'+esc(initials)+'</span>';
+    return '<article class="wall-post"><div class="wall-post-head"><div class="wall-author">'+avatar+'<div><strong>'+esc(display)+'</strong><small>'+esc(handle)+'</small></div></div><span class="wall-post-time">'+esc(v5Time(post.created_at))+'</span></div><p class="wall-body">'+esc(post.body)+'</p>'+context+'<div class="wall-actions">'+actions+'</div>'+(comments?'<div class="wall-comments">'+comments+'</div>':'')+commentForm+'</article>';
   }
 
   function v5RenderPitWall(){
@@ -271,28 +274,6 @@
     if(note)note.textContent=authed
       ?'Posting as @'+String(profile.handle||'racer')+'.'
       :'Sign in to post. Everyone can read the public Pit Wall.';
-    const peopleClose=$('#peopleDialogClose');
-    if(peopleClose)peopleClose.addEventListener('click',function(){$('#peopleDialog')?.close();});
-
-    const profileOpen=$('#socialProfileOpen');
-    if(profileOpen)profileOpen.addEventListener('click',function(){
-      if(state.account&&state.account.authenticated){
-        $('#accountDialog')?.showModal();
-      }else{
-        $('#accountDialog')?.showModal();
-      }
-    });
-    const composerAvatar=$('#composerAvatar');
-    if(composerAvatar)composerAvatar.addEventListener('click',function(){$('#accountDialog')?.showModal();});
-    const findPeople=$('#socialFindPeople');
-    if(findPeople)findPeople.addEventListener('click',function(){$('#peopleDiscovery')?.scrollIntoView({behavior:'smooth',block:'center'});});
-    const myRacing=$('#socialMyRacing');
-    if(myRacing)myRacing.addEventListener('click',function(){$('#personalFeed')?.scrollIntoView({behavior:'smooth',block:'start'});});
-    const manageRacing=$('#railManageRacing');
-    if(manageRacing)manageRacing.addEventListener('click',function(){location.href='/race-center/standings';});
-    const refreshPeople=$('#discoverRefresh');
-    if(refreshPeople)refreshPeople.addEventListener('click',v5LoadPeople);
-
     const postButton=$('#pitWallPost');
     if(postButton)postButton.disabled=!authed;
   }
@@ -317,12 +298,13 @@
     const body=String(input&&input.value||'').trim();
     if(!body)return;
     const seriesKey=String($('#pitWallSeries')&&$('#pitWallSeries').value||'');
+    const visibility=String($('#pitWallVisibility')&&$('#pitWallVisibility').value||'public');
     const button=$('#pitWallPost');
     if(button)button.disabled=true;
     try{
       const payload=await apiJson('/api/public/race-center/feed',{
         method:'POST',
-        body:JSON.stringify({body:body,series_key:seriesKey,driver_key:''})
+        body:JSON.stringify({body:body,series_key:seriesKey,driver_key:'',visibility:visibility})
       });
       state.socialPosts=payload.posts||[];
       input.value='';
@@ -358,7 +340,10 @@
       const initials=String(person.display_name||person.handle||'R').split(/\s+/).map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
       const shared=Number(person.shared_count||0);
       const identity=v5IdentityBadge(person.identity);
-      return '<article class="people-card"><button class="people-main" type="button" data-v5-profile="'+esc(person.handle)+'"><span class="people-avatar">'+esc(initials)+'</span><span><strong>'+esc(person.display_name||person.handle)+identity+'</strong><small>@'+esc(person.handle)+'</small><em>'+esc(shared?shared+' shared follow'+(shared===1?'':'s'):'New to your graph')+'</em></span></button><button class="people-follow" type="button" data-v5-follow-user="'+String(person.id)+'">Follow</button></article>';
+      const avatar=person.avatar_url
+        ?'<span class="people-avatar image" style="background-image:url(\''+esc(person.avatar_url)+'\')"></span>'
+        :'<span class="people-avatar" style="background-color:'+esc(person.accent_color||'#ff5500')+'">'+esc(initials)+'</span>';
+      return '<article class="people-card"><button class="people-main" type="button" data-v5-profile="'+esc(person.handle)+'">'+avatar+'<span><strong>'+esc(person.display_name||person.handle)+identity+'</strong><small>@'+esc(person.handle)+'</small><em>'+esc(shared?shared+' shared follow'+(shared===1?'':'s'):'New to your graph')+'</em></span></button><button class="people-follow" type="button" data-v5-follow-user="'+String(person.id)+'">Follow</button></article>';
     }).join('');
   }
 
@@ -429,6 +414,21 @@
   }
 
   function initV5(){
+    const peopleClose=$('#peopleDialogClose');
+    if(peopleClose)peopleClose.addEventListener('click',function(){$('#peopleDialog')?.close();});
+    const profileOpen=$('#socialProfileOpen');
+    if(profileOpen)profileOpen.addEventListener('click',function(){$('#accountDialog')?.showModal();});
+    const composerAvatar=$('#composerAvatar');
+    if(composerAvatar)composerAvatar.addEventListener('click',function(){$('#accountDialog')?.showModal();});
+    const findPeople=$('#socialFindPeople');
+    if(findPeople)findPeople.addEventListener('click',function(){$('#peopleDiscovery')?.scrollIntoView({behavior:'smooth',block:'center'});});
+    const myRacing=$('#socialMyRacing');
+    if(myRacing)myRacing.addEventListener('click',function(){$('#personalFeed')?.scrollIntoView({behavior:'smooth',block:'start'});});
+    const manageRacing=$('#railManageRacing');
+    if(manageRacing)manageRacing.addEventListener('click',function(){location.href='/race-center/standings';});
+    const refreshPeople=$('#discoverRefresh');
+    if(refreshPeople)refreshPeople.addEventListener('click',v5LoadPeople);
+
     try{
       const baseRender=render;
       render=function(){
@@ -523,7 +523,12 @@
 
       const profileButton=event.target.closest('[data-v5-profile]');
       if(profileButton){
-        v5OpenProfile(String(profileButton.dataset.v5Profile||''));
+        const handle=String(profileButton.dataset.v5Profile||'');
+        if(window.PitmarkRaceCenterV6&&typeof window.PitmarkRaceCenterV6.openProfile==='function'){
+          window.PitmarkRaceCenterV6.openProfile(handle);
+        }else{
+          v5OpenProfile(handle);
+        }
         return;
       }
 
@@ -575,6 +580,14 @@
     },30000);
     setInterval(v5LoadFeed,60000);
   }
+
+  window.PitmarkRaceCenterV5={
+    loadFeed:v5LoadFeed,
+    loadPeople:v5LoadPeople,
+    renderPitWall:v5RenderPitWall,
+    renderPeople:v5RenderPeople,
+    renderAll:v5RenderAll
+  };
 
   if(document.readyState==='loading'){
     document.addEventListener('DOMContentLoaded',initV5,{once:true});

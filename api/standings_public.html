@@ -3,22 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Pitmark Race Center V5 — Racing Standings, Schedules + Live Board</title>
-  <meta name="description" content="Pitmark Race Center V5 tracks racing standings, championship leaders, live and upcoming events, schedules and official watch information across major racing series.">
-  <meta property="og:title" content="Pitmark Race Center V5">
+  <title>Pitmark Race Center V6 — Racing Standings, Schedules + Live Board</title>
+  <meta name="description" content="Pitmark Race Center V6 tracks racing standings, championship leaders, live and upcoming events, schedules and official watch information across major racing series.">
+  <meta property="og:title" content="Pitmark Race Center V6">
   <meta property="og:description" content="Live motorsports intelligence. One home base.">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#090b0e">
-  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-v5-social-20260922bb">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-v6-20260922b">
 </head>
-<body data-view="{{RACE_CENTER_VIEW}}">
+<body data-view="{{RACE_CENTER_VIEW}}" data-profile-handle="{{RACE_CENTER_PROFILE_HANDLE}}" data-series-key="{{RACE_CENTER_SERIES_KEY}}">
   <a class="skip-link" href="#standingsStart">Skip to Race Center</a>
 
   <header class="site-header">
     <div class="header-inner">
       <a class="brand" href="/race-center" aria-label="Pitmark Race Center home">
         <img src="/prt-logo.png" alt="Pitmark Racing Co.">
-        <span class="brand-product"><strong>Race Center</strong><small>V5</small></span>
+        <span class="brand-product"><strong>Race Center</strong><small>V6</small></span>
       </a>
       <nav aria-label="Pitmark navigation">
         <a href="https://pitmarkracing.com">Shop</a>
@@ -31,6 +31,7 @@
         <a href="/racing-desk">Racing Desk</a>
       </nav>
       <div class="account-zone">
+        <button class="notification-button" id="notificationButton" type="button" aria-label="Notifications">◉<span id="notificationBadge" hidden>0</span></button>
         <button class="account-button" id="accountButton" type="button">My Race Center</button>
         <span class="header-health" id="headerStatus"><i></i> Loading data</span>
       </div>
@@ -42,7 +43,7 @@
       <div class="hero-copy">
         <div class="version-line">
           <span class="eyebrow">PITMARK RACE CENTER</span>
-          <span class="version-pill">V5</span>
+          <span class="version-pill">V6</span>
         </div>
         <h1 id="heroTitle">Your racing world,<br><em>organized.</em></h1>
         <p id="heroIntro">Live events, standings, schedules, championship movement, and the series and drivers you care about — all in one place.</p>
@@ -71,6 +72,7 @@
           </div>
           <button class="social-profile-edit" id="socialProfileOpen" type="button">View profile</button>
           <div class="social-profile-stats">
+            <div><strong id="socialFriendsCount">0</strong><span>Friends</span></div>
             <div><strong id="socialFollowingCount">0</strong><span>Following</span></div>
             <div><strong id="socialFollowersCount">0</strong><span>Followers</span></div>
             <div><strong id="socialRacingCount">0</strong><span>Racing follows</span></div>
@@ -84,6 +86,7 @@
           <a href="/race-center/live"><span>●</span><strong>Live + Next</strong></a>
           <button id="socialMyRacing" type="button"><span>★</span><strong>My Racing</strong></button>
           <button id="socialFindPeople" type="button"><span>◎</span><strong>Find People</strong></button>
+          <button id="socialFriends" type="button"><span>☺</span><strong>Friends</strong></button>
         </nav>
 
         <section class="social-left-card">
@@ -101,6 +104,7 @@
             <textarea id="pitWallInput" maxlength="600" placeholder="What’s happening in your racing world?"></textarea>
             <div class="social-composer-tools">
               <select id="pitWallSeries" aria-label="Attach a series"><option value="">Post to all racing</option></select>
+              <select id="pitWallVisibility" aria-label="Post audience"><option value="public">Everyone</option><option value="friends">Friends</option></select>
               <span id="pitWallCount">0 / 600</span>
               <button class="button primary" id="pitWallPost" type="button">Post</button>
             </div>
@@ -151,6 +155,7 @@
             <div><span class="eyebrow">PEOPLE</span><h3>Who to follow</h3></div>
             <button id="discoverRefresh" type="button">Refresh</button>
           </div>
+          <label class="people-search"><span class="sr-only">Search Race Center people</span><input id="peopleSearchInput" type="search" autocomplete="off" placeholder="Search racers, handles, tracks…"></label>
           <div class="people-grid social-people-list" id="peopleGrid">
             <div class="loading-card">Sign in and follow racing to discover people.</div>
           </div>
@@ -304,6 +309,7 @@
     <button id="mobileFavorites" type="button"><span>☆</span>My Series</button>
   </nav>
   <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top" hidden>↑ Top</button>
+  <div id="v6Toast" class="v6-toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <dialog id="accountDialog" class="account-dialog" aria-labelledby="accountDialogTitle">
     <div class="account-shell">
@@ -338,13 +344,84 @@
           <div><strong id="accountDriverCount">0</strong><span>Drivers</span></div>
           <div><strong>Cloud</strong><span>Synced</span></div>
         </div>
-        <form class="profile-form" id="profileForm">
-          <label>Handle<input id="profileHandle" name="handle" maxlength="40" pattern="[a-z0-9_]{3,40}" placeholder="your_handle"></label>
-          <label>Favorite track<input id="profileTrack" name="favorite_track" maxlength="120" placeholder="Your home track"></label>
-          <label class="full">Bio<textarea id="profileBio" name="bio" maxlength="280" placeholder="What kind of racing are you here for?"></textarea></label>
-          <div class="full profile-actions"><button class="button primary" type="submit">Save Profile</button><span id="profileMessage"></span></div>
-        </form>
-        <button class="button" id="logoutButton" type="button">Sign Out</button>
+        <div class="account-tabs" role="tablist">
+          <button class="active" type="button" data-account-tab="profile">Profile</button>
+          <button type="button" data-account-tab="friends">Friends <span id="friendRequestBadge"></span></button>
+          <button type="button" data-account-tab="notifications">Notifications <span id="accountNotificationBadge"></span></button>
+          <button type="button" data-account-tab="safety">Safety</button>
+          <button id="moderationTabButton" type="button" data-account-tab="moderation" hidden>Moderation <span id="moderationBadge"></span></button>
+        </div>
+
+        <section class="account-panel active" data-account-panel="profile">
+          <div class="profile-preview" id="profilePreview">
+            <div class="profile-preview-cover" id="profilePreviewCover"></div>
+            <div class="profile-preview-row">
+              <div class="profile-preview-avatar" id="profilePreviewAvatar">RC</div>
+              <div><strong id="profilePreviewName">Racer</strong><span id="profilePreviewHandle">@racer</span></div>
+            </div>
+          </div>
+          <form class="profile-form v6-profile-form" id="profileForm">
+            <label>Display name<input id="profileDisplayName" name="display_name" maxlength="80" placeholder="Your name"></label>
+            <label>Handle<input id="profileHandle" name="handle" maxlength="40" pattern="[a-z0-9_]{3,40}" placeholder="your_handle"></label>
+            <label>Avatar photo<input id="profileAvatarFile" type="file" accept="image/jpeg,image/png,image/webp"><small>Square crop · JPG, PNG or WebP · max 6 MB</small><input id="profileAvatarUrl" name="avatar_url" type="hidden"></label>
+            <label>Cover photo<input id="profileCoverFile" type="file" accept="image/jpeg,image/png,image/webp"><small>Wide crop · JPG, PNG or WebP · max 6 MB</small><input id="profileCoverUrl" name="cover_url" type="hidden"></label>
+            <label>Hometown / region<input id="profileHometown" name="hometown" maxlength="100" placeholder="Pittsburgh, PA"></label>
+            <label>Favorite track<input id="profileTrack" name="favorite_track" maxlength="120" placeholder="Your home track"></label>
+            <label>Website<input id="profileWebsite" name="website_url" type="url" maxlength="1000" placeholder="https://..."></label>
+            <label>Accent color<input id="profileAccent" name="accent_color" type="color" value="#ff5500"></label>
+            <label>Profile visibility<select id="profileVisibility" name="profile_visibility"><option value="public">Public</option><option value="friends">Friends only</option><option value="private">Private</option></select></label>
+            <label class="full">Bio<textarea id="profileBio" name="bio" maxlength="280" placeholder="What kind of racing are you here for?"></textarea></label>
+            <div class="full profile-actions"><button class="button primary" type="submit">Save Profile</button><span id="profileMessage"></span></div>
+          </form>
+        </section>
+
+        <section class="account-panel" data-account-panel="friends">
+          <div class="account-list-section"><h3>Friend requests</h3><div id="incomingFriends" class="account-people-list"></div></div>
+          <div class="account-list-section"><h3>Friends</h3><div id="friendsList" class="account-people-list"></div></div>
+          <div class="account-list-section"><h3>Requests sent</h3><div id="outgoingFriends" class="account-people-list"></div></div>
+        </section>
+
+        <section class="account-panel" data-account-panel="notifications">
+          <div class="account-panel-head"><h3>Notifications</h3><button class="button" id="markNotificationsRead" type="button">Mark all read</button></div>
+          <div id="notificationList" class="notification-list"></div>
+        </section>
+
+        <section class="account-panel" data-account-panel="safety">
+          <div class="account-list-section">
+            <h3>Blocked accounts</h3>
+            <p>Blocked users cannot be friends with you and are removed from your personalized social feed.</p>
+            <div id="blockedList" class="account-people-list"></div>
+          </div>
+          <div class="account-list-section safety-settings-section">
+            <h3>Change password</h3>
+            <form id="changePasswordForm" class="safety-settings-form">
+              <label>Current password<input id="currentPassword" type="password" autocomplete="current-password" required></label>
+              <label>New password<input id="newPassword" type="password" minlength="12" maxlength="256" autocomplete="new-password" required placeholder="12+ characters"></label>
+              <div><button class="button" type="submit">Update password</button><span id="passwordMessage"></span></div>
+            </form>
+          </div>
+          <div class="account-list-section danger-zone">
+            <h3>Delete account</h3>
+            <p>Permanently deletes your Race Center profile, posts, friendships, follows, reactions, comments and notifications.</p>
+            <form id="deleteAccountForm" class="safety-settings-form">
+              <label>Password<input id="deletePassword" type="password" autocomplete="current-password" required></label>
+              <label>Type DELETE<input id="deleteConfirmation" autocomplete="off" required placeholder="DELETE"></label>
+              <div><button class="button danger" type="submit">Delete my Race Center account</button><span id="deleteAccountMessage"></span></div>
+            </form>
+          </div>
+        </section>
+
+        <section class="account-panel" data-account-panel="moderation">
+          <div class="account-panel-head"><h3>Race Center reports</h3><button class="button" id="moderationRefresh" type="button">Refresh</button></div>
+          <p class="moderation-intro">Available only to authenticated Pitmark Control Center owners/admins.</p>
+          <div id="moderationList" class="moderation-list"></div>
+          <div class="account-list-section moderation-users-section">
+            <h3>Suspended / banned accounts</h3>
+            <div id="moderatedUsersList" class="moderation-list"></div>
+          </div>
+        </section>
+
+        <div class="account-footer-actions"><button class="button" id="logoutButton" type="button">Sign Out</button></div>
       </div>
     </div>
   </dialog>
@@ -353,6 +430,23 @@
     <div class="people-profile-shell">
       <button class="dialog-close" id="peopleDialogClose" type="button" aria-label="Close profile">×</button>
       <div id="peopleProfileContent"></div>
+    </div>
+  </dialog>
+
+  <dialog id="safetyDialog" class="safety-dialog" aria-labelledby="safetyDialogTitle">
+    <div class="safety-shell">
+      <button class="dialog-close" id="safetyDialogClose" type="button" aria-label="Close safety tools">×</button>
+      <span class="eyebrow">SAFETY</span>
+      <h2 id="safetyDialogTitle">Report or block</h2>
+      <p id="safetyTargetLabel">Choose what you want to do.</p>
+      <form id="reportForm" class="report-form">
+        <input id="reportTargetKind" type="hidden">
+        <input id="reportTargetId" type="hidden">
+        <label>Reason<select id="reportReason" required><option value="">Choose a reason</option><option value="spam">Spam</option><option value="harassment">Harassment</option><option value="impersonation">Impersonation</option><option value="hate">Hate or abuse</option><option value="threat">Threats</option><option value="sexual">Sexual content</option><option value="misinformation">Misleading racing information</option><option value="other">Other</option></select></label>
+        <label>Details<textarea id="reportDetails" maxlength="1000" placeholder="Anything a moderator should know?"></textarea></label>
+        <div class="safety-actions"><button class="button primary" type="submit">Submit report</button><button class="button danger" id="safetyBlockButton" type="button" hidden>Block account</button></div>
+        <p id="reportMessage"></p>
+      </form>
     </div>
   </dialog>
 
@@ -382,6 +476,8 @@
     <small>Race Center prioritizes official and structured series sources. Pitmark hides unsupported identity fields instead of guessing. Use each linked official series source for final classifications, rules and race-control decisions.</small>
   </footer>
 
-  <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-v5-20260922" defer></script>\n  <script src="/race-center-v5.js?v={{PITMARK_VERSION}}-social-20260922" defer></script>
+  <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-v6-20260922" defer></script>
+  <script src="/race-center-v5.js?v={{PITMARK_VERSION}}-social-v6-base-20260922" defer></script>
+  <script src="/race-center-v6.js?v={{PITMARK_VERSION}}-launch-20260922" defer></script>
 </body>
 </html>

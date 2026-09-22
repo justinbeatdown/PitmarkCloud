@@ -2,17 +2,21 @@ from __future__ import annotations
 
 from pathlib import Path
 import base64
+import io
 import threading
 import time
 
 import httpx
+from PIL import Image, ImageOps
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from services.racing_standings import SERIES as STANDINGS_SERIES, get_series_logo_info, get_series_roster, get_standings_snapshot_hub
 from services.racing_events import get_racing_event_hub
-from services import race_center_accounts
+from services import race_center_accounts, race_center_social_v6
+from services.social_asset_pool import public_asset_url, store_uploaded_image
+from services.control_access import require_permission
 from utils.config import settings
 from utils.security import enforce_rate_limit
 
@@ -81,6 +85,7 @@ class RacePostCreate(BaseModel):
     body: str = Field(min_length=1, max_length=600)
     series_key: str = Field(default="", max_length=120)
     driver_key: str = Field(default="", max_length=220)
+    visibility: str = Field(default="public", max_length=20)
 
 
 class RaceReactionChange(BaseModel):
@@ -95,10 +100,63 @@ class RaceUserFollowChange(BaseModel):
     user_id: int = Field(gt=0)
 
 
+class RaceProfileV6Change(BaseModel):
+    display_name: str = Field(min_length=2, max_length=80)
+    avatar_url: str = Field(default="", max_length=1000)
+    cover_url: str = Field(default="", max_length=1000)
+    accent_color: str = Field(default="#ff5500", max_length=7)
+    hometown: str = Field(default="", max_length=100)
+    website_url: str = Field(default="", max_length=1000)
+    profile_visibility: str = Field(default="public", max_length=20)
+
+
+class RaceFriendResponse(BaseModel):
+    user_id: int = Field(gt=0)
+    accept: bool
+
+
+class RaceReportCreate(BaseModel):
+    target_kind: str = Field(min_length=3, max_length=20)
+    target_id: str = Field(min_length=1, max_length=220)
+    reason: str = Field(min_length=3, max_length=40)
+    details: str = Field(default="", max_length=1000)
+
+
+class RaceModerationResolve(BaseModel):
+    status: str = Field(min_length=6, max_length=20)
+    note: str = Field(default="", max_length=1000)
+
+
+class RaceUserModerationChange(BaseModel):
+    status: str = Field(min_length=5, max_length=20)
+    reason: str = Field(default="", max_length=1000)
+
+
+class RaceIdentityChange(BaseModel):
+    account_type: str = Field(min_length=3, max_length=30)
+    verification_status: str = Field(min_length=8, max_length=30)
+    official_label: str = Field(default="", max_length=120)
+    external_url: str = Field(default="", max_length=1000)
+
+
+class RacePasswordChange(BaseModel):
+    current_password: str = Field(min_length=1, max_length=256)
+    new_password: str = Field(min_length=12, max_length=256)
+
+
+class RaceAccountDelete(BaseModel):
+    password: str = Field(min_length=1, max_length=256)
+    confirmation: str = Field(min_length=6, max_length=20)
+
+
 def _race_account_or_401(request: Request) -> race_center_accounts.RaceCenterAccount:
     account = race_center_accounts.account_from_request(request)
     if not account:
         raise HTTPException(status_code=401, detail="Race Center account required.")
+    try:
+        race_center_social_v6.ensure_account_allowed(account.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
     return account
 
 
@@ -120,9 +178,18 @@ def _race_session_response(payload: dict, account: race_center_accounts.RaceCent
 def race_center_account(request: Request):
     account = race_center_accounts.account_from_request(request)
     payload = race_center_accounts.serialize_account(account)
+    if account:
+        try:
+            race_center_social_v6.ensure_account_allowed(account.id)
+        except ValueError as exc:
+            raise HTTPException(status_code=403, detail=str(exc))
     payload["follows"] = race_center_accounts.list_follows(account.id) if account else []
     payload["profile"] = race_center_accounts.ensure_profile(account.id) if account else None
     payload["connections"] = race_center_accounts.connection_counts(account.id) if account else {"followers": 0, "following": 0}
+    payload["profile_v6"] = race_center_social_v6.ensure_extra(account.id) if account else None
+    payload["friends"] = race_center_social_v6.list_friendship_dashboard(account.id) if account else {"friends": [], "incoming": [], "outgoing": [], "blocked": []}
+    payload["notifications"] = race_center_social_v6.list_notifications(account.id, limit=20) if account else []
+    payload["moderation"] = race_center_social_v6.moderation_state(account.id) if account else {"status": "signed_out", "reason": ""}
     return payload
 
 
@@ -139,6 +206,9 @@ def race_center_signup(request: Request, body: RaceAccountCredentials):
             "follows": [],
             "profile": race_center_accounts.ensure_profile(account.id),
             "message": "Welcome to My Race Center.",
+            "profile_v6": race_center_social_v6.ensure_extra(account.id),
+            "friends": race_center_social_v6.list_friendship_dashboard(account.id),
+            "notifications": [],
         },
         account,
     )
@@ -150,11 +220,18 @@ def race_center_login(request: Request, body: RaceAccountCredentials):
     account = race_center_accounts.authenticate(body.email, body.password)
     if not account:
         raise HTTPException(status_code=401, detail="Email or password is incorrect.")
+    try:
+        race_center_social_v6.ensure_account_allowed(account.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
     return _race_session_response(
         {
             **race_center_accounts.serialize_account(account),
             "follows": race_center_accounts.list_follows(account.id),
             "profile": race_center_accounts.ensure_profile(account.id),
+            "profile_v6": race_center_social_v6.ensure_extra(account.id),
+            "friends": race_center_social_v6.list_friendship_dashboard(account.id),
+            "notifications": race_center_social_v6.list_notifications(account.id, limit=20),
         },
         account,
     )
@@ -162,6 +239,38 @@ def race_center_login(request: Request, body: RaceAccountCredentials):
 
 @router.post("/api/public/race-center/account/logout", include_in_schema=False)
 def race_center_logout():
+    response = JSONResponse({"ok": True})
+    response.delete_cookie(race_center_accounts.SESSION_COOKIE, path="/")
+    return response
+
+
+@router.post("/api/public/race-center/account/password", include_in_schema=False)
+def race_center_change_password(request: Request, body: RacePasswordChange):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-password", 10, 600)
+    try:
+        updated = race_center_social_v6.change_password(account.id, body.current_password, body.new_password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return _race_session_response(
+        {
+            **race_center_accounts.serialize_account(updated),
+            "message": "Password updated. Other Race Center sessions were signed out.",
+        },
+        updated,
+    )
+
+
+@router.post("/api/public/race-center/account/delete", include_in_schema=False)
+def race_center_delete_account(request: Request, body: RaceAccountDelete):
+    account = _race_account_or_401(request)
+    if body.confirmation.strip().upper() != "DELETE":
+        raise HTTPException(status_code=400, detail='Type DELETE to confirm account deletion.')
+    enforce_rate_limit(request, "race-center-delete-account", 5, 3600)
+    try:
+        race_center_social_v6.delete_account(account.id, body.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     response = JSONResponse({"ok": True})
     response.delete_cookie(race_center_accounts.SESSION_COOKIE, path="/")
     return response
@@ -218,13 +327,14 @@ def race_center_feed(request: Request, limit: int = 40):
             for item in race_center_accounts.list_follows(account.id)
             if item.get("kind") == "series" and item.get("key")
         ]
-    return {
-        "posts": race_center_accounts.list_posts(
-            viewer_user_id=account.id if account else None,
-            limit=limit,
-            series_keys=series_keys or None,
-        )
-    }
+    posts = race_center_accounts.list_posts(
+        viewer_user_id=account.id if account else None,
+        limit=limit,
+        series_keys=series_keys or None,
+        excluded_user_ids=race_center_social_v6.blocked_ids(account.id) if account else None,
+        friend_user_ids=race_center_social_v6.friend_ids(account.id) if account else None,
+    )
+    return {"posts": race_center_social_v6.enrich_feed_posts(posts)}
 
 
 @router.post("/api/public/race-center/feed", include_in_schema=False)
@@ -237,12 +347,24 @@ def race_center_post_create(request: Request, body: RacePostCreate):
             body=body.body,
             series_key=body.series_key,
             driver_key=body.driver_key,
+            visibility=body.visibility,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    posts = race_center_accounts.list_posts(
+        viewer_user_id=account.id,
+        limit=40,
+        series_keys=[
+            str(item.get("key") or "")
+            for item in race_center_accounts.list_follows(account.id)
+            if item.get("kind") == "series" and item.get("key")
+        ] or None,
+        excluded_user_ids=race_center_social_v6.blocked_ids(account.id),
+        friend_user_ids=race_center_social_v6.friend_ids(account.id),
+    )
     return {
         **result,
-        "posts": race_center_accounts.list_posts(viewer_user_id=account.id, limit=40),
+        "posts": race_center_social_v6.enrich_feed_posts(posts),
     }
 
 
@@ -260,6 +382,8 @@ def race_center_post_delete(request: Request, post_id: int):
 def race_center_react(request: Request, post_id: int, body: RaceReactionChange):
     account = _race_account_or_401(request)
     enforce_rate_limit(request, "race-center-reaction", 60, 300)
+    if not race_center_social_v6.can_interact_with_post(account.id, post_id):
+        raise HTTPException(status_code=404, detail="Post not found.")
     try:
         result = race_center_accounts.toggle_reaction(account.id, post_id, body.reaction)
     except ValueError as exc:
@@ -271,6 +395,8 @@ def race_center_react(request: Request, post_id: int, body: RaceReactionChange):
 def race_center_comment(request: Request, post_id: int, body: RaceCommentCreate):
     account = _race_account_or_401(request)
     enforce_rate_limit(request, "race-center-comment", 30, 300)
+    if not race_center_social_v6.can_interact_with_post(account.id, post_id):
+        raise HTTPException(status_code=404, detail="Post not found.")
     try:
         result = race_center_accounts.add_comment(account.id, post_id, body.body)
     except ValueError as exc:
@@ -280,10 +406,213 @@ def race_center_comment(request: Request, post_id: int, body: RaceCommentCreate)
 
 
 
+
+
+
+
+@router.post("/api/public/race-center/profile/image", include_in_schema=False)
+async def race_center_profile_image(request: Request, kind: str = "avatar"):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-profile-image", 12, 300)
+    clean_kind = (kind or "avatar").strip().lower()
+    if clean_kind not in {"avatar", "cover"}:
+        raise HTTPException(status_code=400, detail="Image kind must be avatar or cover.")
+    raw = await request.body()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Choose an image first.")
+    if len(raw) > 6 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Profile images must be 6 MB or smaller.")
+    try:
+        source_image = Image.open(io.BytesIO(raw))
+        width, height = source_image.size
+        if width <= 0 or height <= 0 or width * height > 40_000_000:
+            raise ValueError("Profile image dimensions are too large.")
+        image = source_image.convert("RGB")
+        target = (512, 512) if clean_kind == "avatar" else (1600, 600)
+        image = ImageOps.fit(image, target, method=Image.Resampling.LANCZOS)
+        out = io.BytesIO()
+        image.save(out, format="JPEG", quality=90, optimize=True, progressive=True)
+        stored = store_uploaded_image(
+            data=out.getvalue(),
+            filename=f"race-center-{clean_kind}-{account.id}.jpg",
+            mime_type="image/jpeg",
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Could not process that image: {exc}")
+    return {
+        "ok": True,
+        "kind": clean_kind,
+        "url": public_asset_url(
+            stored["public_token"],
+            request_base_url=str(request.base_url).rstrip("/"),
+        ),
+    }
+
+
+@router.put("/api/public/race-center/profile/v6", include_in_schema=False)
+def race_center_profile_v6_update(request: Request, body: RaceProfileV6Change):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-profile-v6", 20, 300)
+    try:
+        profile = race_center_social_v6.update_extra(
+            account.id,
+            display_name=body.display_name,
+            avatar_url=body.avatar_url,
+            cover_url=body.cover_url,
+            accent_color=body.accent_color,
+            hometown=body.hometown,
+            website_url=body.website_url,
+            profile_visibility=body.profile_visibility,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"ok": True, "profile_v6": profile}
+
+
+@router.get("/api/public/race-center/friends", include_in_schema=False)
+def race_center_friends(request: Request):
+    account = _race_account_or_401(request)
+    return race_center_social_v6.list_friendship_dashboard(account.id)
+
+
+@router.post("/api/public/race-center/friends/request", include_in_schema=False)
+def race_center_friend_request(request: Request, body: RaceUserFollowChange):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-friend-request", 30, 300)
+    try:
+        return race_center_social_v6.send_friend_request(account.id, body.user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/api/public/race-center/friends/respond", include_in_schema=False)
+def race_center_friend_respond(request: Request, body: RaceFriendResponse):
+    account = _race_account_or_401(request)
+    try:
+        return race_center_social_v6.respond_friend_request(account.id, body.user_id, body.accept)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.delete("/api/public/race-center/friends/{user_id}", include_in_schema=False)
+def race_center_friend_remove(request: Request, user_id: int):
+    account = _race_account_or_401(request)
+    return race_center_social_v6.remove_friend(account.id, user_id)
+
+
+@router.put("/api/public/race-center/blocks", include_in_schema=False)
+def race_center_block(request: Request, body: RaceUserFollowChange):
+    account = _race_account_or_401(request)
+    try:
+        return race_center_social_v6.block_user(account.id, body.user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.delete("/api/public/race-center/blocks", include_in_schema=False)
+def race_center_unblock(request: Request, body: RaceUserFollowChange):
+    account = _race_account_or_401(request)
+    return race_center_social_v6.unblock_user(account.id, body.user_id)
+
+
+@router.post("/api/public/race-center/reports", include_in_schema=False)
+def race_center_report(request: Request, body: RaceReportCreate):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-report", 20, 3600)
+    try:
+        return race_center_social_v6.create_report(
+            account.id,
+            target_kind=body.target_kind,
+            target_id=body.target_id,
+            reason=body.reason,
+            details=body.details,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/api/public/race-center/notifications", include_in_schema=False)
+def race_center_notifications(request: Request, limit: int = 40):
+    account = _race_account_or_401(request)
+    return {"notifications": race_center_social_v6.list_notifications(account.id, limit=limit)}
+
+
+@router.post("/api/public/race-center/notifications/read", include_in_schema=False)
+def race_center_notifications_read(request: Request):
+    account = _race_account_or_401(request)
+    return race_center_social_v6.mark_notifications_read(account.id)
+
+
+@router.get("/api/control/race-center/moderation/reports", include_in_schema=False)
+def race_center_moderation_reports(request: Request, status: str = "open", limit: int = 100):
+    require_permission(request, "users")
+    return {"reports": race_center_social_v6.moderation_queue(status=status, limit=limit)}
+
+
+@router.post("/api/control/race-center/moderation/reports/{report_id}", include_in_schema=False)
+def race_center_moderation_resolve(request: Request, report_id: int, body: RaceModerationResolve):
+    require_permission(request, "users")
+    try:
+        return race_center_social_v6.moderate_report(report_id, action=body.status, note=body.note)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.put("/api/control/race-center/identity/{user_id}", include_in_schema=False)
+def race_center_identity_update(request: Request, user_id: int, body: RaceIdentityChange):
+    require_permission(request, "users")
+    try:
+        return {
+            "ok": True,
+            "identity": race_center_social_v6.set_identity(
+                user_id,
+                account_type=body.account_type,
+                verification_status=body.verification_status,
+                official_label=body.official_label,
+                external_url=body.external_url,
+            ),
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/api/control/race-center/moderation/users", include_in_schema=False)
+def race_center_moderated_users(request: Request, limit: int = 100):
+    require_permission(request, "users")
+    return {"users": race_center_social_v6.moderated_users(limit=limit)}
+
+
+@router.post("/api/control/race-center/moderation/users/{user_id}", include_in_schema=False)
+def race_center_moderation_user(request: Request, user_id: int, body: RaceUserModerationChange):
+    require_permission(request, "users")
+    try:
+        return race_center_social_v6.set_user_moderation(
+            user_id,
+            status=body.status,
+            reason=body.reason,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/api/public/race-center/people/search", include_in_schema=False)
+def race_center_people_search(request: Request, q: str = "", limit: int = 20):
+    account = _race_account_or_401(request)
+    return {"people": race_center_social_v6.enrich_people(
+        race_center_social_v6.search_people(account.id, q, limit=limit),
+        viewer_user_id=account.id,
+    )}
+
+
 @router.get("/api/public/race-center/people/discover", include_in_schema=False)
 def race_center_people_discover(request: Request, limit: int = 12):
     account = _race_account_or_401(request)
-    return {"people": race_center_accounts.discover_people(account.id, limit=limit)}
+    blocked = race_center_social_v6.blocked_ids(account.id)
+    people = [
+        person for person in race_center_accounts.discover_people(account.id, limit=max(limit * 2, 12))
+        if int(person.get("id") or 0) not in blocked
+    ][:max(1, min(limit, 30))]
+    return {"people": race_center_social_v6.enrich_people(people, viewer_user_id=account.id)}
 
 
 @router.get("/api/public/race-center/people/{handle}", include_in_schema=False)
@@ -295,6 +624,42 @@ def race_center_public_profile(request: Request, handle: str):
     )
     if not profile:
         raise HTTPException(status_code=404, detail="Race Center profile not found.")
+    extra = race_center_social_v6.ensure_extra(profile["id"])
+    profile["profile_v6"] = extra
+    if account:
+        if profile["id"] in race_center_social_v6.blocked_ids(account.id):
+            raise HTTPException(status_code=404, detail="Race Center profile not found.")
+        profile["friend_state"] = race_center_social_v6.friendship_state(account.id, profile["id"])
+    else:
+        profile["friend_state"] = "signed_out"
+    visibility = extra.get("profile_visibility") or "public"
+    is_self = bool(account and account.id == profile["id"])
+    is_friend = bool(account and profile.get("friend_state") == "friends")
+    redact = (
+        visibility == "private" and not is_self
+    ) or (
+        visibility == "friends" and not is_self and not is_friend
+    )
+    if redact:
+        profile["bio"] = ""
+        profile["favorite_track"] = ""
+        profile["series"] = []
+        profile["drivers"] = []
+        profile["profile_v6"] = {
+            **extra,
+            "hometown": "",
+            "website_url": "",
+        }
+        profile["posts"] = []
+    else:
+        profile_posts = race_center_accounts.list_posts(
+            viewer_user_id=account.id if account else None,
+            limit=10,
+            excluded_user_ids=race_center_social_v6.blocked_ids(account.id) if account else None,
+            friend_user_ids=race_center_social_v6.friend_ids(account.id) if account else None,
+            author_user_id=profile["id"],
+        )
+        profile["posts"] = race_center_social_v6.enrich_feed_posts(profile_posts)
     return profile
 
 
@@ -302,14 +667,21 @@ def race_center_public_profile(request: Request, handle: str):
 def race_center_people_follow(request: Request, body: RaceUserFollowChange):
     account = _race_account_or_401(request)
     enforce_rate_limit(request, "race-center-people-follow", 60, 300)
+    if body.user_id in race_center_social_v6.blocked_ids(account.id):
+        raise HTTPException(status_code=400, detail="Follow unavailable.")
     try:
         race_center_accounts.follow_user(account.id, body.user_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    blocked = race_center_social_v6.blocked_ids(account.id)
+    people = [
+        person for person in race_center_accounts.discover_people(account.id, limit=24)
+        if int(person.get("id") or 0) not in blocked
+    ][:12]
     return {
         "ok": True,
         "connections": race_center_accounts.connection_counts(account.id),
-        "people": race_center_accounts.discover_people(account.id, limit=12),
+        "people": race_center_social_v6.enrich_people(people, viewer_user_id=account.id),
     }
 
 
@@ -323,12 +695,20 @@ def race_center_people_unfollow(request: Request, body: RaceUserFollowChange):
     }
 
 
+@router.get("/race-center/u/{handle}", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/series/{series_key}", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/standings", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/schedules", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/live", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/standings", response_class=HTMLResponse, include_in_schema=False)
-def public_standings_home(request: Request):
+def public_standings_home(request: Request, handle: str | None = None, series_key: str | None = None):
+    clean_handle = (handle or "").strip().lower()
+    if clean_handle and not race_center_accounts.HANDLE_RE.fullmatch(clean_handle):
+        raise HTTPException(status_code=404, detail="Race Center profile not found.")
+    clean_series_key = (series_key or "").strip().lower()
+    if clean_series_key and clean_series_key not in {str(item.get("key") or "") for item in STANDINGS_SERIES}:
+        raise HTTPException(status_code=404, detail="Race Center series not found.")
     html = (ASSET_DIR / "standings_public.html").read_text(encoding="utf-8")
     path = request.url.path.rstrip("/").lower()
     view = (
@@ -339,6 +719,8 @@ def public_standings_home(request: Request):
     )
     html = html.replace("{{PITMARK_VERSION}}", settings.app_version)
     html = html.replace("{{RACE_CENTER_VIEW}}", view)
+    html = html.replace("{{RACE_CENTER_PROFILE_HANDLE}}", clean_handle)
+    html = html.replace("{{RACE_CENTER_SERIES_KEY}}", clean_series_key)
     return HTMLResponse(
         html,
         headers={"Cache-Control": "no-cache, no-store"},
@@ -358,6 +740,11 @@ def public_standings_js():
 @router.get("/race-center-v5.js", include_in_schema=False)
 def public_race_center_v5_js():
     return _asset("race_center_v5.js", "application/javascript")
+
+
+@router.get("/race-center-v6.js", include_in_schema=False)
+def public_race_center_v6_js():
+    return _asset("race_center_v6.js", "application/javascript")
 
 
 @router.get("/race-center-assets/arca.webp", include_in_schema=False)

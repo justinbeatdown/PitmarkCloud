@@ -369,7 +369,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('"column_title": "Driver Standings"', service)
         self.assertIn('if provider == "column_sections"', service)
 
-    def test_public_standings_v5_loads_saved_snapshot_api_without_inline_bootstrap(self):
+    def test_public_standings_v6_loads_saved_snapshot_api_without_inline_bootstrap(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
         public_js = self.read("api/standings_public.js")
@@ -378,12 +378,12 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("fetch('/api/public/standings", public_js)
         self.assertIn("AbortController", public_js)
         self.assertIn("bootRaceCenter", public_js)
-        self.assertIn("Race Center V5", public_html)
+        self.assertIn("Race Center V6", public_html)
         self.assertIn('class="race-social"', public_html)
         self.assertIn('id="pulseLive"', public_html)
         self.assertIn('id="favoritesFilter"', public_html)
         self.assertIn('class="mobile-dock"', public_html)
-        self.assertIn("pitmark-race-center-v5", public_js)
+        self.assertIn("pitmark-race-center-v6", public_js)
         self.assertIn("renderPulse", public_js)
         self.assertIn("renderMySeries", public_js)
         self.assertIn("countdownText", public_js)
@@ -391,7 +391,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertNotIn("{{PITMARK_STANDINGS_BOOTSTRAP}}", public_html)
         self.assertNotIn("{{PITMARK_STANDINGS_INLINE_JS}}", public_html)
 
-    def test_race_center_v5_customer_accounts_and_cloud_follows(self):
+    def test_race_center_v6_customer_accounts_and_cloud_follows(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
         public_js = self.read("api/standings_public.js")
@@ -418,7 +418,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("data-driver-follow", public_js)
         self.assertIn("credentials:'same-origin'", public_js)
 
-    def test_race_center_v5_social_network_and_live_stage(self):
+    def test_race_center_v6_social_network_and_live_stage(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
         social_js = self.read("api/race_center_v5.js")
@@ -465,7 +465,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('"/standings", "/race-center"', security)
         self.assertIn("youtube-nocookie.com", security)
 
-    def test_race_center_v5_people_graph_and_official_identity(self):
+    def test_race_center_v6_people_graph_and_official_identity(self):
         accounts = self.read("services/race_center_accounts.py")
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
@@ -503,7 +503,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, social_js + css)
 
-    def test_race_center_v5_social_home_keeps_racing_data_central(self):
+    def test_race_center_v6_social_home_keeps_racing_data_central(self):
         public_html = self.read("api/standings_public.html")
         public_js = self.read("api/standings_public.js")
         social_js = self.read("api/race_center_v5.js")
@@ -537,6 +537,119 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, css)
         self.assertIn("pulseFavorites", public_js)
+
+    def test_race_center_v6_launch_features_are_wired_end_to_end(self):
+        public_api = self.read("api/standings_public.py")
+        public_html = self.read("api/standings_public.html")
+        public_css = self.read("api/standings_public.css")
+        v6_js = self.read("api/race_center_v6.js")
+        social_v6 = self.read("services/race_center_social_v6.py")
+        database = self.read("services/database.py")
+        security = self.read("utils/security.py")
+
+        for table in (
+            "race_center_profile_extras",
+            "race_center_friendships",
+            "race_center_blocks",
+            "race_center_reports",
+            "race_center_notifications",
+        ):
+            self.assertIn(table, social_v6)
+
+        for route in (
+            "/api/public/race-center/profile/v6",
+            "/api/public/race-center/profile/image",
+            "/api/public/race-center/friends",
+            "/api/public/race-center/friends/request",
+            "/api/public/race-center/friends/respond",
+            "/api/public/race-center/blocks",
+            "/api/public/race-center/reports",
+            "/api/public/race-center/notifications",
+            "/api/public/race-center/people/search",
+            "/api/public/race-center/account/password",
+            "/api/public/race-center/account/delete",
+            "/api/control/race-center/moderation/reports",
+            "/race-center-v6.js",
+        ):
+            self.assertIn(route, public_api)
+
+        for token in (
+            'id="profileAvatarFile"',
+            'id="profileCoverFile"',
+            'data-account-tab="friends"',
+            'data-account-tab="notifications"',
+            'data-account-tab="safety"',
+            'id="safetyDialog"',
+            'id="peopleSearchInput"',
+            'id="pitWallVisibility"',
+            'id="changePasswordForm"',
+            'id="deleteAccountForm"',
+            'id="moderationTabButton"',
+            '/race-center-v6.js',
+        ):
+            self.assertIn(token, public_html)
+
+        for token in (
+            "uploadProfileImage",
+            "friendRequest",
+            "friendRespond",
+            "blockUser",
+            "submitReport",
+            "searchPeople",
+            "loadModeration",
+            "MutationObserver",
+            "changePassword",
+            "deleteAccount",
+            "data-v6-comment-safety",
+        ):
+            self.assertIn(token, v6_js)
+
+        for token in (
+            ".account-dialog",
+            ".account-tabs",
+            ".profile-preview",
+            ".account-person-row",
+            ".safety-dialog",
+            ".moderation-row",
+            "overflow-x:hidden",
+        ):
+            self.assertIn(token, public_css)
+
+        self.assertIn("race_center_social_v6  # noqa: F401", database)
+        self.assertIn("friend_user_ids", self.read("services/race_center_accounts.py"))
+        self.assertIn('visibility: str = "public"', self.read("services/race_center_accounts.py"))
+        self.assertIn('"/api/control/social/assets/upload", "/api/public/race-center/profile/image"', security)
+        self.assertIn("style-src 'self' 'unsafe-inline'", security)
+        for token in (
+            "def ensure_account_allowed",
+            "race_center_user_moderation",
+            "suspend_user",
+            "ban_user",
+            "def moderated_users",
+            "post.visibility == \"friends\"",
+            "post.user_id in friend_ids(user_id)",
+            "You cannot report your own",
+        ):
+            self.assertIn(token, social_v6)
+
+        for token in (
+            "/api/control/race-center/moderation/users",
+            "author_user_id=profile[\"id\"]",
+            'id="moderatedUsersList"',
+            'id="v6Toast"',
+        ):
+            self.assertIn(token, public_api + public_html)
+
+        for token in (
+            "showToast",
+            "Recent posts",
+            "restoreModeratedUser",
+            "data-v6-restore-user",
+        ):
+            self.assertIn(token, v6_js)
+
+        self.assertIn("author_user_id: int | None = None", self.read("services/race_center_accounts.py"))
+        self.assertIn("body[data-view=\"hub\"] .hero", public_css)
 
     def test_control_center_readability_scale_covers_tiny_ui_text(self):
         css = self.read("api/control_center_overhaul.css")
