@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
@@ -679,10 +680,43 @@ def _recommendations(shopify: dict[str, Any], growth: dict[str, Any], meta: dict
 
 def overview(days: int = 30) -> dict[str, Any]:
     safe_days = max(7, min(int(days), 90))
-    shopify = _shopify_window(safe_days)
-    growth = _internal_growth()
-    meta = _meta_snapshot(safe_days)
-    google = _google_snapshot(safe_days)
+    executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="pitmark-intelligence")
+    futures = {
+        "shopify": executor.submit(_shopify_window, safe_days),
+        "growth": executor.submit(_internal_growth),
+        "meta": executor.submit(_meta_snapshot, safe_days),
+        "google": executor.submit(_google_snapshot, safe_days),
+    }
+    done, pending = wait(list(futures.values()), timeout=12.0)
+    executor.shutdown(wait=False, cancel_futures=True)
+
+    def result(name: str, fallback: dict[str, Any]) -> dict[str, Any]:
+        future = futures[name]
+        if future not in done:
+            return fallback
+        try:
+            value = future.result()
+            return value if isinstance(value, dict) else fallback
+        except Exception as exc:
+            return {**fallback, "status": "error", "error": str(exc)[:400]}
+
+    shopify = result("shopify", {
+        "status": "timeout", "days": safe_days, "revenue": 0.0, "orders": 0,
+        "average_order_value": 0.0, "currency": "USD", "daily": [],
+        "top_products": [], "recent_orders": [], "error": "Shopify did not respond within 12 seconds.",
+    })
+    growth = result("growth", {
+        "prt": {}, "content": {}, "relationships": {}, "status": "timeout",
+        "error": "Pitmark internal intelligence did not respond within 12 seconds.",
+    })
+    meta = result("meta", {
+        "status": "timeout", "facebook": {}, "instagram": {}, "ads": {},
+        "error": "Meta did not respond within 12 seconds.",
+    })
+    google = result("google", {
+        "status": "timeout", "ga4": {}, "search_console": {}, "youtube": {},
+        "error": "Google analytics sources did not respond within 12 seconds.",
+    })
     return {
         "version": "2.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
