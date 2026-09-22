@@ -441,7 +441,7 @@ def add_comment(user_id: int, post_id: int, body: str) -> dict:
     return {"id": comment_id}
 
 
-def list_posts(*, viewer_user_id: int | None = None, limit: int = 40, series_keys: list[str] | None = None, excluded_user_ids: set[int] | None = None, friend_user_ids: set[int] | None = None) -> list[dict]:
+def list_posts(*, viewer_user_id: int | None = None, limit: int = 40, series_keys: list[str] | None = None, excluded_user_ids: set[int] | None = None, friend_user_ids: set[int] | None = None, author_user_id: int | None = None) -> list[dict]:
     with SessionLocal() as db:
         stmt = select(RaceCenterPost).where(RaceCenterPost.deleted.is_(False))
         if viewer_user_id:
@@ -459,19 +459,22 @@ def list_posts(*, viewer_user_id: int | None = None, limit: int = 40, series_key
             stmt = stmt.where(RaceCenterPost.visibility == "public")
         if excluded_user_ids:
             stmt = stmt.where(RaceCenterPost.user_id.not_in(sorted(excluded_user_ids)))
-        followed_people: list[int] = []
-        if viewer_user_id:
-            followed_people = list(db.scalars(select(RaceCenterConnection.followed_user_id).where(
-                RaceCenterConnection.follower_user_id == viewer_user_id
-            )).all())
-        if series_keys or followed_people:
-            conditions = [RaceCenterPost.user_id == viewer_user_id] if viewer_user_id else []
-            if followed_people:
-                conditions.append(RaceCenterPost.user_id.in_(followed_people))
-            if series_keys:
-                conditions.append(RaceCenterPost.series_key.in_(series_keys))
-            conditions.append(RaceCenterPost.series_key == "")
-            stmt = stmt.where(__import__("sqlalchemy").or_(*conditions))
+        if author_user_id:
+            stmt = stmt.where(RaceCenterPost.user_id == author_user_id)
+        else:
+            followed_people: list[int] = []
+            if viewer_user_id:
+                followed_people = list(db.scalars(select(RaceCenterConnection.followed_user_id).where(
+                    RaceCenterConnection.follower_user_id == viewer_user_id
+                )).all())
+            if series_keys or followed_people:
+                conditions = [RaceCenterPost.user_id == viewer_user_id] if viewer_user_id else []
+                if followed_people:
+                    conditions.append(RaceCenterPost.user_id.in_(followed_people))
+                if series_keys:
+                    conditions.append(RaceCenterPost.series_key.in_(series_keys))
+                conditions.append(RaceCenterPost.series_key == "")
+                stmt = stmt.where(or_(*conditions))
         posts = list(db.scalars(stmt.order_by(RaceCenterPost.created_at.desc()).limit(min(max(limit, 1), 80))).all())
         if not posts:
             return []
