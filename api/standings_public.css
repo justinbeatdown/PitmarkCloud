@@ -1555,3 +1555,20 @@ body[data-view="hub"] .site-footer{
 .moderation-users-section{margin-top:18px;padding-top:14px;border-top:1px solid #252e37}
 .moderated-user-row .moderation-reason{border-color:rgba(255,170,90,.34);background:rgba(255,170,90,.07);color:#ffc08a}
 .mini-action.danger-mini{border-color:rgba(255,92,92,.4);background:rgba(255,92,92,.08);color:#ffb0b0}
+
+
+.identity-admin{
+  margin-top:18px;padding:12px;border:1px solid rgba(255,85,0,.26);border-radius:12px;
+  background:rgba(255,85,0,.04);display:grid;grid-template-columns:140px 1fr 1fr;gap:8px;align-items:end
+}
+.identity-admin label{
+  display:grid;gap:5px;color:#8d9aac;font-size:7px;font-weight:1000;text-transform:uppercase;letter-spacing:.07em
+}
+.identity-admin input,.identity-admin select{
+  width:100%;min-width:0;height:36px;border:1px solid #303a45;border-radius:8px;background:#090d11;color:#fff;padding:0 9px;font-size:9px
+}
+.identity-admin>div{display:flex;gap:6px;grid-column:1/-1}
+@media(max-width:680px){
+  .identity-admin{grid-template-columns:1fr}
+  .identity-admin>div{grid-column:auto;flex-wrap:wrap}
+}
