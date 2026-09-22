@@ -98,7 +98,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 else "img-src 'self'; "
             )
             response.headers["Content-Security-Policy"] = (
-                "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; "
+                "default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; "
                 + frame_src
                 + "frame-ancestors 'none'; base-uri 'none'; form-action 'none'; "
                 + image_src
