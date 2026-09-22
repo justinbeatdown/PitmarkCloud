@@ -463,6 +463,43 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('"/standings", "/race-center"', security)
         self.assertIn("youtube-nocookie.com", security)
 
+    def test_race_center_v5_people_graph_and_official_identity(self):
+        accounts = self.read("services/race_center_accounts.py")
+        public_api = self.read("api/standings_public.py")
+        public_html = self.read("api/standings_public.html")
+        social_js = self.read("api/race_center_v5.js")
+        css = self.read("api/standings_public.css")
+        for token in (
+            "race_center_identities",
+            "race_center_connections",
+            "def follow_user",
+            "def unfollow_user",
+            "def discover_people",
+            "def public_profile_by_handle",
+        ):
+            self.assertIn(token, accounts)
+        for route in (
+            "/api/public/race-center/people/discover",
+            "/api/public/race-center/people/{handle}",
+            "/api/public/race-center/people/follow",
+        ):
+            self.assertIn(route, public_api)
+        for token in (
+            'id="peopleDiscovery"',
+            'id="peopleGrid"',
+            'id="peopleDialog"',
+        ):
+            self.assertIn(token, public_html)
+        for token in (
+            "v5BroadcastGraphic",
+            "broadcast-series-logo",
+            "v5LoadPeople",
+            "v5OpenProfile",
+            "data-v5-follow-user",
+            "verified-badge",
+        ):
+            self.assertIn(token, social_js + css)
+
     def test_control_center_readability_scale_covers_tiny_ui_text(self):
         css = self.read("api/control_center_overhaul.css")
         self.assertIn("Readability pass — 2026-09-20", css)
