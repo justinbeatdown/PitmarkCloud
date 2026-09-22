@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#090a0c">
+  <meta name="color-scheme" content="dark">
+  <title>Pitmark Data & Social Desk</title>
+  <link rel="stylesheet" href="/control-native-ops.css?v=1">
+  <script type="module" src="/control-native-ops.js?v=1"></script>
+</head>
+<body>
+<header class="top">
+  <a class="back" href="/control">← Control Center</a>
+  <div>
+    <span class="eyebrow">PITMARK NATIVE OPERATIONS</span>
+    <h1>Data & Social Desk</h1>
+    <p>Our Supermetrics + Metricool replacement. First-party Pitmark data, no paid middleman.</p>
+  </div>
+  <button id="refresh" type="button">Refresh data</button>
+</header>
+
+<nav class="tabs" aria-label="Native operations">
+  <button class="is-active" type="button" data-tab="analytics">Analytics</button>
+  <button type="button" data-tab="social">Social Desk</button>
+</nav>
+
+<section class="toolbar">
+  <div class="range" aria-label="Reporting window">
+    <button type="button" data-days="7">7d</button>
+    <button class="is-active" type="button" data-days="30">30d</button>
+    <button type="button" data-days="90">90d</button>
+  </div>
+  <span id="status">Loading Pitmark data…</span>
+</section>
+
+<main>
+  <section id="analytics-view"></section>
+  <section id="social-view" hidden></section>
+</main>
+
+<div id="toast" aria-live="polite"></div>
+</body>
+</html>
