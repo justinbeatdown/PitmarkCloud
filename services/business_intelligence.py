@@ -13,6 +13,7 @@ from services.prt_applications import list_applications
 from services.prt_feedback import summary as feedback_summary
 from services.prt_licensing_store import list_early_access_invites
 from services.shopify_service import configured as shopify_configured, graphql
+from services.google_business_intelligence_auth import configured as google_bi_configured, authorization_headers
 from utils.config import settings
 
 
@@ -267,6 +268,170 @@ def _meta_snapshot(days: int = 30) -> dict[str, Any]:
     }
 
 
+
+def _google_snapshot(days: int = 30) -> dict[str, Any]:
+    if not google_bi_configured():
+        return {
+            "status": "not_configured",
+            "ga4": {},
+            "search_console": {},
+            "youtube": {},
+            "error": None,
+        }
+
+    headers = authorization_headers()
+    errors: list[str] = []
+    ga4: dict[str, Any] = {}
+    search_console: dict[str, Any] = {}
+    youtube: dict[str, Any] = {}
+    end_date = datetime.now(timezone.utc).date()
+    start_date = end_date - timedelta(days=max(1, days - 1))
+
+    with httpx.Client(timeout=25.0, headers=headers) as client:
+        try:
+            response = client.get(
+                "https://analyticsadmin.googleapis.com/v1beta/accountSummaries",
+                params={"pageSize": 200},
+            )
+            response.raise_for_status()
+            summaries = list((response.json() or {}).get("accountSummaries") or [])
+            properties = []
+            for account in summaries:
+                for prop in account.get("propertySummaries") or []:
+                    properties.append({
+                        "account": account.get("displayName"),
+                        "property": prop.get("property"),
+                        "display_name": prop.get("displayName"),
+                    })
+            selected = next(
+                (row for row in properties if "pitmark" in str(row.get("display_name") or "").lower()),
+                properties[0] if properties else None,
+            )
+            ga4["properties"] = properties
+            ga4["selected_property"] = selected
+            if selected and selected.get("property"):
+                property_name = selected["property"]
+                report = client.post(
+                    "https://analyticsdata.googleapis.com/v1beta/%s:runReport" % property_name,
+                    json={
+                        "dateRanges": [{"startDate": "%sdaysAgo" % days, "endDate": "today"}],
+                        "metrics": [
+                            {"name": "sessions"},
+                            {"name": "totalUsers"},
+                            {"name": "screenPageViews"},
+                            {"name": "eventCount"},
+                        ],
+                    },
+                )
+                report.raise_for_status()
+                rows = list((report.json() or {}).get("rows") or [])
+                values = ((rows[0].get("metricValues") or []) if rows else [])
+                metric_names = ["sessions", "total_users", "page_views", "event_count"]
+                ga4["summary"] = {
+                    metric_names[i]: _money(value.get("value"))
+                    for i, value in enumerate(values)
+                    if i < len(metric_names)
+                }
+
+                pages = client.post(
+                    "https://analyticsdata.googleapis.com/v1beta/%s:runReport" % property_name,
+                    json={
+                        "dateRanges": [{"startDate": "%sdaysAgo" % days, "endDate": "today"}],
+                        "dimensions": [{"name": "pagePath"}],
+                        "metrics": [{"name": "screenPageViews"}, {"name": "sessions"}],
+                        "orderBys": [{"metric": {"metricName": "screenPageViews"}, "desc": True}],
+                        "limit": 10,
+                    },
+                )
+                pages.raise_for_status()
+                ga4["top_pages"] = [
+                    {
+                        "path": ((row.get("dimensionValues") or [{}])[0]).get("value"),
+                        "page_views": _money(((row.get("metricValues") or [{}, {}])[0]).get("value")),
+                        "sessions": _money(((row.get("metricValues") or [{}, {}])[1]).get("value")),
+                    }
+                    for row in ((pages.json() or {}).get("rows") or [])
+                ]
+        except Exception as exc:
+            errors.append("GA4: %s" % str(exc)[:180])
+
+        try:
+            response = client.get("https://www.googleapis.com/webmasters/v3/sites")
+            response.raise_for_status()
+            sites = list((response.json() or {}).get("siteEntry") or [])
+            selected = next(
+                (row for row in sites if "pitmarkracing.com" in str(row.get("siteUrl") or "").lower()),
+                sites[0] if sites else None,
+            )
+            search_console["sites"] = sites
+            search_console["selected_site"] = selected
+            if selected and selected.get("siteUrl"):
+                site = selected["siteUrl"]
+                query = client.post(
+                    "https://www.googleapis.com/webmasters/v3/sites/%s/searchAnalytics/query"
+                    % httpx.URL(site).raw_path.decode("utf-8").strip("/").replace("/", "%2F"),
+                    json={
+                        "startDate": start_date.isoformat(),
+                        "endDate": end_date.isoformat(),
+                        "dimensions": ["query"],
+                        "rowLimit": 10,
+                    },
+                )
+                if query.status_code == 404:
+                    encoded = __import__("urllib.parse", fromlist=["quote"]).quote(site, safe="")
+                    query = client.post(
+                        "https://www.googleapis.com/webmasters/v3/sites/%s/searchAnalytics/query" % encoded,
+                        json={
+                            "startDate": start_date.isoformat(),
+                            "endDate": end_date.isoformat(),
+                            "dimensions": ["query"],
+                            "rowLimit": 10,
+                        },
+                    )
+                query.raise_for_status()
+                search_console["top_queries"] = [
+                    {
+                        "query": ((row.get("keys") or [""])[0]),
+                        "clicks": row.get("clicks", 0),
+                        "impressions": row.get("impressions", 0),
+                        "ctr": row.get("ctr", 0),
+                        "position": row.get("position", 0),
+                    }
+                    for row in ((query.json() or {}).get("rows") or [])
+                ]
+        except Exception as exc:
+            errors.append("Search Console: %s" % str(exc)[:180])
+
+        try:
+            response = client.get(
+                "https://www.googleapis.com/youtube/v3/channels",
+                params={"part": "snippet,statistics", "mine": "true"},
+            )
+            response.raise_for_status()
+            channels = list((response.json() or {}).get("items") or [])
+            youtube["channels"] = channels
+            if channels:
+                channel = channels[0]
+                stats = channel.get("statistics") or {}
+                youtube["summary"] = {
+                    "title": ((channel.get("snippet") or {}).get("title")),
+                    "subscribers": int(stats.get("subscriberCount") or 0),
+                    "views": int(stats.get("viewCount") or 0),
+                    "videos": int(stats.get("videoCount") or 0),
+                }
+        except Exception as exc:
+            errors.append("YouTube: %s" % str(exc)[:180])
+
+    live = bool(ga4.get("selected_property") or search_console.get("selected_site") or youtube.get("channels"))
+    return {
+        "status": "live" if live else "error",
+        "ga4": ga4,
+        "search_console": search_console,
+        "youtube": youtube,
+        "error": "; ".join(errors)[:700] if errors else None,
+    }
+
+
 def _internal_growth() -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     applications = list_applications(limit=500)
@@ -446,6 +611,7 @@ def overview(days: int = 30) -> dict[str, Any]:
     shopify = _shopify_window(safe_days)
     growth = _internal_growth()
     meta = _meta_snapshot(safe_days)
+    google = _google_snapshot(safe_days)
     return {
         "version": "2.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -455,13 +621,13 @@ def overview(days: int = 30) -> dict[str, Any]:
             "pitmark_internal": {"status": "live", "live": True, "error": None},
             "meta": {"status": meta.get("status"), "live": meta.get("status") == "live", "error": meta.get("error")},
             "meta_ads": {"status": "planned", "live": False, "error": None},
-            "ga4": {"status": "planned", "live": False, "error": None},
-            "search_console": {"status": "planned", "live": False, "error": None},
-            "youtube": {"status": "planned", "live": False, "error": None},
+            "ga4": {"status": google.get("status"), "live": bool((google.get("ga4") or {}).get("selected_property")), "error": google.get("error")},
+            "search_console": {"status": google.get("status"), "live": bool((google.get("search_console") or {}).get("selected_site")), "error": google.get("error")},
+            "youtube": {"status": google.get("status"), "live": bool((google.get("youtube") or {}).get("channels")), "error": google.get("error")},
             "tiktok": {"status": "planned", "live": False, "error": None},
         },
         "commerce": shopify,
-        "social": {"meta": meta},
+        "social": {"meta": meta, "google": google},
         "growth": growth,
         "recommendations": _recommendations(shopify, growth),
     }
