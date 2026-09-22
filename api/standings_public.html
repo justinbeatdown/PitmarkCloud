@@ -87,6 +87,16 @@
           <div class="personal-feed" id="personalFeed">
             <div class="loading-card">Building your racing board…</div>
           </div>
+
+          <section class="people-discovery" id="peopleDiscovery">
+            <div class="people-head">
+              <div><span class="eyebrow">YOUR PEOPLE</span><h3>Fans on your wavelength</h3></div>
+              <p>People who follow the same racing you do.</p>
+            </div>
+            <div class="people-grid" id="peopleGrid">
+              <div class="loading-card">Sign in and follow racing to discover people.</div>
+            </div>
+          </section>
         </div>
 
         <aside class="pit-wall" id="pitWall">
@@ -299,6 +309,13 @@
         </form>
         <button class="button" id="logoutButton" type="button">Sign Out</button>
       </div>
+    </div>
+  </dialog>
+
+  <dialog id="peopleDialog" class="people-dialog" aria-labelledby="peopleDialogTitle">
+    <div class="people-profile-shell">
+      <button class="dialog-close" id="peopleDialogClose" type="button" aria-label="Close profile">×</button>
+      <div id="peopleProfileContent"></div>
     </div>
   </dialog>
 
