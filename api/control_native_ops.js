@@ -136,20 +136,49 @@ async function load(force=false){
   }
 }
 
+function closeGoogleConnectPanel(){
+  document.getElementById('google-connect-panel')?.remove();
+}
+function showGoogleConnectPanel(){
+  closeGoogleConnectPanel();
+  const panel=document.createElement('div');
+  panel.id='google-connect-panel';
+  panel.className='native-modal-backdrop';
+  panel.innerHTML='<div class="native-modal"><span class="section-label">Google Analytics</span><h2>Finish the connection</h2><p>Google will end on a localhost page that says it cannot connect. That is expected. Copy the <strong>entire URL</strong> from that page\'s address bar, come back here, and paste it below.</p><label for="google-callback-url">Google callback URL</label><textarea id="google-callback-url" placeholder="http://127.0.0.1:8765/?state=...&code=..."></textarea><div class="native-modal-actions"><button type="button" id="google-cancel">Cancel</button><button type="button" class="native-action" id="google-complete">Complete connection</button></div><small id="google-connect-status"></small></div>';
+  document.body.appendChild(panel);
+  document.getElementById('google-cancel')?.addEventListener('click',closeGoogleConnectPanel);
+  document.getElementById('google-complete')?.addEventListener('click',completeGoogleConnect);
+}
+async function completeGoogleConnect(){
+  const input=document.getElementById('google-callback-url');
+  const status=document.getElementById('google-connect-status');
+  const callback=input?.value?.trim()||'';
+  if(!callback){if(status)status.textContent='Paste the full localhost URL first.';return;}
+  if(!/^https?:\/\/127\.0\.0\.1:8765\/\?/i.test(callback)){
+    if(status)status.textContent='That does not look like the Google callback URL from 127.0.0.1:8765.';
+    return;
+  }
+  if(status)status.textContent='Connecting Google Analytics…';
+  try{
+    await request('/api/control/intelligence/google/oauth/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({callback_url:callback})});
+    await request('/api/control/native-ops/refresh',{method:'POST'});
+    closeGoogleConnectPanel();
+    toast('GA4 + Search Console connected.');
+    await load(true);
+  }catch(e){
+    if(status)status.textContent=e.message||'Google connection failed.';
+  }
+}
 async function connectGoogle(){
   let popup=null;
   try{
-    popup=window.open('about:blank','pitmark-google-intelligence');
     const start=await request('/api/control/intelligence/google/oauth/start',{method:'POST'});
-    if(popup)popup.location.href=start.authorization_url;else window.open(start.authorization_url,'_blank','noopener');
-    const callback=prompt('Approve GA4 + Search Console. After Google redirects to localhost, copy the full URL from the address bar and paste it here.');
-    if(!callback)return;
-    await request('/api/control/intelligence/google/oauth/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({callback_url:callback.trim()})});
-    await request('/api/control/native-ops/refresh',{method:'POST'});
-    toast('Google analytics connected.');
-    await load(true);
+    showGoogleConnectPanel();
+    popup=window.open(start.authorization_url,'pitmark-google-intelligence');
+    if(!popup) window.open(start.authorization_url,'_blank','noopener');
   }catch(e){
     try{popup?.close();}catch{}
+    closeGoogleConnectPanel();
     toast(e.message||'Google connection failed.');
   }
 }
