@@ -152,21 +152,29 @@ def _oauth_state(user_key: str) -> str:
     return body + "." + sig
 
 
-def _verify_state(state: str, user_key: str) -> None:
+def verified_state_user(state: str) -> str:
     try:
         body, sig = state.split(".", 1)
         expected = _b64e(hmac.new(_signing_secret(), body.encode("ascii"), hashlib.sha256).digest())
         if not hmac.compare_digest(sig, expected):
             raise ValueError("signature")
         payload = json.loads(_b64d(body))
-        if str(payload.get("usr") or "") != str(user_key):
-            raise ValueError("user")
         if str(payload.get("kind") or "") != "business_intelligence":
             raise ValueError("kind")
         if int(payload.get("exp") or 0) < int(time.time()):
             raise ValueError("expired")
+        user_key = str(payload.get("usr") or "").strip()
+        if not user_key:
+            raise ValueError("user")
+        return user_key
     except Exception as exc:
         raise AnalyticsAuthorizationRequired("Google analytics authorization session expired or is invalid.") from exc
+
+
+def _verify_state(state: str, user_key: str) -> None:
+    verified_user = verified_state_user(state)
+    if verified_user != str(user_key):
+        raise AnalyticsAuthorizationRequired("Google analytics authorization session does not match this user.")
 
 
 def begin_authorization(user_key: str) -> dict[str, str]:
