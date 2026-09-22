@@ -620,6 +620,36 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('visibility: str = "public"', self.read("services/race_center_accounts.py"))
         self.assertIn('"/api/control/social/assets/upload", "/api/public/race-center/profile/image"', security)
         self.assertIn("style-src 'self' 'unsafe-inline'", security)
+        for token in (
+            "def ensure_account_allowed",
+            "race_center_user_moderation",
+            "suspend_user",
+            "ban_user",
+            "def moderated_users",
+            "post.visibility == \"friends\"",
+            "post.user_id in friend_ids(user_id)",
+            "You cannot report your own",
+        ):
+            self.assertIn(token, social_v6)
+
+        for token in (
+            "/api/control/race-center/moderation/users",
+            "author_user_id=profile[\"id\"]",
+            'id="moderatedUsersList"',
+            'id="v6Toast"',
+        ):
+            self.assertIn(token, public_api + public_html)
+
+        for token in (
+            "showToast",
+            "Recent posts",
+            "restoreModeratedUser",
+            "data-v6-restore-user",
+        ):
+            self.assertIn(token, v6_js)
+
+        self.assertIn("author_user_id: int | None = None", self.read("services/race_center_accounts.py"))
+        self.assertIn("body[data-view=\"hub\"] .hero", public_css)
 
     def test_control_center_readability_scale_covers_tiny_ui_text(self):
         css = self.read("api/control_center_overhaul.css")
