@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from fastapi import Request
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, delete, func, select
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, and_, delete, func, or_, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from services.control_auth import hash_password, verify_password
@@ -341,8 +341,11 @@ def update_profile(user_id: int, *, handle: str, bio: str = "", favorite_track: 
     return ensure_profile(user_id)
 
 
-def create_post(user_id: int, *, body: str, series_key: str = "", driver_key: str = "") -> dict:
+def create_post(user_id: int, *, body: str, series_key: str = "", driver_key: str = "", visibility: str = "public") -> dict:
     clean_body = (body or "").strip()
+    clean_visibility = (visibility or "public").strip().lower()
+    if clean_visibility not in {"public", "friends"}:
+        raise ValueError("Post visibility must be public or friends.")
     if not clean_body:
         raise ValueError("Write something before posting.")
     if len(clean_body) > 600:
@@ -353,6 +356,7 @@ def create_post(user_id: int, *, body: str, series_key: str = "", driver_key: st
             body=clean_body,
             series_key=(series_key or "").strip()[:120],
             driver_key=(driver_key or "").strip()[:220],
+            visibility=clean_visibility,
         )
         db.add(row)
         db.commit()
@@ -437,12 +441,22 @@ def add_comment(user_id: int, post_id: int, body: str) -> dict:
     return {"id": comment_id}
 
 
-def list_posts(*, viewer_user_id: int | None = None, limit: int = 40, series_keys: list[str] | None = None, excluded_user_ids: set[int] | None = None) -> list[dict]:
+def list_posts(*, viewer_user_id: int | None = None, limit: int = 40, series_keys: list[str] | None = None, excluded_user_ids: set[int] | None = None, friend_user_ids: set[int] | None = None) -> list[dict]:
     with SessionLocal() as db:
-        stmt = select(RaceCenterPost).where(
-            RaceCenterPost.deleted.is_(False),
-            RaceCenterPost.visibility == "public",
-        )
+        stmt = select(RaceCenterPost).where(RaceCenterPost.deleted.is_(False))
+        if viewer_user_id:
+            audience = [
+                RaceCenterPost.visibility == "public",
+                RaceCenterPost.user_id == viewer_user_id,
+            ]
+            if friend_user_ids:
+                audience.append(and_(
+                    RaceCenterPost.visibility == "friends",
+                    RaceCenterPost.user_id.in_(sorted(friend_user_ids)),
+                ))
+            stmt = stmt.where(or_(*audience))
+        else:
+            stmt = stmt.where(RaceCenterPost.visibility == "public")
         if excluded_user_ids:
             stmt = stmt.where(RaceCenterPost.user_id.not_in(sorted(excluded_user_ids)))
         followed_people: list[int] = []
@@ -513,6 +527,7 @@ def list_posts(*, viewer_user_id: int | None = None, limit: int = 40, series_key
                 "body": post.body,
                 "series_key": post.series_key,
                 "driver_key": post.driver_key,
+                "visibility": post.visibility,
                 "created_at": post.created_at.isoformat() if post.created_at else None,
                 "author": {
                     "id": post.user_id,
