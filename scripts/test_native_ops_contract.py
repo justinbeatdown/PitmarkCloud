@@ -66,6 +66,17 @@ class NativeOpsContractTests(unittest.TestCase):
         self.assertIn('post.status = "approved"', worker)
         self.assertIn("instead of retrying every minute", worker)
 
+    def test_native_client_uses_multi_selector_for_tabs(self):
+        client = (ROOT / "api" / "control_native_ops.js").read_text(encoding="utf-8")
+        self.assertNotIn("$('[data-tab]').forEach", client)
+        self.assertIn("$('[data-tab]').forEach", client)
+        self.assertIn("location.hash", client)
+
+    def test_intelligence_has_bounded_wait(self):
+        service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
+        self.assertIn("ThreadPoolExecutor", service)
+        self.assertIn("timeout=12.0", service)
+
     def test_shopify_paginates(self):
         service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
         self.assertIn("pageInfo { hasNextPage endCursor }", service)
