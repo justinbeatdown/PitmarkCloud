@@ -125,7 +125,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; "
                 "base-uri 'none'; form-action 'self'; img-src 'self'; script-src 'none'"
             )
-        elif request.url.path in {"/control", "/control.css", "/control.js", "/control-login.js", "/control/mobile", "/control-mobile.css", "/control-mobile.js", "/control-mobile-login.js", "/control.webmanifest", "/control-sw.js", "/control-logo-wide.png", "/control-logo-badge.png"}:
+        elif request.url.path in {"/control", "/control.css", "/control.js", "/control-login.js", "/control/mobile", "/control-mobile.css", "/control-mobile.js", "/control-mobile-login.js", "/control.webmanifest", "/control-sw.js", "/control-logo-wide.png", "/control-logo-badge.png", "/control-reset", "/control-reset.js", "/control-reset.css", "/control-center-app.js", "/control-center-api.js", "/control-center-views.js", "/control-center-overhaul.css", "/control-director.js", "/control-director.css"}:
             response.headers["Content-Security-Policy"] = (
                 "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; "
                 "frame-ancestors 'none'; base-uri 'none'; form-action 'self'; img-src 'self'"
