@@ -6,8 +6,8 @@ const pageView=routePath==='/standings'||routePath.endsWith('/standings')
     :routePath.endsWith('/live')
       ?'live'
       :'hub';
-const PREF_KEY='pitmark-race-center-v4';
-const CACHE_KEY='pitmark-race-center-v4-feed';
+const PREF_KEY='pitmark-race-center-v5';
+const CACHE_KEY='pitmark-race-center-v5-feed';
 const readPrefs=()=>{
   try{
     const raw=JSON.parse(localStorage.getItem(PREF_KEY)||'{}');
@@ -25,7 +25,7 @@ const prefs=readPrefs();
 const state={
   payload:null,group:'All',search:'',view:pageView,
   favorites:prefs.favorites,drivers:prefs.drivers,lastSeries:prefs.lastSeries,favoritesOnly:prefs.favoritesOnly,
-  account:null
+  account:null,socialPosts:[]
 };
 const readCachedPayload=()=>{
   try{
@@ -157,28 +157,28 @@ function configurePage(){
       intro:'Live events, standings, schedules, championship movement, and the series and drivers you care about — all in one place.',
       primary:['Open standings','/race-center/standings'],
       secondary:['Find the next race','/race-center/schedules'],
-      pageTitle:'Pitmark Race Center V4 — Racing Hub'
+      pageTitle:'Pitmark Race Center V5 — Racing Hub'
     },
     standings:{
       title:'Championships,<br><em>at a glance.</em>',
       intro:'The full Pitmark standings board with current leaders, verified position movement and source-backed championship data.',
       primary:['Browse standings','#standingsBoard'],
       secondary:['Schedules + watch','/race-center/schedules'],
-      pageTitle:'Standings — Pitmark Race Center V4'
+      pageTitle:'Standings — Pitmark Race Center V5'
     },
     schedules:{
       title:'Race calendar,<br><em>without the hunt.</em>',
       intro:'Official schedule and viewing links across the racing world, organized into one searchable board.',
       primary:['Browse schedules','#schedules'],
       secondary:['Live + next','/race-center/live'],
-      pageTitle:'Schedules — Pitmark Race Center V4'
+      pageTitle:'Schedules — Pitmark Race Center V5'
     },
     live:{
       title:'What’s racing,<br><em>right now.</em>',
       intro:'Live events and the next races across Pitmark’s tracked series, with direct official watch and schedule links.',
       primary:['Open race weekend','#raceWeekend'],
       secondary:['Full schedules','/race-center/schedules'],
-      pageTitle:'Live + Next — Pitmark Race Center V4'
+      pageTitle:'Live + Next — Pitmark Race Center V5'
     }
   }[state.view];
 
@@ -742,7 +742,7 @@ async function load(){
   try{
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),10000);
-    const response=await fetch('/api/public/standings?v=race-center-v4-20260922',{
+    const response=await fetch('/api/public/standings?v=race-center-v5-20260922',{
       headers:{Accept:'application/json'},
       cache:'no-store',
       signal:controller.signal
