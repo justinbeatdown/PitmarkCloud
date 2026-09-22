@@ -117,6 +117,17 @@ def visual_prompt(*, campaign: dict, headline: str, beat: str, aspect: str) -> s
         "generated image; the official Pitmark logo is overlaid later by code. "
         "Do not render readable text in the image. Leave strong text-safe negative space for an exact "
         f"headline overlay and branding. Headline that will be overlaid later: {headline}. "
+        "PITMARK VISUAL DIRECTION: premium grassroots motorsports editorial, not generic AI racing art. "
+        "Aim for the credibility of a sharp trackside photojournalist mixed with an independent racing magazine: "
+        "natural or believable track lighting, tactile asphalt/rubber/metal/garage texture, candid human energy, "
+        "purposeful composition, restrained cinematic contrast, and real-world imperfections. The image should "
+        "feel like Pitmark was actually there. Avoid glossy supercar-ad aesthetics, neon cyberpunk, video-game "
+        "renders, impossible aero/bodywork, warped wheels, duplicate cars or people, malformed hands/faces, "
+        "fake sponsor text, random flags, excessive smoke/sparks, floating objects, plastic skin, oversaturated "
+        "HDR, cheesy speed streaks, clip-art composition, generic corporate stock-photo energy, and empty "
+        "AI-looking spectacle. If a person is visible, keep anatomy believable and avoid making an invented face "
+        "the hero of the frame. If a car is visible, prioritize mechanically plausible proportions and details. "
+        "Composition must remain readable on a phone and must leave the headline/logo areas uncluttered. "
         + _campaign_context(campaign)
     )
 
