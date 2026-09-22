@@ -30,6 +30,7 @@ on:
       - 'services/master_checklist.py'
       - 'services/business_intelligence.py'
       - 'services/native_analytics_suite.py'
+      - 'services/social_publish_worker.py'
       - 'services/google_business_intelligence_auth.py'
       - 'services/racing_standings.py'
       - 'requirements.txt'
@@ -64,6 +65,7 @@ on:
       - 'services/master_checklist.py'
       - 'services/business_intelligence.py'
       - 'services/native_analytics_suite.py'
+      - 'services/social_publish_worker.py'
       - 'services/google_business_intelligence_auth.py'
       - 'services/racing_standings.py'
       - 'requirements.txt'
@@ -103,6 +105,7 @@ jobs:
           if [ -f services/business_intelligence.py ]; then python -m py_compile services/business_intelligence.py; fi
           if [ -f services/google_business_intelligence_auth.py ]; then python -m py_compile services/google_business_intelligence_auth.py; fi
           if [ -f services/native_analytics_suite.py ]; then python -m py_compile services/native_analytics_suite.py; fi
+          if [ -f services/social_publish_worker.py ]; then python -m py_compile services/social_publish_worker.py; fi
           if [ -f api/control_native_ops.py ]; then python -m py_compile api/control_native_ops.py; fi
       - name: Check JavaScript syntax
         run: |
