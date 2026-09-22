@@ -93,6 +93,12 @@ class NativeOpsContractTests(unittest.TestCase):
         self.assertIn("ThreadPoolExecutor", service)
         self.assertIn("timeout=12.0", service)
 
+    def test_google_oauth_uses_in_page_completion_panel(self):
+        client = (ROOT / "api" / "control_native_ops.js").read_text(encoding="utf-8")
+        self.assertIn("showGoogleConnectPanel", client)
+        self.assertIn("google-callback-url", client)
+        self.assertNotIn("prompt('Approve GA4", client)
+
     def test_google_core_auth_does_not_bundle_youtube(self):
         auth = (ROOT / "services" / "google_business_intelligence_auth.py").read_text(encoding="utf-8")
         self.assertIn("analytics.readonly", auth)
