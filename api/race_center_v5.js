@@ -576,6 +576,14 @@
     setInterval(v5LoadFeed,60000);
   }
 
+  window.PitmarkRaceCenterV5={
+    loadFeed:v5LoadFeed,
+    loadPeople:v5LoadPeople,
+    renderPitWall:v5RenderPitWall,
+    renderPeople:v5RenderPeople,
+    renderAll:v5RenderAll
+  };
+
   if(document.readyState==='loading'){
     document.addEventListener('DOMContentLoaded',initV5,{once:true});
   }else{
