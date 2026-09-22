@@ -551,6 +551,12 @@ def race_center_moderation_resolve(request: Request, report_id: int, body: RaceM
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@router.get("/api/control/race-center/moderation/users", include_in_schema=False)
+def race_center_moderated_users(request: Request, limit: int = 100):
+    require_permission(request, "users")
+    return {"users": race_center_social_v6.moderated_users(limit=limit)}
+
+
 @router.post("/api/control/race-center/moderation/users/{user_id}", include_in_schema=False)
 def race_center_moderation_user(request: Request, user_id: int, body: RaceUserModerationChange):
     require_permission(request, "users")
@@ -616,6 +622,16 @@ def race_center_public_profile(request: Request, handle: str):
             "hometown": "",
             "website_url": "",
         }
+        profile["posts"] = []
+    else:
+        profile_posts = race_center_accounts.list_posts(
+            viewer_user_id=account.id if account else None,
+            limit=10,
+            excluded_user_ids=race_center_social_v6.blocked_ids(account.id) if account else None,
+            friend_user_ids=race_center_social_v6.friend_ids(account.id) if account else None,
+            author_user_id=profile["id"],
+        )
+        profile["posts"] = race_center_social_v6.enrich_feed_posts(profile_posts)
     return profile
 
 
