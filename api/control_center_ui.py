@@ -132,6 +132,16 @@ def control_director_css():
     return _text_asset('control_director.css', 'text/css')
 
 
+@router.get('/control-growth-sprint.js', include_in_schema=False)
+def control_growth_sprint_js():
+    return _text_asset('control_growth_sprint.js', 'application/javascript')
+
+
+@router.get('/control-growth-sprint.css', include_in_schema=False)
+def control_growth_sprint_css():
+    return _text_asset('control_growth_sprint.css', 'text/css')
+
+
 # Login/PWA assets still used by the current authentication entry points.
 @router.get('/control.css', include_in_schema=False)
 def control_css():
