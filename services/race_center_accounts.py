@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from fastapi import Request
-from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint, delete, select
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, delete, func, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from services.control_auth import hash_password, verify_password
@@ -227,3 +227,264 @@ def remove_follow(user_id: int, *, kind: str, key: str) -> dict:
         ))
         db.commit()
     return {"ok": True}
+
+
+# Race Center V5 social layer
+
+class RaceCenterProfile(Base):
+    __tablename__ = "race_center_profiles"
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), primary_key=True)
+    handle: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    bio: Mapped[str] = mapped_column(String(280), default="")
+    favorite_track: Mapped[str] = mapped_column(String(120), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RaceCenterPost(Base):
+    __tablename__ = "race_center_posts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), index=True)
+    body: Mapped[str] = mapped_column(Text)
+    series_key: Mapped[str] = mapped_column(String(120), default="", index=True)
+    driver_key: Mapped[str] = mapped_column(String(220), default="", index=True)
+    visibility: Mapped[str] = mapped_column(String(20), default="public", index=True)
+    deleted: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class RaceCenterReaction(Base):
+    __tablename__ = "race_center_reactions"
+    __table_args__ = (
+        UniqueConstraint("post_id", "user_id", "reaction", name="uq_race_center_reaction"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    post_id: Mapped[int] = mapped_column(ForeignKey("race_center_posts.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), index=True)
+    reaction: Mapped[str] = mapped_column(String(20), default="checkered")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RaceCenterComment(Base):
+    __tablename__ = "race_center_comments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    post_id: Mapped[int] = mapped_column(ForeignKey("race_center_posts.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), index=True)
+    body: Mapped[str] = mapped_column(Text)
+    deleted: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+HANDLE_RE = re.compile(r"^[a-z0-9_]{3,40}$")
+ALLOWED_REACTIONS = {"checkered", "fire", "eyes"}
+
+
+def _base_handle(account: RaceCenterAccount) -> str:
+    source = (account.display_name or account.email.split("@", 1)[0] or "racer").lower()
+    source = re.sub(r"[^a-z0-9_]+", "_", source).strip("_")
+    if len(source) < 3:
+        source = "racer"
+    return source[:32]
+
+
+def ensure_profile(user_id: int) -> dict:
+    with SessionLocal() as db:
+        profile = db.get(RaceCenterProfile, user_id)
+        user = db.get(RaceCenterUser, user_id)
+        if not user:
+            raise ValueError("Race Center account not found.")
+        if profile is None:
+            account = RaceCenterAccount(user.id, user.email, user.display_name, user.session_version)
+            base = _base_handle(account)
+            candidate = base
+            suffix = 1
+            while db.scalar(select(RaceCenterProfile.user_id).where(RaceCenterProfile.handle == candidate)):
+                suffix += 1
+                candidate = f"{base[:32]}_{suffix}"[:40]
+            profile = RaceCenterProfile(user_id=user_id, handle=candidate)
+            db.add(profile)
+            db.commit()
+            db.refresh(profile)
+        return {
+            "handle": profile.handle,
+            "bio": profile.bio,
+            "favorite_track": profile.favorite_track,
+        }
+
+
+def update_profile(user_id: int, *, handle: str, bio: str = "", favorite_track: str = "") -> dict:
+    clean_handle = (handle or "").strip().lower()
+    if not HANDLE_RE.fullmatch(clean_handle):
+        raise ValueError("Handle must be 3–40 characters using letters, numbers, or underscores.")
+    clean_bio = (bio or "").strip()[:280]
+    clean_track = (favorite_track or "").strip()[:120]
+    with SessionLocal() as db:
+        existing = db.scalar(select(RaceCenterProfile.user_id).where(
+            RaceCenterProfile.handle == clean_handle,
+            RaceCenterProfile.user_id != user_id,
+        ))
+        if existing:
+            raise ValueError("That handle is already taken.")
+        profile = db.get(RaceCenterProfile, user_id)
+        if profile is None:
+            profile = RaceCenterProfile(user_id=user_id, handle=clean_handle)
+            db.add(profile)
+        profile.handle = clean_handle
+        profile.bio = clean_bio
+        profile.favorite_track = clean_track
+        profile.updated_at = utcnow()
+        db.commit()
+    return ensure_profile(user_id)
+
+
+def create_post(user_id: int, *, body: str, series_key: str = "", driver_key: str = "") -> dict:
+    clean_body = (body or "").strip()
+    if not clean_body:
+        raise ValueError("Write something before posting.")
+    if len(clean_body) > 600:
+        raise ValueError("Pit Wall posts are limited to 600 characters.")
+    with SessionLocal() as db:
+        row = RaceCenterPost(
+            user_id=user_id,
+            body=clean_body,
+            series_key=(series_key or "").strip()[:120],
+            driver_key=(driver_key or "").strip()[:220],
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return {"id": row.id}
+
+
+def delete_post(user_id: int, post_id: int) -> dict:
+    with SessionLocal() as db:
+        row = db.get(RaceCenterPost, post_id)
+        if not row:
+            return {"ok": True}
+        if row.user_id != user_id:
+            raise ValueError("You can only delete your own posts.")
+        row.deleted = True
+        db.commit()
+    return {"ok": True}
+
+
+def toggle_reaction(user_id: int, post_id: int, reaction: str) -> dict:
+    clean = (reaction or "").strip().lower()
+    if clean not in ALLOWED_REACTIONS:
+        raise ValueError("Unsupported reaction.")
+    with SessionLocal() as db:
+        post = db.get(RaceCenterPost, post_id)
+        if not post or post.deleted:
+            raise ValueError("Post not found.")
+        existing = db.scalar(select(RaceCenterReaction).where(
+            RaceCenterReaction.post_id == post_id,
+            RaceCenterReaction.user_id == user_id,
+            RaceCenterReaction.reaction == clean,
+        ))
+        if existing:
+            db.delete(existing)
+            active = False
+        else:
+            db.add(RaceCenterReaction(post_id=post_id, user_id=user_id, reaction=clean))
+            active = True
+        db.commit()
+    return {"ok": True, "active": active}
+
+
+def add_comment(user_id: int, post_id: int, body: str) -> dict:
+    clean = (body or "").strip()
+    if not clean:
+        raise ValueError("Comment cannot be empty.")
+    if len(clean) > 280:
+        raise ValueError("Comments are limited to 280 characters.")
+    with SessionLocal() as db:
+        post = db.get(RaceCenterPost, post_id)
+        if not post or post.deleted:
+            raise ValueError("Post not found.")
+        row = RaceCenterComment(post_id=post_id, user_id=user_id, body=clean)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return {"id": row.id}
+
+
+def list_posts(*, viewer_user_id: int | None = None, limit: int = 40, series_keys: list[str] | None = None) -> list[dict]:
+    with SessionLocal() as db:
+        stmt = select(RaceCenterPost).where(
+            RaceCenterPost.deleted.is_(False),
+            RaceCenterPost.visibility == "public",
+        )
+        if series_keys:
+            stmt = stmt.where(
+                (RaceCenterPost.series_key == "") | (RaceCenterPost.series_key.in_(series_keys))
+            )
+        posts = list(db.scalars(stmt.order_by(RaceCenterPost.created_at.desc()).limit(min(max(limit, 1), 80))).all())
+        if not posts:
+            return []
+        user_ids = {p.user_id for p in posts}
+        post_ids = [p.id for p in posts]
+        users = {u.id: u for u in db.scalars(select(RaceCenterUser).where(RaceCenterUser.id.in_(user_ids))).all()}
+        profiles = {p.user_id: p for p in db.scalars(select(RaceCenterProfile).where(RaceCenterProfile.user_id.in_(user_ids))).all()}
+        reaction_rows = list(db.execute(
+            select(RaceCenterReaction.post_id, RaceCenterReaction.reaction, func.count(RaceCenterReaction.id))
+            .where(RaceCenterReaction.post_id.in_(post_ids))
+            .group_by(RaceCenterReaction.post_id, RaceCenterReaction.reaction)
+        ).all())
+        counts: dict[int, dict[str, int]] = {}
+        for post_id, reaction, count in reaction_rows:
+            counts.setdefault(int(post_id), {})[str(reaction)] = int(count)
+        viewer_reactions: dict[int, set[str]] = {}
+        if viewer_user_id:
+            for row in db.scalars(select(RaceCenterReaction).where(
+                RaceCenterReaction.post_id.in_(post_ids),
+                RaceCenterReaction.user_id == viewer_user_id,
+            )).all():
+                viewer_reactions.setdefault(row.post_id, set()).add(row.reaction)
+        comments = list(db.scalars(select(RaceCenterComment).where(
+            RaceCenterComment.post_id.in_(post_ids),
+            RaceCenterComment.deleted.is_(False),
+        ).order_by(RaceCenterComment.created_at.asc())).all())
+        comment_users = {c.user_id for c in comments}
+        if comment_users:
+            for u in db.scalars(select(RaceCenterUser).where(RaceCenterUser.id.in_(comment_users))).all():
+                users[u.id] = u
+            for p in db.scalars(select(RaceCenterProfile).where(RaceCenterProfile.user_id.in_(comment_users))).all():
+                profiles[p.user_id] = p
+        comment_map: dict[int, list[dict]] = {}
+        for item in comments:
+            user = users.get(item.user_id)
+            profile = profiles.get(item.user_id)
+            comment_map.setdefault(item.post_id, []).append({
+                "id": item.id,
+                "body": item.body,
+                "created_at": item.created_at.isoformat() if item.created_at else None,
+                "author": {
+                    "display_name": (user.display_name if user else "") or (profile.handle if profile else "Racer"),
+                    "handle": profile.handle if profile else "",
+                },
+            })
+        out = []
+        for post in posts:
+            user = users.get(post.user_id)
+            profile = profiles.get(post.user_id)
+            out.append({
+                "id": post.id,
+                "body": post.body,
+                "series_key": post.series_key,
+                "driver_key": post.driver_key,
+                "created_at": post.created_at.isoformat() if post.created_at else None,
+                "author": {
+                    "display_name": (user.display_name if user else "") or (profile.handle if profile else "Racer"),
+                    "handle": profile.handle if profile else "",
+                },
+                "owner": bool(viewer_user_id and post.user_id == viewer_user_id),
+                "reactions": counts.get(post.id, {}),
+                "viewer_reactions": sorted(viewer_reactions.get(post.id, set())),
+                "comments": comment_map.get(post.id, [])[-6:],
+                "comment_count": len(comment_map.get(post.id, [])),
+            })
+        return out
