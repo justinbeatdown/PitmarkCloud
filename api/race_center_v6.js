@@ -201,8 +201,10 @@
     $('#safetyDialog')?.close();
     $('#peopleDialog')?.close();
     await v6RefreshAccount();
-    if(typeof v5LoadFeed==='function')v5LoadFeed();
-    if(typeof v5LoadPeople==='function')v5LoadPeople();
+    if(window.PitmarkRaceCenterV5){
+      window.PitmarkRaceCenterV5.loadFeed();
+      window.PitmarkRaceCenterV5.loadPeople();
+    }
   }
 
   async function unblockUser(userId){
@@ -306,6 +308,79 @@
     });
   }
 
+
+  function renderPeopleResults(people){
+    const host=$('#peopleGrid');
+    if(!host)return;
+    if(!people.length){
+      host.innerHTML='<div class="personal-empty">No matching Race Center people yet.</div>';
+      return;
+    }
+    host.innerHTML=people.map(function(person){
+      const avatar=person.avatar_url
+        ?'<span class="people-avatar image" style="background-image:url(\''+esc(person.avatar_url)+'\')"></span>'
+        :'<span class="people-avatar">'+esc(initials(person.display_name||person.handle))+'</span>';
+      const stateLabel=person.friend_state==='friends'?'Friends':person.friend_state==='outgoing'?'Requested':person.friend_state==='incoming'?'Respond':'Add friend';
+      const disabled=person.friend_state==='friends'||person.friend_state==='outgoing';
+      return '<article class="people-card">'+
+        '<button class="people-main" type="button" data-v6-open-handle="'+esc(person.handle||'')+'">'+avatar+'<span><strong>'+esc(person.display_name||person.handle||'Racer')+'</strong><small>@'+esc(person.handle||'racer')+'</small><em>'+(person.hometown?esc(person.hometown):'Race Center member')+'</em></span></button>'+
+        '<button class="people-follow" type="button" data-v6-search-friend="'+String(person.id)+'" '+(disabled?'disabled':'')+'>'+esc(stateLabel)+'</button>'+
+      '</article>';
+    }).join('');
+  }
+
+  let peopleSearchTimer=null;
+  async function searchPeople(query){
+    const q=String(query||'').trim();
+    if(q.length<2){
+      if(window.PitmarkRaceCenterV5)window.PitmarkRaceCenterV5.loadPeople();
+      return;
+    }
+    try{
+      const payload=await apiJson('/api/public/race-center/people/search?q='+encodeURIComponent(q)+'&limit=20',{method:'GET'});
+      renderPeopleResults(payload.people||[]);
+    }catch(error){
+      const host=$('#peopleGrid');
+      if(host)host.innerHTML='<div class="personal-empty">'+esc(error.message||'Could not search people.')+'</div>';
+    }
+  }
+
+  function moderationRow(item){
+    const reporter=item.reporter||{};
+    return '<article class="moderation-row">'+
+      '<div><span class="moderation-reason">'+esc(item.reason||'report')+'</span><strong>'+esc(item.target_kind||'target')+' #'+esc(item.target_id||'')+'</strong><p>'+esc(item.details||'No additional details.')+'</p><small>Reported by '+esc(reporter.display_name||reporter.handle||'Race Center user')+'</small></div>'+
+      '<div class="moderation-actions">'+
+        (['post','comment'].includes(item.target_kind)?'<button class="mini-action primary" data-v6-moderate="'+item.id+'" data-action="hide_content">Hide content</button>':'')+
+        '<button class="mini-action" data-v6-moderate="'+item.id+'" data-action="resolve">Resolve</button>'+
+        '<button class="mini-action" data-v6-moderate="'+item.id+'" data-action="dismiss">Dismiss</button>'+
+      '</div>'+
+    '</article>';
+  }
+
+  async function loadModeration(){
+    try{
+      const payload=await apiJson('/api/control/race-center/moderation/reports?status=open&limit=100',{method:'GET'});
+      const reports=payload.reports||[];
+      const tab=$('#moderationTabButton');
+      if(tab)tab.hidden=false;
+      if($('#moderationBadge'))$('#moderationBadge').textContent=reports.length?String(reports.length):'';
+      const host=$('#moderationList');
+      if(host)host.innerHTML=reports.length?reports.map(moderationRow).join(''):'<p class="empty-account-list">No open reports.</p>';
+    }catch(_error){
+      const tab=$('#moderationTabButton');
+      if(tab)tab.hidden=true;
+    }
+  }
+
+  async function moderate(reportId,action){
+    await apiJson('/api/control/race-center/moderation/reports/'+String(reportId),{
+      method:'POST',
+      body:JSON.stringify({status:String(action),note:''})
+    });
+    await loadModeration();
+    if(window.PitmarkRaceCenterV5)window.PitmarkRaceCenterV5.loadFeed();
+  }
+
   function init(){
     const avatarFile=$('#profileAvatarFile');
     if(avatarFile)avatarFile.addEventListener('change',function(){
@@ -333,6 +408,11 @@
       showAccountTab('friends');
       $('#accountDialog')?.showModal();
     });
+    const peopleSearch=$('#peopleSearchInput');
+    if(peopleSearch)peopleSearch.addEventListener('input',function(){
+      clearTimeout(peopleSearchTimer);
+      peopleSearchTimer=setTimeout(function(){searchPeople(peopleSearch.value);},180);
+    });
     $('#notificationButton')?.addEventListener('click',function(){
       showAccountTab('notifications');
       $('#accountDialog')?.showModal();
@@ -352,6 +432,8 @@
       if(open&&open.dataset.v6OpenHandle){openProfileV6(open.dataset.v6OpenHandle);return;}
       const existingProfile=event.target.closest('[data-v5-profile]');
       if(existingProfile){setTimeout(function(){openProfileV6(existingProfile.dataset.v5Profile);},0);return;}
+      const searchFriend=event.target.closest('[data-v6-search-friend]');
+      if(searchFriend){friendRequest(searchFriend.dataset.v6SearchFriend).then(function(){searchPeople($('#peopleSearchInput')?.value||'');}).catch(function(){});return;}
       const req=event.target.closest('[data-v6-friend-request]');
       if(req){friendRequest(req.dataset.v6FriendRequest).catch(function(){});return;}
       const accept=event.target.closest('[data-v6-friend-accept]');
@@ -370,6 +452,8 @@
         if(post)openSafety('post',post.id,'post by @'+String(post.author&&post.author.handle||'racer'),post.author&&post.author.id);
         return;
       }
+      const moderation=event.target.closest('[data-v6-moderate]');
+      if(moderation){moderate(Number(moderation.dataset.v6Moderate),moderation.dataset.action).catch(function(){});return;}
       const follow=event.target.closest('[data-v6-follow-profile]');
       if(follow){
         const id=Number(follow.dataset.v6FollowProfile);
@@ -379,6 +463,8 @@
       }
     });
 
+    $('#moderationRefresh')?.addEventListener('click',function(){loadModeration();});
+
     const feed=$('#pitWallFeed');
     if(feed){
       new MutationObserver(decoratePosts).observe(feed,{childList:true,subtree:true});
@@ -386,6 +472,7 @@
     }
 
     setTimeout(v6RefreshAccount,250);
+    setTimeout(loadModeration,500);
     setInterval(function(){
       if(state.account&&state.account.authenticated)v6RefreshAccount();
     },60000);
