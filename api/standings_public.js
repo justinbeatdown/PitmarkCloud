@@ -467,6 +467,12 @@ function renderPulse(){
     ?`${live.slice(0,2).map(item=>item.series_name).filter(Boolean).join(' · ')}${live.length>2?' +'+(live.length-2):''}`
     :'No tracked series are live right now';
   $('#pulseMoves').textContent=String(movers.length);
+  const pulseFavorites=$('#pulseFavorites');
+  const pulseFavoriteText=$('#pulseFavoriteText');
+  if(pulseFavorites)pulseFavorites.textContent=String(state.favorites.size);
+  if(pulseFavoriteText)pulseFavoriteText.textContent=state.favorites.size
+    ?`${state.favorites.size} saved championship${state.favorites.size===1?'':'s'}`
+    :'nothing followed yet';
   $('#pulseCountdown').textContent=next?countdownText(next._time):'—';
   $('#pulseNextText').textContent=next
     ?`${next.series_name||'Series'} · ${next.event?.name||'next event'}`

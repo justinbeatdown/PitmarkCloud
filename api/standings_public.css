@@ -939,3 +939,269 @@ body:not([data-view="hub"]) .v5-home{display:none}
   .people-head{align-items:flex-start;flex-direction:column;gap:3px}
   .profile-stats{grid-template-columns:1fr 1fr 1fr}
 }
+
+
+/* Hotfix: keep event branding subordinate to event information */
+.broadcast-event-card{
+  position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;
+  padding:24px;background:
+    radial-gradient(circle at 78% 16%,rgba(255,85,0,.08),transparent 18rem),
+    linear-gradient(160deg,#0e141a,#080b0f 72%);
+  overflow:hidden;
+}
+.broadcast-event-card::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:
+    linear-gradient(120deg,transparent 0 58%,rgba(255,255,255,.025) 58% 59%,transparent 59% 100%);
+}
+.broadcast-event-top,.broadcast-event-body{position:relative;z-index:1}
+.broadcast-event-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.broadcast-brand-chip{
+  display:inline-flex;align-items:center;justify-content:center;min-height:54px;max-width:180px;
+  padding:9px 12px;border:1px solid #2c3641;border-radius:12px;background:rgba(12,17,22,.88)
+}
+.broadcast-series-logo.compact{
+  width:auto;max-width:150px;max-height:36px;object-fit:contain;filter:none
+}
+.broadcast-series-mark.compact{
+  padding:0;border:0;background:transparent;box-shadow:none;font-size:14px;letter-spacing:.08em
+}
+.broadcast-event-state{
+  padding:6px 8px;border:1px solid rgba(255,255,255,.1);border-radius:999px;
+  color:#7f8ea2;background:rgba(255,255,255,.03);font-size:8px;font-weight:1000;letter-spacing:.12em
+}
+.broadcast-event-body{max-width:640px}
+.broadcast-event-body>small{display:block;color:#78879a;font-size:9px;font-weight:1000;letter-spacing:.12em;text-transform:uppercase}
+.broadcast-event-body>strong{display:block;margin:8px 0 7px;font-size:clamp(24px,3vw,40px);line-height:1;letter-spacing:-.045em}
+.broadcast-event-body>p{margin:0;color:#8593a6;font-size:10px;line-height:1.5;max-width:520px}
+.broadcast-event-card.empty .broadcast-event-body{max-width:520px}
+@media(max-width:680px){
+  .broadcast-event-card{padding:18px}
+  .broadcast-brand-chip{min-height:46px;max-width:145px}
+  .broadcast-series-logo.compact{max-width:120px;max-height:30px}
+  .broadcast-event-body>strong{font-size:25px}
+}
+
+
+/* Race Center V5 social network home — racing data is the content */
+body[data-view="hub"] .hero,
+body[data-view="hub"] #hubNavigation,
+body[data-view="hub"] .race-center-grid,
+body[data-view="hub"] .leaders-section,
+body[data-view="hub"] .movers-section,
+body[data-view="hub"] .content-section:not(.social-feed-card){display:none!important}
+
+.race-social{
+  display:grid;
+  grid-template-columns:240px minmax(0,760px) 300px;
+  gap:14px;
+  align-items:start;
+  max-width:1340px;
+  margin:22px auto 0;
+}
+.social-left,.social-right{display:grid;gap:12px;position:sticky;top:calc(var(--header-h) + 12px)}
+.social-center{display:grid;gap:12px;min-width:0}
+.social-profile-card,.social-left-card,.social-right-card,.social-composer-card,.social-feed-card,.social-for-you{
+  border:1px solid var(--line);border-radius:15px;background:linear-gradient(145deg,#10151a,#0b0f13);
+  box-shadow:0 14px 44px rgba(0,0,0,.16)
+}
+.social-profile-card{padding:15px}
+.social-profile-avatar,.composer-avatar{
+  width:50px;height:50px;border-radius:50%;display:grid;place-items:center;border:0;
+  background:linear-gradient(135deg,#ff5500,#6f2608);color:#fff;font-size:11px;font-weight:1000
+}
+.social-profile-copy{margin-top:10px}
+.social-profile-copy strong{display:block;font-size:14px}
+.social-profile-copy span{display:block;margin-top:2px;color:#778598;font-size:9px}
+.social-profile-edit{
+  width:100%;height:33px;margin-top:11px;border:1px solid #2b3540;border-radius:9px;
+  background:#11171d;color:#c5ced8;font-size:9px;font-weight:950;cursor:pointer
+}
+.social-profile-edit:hover{border-color:#495766;color:#fff}
+.social-profile-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:11px}
+.social-profile-stats div{padding:8px 4px;border:1px solid #232c35;border-radius:8px;background:#0c1116;text-align:center}
+.social-profile-stats strong{display:block;font-size:14px}
+.social-profile-stats span{display:block;margin-top:2px;color:#687689;font-size:7px;font-weight:1000;text-transform:uppercase}
+
+.social-nav{display:grid;gap:3px;padding:7px;border:1px solid var(--line);border-radius:14px;background:#0c1116}
+.social-nav a,.social-nav button{
+  min-height:40px;padding:0 10px;border:0;border-radius:9px;background:transparent;color:#99a5b5;
+  display:flex;align-items:center;gap:9px;text-align:left;cursor:pointer
+}
+.social-nav a:hover,.social-nav button:hover,.social-nav a.active{background:#151b22;color:#fff}
+.social-nav span{width:22px;text-align:center;color:#ff8b52;font-size:15px}
+.social-nav strong{font-size:10px}
+
+.social-left-card,.social-right-card{padding:12px}
+.rail-heading,.right-card-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.rail-heading span,.right-card-head .eyebrow{font-size:8px}
+.rail-heading button,.right-card-head button{
+  border:0;background:transparent;color:#738195;font-size:8px;cursor:pointer
+}
+.rail-list{display:grid;gap:6px;margin-top:9px}
+.rail-list p{margin:0;color:#667486;font-size:9px;line-height:1.45}
+.rail-item{
+  width:100%;display:flex;align-items:center;gap:8px;padding:7px;border:1px solid #222b34;border-radius:9px;
+  background:#0d1217;color:#fff;text-align:left;cursor:pointer
+}
+.rail-item:hover{border-color:#3e4a57;background:#111820}
+.rail-item .series-logo{width:30px;height:22px}
+.rail-item .series-wordmark{width:30px;min-height:22px;font-size:5px}
+.rail-item span:last-child{min-width:0}
+.rail-item strong{display:block;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rail-item small{display:block;margin-top:2px;color:#697789;font-size:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rail-driver-dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#1b232c;color:#ff9a69;font-size:9px;font-weight:1000}
+
+.social-composer-card{padding:12px;display:grid;grid-template-columns:auto 1fr;gap:9px}
+.composer-avatar{width:39px;height:39px;font-size:9px;cursor:pointer}
+.social-composer-body textarea{
+  width:100%;min-height:66px;resize:vertical;border:0;outline:0;background:transparent;color:#fff;
+  padding:2px 0;font:700 12px/1.5 inherit
+}
+.social-composer-body textarea::placeholder{color:#596779}
+.social-composer-tools{
+  display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:7px;align-items:center;
+  padding-top:8px;border-top:1px solid #222a33
+}
+.social-composer-tools select{
+  min-width:0;height:34px;border:1px solid #29333e;border-radius:8px;background:#0c1116;color:#aab5c2;padding:0 8px;font-size:9px
+}
+.social-composer-tools>span{color:#657386;font-size:8px}
+.social-composer-body>small{display:block;margin-top:6px;color:#606e80;font-size:8px}
+
+.social-live-card{min-height:310px;grid-template-columns:minmax(0,.9fr) minmax(300px,1.1fr);border-radius:15px}
+.social-live-card .live-stage-copy{padding:22px}
+.social-live-card .live-stage-media,.social-live-card .live-stage-media iframe{min-height:310px}
+.social-live-card h2{font-size:clamp(28px,3.6vw,50px)}
+
+.social-for-you,.social-feed-card{padding:13px}
+.feed-heading{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:10px}
+.feed-heading h2{margin:4px 0 0;font-size:23px;letter-spacing:-.04em}
+.feed-heading p{margin:0;color:#728094;font-size:9px}
+
+.social-racing-feed{display:grid;gap:9px}
+.network-object{
+  border:1px solid #27313b;border-radius:13px;background:#0c1116;overflow:hidden;cursor:pointer;transition:.14s ease
+}
+.network-object:hover{border-color:#465361;transform:translateY(-1px)}
+.network-object header{
+  padding:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #212a33
+}
+.network-object header>div{display:flex;align-items:center;gap:9px;min-width:0}
+.network-object header .series-logo{width:54px;height:34px}
+.network-object header .series-wordmark{width:54px;min-height:34px;font-size:6px}
+.network-object header small{display:block;color:#68778a;font-size:7px;font-weight:1000;letter-spacing:.08em}
+.network-object header strong{display:block;margin-top:2px;font-size:11px}
+.network-object-more{
+  width:30px;height:30px;border:1px solid #2c3640;border-radius:8px;background:#11171d;color:#a9b4c0;font-size:18px;cursor:pointer
+}
+.network-event-line{display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(255,85,0,.06);border-bottom:1px solid rgba(255,85,0,.14)}
+.network-event-line b{color:#ff8952;font-size:8px;letter-spacing:.08em}
+.network-event-line span{color:#aeb8c5;font-size:9px}
+.network-standings{padding:11px 12px}
+.network-object-label{margin-bottom:6px;color:#657386;font-size:7px;font-weight:1000;letter-spacing:.11em}
+.network-standing-row{
+  display:grid;grid-template-columns:28px minmax(0,1fr) auto auto;gap:8px;align-items:center;
+  min-height:32px;border-top:1px solid #1e262f
+}
+.network-standing-row:first-of-type{border-top:0}
+.network-standing-row .network-pos{color:#748296;font-size:9px;font-weight:1000}
+.network-standing-row strong{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.network-standing-row>span:nth-child(3){color:#a7b1bd;font-size:9px}
+.network-standing-row .move{font-size:8px}
+.network-object footer{
+  padding:9px 12px;border-top:1px solid #212a33;display:flex;align-items:center;justify-content:space-between;gap:10px
+}
+.network-object footer span{color:#657386;font-size:8px}
+.network-object footer strong{color:#ff9363;font-size:8px}
+.driver-network-avatar{
+  width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#1a222b;color:#ff9667;font-size:9px;font-weight:1000
+}
+.network-rank{font-size:22px;font-weight:1000;letter-spacing:-.05em}
+.driver-network-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#202831}
+.driver-network-stats>div{padding:11px;background:#0d1217}
+.driver-network-stats span{display:block;color:#657386;font-size:7px;text-transform:uppercase;font-weight:1000}
+.driver-network-stats strong{display:block;margin-top:4px;font-size:12px}
+.social-empty{display:grid;justify-items:start;gap:8px;padding:20px;text-align:left}
+.social-empty strong{color:#fff;font-size:15px}
+.social-empty span{color:#748296;font-size:10px;line-height:1.5;max-width:540px}
+
+.social-post-feed{max-height:none}
+.social-post-feed .wall-post{padding:13px;background:#0c1116}
+.social-post-feed .wall-body{font-size:12px}
+.social-live-pill{font-size:7px}
+
+.social-right-card h3{margin:4px 0 0;font-size:16px}
+.social-people-list{grid-template-columns:1fr}
+.social-people-list .people-card{padding:8px}
+.social-people-list .people-avatar{width:34px;height:34px}
+.social-people-list .people-main strong{font-size:9px}
+.social-people-list .people-follow{height:29px}
+
+.right-pulse-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
+.right-pulse-grid>div{padding:9px;border:1px solid #232c35;border-radius:9px;background:#0c1116}
+.right-pulse-grid span{display:block;color:#677588;font-size:7px;text-transform:uppercase;font-weight:1000}
+.right-pulse-grid strong{display:block;margin:4px 0 2px;font-size:18px;letter-spacing:-.04em}
+.right-pulse-grid small{display:block;color:#687689;font-size:7px;line-height:1.3}
+.social-discover-links{display:grid;gap:6px;margin-top:9px}
+.social-discover-links a{padding:9px;border:1px solid #232c35;border-radius:9px;background:#0c1116}
+.social-discover-links a:hover{border-color:#3d4955}
+.social-discover-links strong{display:block;font-size:9px}
+.social-discover-links span{display:block;margin-top:3px;color:#6e7c8f;font-size:8px}
+
+@media(max-width:1180px){
+  .race-social{grid-template-columns:210px minmax(0,1fr)}
+  .social-right{display:none}
+}
+@media(max-width:860px){
+  .race-social{display:block;margin-top:10px}
+  .social-left{position:static;display:block;margin-bottom:10px}
+  .social-profile-card,.social-left-card{display:none}
+  .social-nav{
+    position:sticky;top:calc(var(--header-h) + 6px);z-index:34;grid-template-columns:repeat(6,minmax(0,1fr));
+    overflow-x:auto;margin-bottom:10px
+  }
+  .social-nav a,.social-nav button{justify-content:center;min-width:78px;padding:0 7px}
+  .social-nav strong{display:none}
+  .social-center{gap:10px}
+}
+@media(max-width:680px){
+  main{width:min(var(--max),calc(100% - 18px))}
+  .social-composer-card{grid-template-columns:auto 1fr}
+  .social-composer-tools{grid-template-columns:1fr auto}
+  .social-composer-tools .button{grid-column:1/-1;width:100%}
+  .social-live-card{grid-template-columns:1fr;min-height:0}
+  .social-live-card .live-stage-media,.social-live-card .live-stage-media iframe{min-height:230px}
+  .driver-network-stats{grid-template-columns:1fr 1fr 1fr}
+}
+
+
+/* Real licensed race photography treatment */
+.broadcast-photo-card{
+  position:absolute;inset:0;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;
+  padding:22px;background:#080b0f;
+}
+.broadcast-photo-card::before{
+  content:"";position:absolute;inset:0;background-image:var(--race-photo);background-size:cover;background-position:center;
+  filter:saturate(.92) contrast(1.03);transform:scale(1.01)
+}
+.broadcast-photo-overlay{
+  position:absolute;inset:0;background:
+    linear-gradient(180deg,rgba(5,7,10,.08) 0%,rgba(5,7,10,.18) 34%,rgba(5,7,10,.86) 100%),
+    linear-gradient(90deg,rgba(5,7,10,.18),transparent 50%);
+}
+.broadcast-photo-card .broadcast-event-top,
+.broadcast-photo-card .broadcast-event-body{position:relative;z-index:1}
+.broadcast-photo-card .broadcast-brand-chip{
+  backdrop-filter:blur(10px);background:rgba(7,10,14,.66);border-color:rgba(255,255,255,.14)
+}
+.broadcast-photo-card .broadcast-event-state{
+  color:#fff;background:rgba(7,10,14,.65);border-color:rgba(255,255,255,.16);backdrop-filter:blur(8px)
+}
+.broadcast-photo-card .broadcast-event-body>small{color:#c2ccd8}
+.broadcast-photo-card .broadcast-event-body>strong{text-shadow:0 3px 24px rgba(0,0,0,.66)}
+.broadcast-photo-card .broadcast-event-body>p{color:#d0d7df;max-width:560px}
+.broadcast-photo-credit{
+  display:inline-block;margin-top:10px;color:#d7dde5;font-size:8px;text-decoration:none;opacity:.74
+}
+.broadcast-photo-credit:hover{opacity:1;color:#fff}
