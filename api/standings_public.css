@@ -1174,3 +1174,34 @@ body[data-view="hub"] .content-section:not(.social-feed-card){display:none!impor
   .social-live-card .live-stage-media,.social-live-card .live-stage-media iframe{min-height:230px}
   .driver-network-stats{grid-template-columns:1fr 1fr 1fr}
 }
+
+
+/* Real licensed race photography treatment */
+.broadcast-photo-card{
+  position:absolute;inset:0;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;
+  padding:22px;background:#080b0f;
+}
+.broadcast-photo-card::before{
+  content:"";position:absolute;inset:0;background-image:var(--race-photo);background-size:cover;background-position:center;
+  filter:saturate(.92) contrast(1.03);transform:scale(1.01)
+}
+.broadcast-photo-overlay{
+  position:absolute;inset:0;background:
+    linear-gradient(180deg,rgba(5,7,10,.08) 0%,rgba(5,7,10,.18) 34%,rgba(5,7,10,.86) 100%),
+    linear-gradient(90deg,rgba(5,7,10,.18),transparent 50%);
+}
+.broadcast-photo-card .broadcast-event-top,
+.broadcast-photo-card .broadcast-event-body{position:relative;z-index:1}
+.broadcast-photo-card .broadcast-brand-chip{
+  backdrop-filter:blur(10px);background:rgba(7,10,14,.66);border-color:rgba(255,255,255,.14)
+}
+.broadcast-photo-card .broadcast-event-state{
+  color:#fff;background:rgba(7,10,14,.65);border-color:rgba(255,255,255,.16);backdrop-filter:blur(8px)
+}
+.broadcast-photo-card .broadcast-event-body>small{color:#c2ccd8}
+.broadcast-photo-card .broadcast-event-body>strong{text-shadow:0 3px 24px rgba(0,0,0,.66)}
+.broadcast-photo-card .broadcast-event-body>p{color:#d0d7df;max-width:560px}
+.broadcast-photo-credit{
+  display:inline-block;margin-top:10px;color:#d7dde5;font-size:8px;text-decoration:none;opacity:.74
+}
+.broadcast-photo-credit:hover{opacity:1;color:#fff}
