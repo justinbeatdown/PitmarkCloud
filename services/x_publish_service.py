@@ -71,7 +71,7 @@ def _current_user() -> dict | None:
     if not configured():
         return None
     url = 'https://api.x.com/2/users/me'
-    params = {'user.fields': 'id,name,username'}
+    params = {'user.fields': 'id,name,username,public_metrics'}
     try:
         r = httpx.get(url, headers={'Authorization': _oauth('GET', url, params)}, params=params, timeout=20)
     except httpx.HTTPError:
@@ -80,6 +80,23 @@ def _current_user() -> dict | None:
         return None
     return r.json().get('data') or None
 
+
+
+def fetch_audience_metrics() -> dict:
+    """Return the connected Pitmark X account's live audience counts."""
+    if not configured():
+        return {"ok": False, "error": "X is not configured."}
+    user = _current_user()
+    if not user:
+        return {"ok": False, "error": "X audience lookup failed."}
+    public = user.get("public_metrics") or {}
+    return {
+        "ok": True,
+        "followers": public.get("followers_count"),
+        "following": public.get("following_count"),
+        "posts": public.get("tweet_count"),
+        "username": user.get("username"),
+    }
 
 def fetch_mentions(max_results: int = 25) -> list[dict]:
     """Fetch recent mentions of the connected Pitmark X account.
