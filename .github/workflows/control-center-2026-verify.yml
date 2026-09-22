@@ -8,6 +8,10 @@ on:
       - 'api/control_center_2026.py'
       - 'api/control_center_hq.py'
       - 'api/control_center_ui.py'
+      - 'api/control_native_ops.py'
+      - 'api/control_native_ops.html'
+      - 'api/control_native_ops.css'
+      - 'api/control_native_ops.js'
       - 'api/control_center.html'
       - 'api/control_mobile.html'
       - 'api/control_center_overhaul.css'
@@ -25,6 +29,7 @@ on:
       - 'services/google_gmail.py'
       - 'services/master_checklist.py'
       - 'services/business_intelligence.py'
+      - 'services/native_analytics_suite.py'
       - 'services/google_business_intelligence_auth.py'
       - 'services/racing_standings.py'
       - 'requirements.txt'
@@ -33,6 +38,7 @@ on:
       - 'scripts/test_control_center_pwa_retirement.py'
       - 'scripts/test_master_checklist_contract.py'
       - 'scripts/test_workspace_focus_frame.py'
+      - 'scripts/test_native_ops_contract.py'
   push:
     branches: [main]
     paths:
@@ -40,6 +46,10 @@ on:
       - 'api/control_center_2026.py'
       - 'api/control_center_hq.py'
       - 'api/control_center_ui.py'
+      - 'api/control_native_ops.py'
+      - 'api/control_native_ops.html'
+      - 'api/control_native_ops.css'
+      - 'api/control_native_ops.js'
       - 'api/control_center.html'
       - 'api/control_mobile.html'
       - 'api/control_center_overhaul.css'
@@ -52,12 +62,16 @@ on:
       - 'services/google_workspace_auth.py'
       - 'services/google_gmail.py'
       - 'services/master_checklist.py'
+      - 'services/business_intelligence.py'
+      - 'services/native_analytics_suite.py'
+      - 'services/google_business_intelligence_auth.py'
       - 'services/racing_standings.py'
       - 'requirements.txt'
       - 'scripts/test_control_center_2026_contract.py'
       - 'scripts/test_control_center_pwa_retirement.py'
       - 'scripts/test_master_checklist_contract.py'
       - 'scripts/test_workspace_focus_frame.py'
+      - 'scripts/test_native_ops_contract.py'
 
 jobs:
   contract:
@@ -77,6 +91,8 @@ jobs:
         run: python scripts/test_master_checklist_contract.py -v
       - name: Run workspace focus-frame regression test
         run: python scripts/test_workspace_focus_frame.py -v
+      - name: Run native analytics isolation contract
+        run: python scripts/test_native_ops_contract.py -v
       - name: Compile Control Center APIs
         run: |
           python -m py_compile main.py api/control_center.py api/control_center_2026.py api/control_center_ui.py api/standings_public.py api/__init__.py
@@ -86,6 +102,8 @@ jobs:
           if [ -f services/racing_standings.py ]; then python -m py_compile services/racing_standings.py; fi
           if [ -f services/business_intelligence.py ]; then python -m py_compile services/business_intelligence.py; fi
           if [ -f services/google_business_intelligence_auth.py ]; then python -m py_compile services/google_business_intelligence_auth.py; fi
+          if [ -f services/native_analytics_suite.py ]; then python -m py_compile services/native_analytics_suite.py; fi
+          if [ -f api/control_native_ops.py ]; then python -m py_compile api/control_native_ops.py; fi
       - name: Check JavaScript syntax
         run: |
           node --check api/control_center_overhaul.js
@@ -94,3 +112,4 @@ jobs:
           if [ -f api/control_center_views.js ]; then node --check api/control_center_views.js; fi
           if [ -f api/control_sw.js ]; then node --check api/control_sw.js; fi
           if [ -f api/standings_public.js ]; then node --check api/standings_public.js; fi
+          if [ -f api/control_native_ops.js ]; then node --check api/control_native_ops.js; fi

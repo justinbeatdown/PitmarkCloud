@@ -1,0 +1,40 @@
+:root{
+  --bg:#08090b;--panel:#111419;--panel2:#171b20;--line:rgba(255,255,255,.09);
+  --text:#f5f5f3;--muted:#969ea7;--orange:#ff5500;--good:#55d88b;--warn:#e9ba5c;--bad:#ff6c73
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif}
+body{padding:18px clamp(14px,3vw,34px) 70px}
+button,a{touch-action:manipulation}
+button{font:inherit;color:inherit;cursor:pointer}
+.top{max-width:1500px;margin:auto;display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;padding:10px 0 18px;border-bottom:1px solid var(--line)}
+.top h1{margin:4px 0;font-size:clamp(24px,4vw,38px);letter-spacing:-.04em}
+.top p{margin:0;color:var(--muted)}
+.eyebrow{color:#ff9869;font-size:10px;font-weight:900;letter-spacing:.16em}
+.back,.top button,.tabs button,.range button{border:1px solid var(--line);border-radius:11px;background:#12161b;color:var(--text);text-decoration:none;padding:11px 13px;font-weight:800}
+.top button{background:linear-gradient(135deg,#ff5a08,#ed4c00);border-color:rgba(255,85,0,.6)}
+.tabs,.toolbar,main{max-width:1500px;margin-left:auto;margin-right:auto}
+.tabs{display:flex;gap:8px;padding:16px 0 10px}
+.tabs button.is-active,.range button.is-active{border-color:rgba(255,85,0,.55);background:rgba(255,85,0,.12);color:#ff9b70}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.range{display:flex;gap:7px}
+.range button{min-width:54px;padding:8px 10px}
+#status{color:var(--muted);font-size:12px}
+.grid{display:grid;gap:12px}.grid.metrics{grid-template-columns:repeat(6,minmax(0,1fr))}.grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.card{border:1px solid var(--line);border-radius:16px;background:linear-gradient(155deg,#14181d,#0e1115);padding:16px;min-width:0}
+.metric span,.section-label{display:block;color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.metric strong{display:block;margin-top:8px;font-size:clamp(21px,3vw,31px)}
+.metric small{display:block;margin-top:5px;color:var(--muted)}
+.card h2{margin:5px 0 12px;font-size:18px}.card h3{margin:0 0 8px;font-size:14px}
+.rows{display:grid}.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:10px 0;border-top:1px solid var(--line);align-items:center}.row:first-child{border-top:0}
+.row strong{display:block;font-size:13px}.row small{display:block;margin-top:3px;color:var(--muted);line-height:1.45}
+.badge{display:inline-flex;align-items:center;min-height:23px;padding:0 8px;border-radius:999px;background:#1b2026;color:#abb3bb;font-size:10px;font-weight:900}
+.badge.good{background:rgba(85,216,139,.10);color:var(--good)}.badge.warn{background:rgba(233,186,92,.10);color:var(--warn)}.badge.bad{background:rgba(255,108,115,.10);color:var(--bad)}
+.table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse;min-width:680px}.table th,.table td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:12px}.table th{color:var(--muted);font-size:10px;text-transform:uppercase}
+.empty{padding:22px;text-align:center;color:var(--muted)}
+.recommendation{padding:12px 0;border-top:1px solid var(--line)}.recommendation:first-child{border-top:0}.recommendation p{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
+.calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}.day{min-height:130px;border:1px solid var(--line);border-radius:12px;padding:9px;background:#0e1115}.day>strong{font-size:11px}.event{margin-top:7px;padding:7px;border-radius:9px;background:#181d23;font-size:10px}.event b{display:block;color:#ff9a6d}.event span{display:block;margin-top:3px;color:var(--muted)}
+#toast{position:fixed;right:18px;bottom:18px;max-width:min(420px,calc(100vw - 36px));padding:12px 14px;border-radius:11px;background:#181d23;border:1px solid var(--line);opacity:0;pointer-events:none;transition:opacity .15s}
+#toast.show{opacity:1}
+@media(max-width:1100px){.grid.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.calendar{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:760px){body{padding:10px 12px 64px}.top{grid-template-columns:1fr}.top .back{justify-self:start}.top button{width:100%}.grid.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.two{grid-template-columns:1fr}.toolbar{align-items:flex-start;flex-direction:column}.calendar{grid-template-columns:1fr}.day{min-height:0}}
