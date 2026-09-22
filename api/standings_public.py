@@ -416,7 +416,11 @@ async def race_center_profile_image(request: Request, kind: str = "avatar"):
     if len(raw) > 6 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Profile images must be 6 MB or smaller.")
     try:
-        image = Image.open(io.BytesIO(raw)).convert("RGB")
+        source_image = Image.open(io.BytesIO(raw))
+        width, height = source_image.size
+        if width <= 0 or height <= 0 or width * height > 40_000_000:
+            raise ValueError("Profile image dimensions are too large.")
+        image = source_image.convert("RGB")
         target = (512, 512) if clean_kind == "avatar" else (1600, 600)
         image = ImageOps.fit(image, target, method=Image.Resampling.LANCZOS)
         out = io.BytesIO()
