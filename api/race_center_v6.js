@@ -1,6 +1,16 @@
 (function(){
   let activeSafetyTarget=null;
   let activeProfile=null;
+  let toastTimer=null;
+
+  function showToast(message,type){
+    const toast=$('#v6Toast');
+    if(!toast)return;
+    clearTimeout(toastTimer);
+    toast.textContent=String(message||'');
+    toast.className='v6-toast show '+String(type||'');
+    toastTimer=setTimeout(function(){toast.className='v6-toast';},3200);
+  }
 
   function initials(name){
     return String(name||'RC').split(/\s+/).map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase()||'RC';
@@ -177,29 +187,34 @@
       state.account.display_name=state.account.profile_v6.display_name||state.account.display_name;
       v6RenderProfile();
       if(message)message.textContent='Saved.';
+      showToast('Profile saved.','success');
     }catch(error){
       if(message)message.textContent=error.message||'Could not save profile.';
     }
   }
 
   async function friendRequest(userId){
-    await apiJson('/api/public/race-center/friends/request',{method:'POST',body:JSON.stringify({user_id:Number(userId)})});
+    const payload=await apiJson('/api/public/race-center/friends/request',{method:'POST',body:JSON.stringify({user_id:Number(userId)})});
     await v6RefreshAccount();
+    showToast(payload.state==='friends'?'You are now friends.':'Friend request sent.','success');
     if(activeProfile&&activeProfile.id===Number(userId))openProfileV6(activeProfile.handle);
   }
 
   async function friendRespond(userId,accept){
     await apiJson('/api/public/race-center/friends/respond',{method:'POST',body:JSON.stringify({user_id:Number(userId),accept:Boolean(accept)})});
     await v6RefreshAccount();
+    showToast(accept?'Friend request accepted.':'Friend request declined.','success');
   }
 
   async function removeFriend(userId){
     await apiJson('/api/public/race-center/friends/'+String(Number(userId)),{method:'DELETE'});
     await v6RefreshAccount();
+    showToast('Friend removed.','success');
   }
 
   async function blockUser(userId){
     await apiJson('/api/public/race-center/blocks',{method:'PUT',body:JSON.stringify({user_id:Number(userId)})});
+    showToast('Account blocked. Their posts and activity are now hidden.','success');
     $('#safetyDialog')?.close();
     $('#peopleDialog')?.close();
     await v6RefreshAccount();
@@ -212,6 +227,7 @@
   async function unblockUser(userId){
     await apiJson('/api/public/race-center/blocks',{method:'DELETE',body:JSON.stringify({user_id:Number(userId)})});
     await v6RefreshAccount();
+    showToast('Account unblocked.','success');
   }
 
   function openSafety(kind,id,label,userId){
@@ -240,7 +256,8 @@
           details:String($('#reportDetails').value||'')
         })
       });
-      if(msg)msg.textContent='Report submitted. Reference #'+String(payload.report_id||'')+'.';
+      if(msg)msg.textContent=(payload.duplicate?'You already reported this. Reference #':'Report submitted. Reference #')+String(payload.report_id||'')+'.';
+      showToast(payload.duplicate?'That report is already in the moderation queue.':'Report submitted to Pitmark moderation.','success');
     }catch(error){
       if(msg)msg.textContent=error.message||'Could not submit report.';
     }
@@ -368,6 +385,7 @@
       '<div><span class="moderation-reason">'+esc(item.reason||'report')+'</span><strong>'+esc(item.target_kind||'target')+' #'+esc(item.target_id||'')+'</strong><p>'+esc(item.details||'No additional details.')+'</p><small>Reported by '+esc(reporter.display_name||reporter.handle||'Race Center user')+'</small></div>'+
       '<div class="moderation-actions">'+
         (['post','comment'].includes(item.target_kind)?'<button class="mini-action primary" data-v6-moderate="'+item.id+'" data-action="hide_content">Hide content</button>':'')+
+        (item.target_kind==='user'?'<button class="mini-action primary" data-v6-moderate="'+item.id+'" data-action="suspend_user">Suspend</button><button class="mini-action danger-mini" data-v6-moderate="'+item.id+'" data-action="ban_user">Ban</button>':'')+
         '<button class="mini-action" data-v6-moderate="'+item.id+'" data-action="resolve">Resolve</button>'+
         '<button class="mini-action" data-v6-moderate="'+item.id+'" data-action="dismiss">Dismiss</button>'+
       '</div>'+
@@ -395,6 +413,7 @@
       body:JSON.stringify({status:String(action),note:''})
     });
     await loadModeration();
+    showToast('Moderation action applied.','success');
     if(window.PitmarkRaceCenterV5)window.PitmarkRaceCenterV5.loadFeed();
   }
 
@@ -414,6 +433,7 @@
       if($('#newPassword'))$('#newPassword').value='';
       await v6RefreshAccount();
       if(message)message.textContent='Password updated. Other sessions were signed out.';
+      showToast('Password updated.','success');
     }catch(error){
       if(message)message.textContent=error.message||'Could not update password.';
     }
@@ -499,17 +519,17 @@
       const existingProfile=event.target.closest('[data-v5-profile]');
       if(existingProfile){setTimeout(function(){openProfileV6(existingProfile.dataset.v5Profile);},0);return;}
       const searchFriend=event.target.closest('[data-v6-search-friend]');
-      if(searchFriend){friendRequest(searchFriend.dataset.v6SearchFriend).then(function(){searchPeople($('#peopleSearchInput')?.value||'');}).catch(function(){});return;}
+      if(searchFriend){friendRequest(searchFriend.dataset.v6SearchFriend).then(function(){searchPeople($('#peopleSearchInput')?.value||'');}).catch(function(error){showToast(error.message||'That action could not be completed.','error');});return;}
       const req=event.target.closest('[data-v6-friend-request]');
-      if(req){friendRequest(req.dataset.v6FriendRequest).catch(function(){});return;}
+      if(req){friendRequest(req.dataset.v6FriendRequest).catch(function(error){showToast(error.message||'That action could not be completed.','error');});return;}
       const accept=event.target.closest('[data-v6-friend-accept]');
-      if(accept){friendRespond(accept.dataset.v6FriendAccept,true).catch(function(){});return;}
+      if(accept){friendRespond(accept.dataset.v6FriendAccept,true).catch(function(error){showToast(error.message||'That action could not be completed.','error');});return;}
       const decline=event.target.closest('[data-v6-friend-decline]');
-      if(decline){friendRespond(decline.dataset.v6FriendDecline,false).catch(function(){});return;}
+      if(decline){friendRespond(decline.dataset.v6FriendDecline,false).catch(function(error){showToast(error.message||'That action could not be completed.','error');});return;}
       const remove=event.target.closest('[data-v6-friend-remove]');
-      if(remove){removeFriend(remove.dataset.v6FriendRemove).catch(function(){});return;}
+      if(remove){removeFriend(remove.dataset.v6FriendRemove).catch(function(error){showToast(error.message||'That action could not be completed.','error');});return;}
       const unblock=event.target.closest('[data-v6-unblock]');
-      if(unblock){unblockUser(unblock.dataset.v6Unblock).catch(function(){});return;}
+      if(unblock){unblockUser(unblock.dataset.v6Unblock).catch(function(error){showToast(error.message||'That action could not be completed.','error');});return;}
       const safeUser=event.target.closest('[data-v6-safety-user]');
       if(safeUser){openSafety('user',safeUser.dataset.v6SafetyUser,safeUser.dataset.v6SafetyLabel,safeUser.dataset.v6SafetyUser);return;}
       const postSafe=event.target.closest('[data-v6-post-safety]');
@@ -524,13 +544,17 @@
         return;
       }
       const moderation=event.target.closest('[data-v6-moderate]');
-      if(moderation){moderate(Number(moderation.dataset.v6Moderate),moderation.dataset.action).catch(function(){});return;}
+      if(moderation){moderate(Number(moderation.dataset.v6Moderate),moderation.dataset.action).catch(function(error){showToast(error.message||'Moderation action failed.','error');});return;}
       const follow=event.target.closest('[data-v6-follow-profile]');
       if(follow){
         const id=Number(follow.dataset.v6FollowProfile);
         const following=follow.dataset.following==='1';
         apiJson('/api/public/race-center/people/follow',{method:following?'DELETE':'PUT',body:JSON.stringify({user_id:id})})
-          .then(function(){if(activeProfile)openProfileV6(activeProfile.handle);}).catch(function(){});
+          .then(async function(){
+            await v6RefreshAccount();
+            showToast(following?'Unfollowed.':'Following.','success');
+            if(activeProfile)openProfileV6(activeProfile.handle);
+          }).catch(function(error){showToast(error.message||'Could not update follow.','error');});
       }
     });
 
