@@ -1051,7 +1051,60 @@ async function renderResultsDesk(root,ctx){
   };
 }
 
-async function renderInsights(root,ctx){const payload=await api.hq();const m=payload.modules||{};const work=unwrap(m.work)||{};const prt=unwrap(m.prt)||{};const content=unwrap(m.content)||{};const rel=unwrap(m.relationships)||{};const s=work.summary||{};root.innerHTML=`${viewHeader('Operating Intelligence','Insights','Current operational momentum from real Pitmark sources—not vanity metrics.')}<div class="pm-metric-strip"><div class="pm-metric"><span>Open work</span><strong>${n(s.open)}</strong><small>${n(s.p1)} P1 · ${n(s.blocked)} blocked</small></div><div class="pm-metric"><span>Completed</span><strong>${n(s.completed)}</strong><small>Master Checklist history</small></div><div class="pm-metric"><span>PRT testers</span><strong>${n(prt.testers?.redeemed)}</strong><small>${n(prt.applications?.new)} new applications</small></div><div class="pm-metric"><span>Content queue</span><strong>${n(content.autopilot?.pending)}</strong><small>${n(content.autopilot?.scheduled)} scheduled</small></div><div class="pm-metric"><span>Relationships</span><strong>${n(rel.total)}</strong><small>${n(rel.waiting_follow_up)} follow-ups</small></div></div><div class="pm-grid pm-grid-2">${panel('Work Momentum','Source of Truth',`<div class="pm-pulse-grid"><div class="pm-pulse"><header><span>Active</span></header><strong>${n(s.active)}</strong><p>currently moving</p></div><div class="pm-pulse"><header><span>Monitoring</span></header><strong>${n(s.monitoring)}</strong><p>being watched</p></div><div class="pm-pulse"><header><span>Waiting</span></header><strong>${n(s.waiting)}</strong><p>external dependencies</p></div><div class="pm-pulse"><header><span>Roadmap</span></header><strong>${n(s.roadmap)}</strong><p>future work</p></div></div>`)}${panel('Growth Activity','Operational Snapshot',`<div class="pm-detail-list"><div class="pm-detail-pair"><span>Founder’s Race pending</span><strong>${n(prt.founders_race?.pending)}</strong></div><div class="pm-detail-pair"><span>PRT feedback</span><strong>${n(prt.feedback?.open??prt.feedback?.total)}</strong></div><div class="pm-detail-pair"><span>Editorial drafts</span><strong>${n(content.editorial?.drafts)}</strong></div><div class="pm-detail-pair"><span>Published social</span><strong>${n(content.autopilot?.published)}</strong></div></div>`)}</div>`;}
+async function renderInsights(root,ctx){
+  let payload;
+  try{
+    payload=await api.intelligence(30,{maxAge:ctx.force?0:30000});
+  }catch(e){
+    root.innerHTML=\`\${viewHeader('Operating Intelligence','Pitmark Intelligence','Commerce, growth, relationships, and product signals in one place.')}\${moduleError('Pitmark Intelligence',e.message,'insights')}\`;
+    return;
+  }
+  const commerce=payload?.commerce||{};
+  const growth=payload?.growth||{};
+  const prt=growth.prt||{};
+  const content=growth.content||{};
+  const rel=growth.relationships||{};
+  const sources=payload?.sources||{};
+  const recommendations=Array.isArray(payload?.recommendations)?payload.recommendations:[];
+  const liveSources=Object.values(sources).filter(x=>x?.live).length;
+  const sourceRows=Object.entries(sources).map(([key,value])=>{
+    const label={shopify:'Shopify',pitmark_internal:'Pitmark Cloud',meta_ads:'Meta Ads',ga4:'GA4',search_console:'Search Console',youtube:'YouTube',tiktok:'TikTok'}[key]||key;
+    const tone=value?.live?'good':value?.status==='error'?'bad':'warn';
+    return \`<div class="pm-detail-pair"><span>\${esc(label)}</span><strong><span class="pm-badge \${tone}">\${esc(value?.live?'Live':value?.status||'planned')}</span></strong></div>\`;
+  }).join('');
+  const recommendationRows=recommendations.length?\`<div class="pm-row-list">\${recommendations.map(item=>\`<div class="pm-row"><div class="pm-row-main"><div class="pm-row-meta">\${statusBadge(item.priority||'info')}<span class="pm-badge orange">\${esc(item.type||'signal')}</span></div><strong>\${esc(item.title||'Recommendation')}</strong><p>\${esc(item.reason||'')}</p><p><b>Do next:</b> \${esc(item.action||'')}</p></div></div>\`).join('')}</div>\`:empty('No recommendation rules are firing right now.');
+  root.innerHTML=\`
+    \${viewHeader('Operating Intelligence','Pitmark Intelligence','Our native business-data layer. Real sources only, built to replace paid aggregation tools and tell us what deserves attention.',\`<span class="pm-badge good">Native · no Supermetrics</span>\`)}
+    <section class="pm-brief"><div><span class="eyebrow">BUSINESS PULSE · LAST \${n(payload?.window_days||30)} DAYS</span><h2>\${commerce.orders?esc(\`\${commerce.orders} Shopify order\${commerce.orders===1?'':'s'} · $\${Number(commerce.revenue||0).toFixed(2)} revenue\`):'Commerce is still in first-sale mode.'}</h2><p>Generated \${esc(age(payload?.generated_at))}. Pitmark combines storefront, PRT, content, and relationship activity without paying another analytics middleman.</p></div><div class="pm-brief-meta"><span class="pm-badge \${commerce.status==='live'?'good':'warn'}">Shopify \${esc(commerce.status||'unknown')}</span><span class="pm-badge">\${n(liveSources)} live sources</span></div></section>
+    <div class="pm-metric-strip">
+      <div class="pm-metric"><span>Revenue</span><strong>$\${Number(commerce.revenue||0).toFixed(2)}</strong><small>Shopify · \${n(commerce.orders)} orders</small></div>
+      <div class="pm-metric"><span>Average order</span><strong>$\${Number(commerce.average_order_value||0).toFixed(2)}</strong><small>\${esc(commerce.currency||'USD')}</small></div>
+      <div class="pm-metric"><span>PRT applicants</span><strong>\${n(prt.applications_total)}</strong><small>\${n(prt.applications_new)} new · \${n(prt.applications_accepted)} accepted</small></div>
+      <div class="pm-metric"><span>PRT testers</span><strong>\${n(prt.testers_redeemed)}</strong><small>\${n(prt.testers_issued)} invites outstanding</small></div>
+      <div class="pm-metric"><span>Relationships</span><strong>\${n(rel.total)}</strong><small>\${n(rel.waiting_follow_up)} follow-ups tracked</small></div>
+    </div>
+    <div class="pm-grid pm-grid-2">
+      \${panel('What Deserves Attention','Decision Engine',recommendationRows,'')}
+      \${panel('Data Sources','Connector Health',\`<div class="pm-detail-list">\${sourceRows}</div><div class="pm-callout"><div><strong>Connector rule</strong><p>Planned sources stay visibly planned until Pitmark has direct authenticated access. Missing data is never replaced with estimates.</p></div></div>\`,'')}
+    </div>
+    <div class="pm-grid pm-grid-2 pm-hq-lower">
+      \${panel('PRT Growth','Product Demand',details([
+        ['Applications',n(prt.applications_total)],
+        ['New',n(prt.applications_new)],
+        ['Accepted',n(prt.applications_accepted)],
+        ['Redeemed testers',n(prt.testers_redeemed)],
+        ['Open feedback',n(prt.feedback_open)]
+      ]))}
+      \${panel('Content & Relationships','Growth Operations',details([
+        ['Pending posts',n(content.pending)],
+        ['Scheduled posts',n(content.scheduled)],
+        ['Published posts',n(content.published)],
+        ['Editorial drafts',n(content.editorial_drafts)],
+        ['Relationship follow-ups',n(rel.waiting_follow_up)]
+      ]))}
+    </div>
+  \`;
+}
 
 export async function renderDomain(domain, root, ctx) {
   root.onclick = null;
