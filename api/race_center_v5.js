@@ -1,4 +1,5 @@
 (function(){
+  let v5People=[];
   function v5YoutubeEmbed(raw){
     try{
       const url=new URL(String(raw||''),location.origin);
@@ -27,6 +28,25 @@
       .sort(function(a,b){return a._time-b._time;})[0]||null;
   }
 
+  function v5SeriesForItem(item){
+    if(!item||!state.payload)return null;
+    return (state.payload.series||[]).find(function(series){
+      return String(series.series_key)===String(item.series_key||'');
+    })||null;
+  }
+
+  function v5BroadcastGraphic(item,event,live){
+    const series=v5SeriesForItem(item);
+    const logoUrl=series&&String(series.series_logo||series.series_logo_direct||'').trim();
+    const logo=logoUrl
+      ?'<img class="broadcast-series-logo" src="'+esc(logoUrl)+'" alt="'+esc(item.series_name||'Series')+' logo">'
+      :'<div class="broadcast-series-mark">'+esc(String(item.series_name||'RACING').slice(0,22))+'</div>';
+    const source=series&&series.series_logo_source_url
+      ?'<a class="broadcast-source" href="'+esc(series.series_logo_source_url)+'" target="_blank" rel="noopener">Series identity source ↗</a>'
+      :'';
+    return '<div class="broadcast-identity-bg"><div class="broadcast-speed-lines"></div><div class="broadcast-logo-wrap">'+logo+'</div><div class="broadcast-copy"><span>'+(live?'LIVE RACE':'NEXT GREEN FLAG')+'</span><strong>'+esc(event.name||item.series_name||'Race weekend')+'</strong><small>'+(item.watch_url?'Official viewing is available through the broadcaster/series link.':'No official embeddable broadcast source is available yet.')+'</small>'+source+'</div></div>';
+  }
+
   function v5RenderLive(){
     const stage=$('#liveStage');
     if(!stage||!state.payload)return;
@@ -43,7 +63,7 @@
       $('#liveStageTitle').textContent='Your racing home is quiet. For now.';
       $('#liveStageText').textContent='No tracked event has a start time on the board right now. Standings, follows, and the Pit Wall are still live.';
       if(actions)actions.innerHTML='<a class="button" href="/race-center/schedules">Browse schedules</a>';
-      if(media)media.innerHTML='<div class="broadcast-placeholder"><span>LIVE BOARD</span><strong>No race is live right now.</strong><small>Official viewing appears here only when Pitmark has a source it can legally surface.</small></div>';
+      if(media)media.innerHTML='<div class="broadcast-identity-bg empty"><div class="broadcast-speed-lines"></div><div class="broadcast-series-mark">PITMARK</div><div class="broadcast-copy"><span>LIVE BOARD</span><strong>No race is live right now.</strong><small>Official viewing appears here only when Pitmark has a source it can surface safely.</small></div></div>';
       return;
     }
 
@@ -68,7 +88,7 @@
       if(embed){
         media.innerHTML='<iframe src="'+esc(embed)+'" title="'+esc(item.series_name||'Official live race broadcast')+'" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
       }else{
-        media.innerHTML='<div class="broadcast-placeholder"><span>'+(live?'LIVE RACE':'NEXT GREEN FLAG')+'</span><strong>'+esc(event.name||item.series_name||'Race weekend')+'</strong><small>'+(item.watch_url?'Use the official viewing link for coverage. Race Center only embeds a broadcaster when the official source itself is embeddable.':'No official embeddable broadcast source is available on the board.')+'</small></div>';
+        media.innerHTML=v5BroadcastGraphic(item,event,live);
       }
     }
   }
@@ -222,6 +242,9 @@
     if(note)note.textContent=authed
       ?'Posting as @'+String(profile.handle||'racer')+'.'
       :'Sign in to post. Everyone can read the public Pit Wall.';
+    const peopleClose=$('#peopleDialogClose');
+    if(peopleClose)peopleClose.addEventListener('click',function(){$('#peopleDialog')?.close();});
+
     const postButton=$('#pitWallPost');
     if(postButton)postButton.disabled=!authed;
   }
@@ -263,6 +286,63 @@
     }finally{
       if(button)button.disabled=false;
     }
+  }
+
+  function v5IdentityBadge(identity){
+    if(!identity||identity.verification_status!=='verified')return '';
+    const label=identity.official_label||identity.account_type||'Official';
+    return '<span class="verified-badge" title="'+esc(label)+'">✓</span>';
+  }
+
+  function v5RenderPeople(){
+    const host=$('#peopleGrid');
+    if(!host)return;
+    if(!(state.account&&state.account.authenticated)){
+      host.innerHTML='<div class="personal-empty">Sign in, follow some racing, and Race Center will connect you with fans who care about the same series and drivers.</div>';
+      return;
+    }
+    if(!v5People.length){
+      host.innerHTML='<div class="personal-empty">No strong matches yet. The people graph gets better as more racers and fans join.</div>';
+      return;
+    }
+    host.innerHTML=v5People.map(function(person){
+      const initials=String(person.display_name||person.handle||'R').split(/\s+/).map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
+      const shared=Number(person.shared_count||0);
+      const identity=v5IdentityBadge(person.identity);
+      return '<article class="people-card"><button class="people-main" type="button" data-v5-profile="'+esc(person.handle)+'"><span class="people-avatar">'+esc(initials)+'</span><span><strong>'+esc(person.display_name||person.handle)+identity+'</strong><small>@'+esc(person.handle)+'</small><em>'+esc(shared?shared+' shared follow'+(shared===1?'':'s'):'New to your graph')+'</em></span></button><button class="people-follow" type="button" data-v5-follow-user="'+String(person.id)+'">Follow</button></article>';
+    }).join('');
+  }
+
+  async function v5LoadPeople(){
+    if(!(state.account&&state.account.authenticated)){
+      v5People=[];
+      v5RenderPeople();
+      return;
+    }
+    try{
+      const payload=await apiJson('/api/public/race-center/people/discover?limit=12',{method:'GET'});
+      v5People=payload.people||[];
+    }catch(_error){
+      v5People=[];
+    }
+    v5RenderPeople();
+  }
+
+  async function v5OpenProfile(handle){
+    try{
+      const profile=await apiJson('/api/public/race-center/people/'+encodeURIComponent(handle),{method:'GET'});
+      const identity=profile.identity||{};
+      const official=identity.verification_status==='verified'
+        ?'<span class="profile-official">✓ '+esc(identity.official_label||identity.account_type||'Verified')+'</span>'
+        :'';
+      const series=(profile.series||[]).map(function(item){return '<span>'+esc(item.label||item.key)+'</span>';}).join('');
+      const drivers=(profile.drivers||[]).slice(0,12).map(function(item){return '<span>'+esc(item.label||item.key)+'</span>';}).join('');
+      const action=(state.account&&state.account.authenticated&&state.account.id!==profile.id)
+        ?'<button class="button primary" type="button" data-v5-profile-follow="'+String(profile.id)+'" data-v5-profile-following="'+(profile.viewer_follows?'1':'0')+'">'+(profile.viewer_follows?'Following':'Follow')+'</button>'
+        :'';
+      $('#peopleProfileContent').innerHTML='<div class="profile-hero"><span class="people-avatar large">'+esc(String(profile.display_name||profile.handle).slice(0,2).toUpperCase())+'</span><div><span class="eyebrow">RACE CENTER PROFILE</span><h2 id="peopleDialogTitle">'+esc(profile.display_name||profile.handle)+v5IdentityBadge(identity)+'</h2><p>@'+esc(profile.handle)+'</p>'+official+'</div></div><p class="profile-bio">'+esc(profile.bio||'No bio yet.')+'</p><div class="profile-stats"><div><strong>'+String(profile.followers||0)+'</strong><span>Followers</span></div><div><strong>'+String(profile.following||0)+'</strong><span>Following</span></div><div><strong>'+String((profile.series||[]).length+(profile.drivers||[]).length)+'</strong><span>Racing follows</span></div></div>'+(profile.favorite_track?'<p class="profile-track">Home track: <strong>'+esc(profile.favorite_track)+'</strong></p>':'')+'<div class="profile-action-row">'+action+(identity.external_url?'<a class="button" href="'+esc(identity.external_url)+'" target="_blank" rel="noopener">Official link ↗</a>':'')+'</div>'+(series?'<div class="profile-tags"><strong>Series</strong><div>'+series+'</div></div>':'')+(drivers?'<div class="profile-tags"><strong>Drivers</strong><div>'+drivers+'</div></div>':'');
+      $('#peopleDialog')?.showModal();
+    }catch(_error){}
   }
 
   function initV5(){
@@ -357,6 +437,36 @@
         return;
       }
 
+      const profileButton=event.target.closest('[data-v5-profile]');
+      if(profileButton){
+        v5OpenProfile(String(profileButton.dataset.v5Profile||''));
+        return;
+      }
+
+      const followButton=event.target.closest('[data-v5-follow-user]');
+      if(followButton){
+        if(!(state.account&&state.account.authenticated)){ $('#accountDialog')?.showModal(); return; }
+        const userId=Number(followButton.dataset.v5FollowUser);
+        apiJson('/api/public/race-center/people/follow',{method:'PUT',body:JSON.stringify({user_id:userId})})
+          .then(function(){return v5LoadPeople();}).catch(function(){});
+        return;
+      }
+
+      const profileFollow=event.target.closest('[data-v5-profile-follow]');
+      if(profileFollow){
+        const userId=Number(profileFollow.dataset.v5ProfileFollow);
+        const following=profileFollow.dataset.v5ProfileFollowing==='1';
+        apiJson('/api/public/race-center/people/follow',{
+          method:following?'DELETE':'PUT',
+          body:JSON.stringify({user_id:userId})
+        }).then(function(){
+          profileFollow.dataset.v5ProfileFollowing=following?'0':'1';
+          profileFollow.textContent=following?'Follow':'Following';
+          v5LoadPeople();
+        }).catch(function(){});
+        return;
+      }
+
       const focus=event.target.closest('[data-v5-focus-comment]');
       if(focus){
         const field=$('#v5-comment-'+String(focus.dataset.v5FocusComment));
@@ -366,13 +476,14 @@
 
     document.addEventListener('submit',function(event){
       if(event.target&&['signupForm','loginForm'].includes(event.target.id)){
-        setTimeout(function(){v5RenderProfile();v5LoadFeed();},800);
+        setTimeout(function(){v5RenderProfile();v5LoadFeed();v5LoadPeople();},800);
       }
     });
     const logout=$('#logoutButton');
-    if(logout)logout.addEventListener('click',function(){setTimeout(function(){v5RenderProfile();v5LoadFeed();},250);});
+    if(logout)logout.addEventListener('click',function(){setTimeout(function(){v5RenderProfile();v5LoadFeed();v5LoadPeople();},250);});
 
     v5LoadFeed();
+    v5LoadPeople();
     setTimeout(v5RenderAll,150);
     setTimeout(v5RenderAll,900);
     setInterval(function(){
