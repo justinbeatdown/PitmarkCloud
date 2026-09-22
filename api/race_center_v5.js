@@ -112,19 +112,27 @@
   function v5RenderPersonal(){
     const host=$('#personalFeed');
     if(!host||!state.payload)return;
-    const cards=[];
-    const followedSeries=(state.payload.series||[]).filter(function(series){return state.favorites.has(String(series.series_key));});
+    const objects=[];
+    const followedSeries=(state.payload.series||[]).filter(function(series){
+      return state.favorites.has(String(series.series_key));
+    });
 
     followedSeries.forEach(function(series){
-      const leader=series.entries&&series.entries[0];
-      if(series.event_state==='live'){
-        cards.push({icon:'●',title:String(series.short_name||series.series_name)+' is live',body:String(series.current_event&&series.current_event.name||'Race in progress'),cta:'Open',key:series.series_key,priority:100});
-      }else if(series.current_event&&series.current_event.start){
-        cards.push({icon:'◷',title:'Next: '+String(series.short_name||series.series_name),body:String(series.current_event.name||'Event')+' · '+eventTime(series.current_event),cta:'Details',key:series.series_key,priority:70});
-      }
-      if(leader){
-        cards.push({icon:'1',title:String(leader.name||'Leader')+' leads '+String(series.short_name||series.series_name),body:points(leader.points)+' pts'+(identityText(leader)?' · '+identityText(leader):''),cta:'Standings',key:series.series_key,priority:35});
-      }
+      const leaders=(series.entries||[]).slice(0,3);
+      const event=series.current_event||null;
+      const rows=leaders.map(function(row){
+        return '<div class="network-standing-row"><span class="network-pos">'+esc(row.position==null?'—':row.position)+'</span><strong>'+esc(row.name||'Unknown')+'</strong><span>'+points(row.points)+' pts</span>'+move(row.movement,row.comparison_ready!==false)+'</div>';
+      }).join('');
+      objects.push({
+        priority:series.event_state==='live'?120:event?90:55,
+        html:'<article class="network-object series-object" data-key="'+esc(series.series_key)+'" role="button" tabindex="0">'+
+          '<header><div>'+logo(series)+'<span><small>'+esc(series.group||'RACING')+'</small><strong>'+esc(series.short_name||series.series_name)+'</strong></span></div>'+
+          '<button class="network-object-more" type="button" aria-label="Open '+esc(series.series_name)+'">›</button></header>'+
+          (event?'<div class="network-event-line"><b>'+(series.event_state==='live'?'LIVE':'NEXT')+'</b><span>'+esc(event.name||'Race event')+(event.start?' · '+esc(eventTime(event)):'')+'</span></div>':'')+
+          '<div class="network-standings"><div class="network-object-label">CHAMPIONSHIP</div>'+rows+'</div>'+
+          '<footer><span>'+String((series.entries||[]).length)+' classified drivers</span><strong>Open full standings →</strong></footer>'+
+        '</article>'
+      });
     });
 
     state.drivers.forEach(function(key){
@@ -133,31 +141,27 @@
       const row=result.row;
       if(!series||!row)return;
       const movement=Number(row.movement||0);
-      cards.push({
-        icon:movement>0?'▲':movement<0?'▼':'#',
-        title:String(row.name)+' · P'+String(row.position==null?'—':row.position),
-        body:String(series.short_name||series.series_name)+' · '+points(row.points)+' pts'+(movement?' · '+(movement>0?'up ':'down ')+Math.abs(movement):''),
-        cta:'Track',
-        key:series.series_key,
-        priority:movement?85:45
+      objects.push({
+        priority:movement?105:65,
+        html:'<article class="network-object driver-object" data-key="'+esc(series.series_key)+'" role="button" tabindex="0">'+
+          '<header><div><span class="driver-network-avatar">'+esc(String(row.name||'?').split(/\s+/).map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase())+'</span><span><small>DRIVER YOU FOLLOW · '+esc(series.short_name||series.series_name)+'</small><strong>'+esc(row.name||'Unknown')+'</strong></span></div><span class="network-rank">P'+esc(row.position==null?'—':row.position)+'</span></header>'+
+          '<div class="driver-network-stats"><div><span>Points</span><strong>'+points(row.points)+'</strong></div><div><span>Movement</span><strong>'+move(row.movement,row.comparison_ready!==false)+'</strong></div><div><span>Team</span><strong>'+esc(row.team||row.manufacturer||'—')+'</strong></div></div>'+
+          '<footer><span>Following this driver</span><strong>Open championship →</strong></footer>'+
+        '</article>'
       });
     });
 
-    cards.sort(function(a,b){return b.priority-a.priority;});
-    const limited=cards.slice(0,10);
-    const count=state.favorites.size+state.drivers.size;
+    objects.sort(function(a,b){return b.priority-a.priority;});
     const status=$('#personalStatus');
+    const count=state.favorites.size+state.drivers.size;
     if(status)status.textContent=count
       ?String(state.favorites.size)+' series · '+String(state.drivers.size)+' drivers followed'
-      :'Follow drivers and series to build your feed.';
+      :'Follow drivers and series to build your racing feed.';
 
-    host.innerHTML=limited.length
-      ?limited.map(function(item){
-        return '<article class="personal-card" data-key="'+esc(item.key)+'" role="button" tabindex="0"><span class="personal-card-icon">'+esc(item.icon)+'</span><div><strong>'+esc(item.title)+'</strong><p>'+esc(item.body)+'</p></div><b>'+esc(item.cta)+' →</b></article>';
-      }).join('')
-      :'<div class="personal-empty">Your feed gets interesting the second you follow a series or driver. Star something on the standings board and Race Center will build around it.</div>';
+    host.innerHTML=objects.length
+      ?objects.slice(0,12).map(function(item){return item.html;}).join('')
+      :'<div class="personal-empty social-empty"><strong>Your racing feed starts with a follow.</strong><span>Follow a series or driver from Standings and Race Center will turn live schedules, championship positions, movement, and community posts into your home feed.</span><a class="button primary" href="/race-center/standings">Choose your racing</a></div>';
   }
-
   function v5PopulateSeries(){
     const select=$('#pitWallSeries');
     if(!select||!state.payload)return;
@@ -251,6 +255,25 @@
     const peopleClose=$('#peopleDialogClose');
     if(peopleClose)peopleClose.addEventListener('click',function(){$('#peopleDialog')?.close();});
 
+    const profileOpen=$('#socialProfileOpen');
+    if(profileOpen)profileOpen.addEventListener('click',function(){
+      if(state.account&&state.account.authenticated){
+        $('#accountDialog')?.showModal();
+      }else{
+        $('#accountDialog')?.showModal();
+      }
+    });
+    const composerAvatar=$('#composerAvatar');
+    if(composerAvatar)composerAvatar.addEventListener('click',function(){$('#accountDialog')?.showModal();});
+    const findPeople=$('#socialFindPeople');
+    if(findPeople)findPeople.addEventListener('click',function(){$('#peopleDiscovery')?.scrollIntoView({behavior:'smooth',block:'center'});});
+    const myRacing=$('#socialMyRacing');
+    if(myRacing)myRacing.addEventListener('click',function(){$('#personalFeed')?.scrollIntoView({behavior:'smooth',block:'start'});});
+    const manageRacing=$('#railManageRacing');
+    if(manageRacing)manageRacing.addEventListener('click',function(){location.href='/race-center/standings';});
+    const refreshPeople=$('#discoverRefresh');
+    if(refreshPeople)refreshPeople.addEventListener('click',v5LoadPeople);
+
     const postButton=$('#pitWallPost');
     if(postButton)postButton.disabled=!authed;
   }
@@ -261,6 +284,7 @@
     v5RenderPersonal();
     v5PopulateSeries();
     v5RenderProfile();
+    v5RenderSocialShell();
     v5RenderPitWall();
   }
 
@@ -351,6 +375,40 @@
     }catch(_error){}
   }
 
+  function v5RenderSocialShell(){
+    const account=state.account||{};
+    const profile=account.profile||{};
+    const authed=Boolean(account.authenticated);
+    const display=authed?(account.display_name||profile.handle||'Racer'):'My Race Center';
+    const handle=authed?'@'+String(profile.handle||'racer'):'Sign in to personalize';
+    const initials=String(display||'RC').split(/\s+/).map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase()||'RC';
+    if($('#socialProfileAvatar'))$('#socialProfileAvatar').textContent=initials;
+    if($('#composerAvatar'))$('#composerAvatar').textContent=initials;
+    if($('#socialProfileName'))$('#socialProfileName').textContent=display;
+    if($('#socialProfileHandle'))$('#socialProfileHandle').textContent=handle;
+    const connections=account.connections||{};
+    if($('#socialFollowingCount'))$('#socialFollowingCount').textContent=String(connections.following||0);
+    if($('#socialFollowersCount'))$('#socialFollowersCount').textContent=String(connections.followers||0);
+    if($('#socialRacingCount'))$('#socialRacingCount').textContent=String(state.favorites.size+state.drivers.size);
+
+    const list=$('#socialMyRacingList');
+    if(list&&state.payload){
+      const series=(state.payload.series||[]).filter(function(item){return state.favorites.has(String(item.series_key));}).slice(0,5);
+      const driverItems=[];
+      state.drivers.forEach(function(key){
+        const result=v5DriverFromKey(key);
+        if(result.series&&result.row&&driverItems.length<4)driverItems.push(result);
+      });
+      let html=series.map(function(item){
+        return '<button class="rail-item" type="button" data-v5-open-series="'+esc(item.series_key)+'">'+logo(item)+'<span><strong>'+esc(item.short_name||item.series_name)+'</strong><small>'+(item.event_state==='live'?'LIVE NOW':item.current_event?'Next '+esc(eventTime(item.current_event)):'Championship')+'</small></span></button>';
+      }).join('');
+      html+=driverItems.map(function(result){
+        return '<button class="rail-item" type="button" data-v5-open-series="'+esc(result.series.series_key)+'"><span class="rail-driver-dot">'+esc(String(result.row.name||'?').slice(0,1))+'</span><span><strong>'+esc(result.row.name||'Driver')+'</strong><small>'+esc(result.series.short_name||result.series.series_name)+' · P'+esc(result.row.position==null?'—':result.row.position)+'</small></span></button>';
+      }).join('');
+      list.innerHTML=html||'<p>Follow a series or driver and it will live here.</p>';
+    }
+  }
+
   function initV5(){
     try{
       const baseRender=render;
@@ -362,6 +420,7 @@
       renderAccount=function(){
         baseRenderAccount();
         v5RenderProfile();
+        v5RenderSocialShell();
       };
     }catch(error){
       console.error('Race Center V5 render hooks failed',error);
