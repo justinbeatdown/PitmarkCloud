@@ -45,6 +45,42 @@ def _parse_dt(value: Any) -> datetime | None:
     return dt.astimezone(timezone.utc)
 
 
+def _http_error_detail(exc: httpx.HTTPStatusError) -> tuple[int, str]:
+    status = int(getattr(exc.response, "status_code", 0) or 0)
+    detail = ""
+    try:
+        payload = exc.response.json()
+        error = payload.get("error") if isinstance(payload, dict) else None
+        if isinstance(error, dict):
+            detail = str(error.get("message") or error.get("error_user_msg") or "")
+        elif error:
+            detail = str(error)
+    except Exception:
+        detail = ""
+    if not detail:
+        try:
+            detail = str(exc.response.text or "")
+        except Exception:
+            detail = ""
+    return status, " ".join(detail.split())[:360]
+
+
+def _google_setup_urls(*services: str) -> list[dict[str, str]]:
+    labels = {
+        "analyticsadmin.googleapis.com": "Enable Analytics Admin API",
+        "analyticsdata.googleapis.com": "Enable Analytics Data API",
+        "searchconsole.googleapis.com": "Enable Search Console API",
+        "youtube.googleapis.com": "Enable YouTube Data API",
+    }
+    return [
+        {
+            "label": labels.get(service, "Open Google API"),
+            "url": "https://console.cloud.google.com/apis/library/" + service,
+        }
+        for service in services
+    ]
+
+
 def _shopify_window(days: int = 30) -> dict[str, Any]:
     if not shopify_configured():
         return {
@@ -173,25 +209,37 @@ def _shopify_window(days: int = 30) -> dict[str, Any]:
 
 
 def _meta_snapshot(days: int = 30) -> dict[str, Any]:
-    token = (settings.meta_system_user_access_token or settings.meta_page_access_token or "").strip()
+    system_token = (settings.meta_system_user_access_token or "").strip()
+    page_token = (settings.meta_page_access_token or system_token).strip()
     page_id = (settings.meta_page_id or "").strip()
     ig_id = (settings.meta_instagram_account_id or "").strip()
-    if not token or not page_id:
+    if not page_token or not page_id:
         return {
             "status": "not_configured",
             "facebook": {},
             "instagram": {},
-            "ads": {},
+            "ads": {"status": "not_configured"},
             "error": "Meta page credentials are not configured.",
+            "warnings": [],
         }
 
     base = "https://graph.facebook.com/%s" % settings.meta_graph_version
     facebook: dict[str, Any] = {}
     instagram: dict[str, Any] = {}
-    ads: dict[str, Any] = {}
-    errors: list[str] = []
+    ads: dict[str, Any] = {"status": "not_configured" if not system_token else "checking"}
+    warnings: list[str] = []
+    fatal_errors: list[str] = []
     since = int((datetime.now(timezone.utc) - timedelta(days=days)).timestamp())
     until = int(datetime.now(timezone.utc).timestamp())
+
+    def record(label: str, exc: Exception, *, fatal: bool = False) -> str:
+        if isinstance(exc, httpx.HTTPStatusError):
+            status, detail = _http_error_detail(exc)
+            message = f"{label}: {status}" + (f": {detail}" if detail else "")
+        else:
+            message = f"{label}: {str(exc)[:260]}"
+        (fatal_errors if fatal else warnings).append(message)
+        return message
 
     with httpx.Client(timeout=20.0) as client:
         try:
@@ -199,84 +247,135 @@ def _meta_snapshot(days: int = 30) -> dict[str, Any]:
                 base + "/" + page_id,
                 params={
                     "fields": "id,name,fan_count,followers_count,link",
-                    "access_token": token,
+                    "access_token": page_token,
                 },
             )
             page.raise_for_status()
             facebook["page"] = page.json()
+            facebook["status"] = "live"
         except Exception as exc:
-            errors.append("Facebook page: %s" % str(exc)[:180])
+            facebook["status"] = "error"
+            facebook["error"] = record("Facebook page", exc, fatal=True)
 
-        try:
-            posts = client.get(
-                base + "/" + page_id + "/posts",
-                params={
-                    "fields": "id,message,created_time,permalink_url,shares,likes.summary(true),comments.summary(true)",
-                    "limit": 25,
-                    "since": since,
-                    "until": until,
-                    "access_token": token,
-                },
+        if facebook.get("page"):
+            rich_fields = (
+                "id,message,created_time,permalink_url,shares,"
+                "reactions.limit(0).summary(true),comments.limit(0).summary(true)"
             )
-            posts.raise_for_status()
-            rows = list((posts.json() or {}).get("data") or [])
-            facebook["posts"] = rows
-            facebook["posts_count"] = len(rows)
-            facebook["engagement_actions"] = sum(
-                int(((row.get("likes") or {}).get("summary") or {}).get("total_count") or 0)
-                + int(((row.get("comments") or {}).get("summary") or {}).get("total_count") or 0)
-                + int((row.get("shares") or {}).get("count") or 0)
-                for row in rows
-            )
-        except Exception as exc:
-            errors.append("Facebook posts: %s" % str(exc)[:180])
-
-        try:
-            ad_accounts = client.get(
-                base + "/me/adaccounts",
-                params={
-                    "fields": "id,name,account_status,currency",
-                    "limit": 50,
-                    "access_token": token,
-                },
-            )
-            ad_accounts.raise_for_status()
-            accounts = list((ad_accounts.json() or {}).get("data") or [])
-            selected_ad = next(
-                (row for row in accounts if "pitmark" in str(row.get("name") or "").lower()),
-                None,
-            )
-            ads["accounts"] = accounts
-            ads["selected_account"] = selected_ad
-            if selected_ad and selected_ad.get("id"):
-                account_id = selected_ad["id"]
-                time_range = '{"since":"%s","until":"%s"}' % (
-                    (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat(),
-                    datetime.now(timezone.utc).date().isoformat(),
-                )
-                insights = client.get(
-                    base + "/" + account_id + "/insights",
+            basic_fields = "id,message,created_time,permalink_url,shares"
+            rows: list[dict[str, Any]] = []
+            try:
+                posts = client.get(
+                    base + "/" + page_id + "/published_posts",
                     params={
-                        "fields": "spend,impressions,reach,clicks,ctr,cpc,actions",
-                        "time_range": time_range,
-                        "access_token": token,
-                    },
-                )
-                insights.raise_for_status()
-                rows = list((insights.json() or {}).get("data") or [])
-                ads["summary"] = rows[0] if rows else {}
-                campaigns = client.get(
-                    base + "/" + account_id + "/campaigns",
-                    params={
-                        "fields": "id,name,status,effective_status,daily_budget,lifetime_budget,start_time,stop_time",
+                        "fields": rich_fields,
                         "limit": 50,
-                        "access_token": token,
+                        "since": since,
+                        "until": until,
+                        "access_token": page_token,
                     },
                 )
-                campaigns.raise_for_status()
-                ads["campaigns"] = list((campaigns.json() or {}).get("data") or [])
-        except Exception as exc:
-            errors.append("Meta Ads: %s" % str(exc)[:180])
+                posts.raise_for_status()
+                rows = list((posts.json() or {}).get("data") or [])
+                facebook["engagement_read_status"] = "live"
+            except Exception as rich_exc:
+                facebook["engagement_read_status"] = "limited"
+                facebook["engagement_error"] = record("Facebook engagement", rich_exc)
+                try:
+                    posts = client.get(
+                        base + "/" + page_id + "/published_posts",
+                        params={
+                            "fields": basic_fields,
+                            "limit": 50,
+                            "since": since,
+                            "until": until,
+                            "access_token": page_token,
+                        },
+                    )
+                    posts.raise_for_status()
+                    rows = list((posts.json() or {}).get("data") or [])
+                except Exception as basic_exc:
+                    facebook["posts_error"] = record("Facebook posts", basic_exc)
+                    rows = []
+
+            normalized_posts: list[dict[str, Any]] = []
+            for row in rows:
+                reactions = int(((row.get("reactions") or {}).get("summary") or {}).get("total_count") or 0)
+                comments = int(((row.get("comments") or {}).get("summary") or {}).get("total_count") or 0)
+                shares = int((row.get("shares") or {}).get("count") or 0)
+                item = {
+                    **row,
+                    "reactions_count": reactions,
+                    "comments_count": comments,
+                    "shares_count": shares,
+                    "engagement_actions": reactions + comments + shares,
+                }
+                normalized_posts.append(item)
+            facebook["posts"] = normalized_posts
+            facebook["posts_count"] = len(normalized_posts)
+            facebook["engagement_actions"] = sum(int(row.get("engagement_actions") or 0) for row in normalized_posts)
+            facebook["top_posts"] = sorted(
+                normalized_posts,
+                key=lambda row: (int(row.get("engagement_actions") or 0), str(row.get("created_time") or "")),
+                reverse=True,
+            )[:10]
+
+        if system_token:
+            try:
+                ad_accounts = client.get(
+                    base + "/me/adaccounts",
+                    params={
+                        "fields": "id,name,account_status,currency",
+                        "limit": 50,
+                        "access_token": system_token,
+                    },
+                )
+                ad_accounts.raise_for_status()
+                accounts = list((ad_accounts.json() or {}).get("data") or [])
+                selected_ad = next(
+                    (row for row in accounts if "pitmark" in str(row.get("name") or "").lower()),
+                    accounts[0] if len(accounts) == 1 else None,
+                )
+                ads["accounts"] = accounts
+                ads["selected_account"] = selected_ad
+                ads["status"] = "live" if selected_ad else ("needs_selection" if accounts else "no_accounts")
+
+                if selected_ad and selected_ad.get("id"):
+                    account_id = selected_ad["id"]
+                    time_range = '{"since":"%s","until":"%s"}' % (
+                        (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat(),
+                        datetime.now(timezone.utc).date().isoformat(),
+                    )
+                    insights = client.get(
+                        base + "/" + account_id + "/insights",
+                        params={
+                            "fields": "spend,impressions,reach,clicks,ctr,cpc,actions",
+                            "time_range": time_range,
+                            "access_token": system_token,
+                        },
+                    )
+                    insights.raise_for_status()
+                    insight_rows = list((insights.json() or {}).get("data") or [])
+                    ads["summary"] = insight_rows[0] if insight_rows else {}
+
+                    campaigns = client.get(
+                        base + "/" + account_id + "/campaigns",
+                        params={
+                            "fields": "id,name,status,effective_status,daily_budget,lifetime_budget,start_time,stop_time",
+                            "limit": 50,
+                            "access_token": system_token,
+                        },
+                    )
+                    campaigns.raise_for_status()
+                    ads["campaigns"] = list((campaigns.json() or {}).get("data") or [])
+            except Exception as exc:
+                message = record("Meta Ads", exc)
+                ads["error"] = message
+                if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 403:
+                    ads["status"] = "permission_required"
+                    ads["note"] = "Meta publishing is connected; Ads reporting still needs ads_read access to the Pitmark ad account."
+                else:
+                    ads["status"] = "error"
 
         if ig_id:
             try:
@@ -284,72 +383,97 @@ def _meta_snapshot(days: int = 30) -> dict[str, Any]:
                     base + "/" + ig_id,
                     params={
                         "fields": "id,username,followers_count,media_count",
-                        "access_token": token,
+                        "access_token": page_token,
                     },
                 )
                 profile.raise_for_status()
                 instagram["profile"] = profile.json()
+                instagram["status"] = "live"
             except Exception as exc:
-                errors.append("Instagram profile: %s" % str(exc)[:180])
+                instagram["status"] = "error"
+                instagram["error"] = record("Instagram profile", exc)
 
             try:
                 media = client.get(
                     base + "/" + ig_id + "/media",
                     params={
                         "fields": "id,caption,media_type,timestamp,permalink,like_count,comments_count",
-                        "limit": 25,
-                        "access_token": token,
+                        "limit": 50,
+                        "access_token": page_token,
                     },
                 )
                 media.raise_for_status()
-                rows = list((media.json() or {}).get("data") or [])
+                raw_rows = list((media.json() or {}).get("data") or [])
                 cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-                recent = []
-                for row in rows:
+                recent: list[dict[str, Any]] = []
+                for row in raw_rows:
                     ts = _parse_dt(row.get("timestamp"))
-                    if not ts or ts >= cutoff:
-                        recent.append(row)
+                    if ts and ts < cutoff:
+                        continue
+                    likes = int(row.get("like_count") or 0)
+                    comments = int(row.get("comments_count") or 0)
+                    recent.append({
+                        **row,
+                        "likes_count": likes,
+                        "comments_count": comments,
+                        "engagement_actions": likes + comments,
+                    })
                 instagram["posts"] = recent
                 instagram["posts_count"] = len(recent)
-                instagram["engagement_actions"] = sum(
-                    int(row.get("like_count") or 0) + int(row.get("comments_count") or 0)
-                    for row in recent
-                )
+                instagram["engagement_actions"] = sum(int(row.get("engagement_actions") or 0) for row in recent)
+                instagram["top_posts"] = sorted(
+                    recent,
+                    key=lambda row: (int(row.get("engagement_actions") or 0), str(row.get("timestamp") or "")),
+                    reverse=True,
+                )[:10]
             except Exception as exc:
-                errors.append("Instagram media: %s" % str(exc)[:180])
+                instagram["media_error"] = record("Instagram media", exc)
 
     facebook.setdefault("posts", [])
     instagram.setdefault("posts", [])
-    live = bool(facebook.get("page"))
+    core_live = bool(facebook.get("page") or instagram.get("profile"))
+    status = "live"
+    if core_live and (warnings or fatal_errors):
+        status = "limited"
+    elif not core_live:
+        status = "error"
     return {
-        "status": "live" if live else "error",
+        "status": status,
         "facebook": facebook,
         "instagram": instagram,
         "ads": ads,
-        "error": "; ".join(errors)[:500] if errors else None,
+        "error": "; ".join(fatal_errors)[:700] if fatal_errors else None,
+        "warnings": warnings[:12],
     }
-
 
 
 def _google_snapshot(days: int = 30) -> dict[str, Any]:
     if not google_bi_configured():
         return {
             "status": "not_configured",
-            "ga4": {},
-            "search_console": {},
-            "youtube": {},
+            "ga4": {"status": "not_configured"},
+            "search_console": {"status": "not_configured"},
+            "youtube": {"status": "separate_auth_required"},
             "error": None,
         }
 
     headers = authorization_headers()
     errors: list[str] = []
-    ga4: dict[str, Any] = {}
-    search_console: dict[str, Any] = {}
+    ga4: dict[str, Any] = {
+        "status": "checking",
+        "setup_urls": _google_setup_urls("analyticsadmin.googleapis.com", "analyticsdata.googleapis.com"),
+    }
+    search_console: dict[str, Any] = {
+        "status": "checking",
+        "setup_urls": _google_setup_urls("searchconsole.googleapis.com"),
+    }
     youtube: dict[str, Any] = {}
     end_date = datetime.now(timezone.utc).date()
     start_date = end_date - timedelta(days=max(1, days - 1))
 
     with httpx.Client(timeout=25.0, headers=headers) as client:
+        properties: list[dict[str, Any]] = []
+        selected: dict[str, Any] | None = None
         try:
             response = client.get(
                 "https://analyticsadmin.googleapis.com/v1beta/accountSummaries",
@@ -357,7 +481,6 @@ def _google_snapshot(days: int = 30) -> dict[str, Any]:
             )
             response.raise_for_status()
             summaries = list((response.json() or {}).get("accountSummaries") or [])
-            properties = []
             for account in summaries:
                 for prop in account.get("propertySummaries") or []:
                     properties.append({
@@ -371,8 +494,22 @@ def _google_snapshot(days: int = 30) -> dict[str, Any]:
             )
             ga4["properties"] = properties
             ga4["selected_property"] = selected
-            if selected and selected.get("property"):
-                property_name = selected["property"]
+            if not selected:
+                ga4["status"] = "no_property"
+                ga4["error"] = "Google authorization works, but no GA4 property is visible to this account."
+        except httpx.HTTPStatusError as exc:
+            status_code, detail = _http_error_detail(exc)
+            ga4["status"] = "api_disabled" if status_code == 403 and ("disabled" in detail.lower() or "has not been used" in detail.lower()) else "error"
+            ga4["error"] = f"GA4 Admin API {status_code}: {detail}" if detail else f"GA4 Admin API {status_code}"
+            errors.append(ga4["error"])
+        except Exception as exc:
+            ga4["status"] = "error"
+            ga4["error"] = "GA4 Admin API: %s" % str(exc)[:260]
+            errors.append(ga4["error"])
+
+        if selected and selected.get("property"):
+            property_name = str(selected["property"])
+            try:
                 report = client.post(
                     "https://analyticsdata.googleapis.com/v1beta/%s:runReport" % property_name,
                     json={
@@ -414,29 +551,30 @@ def _google_snapshot(days: int = 30) -> dict[str, Any]:
                     }
                     for row in ((pages.json() or {}).get("rows") or [])
                 ]
-        except httpx.HTTPStatusError as exc:
-            detail = ""
-            try:
-                payload = exc.response.json()
-                detail = str(((payload.get("error") or {}).get("message")) or "")[:220]
-            except Exception:
-                detail = exc.response.text[:220]
-            errors.append("GA4: %s%s" % (exc.response.status_code, (": " + detail) if detail else ""))
-        except Exception as exc:
-            errors.append("GA4: %s" % str(exc)[:180])
+                ga4["status"] = "live"
+                ga4["error"] = None
+            except httpx.HTTPStatusError as exc:
+                status_code, detail = _http_error_detail(exc)
+                ga4["status"] = "api_disabled" if status_code == 403 and ("disabled" in detail.lower() or "has not been used" in detail.lower()) else "error"
+                ga4["error"] = f"GA4 Data API {status_code}: {detail}" if detail else f"GA4 Data API {status_code}"
+                errors.append(ga4["error"])
+            except Exception as exc:
+                ga4["status"] = "error"
+                ga4["error"] = "GA4 Data API: %s" % str(exc)[:260]
+                errors.append(ga4["error"])
 
         try:
             response = client.get("https://www.googleapis.com/webmasters/v3/sites")
             response.raise_for_status()
             sites = list((response.json() or {}).get("siteEntry") or [])
-            selected = next(
+            selected_site = next(
                 (row for row in sites if "pitmarkracing.com" in str(row.get("siteUrl") or "").lower()),
                 sites[0] if sites else None,
             )
             search_console["sites"] = sites
-            search_console["selected_site"] = selected
-            if selected and selected.get("siteUrl"):
-                site = selected["siteUrl"]
+            search_console["selected_site"] = selected_site
+            if selected_site and selected_site.get("siteUrl"):
+                site = str(selected_site["siteUrl"])
                 encoded = quote(site, safe="")
                 query = client.post(
                     "https://www.googleapis.com/webmasters/v3/sites/%s/searchAnalytics/query" % encoded,
@@ -458,27 +596,32 @@ def _google_snapshot(days: int = 30) -> dict[str, Any]:
                     }
                     for row in ((query.json() or {}).get("rows") or [])
                 ]
+                search_console["status"] = "live"
+                search_console["error"] = None
+            else:
+                search_console["status"] = "no_site"
+                search_console["error"] = "Search Console authorization works, but no site property is visible to this account."
         except httpx.HTTPStatusError as exc:
-            detail = ""
-            try:
-                payload = exc.response.json()
-                detail = str(((payload.get("error") or {}).get("message")) or "")[:220]
-            except Exception:
-                detail = exc.response.text[:220]
-            errors.append("Search Console: %s%s" % (exc.response.status_code, (": " + detail) if detail else ""))
+            status_code, detail = _http_error_detail(exc)
+            search_console["status"] = "api_disabled" if status_code == 403 and ("disabled" in detail.lower() or "has not been used" in detail.lower()) else "error"
+            search_console["error"] = f"Search Console API {status_code}: {detail}" if detail else f"Search Console API {status_code}"
+            errors.append(search_console["error"])
         except Exception as exc:
-            errors.append("Search Console: %s" % str(exc)[:180])
+            search_console["status"] = "error"
+            search_console["error"] = "Search Console API: %s" % str(exc)[:260]
+            errors.append(search_console["error"])
 
         youtube["status"] = "separate_auth_required"
-        youtube["note"] = "YouTube uses a separate Google authorization so it cannot block GA4 or Search Console."
+        youtube["note"] = "YouTube remains isolated behind its own read-only authorization so it cannot block GA4 or Search Console."
+        youtube["setup_urls"] = _google_setup_urls("youtube.googleapis.com")
 
-    live = bool(ga4.get("selected_property") or search_console.get("selected_site"))
+    live = ga4.get("status") == "live" or search_console.get("status") == "live"
     return {
-        "status": "live" if live else "error",
+        "status": "live" if live else "connected",
         "ga4": ga4,
         "search_console": search_console,
         "youtube": youtube,
-        "error": "; ".join(errors)[:700] if errors else None,
+        "error": "; ".join(errors)[:900] if errors else None,
     }
 
 
@@ -721,26 +864,62 @@ def overview(days: int = 30) -> dict[str, Any]:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "window_days": safe_days,
         "sources": {
-            "shopify": {"status": shopify.get("status"), "live": shopify.get("status") == "live", "error": shopify.get("error")},
-            "pitmark_internal": {"status": "live", "live": True, "error": None},
-            "meta": {"status": meta.get("status"), "live": meta.get("status") == "live", "error": meta.get("error")},
-            "meta_ads": {"status": meta.get("status"), "live": bool((meta.get("ads") or {}).get("selected_account")), "error": meta.get("error")},
-            "ga4": {"status": google.get("status"), "live": bool((google.get("ga4") or {}).get("selected_property")), "error": google.get("error")},
-            "search_console": {"status": google.get("status"), "live": bool((google.get("search_console") or {}).get("selected_site")), "error": google.get("error")},
+            "shopify": {
+                "status": shopify.get("status"),
+                "live": shopify.get("status") == "live",
+                "error": shopify.get("error"),
+                "note": "Direct Shopify Admin API",
+            },
+            "pitmark_internal": {
+                "status": "live",
+                "live": True,
+                "error": None,
+                "note": "PRT, outreach, content, and Control Center data",
+            },
+            "meta": {
+                "status": meta.get("status"),
+                "live": bool((meta.get("facebook") or {}).get("page") or (meta.get("instagram") or {}).get("profile")),
+                "error": meta.get("error"),
+                "note": "; ".join(meta.get("warnings") or [])[:500] or "Facebook + Instagram first-party reads",
+            },
+            "meta_ads": {
+                "status": (meta.get("ads") or {}).get("status") or "not_configured",
+                "live": (meta.get("ads") or {}).get("status") == "live",
+                "error": (meta.get("ads") or {}).get("error"),
+                "note": (meta.get("ads") or {}).get("note") or "Meta Ads reporting",
+            },
+            "ga4": {
+                "status": (google.get("ga4") or {}).get("status") or "not_configured",
+                "live": (google.get("ga4") or {}).get("status") == "live",
+                "error": (google.get("ga4") or {}).get("error"),
+                "note": "Google Analytics traffic and page performance",
+                "setup_urls": (google.get("ga4") or {}).get("setup_urls") or [],
+            },
+            "search_console": {
+                "status": (google.get("search_console") or {}).get("status") or "not_configured",
+                "live": (google.get("search_console") or {}).get("status") == "live",
+                "error": (google.get("search_console") or {}).get("error"),
+                "note": "Google Search clicks, impressions, CTR, and position",
+                "setup_urls": (google.get("search_console") or {}).get("setup_urls") or [],
+            },
             "youtube": {
-                "status": "separate_auth_required",
-                "live": False,
-                "error": "YouTube is intentionally separated from the core Google analytics authorization.",
+                "status": (google.get("youtube") or {}).get("status") or "separate_auth_required",
+                "live": (google.get("youtube") or {}).get("status") == "live",
+                "error": (google.get("youtube") or {}).get("error"),
+                "note": (google.get("youtube") or {}).get("note") or "Separate YouTube read authorization",
+                "setup_urls": (google.get("youtube") or {}).get("setup_urls") or [],
             },
             "tiktok": {
                 "status": "auth_required" if (settings.tiktok_client_key and settings.tiktok_client_secret) else "not_configured",
                 "live": False,
                 "error": None,
+                "note": "Direct TikTok connector" if (settings.tiktok_client_key and settings.tiktok_client_secret) else "TikTok developer credentials are not configured yet.",
             },
             "x": {
                 "status": "cost_guarded" if (settings.x_access_token or settings.x_api_key) else "not_configured",
                 "live": False,
-                "error": "Paid X reads remain disabled by Pitmark cost controls." if (settings.x_access_token or settings.x_api_key) else None,
+                "error": None,
+                "note": "Paid X reads remain disabled by Pitmark cost controls." if (settings.x_access_token or settings.x_api_key) else "X is not configured.",
             },
         },
         "commerce": shopify,
