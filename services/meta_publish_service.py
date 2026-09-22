@@ -247,6 +247,56 @@ def publish_instagram_post(*, caption: str, image_url: str) -> dict:
     return {"ok": True, "platform": "instagram", "external_post_id": post_id, "creation_id": creation_id, "media_url": media, "raw": publish_data}
 
 
+
+def fetch_audience_metrics() -> dict[str, dict]:
+    """Fetch current first-party audience counts from Meta for autonomous growth tracking.
+
+    Counts are deliberately best-effort: a missing permission produces an explicit
+    per-platform error instead of a fabricated zero.
+    """
+    metrics: dict[str, dict] = {}
+    token = _page_token() if _base_token() else ""
+
+    if facebook_configured():
+        try:
+            response = httpx.get(
+                _graph_url(settings.meta_page_id),
+                params={"fields": "id,name,followers_count,fan_count", "access_token": token},
+                timeout=15.0,
+            )
+            data = _decode(response)
+            metrics["facebook"] = {
+                "ok": True,
+                "followers": data.get("followers_count"),
+                "fans": data.get("fan_count"),
+                "name": data.get("name"),
+            }
+        except Exception as exc:
+            metrics["facebook"] = {"ok": False, "error": str(exc)[:300]}
+    else:
+        metrics["facebook"] = {"ok": False, "error": "Facebook is not configured."}
+
+    if instagram_configured():
+        try:
+            response = httpx.get(
+                _graph_url(settings.meta_instagram_account_id),
+                params={"fields": "id,username,followers_count,media_count", "access_token": token},
+                timeout=15.0,
+            )
+            data = _decode(response)
+            metrics["instagram"] = {
+                "ok": True,
+                "followers": data.get("followers_count"),
+                "media_count": data.get("media_count"),
+                "username": data.get("username"),
+            }
+        except Exception as exc:
+            metrics["instagram"] = {"ok": False, "error": str(exc)[:300]}
+    else:
+        metrics["instagram"] = {"ok": False, "error": "Instagram is not configured."}
+
+    return metrics
+
 def fetch_facebook_page_comments(*, limit_posts: int = 12, limit_comments: int = 50) -> list[dict]:
     """Return recent comments on Pitmark-owned Facebook posts.
 
