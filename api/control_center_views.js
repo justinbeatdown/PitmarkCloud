@@ -1093,6 +1093,20 @@ async function renderInsights(root,ctx){
       ${panel('Data Sources','Connector Health',`<div class="pm-detail-list">${sourceRows}</div><div class="pm-callout"><div><strong>Connector rule</strong><p>Planned sources stay visibly planned until Pitmark has direct authenticated access. Missing data is never replaced with estimates.</p></div></div>`,'')}
     </div>
     <div class="pm-grid pm-grid-2 pm-hq-lower">
+      ${panel('Top Products','Commerce Intelligence',(commerce.top_products||[]).length
+        ? `<div class="pm-row-list">${commerce.top_products.slice(0,8).map((item,index)=>`<div class="pm-row"><div class="pm-row-main"><div class="pm-row-meta"><span class="pm-badge orange">#${index+1}</span><span class="pm-badge">${n(item.quantity)} sold</span></div><strong>${esc(item.title||'Product')}</strong><p>${Number(item.revenue||0).toFixed(2)} revenue · ${n(item.orders)} order lines</p></div></div>`).join('')}</div>`
+        : empty(commerce.status==='live'?'No product sales in this window.':'Product revenue is unavailable until Shopify is live.'),'')}
+      ${panel('Relationship Pipeline','Outreach Intelligence',`
+        <div class="pm-pulse-grid">
+          <div class="pm-pulse"><header><span>Warm</span></header><strong>${n(rel.warm)}</strong><p>active conversations</p></div>
+          <div class="pm-pulse"><header><span>Overdue</span></header><strong>${n(rel.overdue_follow_up)}</strong><p>past follow-up date</p></div>
+          <div class="pm-pulse"><header><span>Stale</span></header><strong>${n(rel.stale_open)}</strong><p>open 14+ days without movement</p></div>
+          <div class="pm-pulse"><header><span>Tracked</span></header><strong>${n(rel.total)}</strong><p>relationship records</p></div>
+        </div>
+        ${(rel.overdue_items||[]).length?`<div class="pm-row-list" style="margin-top:12px">${rel.overdue_items.slice(0,5).map(item=>`<div class="pm-row"><div class="pm-row-main"><strong>${esc(item.organization||item.name||'Relationship')}</strong><p>${esc(item.stage||'unknown')} · follow-up ${esc(item.next_follow_up||'')}</p></div><div class="pm-row-side"><span class="pm-badge warn">Overdue</span></div></div>`).join('')}</div>`:''}
+      `,'')}
+    </div>
+    <div class="pm-grid pm-grid-2 pm-hq-lower">
       ${panel('PRT Growth','Product Demand',details([
         ['Applications',n(prt.applications_total)],
         ['New',n(prt.applications_new)],
