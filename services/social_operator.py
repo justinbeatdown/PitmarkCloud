@@ -24,7 +24,7 @@ from services.social_pacing import pacing_decision
 from services.autonomy_control import effective_mode
 from services.first_party_auto_schedule import auto_schedule_verified_first_party
 from services.first_party_media import reconcile_first_party_drafts
-from services.x_publish_service import fetch_mentions as fetch_x_mentions
+from services.x_publish_service import fetch_mentions as fetch_x_mentions, fetch_audience_metrics as fetch_x_audience_metrics
 from utils.config import settings
 
 log = logging.getLogger(__name__)
@@ -415,6 +415,7 @@ def run_operator_once() -> dict:
     try:
         scanned, review, replied, channels = _sync_meta_engagement()
         audience = fetch_audience_metrics()
+        audience["x"] = fetch_x_audience_metrics()
         planned = _ensure_growth_posts()
         try:
             first_party_media = reconcile_first_party_drafts()
@@ -506,7 +507,7 @@ def operator_status() -> dict:
             "instagram": settings.social_operator_min_instagram_posts_daily,
             "x": settings.social_operator_min_x_posts_daily,
         },
-        "audience": fetch_audience_metrics(),
+        "audience": {**fetch_audience_metrics(), "x": fetch_x_audience_metrics()},
         "latest_run": None
         if not latest
         else {
