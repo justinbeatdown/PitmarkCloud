@@ -1495,3 +1495,5 @@ main{min-width:0}
   .social-composer-tools{grid-template-columns:1fr 1fr auto}
   .social-composer-tools .button{grid-column:1/-1}
 }
+
+.social-profile-stats{grid-template-columns:1fr 1fr}
