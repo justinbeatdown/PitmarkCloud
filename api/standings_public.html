@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Pitmark Race Center V4 — Racing Standings, Schedules + Live Board</title>
-  <meta name="description" content="Pitmark Race Center V4 tracks racing standings, championship leaders, live and upcoming events, schedules and official watch information across major racing series.">
-  <meta property="og:title" content="Pitmark Race Center V4">
+  <title>Pitmark Race Center V5 — Racing Standings, Schedules + Live Board</title>
+  <meta name="description" content="Pitmark Race Center V5 tracks racing standings, championship leaders, live and upcoming events, schedules and official watch information across major racing series.">
+  <meta property="og:title" content="Pitmark Race Center V5">
   <meta property="og:description" content="Live motorsports intelligence. One home base.">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#090b0e">
-  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-v4-20260922">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-v5-20260922">
 </head>
 <body data-view="{{RACE_CENTER_VIEW}}">
   <a class="skip-link" href="#standingsStart">Skip to Race Center</a>
@@ -18,7 +18,7 @@
     <div class="header-inner">
       <a class="brand" href="/race-center" aria-label="Pitmark Race Center home">
         <img src="/prt-logo.png" alt="Pitmark Racing Co.">
-        <span class="brand-product"><strong>Race Center</strong><small>V4</small></span>
+        <span class="brand-product"><strong>Race Center</strong><small>V5</small></span>
       </a>
       <nav aria-label="Pitmark navigation">
         <a href="https://pitmarkracing.com">Shop</a>
@@ -27,6 +27,7 @@
         <a href="/race-center/standings" data-race-view="standings">Standings</a>
         <a href="/race-center/schedules" data-race-view="schedules">Schedules</a>
         <a href="/race-center/live" data-race-view="live">Live + Next</a>
+        <a href="#pitWall">Pit Wall</a>
         <a href="/racing-desk">Racing Desk</a>
       </nav>
       <div class="account-zone">
@@ -41,7 +42,7 @@
       <div class="hero-copy">
         <div class="version-line">
           <span class="eyebrow">PITMARK RACE CENTER</span>
-          <span class="version-pill">V4</span>
+          <span class="version-pill">V5</span>
         </div>
         <h1 id="heroTitle">Your racing world,<br><em>organized.</em></h1>
         <p id="heroIntro">Live events, standings, schedules, championship movement, and the series and drivers you care about — all in one place.</p>
@@ -57,6 +58,56 @@
         <div><span>Feed health</span><strong id="feedHealth">—</strong><small>available / tracked</small></div>
         <div><span>Last sync</span><strong id="updatedValue">—</strong><small id="seasonValue">Season —</small></div>
       </div>
+    </section>
+
+
+    <section class="v5-home" id="v5Home" aria-label="My Race Center">
+      <section class="live-stage" id="liveStage">
+        <div class="live-stage-copy">
+          <div class="live-stage-kicker"><span class="live-dot"></span><span id="liveStageKicker">RACE DAY</span></div>
+          <h2 id="liveStageTitle">Your racing home is waking up.</h2>
+          <p id="liveStageText">When a tracked race is live, Race Center puts it here first — with official viewing access when Pitmark can legally provide it.</p>
+          <div class="live-stage-actions" id="liveStageActions"></div>
+        </div>
+        <div class="live-stage-media" id="liveStageMedia">
+          <div class="broadcast-placeholder">
+            <span>LIVE BOARD</span>
+            <strong id="broadcastPlaceholderTitle">No race is live right now.</strong>
+            <small>We’ll surface official live viewing here when an embeddable source is available.</small>
+          </div>
+        </div>
+      </section>
+
+      <section class="personal-grid">
+        <div class="personal-column">
+          <div class="section-head compact">
+            <div><span class="eyebrow">FOR YOU</span><h2>My Race Center</h2></div>
+            <p id="personalStatus">Follow drivers and series to build your feed.</p>
+          </div>
+          <div class="personal-feed" id="personalFeed">
+            <div class="loading-card">Building your racing board…</div>
+          </div>
+        </div>
+
+        <aside class="pit-wall" id="pitWall">
+          <div class="pit-wall-head">
+            <div><span class="eyebrow">PIT WALL</span><h2>Race talk, without the noise.</h2></div>
+            <span class="social-live-pill">V5 SOCIAL</span>
+          </div>
+          <div class="composer" id="pitWallComposer">
+            <textarea id="pitWallInput" maxlength="600" placeholder="What are you watching, thinking, or calling before the green?"></textarea>
+            <div class="composer-row">
+              <select id="pitWallSeries" aria-label="Attach a series"><option value="">General racing</option></select>
+              <span id="pitWallCount">0 / 600</span>
+              <button class="button primary" id="pitWallPost" type="button">Post to Pit Wall</button>
+            </div>
+            <p class="composer-note" id="pitWallComposerNote">Sign in to post. Everyone can read the public Pit Wall.</p>
+          </div>
+          <div class="pit-wall-feed" id="pitWallFeed">
+            <div class="loading-card">Loading the Pit Wall…</div>
+          </div>
+        </aside>
+      </section>
     </section>
 
     <section class="race-pulse" id="racePulse" aria-label="Race Pulse">
@@ -240,6 +291,12 @@
           <div><strong id="accountDriverCount">0</strong><span>Drivers</span></div>
           <div><strong>Cloud</strong><span>Synced</span></div>
         </div>
+        <form class="profile-form" id="profileForm">
+          <label>Handle<input id="profileHandle" name="handle" maxlength="40" pattern="[a-z0-9_]{3,40}" placeholder="your_handle"></label>
+          <label>Favorite track<input id="profileTrack" name="favorite_track" maxlength="120" placeholder="Your home track"></label>
+          <label class="full">Bio<textarea id="profileBio" name="bio" maxlength="280" placeholder="What kind of racing are you here for?"></textarea></label>
+          <div class="full profile-actions"><button class="button primary" type="submit">Save Profile</button><span id="profileMessage"></span></div>
+        </form>
         <button class="button" id="logoutButton" type="button">Sign Out</button>
       </div>
     </div>
@@ -271,6 +328,6 @@
     <small>Race Center prioritizes official and structured series sources. Pitmark hides unsupported identity fields instead of guessing. Use each linked official series source for final classifications, rules and race-control decisions.</small>
   </footer>
 
-  <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-v4-20260922" defer></script>
+  <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-v5-20260922" defer></script>\n  <script src="/race-center-v5.js?v={{PITMARK_VERSION}}-social-20260922" defer></script>
 </body>
 </html>
