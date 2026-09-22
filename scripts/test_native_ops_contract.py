@@ -68,8 +68,13 @@ class NativeOpsContractTests(unittest.TestCase):
 
     def test_native_client_uses_multi_selector_for_tabs(self):
         client = (ROOT / "api" / "control_native_ops.js").read_text(encoding="utf-8")
-        self.assertNotIn("$('[data-tab]').forEach", client)
-        self.assertIn("$('[data-tab]').forEach", client)
+        bad_lines = [
+            line.strip()
+            for line in client.splitlines()
+            if line.strip().startswith("$('[data-tab]').forEach")
+        ]
+        self.assertEqual(bad_lines, [])
+        self.assertGreaterEqual(client.count("$$('[data-tab]').forEach"), 3)
         self.assertIn("location.hash", client)
 
     def test_intelligence_has_bounded_wait(self):
