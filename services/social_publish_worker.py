@@ -118,7 +118,16 @@ def publish_due_posts() -> int:
                     result = publish_instagram_post(caption=post.body, image_url=media_url)
                     post.media_url = str(result.get("media_url") or media_url)
                     mark_used(media_url)
-            except Exception:
+            except Exception as exc:
+                if platform == "x" and ("credits depleted" in str(exc).lower() or "402" in str(exc)):
+                    post.status = "approved"
+                    post.updated_at = utcnow()
+                    db.commit()
+                    log.warning(
+                        "Paused X post %s because API credits are depleted; moved back to approved instead of retrying every minute",
+                        post.id,
+                    )
+                    continue
                 log.exception("Scheduled %s publish failed for post %s", platform, post.id)
                 continue
             post.status = "published"
