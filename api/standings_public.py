@@ -12,7 +12,8 @@ from pydantic import BaseModel, Field
 
 from services.racing_standings import SERIES as STANDINGS_SERIES, get_series_logo_info, get_series_roster, get_standings_snapshot_hub
 from services.racing_events import get_racing_event_hub
-from services import race_center_accounts
+from services import race_center_accounts, race_center_social_v6
+from services.control_access import require_permission
 from utils.config import settings
 from utils.security import enforce_rate_limit
 
@@ -95,6 +96,33 @@ class RaceUserFollowChange(BaseModel):
     user_id: int = Field(gt=0)
 
 
+class RaceProfileV6Change(BaseModel):
+    display_name: str = Field(min_length=2, max_length=80)
+    avatar_url: str = Field(default="", max_length=1000)
+    cover_url: str = Field(default="", max_length=1000)
+    accent_color: str = Field(default="#ff5500", max_length=7)
+    hometown: str = Field(default="", max_length=100)
+    website_url: str = Field(default="", max_length=1000)
+    profile_visibility: str = Field(default="public", max_length=20)
+
+
+class RaceFriendResponse(BaseModel):
+    user_id: int = Field(gt=0)
+    accept: bool
+
+
+class RaceReportCreate(BaseModel):
+    target_kind: str = Field(min_length=3, max_length=20)
+    target_id: str = Field(min_length=1, max_length=220)
+    reason: str = Field(min_length=3, max_length=40)
+    details: str = Field(default="", max_length=1000)
+
+
+class RaceModerationResolve(BaseModel):
+    status: str = Field(min_length=6, max_length=20)
+    note: str = Field(default="", max_length=1000)
+
+
 def _race_account_or_401(request: Request) -> race_center_accounts.RaceCenterAccount:
     account = race_center_accounts.account_from_request(request)
     if not account:
@@ -123,6 +151,9 @@ def race_center_account(request: Request):
     payload["follows"] = race_center_accounts.list_follows(account.id) if account else []
     payload["profile"] = race_center_accounts.ensure_profile(account.id) if account else None
     payload["connections"] = race_center_accounts.connection_counts(account.id) if account else {"followers": 0, "following": 0}
+    payload["profile_v6"] = race_center_social_v6.ensure_extra(account.id) if account else None
+    payload["friends"] = race_center_social_v6.list_friendship_dashboard(account.id) if account else {"friends": [], "incoming": [], "outgoing": [], "blocked": []}
+    payload["notifications"] = race_center_social_v6.list_notifications(account.id, limit=20) if account else []
     return payload
 
 
@@ -139,6 +170,9 @@ def race_center_signup(request: Request, body: RaceAccountCredentials):
             "follows": [],
             "profile": race_center_accounts.ensure_profile(account.id),
             "message": "Welcome to My Race Center.",
+            "profile_v6": race_center_social_v6.ensure_extra(account.id),
+            "friends": race_center_social_v6.list_friendship_dashboard(account.id),
+            "notifications": [],
         },
         account,
     )
@@ -155,6 +189,9 @@ def race_center_login(request: Request, body: RaceAccountCredentials):
             **race_center_accounts.serialize_account(account),
             "follows": race_center_accounts.list_follows(account.id),
             "profile": race_center_accounts.ensure_profile(account.id),
+            "profile_v6": race_center_social_v6.ensure_extra(account.id),
+            "friends": race_center_social_v6.list_friendship_dashboard(account.id),
+            "notifications": race_center_social_v6.list_notifications(account.id, limit=20),
         },
         account,
     )
@@ -223,6 +260,7 @@ def race_center_feed(request: Request, limit: int = 40):
             viewer_user_id=account.id if account else None,
             limit=limit,
             series_keys=series_keys or None,
+            excluded_user_ids=race_center_social_v6.blocked_ids(account.id) if account else None,
         )
     }
 
@@ -280,6 +318,117 @@ def race_center_comment(request: Request, post_id: int, body: RaceCommentCreate)
 
 
 
+
+
+@router.put("/api/public/race-center/profile/v6", include_in_schema=False)
+def race_center_profile_v6_update(request: Request, body: RaceProfileV6Change):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-profile-v6", 20, 300)
+    try:
+        profile = race_center_social_v6.update_extra(
+            account.id,
+            display_name=body.display_name,
+            avatar_url=body.avatar_url,
+            cover_url=body.cover_url,
+            accent_color=body.accent_color,
+            hometown=body.hometown,
+            website_url=body.website_url,
+            profile_visibility=body.profile_visibility,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"ok": True, "profile_v6": profile}
+
+
+@router.get("/api/public/race-center/friends", include_in_schema=False)
+def race_center_friends(request: Request):
+    account = _race_account_or_401(request)
+    return race_center_social_v6.list_friendship_dashboard(account.id)
+
+
+@router.post("/api/public/race-center/friends/request", include_in_schema=False)
+def race_center_friend_request(request: Request, body: RaceUserFollowChange):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-friend-request", 30, 300)
+    try:
+        return race_center_social_v6.send_friend_request(account.id, body.user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/api/public/race-center/friends/respond", include_in_schema=False)
+def race_center_friend_respond(request: Request, body: RaceFriendResponse):
+    account = _race_account_or_401(request)
+    try:
+        return race_center_social_v6.respond_friend_request(account.id, body.user_id, body.accept)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.delete("/api/public/race-center/friends/{user_id}", include_in_schema=False)
+def race_center_friend_remove(request: Request, user_id: int):
+    account = _race_account_or_401(request)
+    return race_center_social_v6.remove_friend(account.id, user_id)
+
+
+@router.put("/api/public/race-center/blocks", include_in_schema=False)
+def race_center_block(request: Request, body: RaceUserFollowChange):
+    account = _race_account_or_401(request)
+    try:
+        return race_center_social_v6.block_user(account.id, body.user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.delete("/api/public/race-center/blocks", include_in_schema=False)
+def race_center_unblock(request: Request, body: RaceUserFollowChange):
+    account = _race_account_or_401(request)
+    return race_center_social_v6.unblock_user(account.id, body.user_id)
+
+
+@router.post("/api/public/race-center/reports", include_in_schema=False)
+def race_center_report(request: Request, body: RaceReportCreate):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-report", 20, 3600)
+    try:
+        return race_center_social_v6.create_report(
+            account.id,
+            target_kind=body.target_kind,
+            target_id=body.target_id,
+            reason=body.reason,
+            details=body.details,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/api/public/race-center/notifications", include_in_schema=False)
+def race_center_notifications(request: Request, limit: int = 40):
+    account = _race_account_or_401(request)
+    return {"notifications": race_center_social_v6.list_notifications(account.id, limit=limit)}
+
+
+@router.post("/api/public/race-center/notifications/read", include_in_schema=False)
+def race_center_notifications_read(request: Request):
+    account = _race_account_or_401(request)
+    return race_center_social_v6.mark_notifications_read(account.id)
+
+
+@router.get("/api/control/race-center/moderation/reports", include_in_schema=False)
+def race_center_moderation_reports(request: Request, status: str = "open", limit: int = 100):
+    require_permission(request, "users")
+    return {"reports": race_center_social_v6.moderation_queue(status=status, limit=limit)}
+
+
+@router.post("/api/control/race-center/moderation/reports/{report_id}", include_in_schema=False)
+def race_center_moderation_resolve(request: Request, report_id: int, body: RaceModerationResolve):
+    require_permission(request, "users")
+    try:
+        return race_center_social_v6.resolve_report(report_id, status=body.status, note=body.note)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @router.get("/api/public/race-center/people/discover", include_in_schema=False)
 def race_center_people_discover(request: Request, limit: int = 12):
     account = _race_account_or_401(request)
@@ -295,6 +444,22 @@ def race_center_public_profile(request: Request, handle: str):
     )
     if not profile:
         raise HTTPException(status_code=404, detail="Race Center profile not found.")
+    extra = race_center_social_v6.ensure_extra(profile["id"])
+    profile["profile_v6"] = extra
+    if account:
+        if profile["id"] in race_center_social_v6.blocked_ids(account.id):
+            raise HTTPException(status_code=404, detail="Race Center profile not found.")
+        profile["friend_state"] = race_center_social_v6.friendship_state(account.id, profile["id"])
+    else:
+        profile["friend_state"] = "signed_out"
+    if extra.get("profile_visibility") == "private" and (not account or account.id != profile["id"]):
+        profile["bio"] = ""
+        profile["favorite_track"] = ""
+        profile["series"] = []
+        profile["drivers"] = []
+    elif extra.get("profile_visibility") == "friends" and account and account.id != profile["id"] and profile["friend_state"] != "friends":
+        profile["series"] = []
+        profile["drivers"] = []
     return profile
 
 
