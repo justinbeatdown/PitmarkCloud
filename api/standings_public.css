@@ -1486,3 +1486,12 @@ main{min-width:0}
   .safety-settings-form{grid-template-columns:1fr}
   .safety-settings-form>div{grid-column:auto}
 }
+
+
+/* V6 post audience controls */
+.social-composer-tools{grid-template-columns:minmax(0,1fr) 120px auto auto}
+.wall-context.audience{margin-right:5px;border-color:rgba(155,135,255,.32);color:#c5bcff;background:rgba(155,135,255,.06)}
+@media(max-width:680px){
+  .social-composer-tools{grid-template-columns:1fr 1fr auto}
+  .social-composer-tools .button{grid-column:1/-1}
+}
