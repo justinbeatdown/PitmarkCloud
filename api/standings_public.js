@@ -153,8 +153,8 @@ function configurePage(){
 
   const config={
     hub:{
-      title:'Race day,<br><em>weaponized.</em>',
-      intro:'Live motorsports intelligence for what is happening now, what is next, who moved, and the championships you actually follow.',
+      title:'Your racing world,<br><em>organized.</em>',
+      intro:'Live events, standings, schedules, championship movement, and the series and drivers you care about — all in one place.',
       primary:['Open standings','/race-center/standings'],
       secondary:['Find the next race','/race-center/schedules'],
       pageTitle:'Pitmark Race Center V4 — Racing Hub'
