@@ -326,7 +326,6 @@ def hq_overview(request: Request):
             "relationships": _guard("relationships", _relationships_hq),
             "systems": _guard("systems", _systems_hq),
             "notifications": _guard("notifications", _notifications_hq),
-            "intelligence": _guard("business_intelligence", business_intelligence_overview),
         },
     }
 
