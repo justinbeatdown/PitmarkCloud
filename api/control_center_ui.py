@@ -148,6 +148,23 @@ p{margin:0;color:#9aa2ab;line-height:1.5}""",
     )
 
 
+@router.get('/control/native-ops', response_class=HTMLResponse, include_in_schema=False)
+def control_native_ops(request: Request):
+    if not user_from_request(request):
+        return RedirectResponse(url='/control?next=/control/native-ops', status_code=302)
+    return _guarded_html('control_native_ops.html', guard=False)
+
+
+@router.get('/control-native-ops.js', include_in_schema=False)
+def control_native_ops_js():
+    return _text_asset('control_native_ops.js', 'application/javascript')
+
+
+@router.get('/control-native-ops.css', include_in_schema=False)
+def control_native_ops_css():
+    return _text_asset('control_native_ops.css', 'text/css')
+
+
 @router.get('/control/mobile', include_in_schema=False)
 def control_mobile(request: Request):
     # The old mobile product contained the retired Comms/Mail surface. Authenticated
