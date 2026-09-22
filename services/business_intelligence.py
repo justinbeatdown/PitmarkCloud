@@ -555,7 +555,7 @@ def _internal_growth() -> dict[str, Any]:
     }
 
 
-def _recommendations(shopify: dict[str, Any], growth: dict[str, Any]) -> list[dict[str, str]]:
+def _recommendations(shopify: dict[str, Any], growth: dict[str, Any], meta: dict[str, Any]) -> list[dict[str, str]]:
     items: list[dict[str, str]] = []
     revenue = _money(shopify.get("revenue"))
     orders = int(shopify.get("orders") or 0)
@@ -579,6 +579,27 @@ def _recommendations(shopify: dict[str, Any], growth: dict[str, Any]) -> list[di
             "title": "Protect what is already converting",
             "reason": "Shopify shows %s qualifying order(s) and $%,.2f in the current reporting window.%s" % (orders, revenue, detail),
             "action": "Identify the channel and content behind those orders before increasing spend.",
+        })
+
+    ads = meta.get("ads") or {}
+    ad_summary = ads.get("summary") or {}
+    ad_spend = _money(ad_summary.get("spend"))
+    ad_clicks = int(float(ad_summary.get("clicks") or 0))
+    if ad_spend > 0 and orders == 0:
+        items.append({
+            "priority": "high",
+            "type": "paid_media",
+            "title": "Paid Meta spend occurred without a Shopify order in the same window",
+            "reason": "Meta reports $%,.2f in spend and %s click(s), while Shopify reports zero qualifying orders for the same reporting window." % (ad_spend, ad_clicks),
+            "action": "Do not increase paid spend until landing-page, offer, tracking, and checkout friction are reviewed.",
+        })
+    elif ad_spend > 0 and ad_clicks == 0:
+        items.append({
+            "priority": "high",
+            "type": "paid_media",
+            "title": "Meta spend is not producing clicks",
+            "reason": "Meta reports $%,.2f in spend with zero clicks in the current reporting window." % ad_spend,
+            "action": "Pause or inspect active campaigns before allowing additional spend.",
         })
 
     rel = growth.get("relationships") or {}
@@ -664,10 +685,19 @@ def overview(days: int = 30) -> dict[str, Any]:
             "ga4": {"status": google.get("status"), "live": bool((google.get("ga4") or {}).get("selected_property")), "error": google.get("error")},
             "search_console": {"status": google.get("status"), "live": bool((google.get("search_console") or {}).get("selected_site")), "error": google.get("error")},
             "youtube": {"status": google.get("status"), "live": bool((google.get("youtube") or {}).get("channels")), "error": google.get("error")},
-            "tiktok": {"status": "planned", "live": False, "error": None},
+            "tiktok": {
+                "status": "auth_required" if (settings.tiktok_client_key and settings.tiktok_client_secret) else "not_configured",
+                "live": False,
+                "error": None,
+            },
+            "x": {
+                "status": "cost_guarded" if (settings.x_access_token or settings.x_api_key) else "not_configured",
+                "live": False,
+                "error": "Paid X reads remain disabled by Pitmark cost controls." if (settings.x_access_token or settings.x_api_key) else None,
+            },
         },
         "commerce": shopify,
         "social": {"meta": meta, "google": google},
         "growth": growth,
-        "recommendations": _recommendations(shopify, growth),
+        "recommendations": _recommendations(shopify, growth, meta),
     }
