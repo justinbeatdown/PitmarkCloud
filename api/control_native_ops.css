@@ -40,3 +40,13 @@ button{font:inherit;color:inherit;cursor:pointer}
 @media(max-width:760px){body{padding:10px 12px 64px}.top{grid-template-columns:1fr}.top .back{justify-self:start}.top button{width:100%}.grid.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.two{grid-template-columns:1fr}.toolbar{align-items:flex-start;flex-direction:column}.calendar{grid-template-columns:1fr}.day{min-height:0}}
 
 .native-action{border:1px solid rgba(255,85,0,.6);border-radius:11px;background:linear-gradient(135deg,#ff5a08,#ed4c00);color:#fff;padding:11px 13px;font:inherit;font-weight:800;cursor:pointer}
+
+.native-modal-backdrop{position:fixed;inset:0;z-index:5000;display:grid;place-items:end center;padding:16px;background:rgba(0,0,0,.72);backdrop-filter:blur(8px)}
+.native-modal{width:min(620px,100%);max-height:88vh;overflow:auto;padding:20px;border:1px solid var(--line);border-radius:18px;background:#111419;box-shadow:0 24px 70px rgba(0,0,0,.45)}
+.native-modal h2{margin:6px 0 10px}.native-modal p{margin:0 0 16px;color:var(--muted);line-height:1.55}
+.native-modal label{display:block;margin:0 0 7px;font-size:11px;font-weight:900;color:#cdd2d7}
+.native-modal textarea{width:100%;min-height:120px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#090c0f;color:var(--text);font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical}
+.native-modal-actions{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:12px}
+.native-modal-actions button{padding:12px;border:1px solid var(--line);border-radius:11px;background:#171b20;color:var(--text);font-weight:900}
+.native-modal-actions .native-action{background:linear-gradient(135deg,#ff5a08,#ed4c00);border-color:rgba(255,85,0,.6)}
+#google-connect-status{display:block;min-height:18px;margin-top:10px;color:var(--warn)}
