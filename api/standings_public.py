@@ -573,7 +573,10 @@ def race_center_moderation_user(request: Request, user_id: int, body: RaceUserMo
 @router.get("/api/public/race-center/people/search", include_in_schema=False)
 def race_center_people_search(request: Request, q: str = "", limit: int = 20):
     account = _race_account_or_401(request)
-    return {"people": race_center_social_v6.enrich_people(race_center_social_v6.search_people(account.id, q, limit=limit))}
+    return {"people": race_center_social_v6.enrich_people(
+        race_center_social_v6.search_people(account.id, q, limit=limit),
+        viewer_user_id=account.id,
+    )}
 
 
 @router.get("/api/public/race-center/people/discover", include_in_schema=False)
@@ -584,7 +587,7 @@ def race_center_people_discover(request: Request, limit: int = 12):
         person for person in race_center_accounts.discover_people(account.id, limit=max(limit * 2, 12))
         if int(person.get("id") or 0) not in blocked
     ][:max(1, min(limit, 30))]
-    return {"people": race_center_social_v6.enrich_people(people)}
+    return {"people": race_center_social_v6.enrich_people(people, viewer_user_id=account.id)}
 
 
 @router.get("/api/public/race-center/people/{handle}", include_in_schema=False)
@@ -653,7 +656,7 @@ def race_center_people_follow(request: Request, body: RaceUserFollowChange):
     return {
         "ok": True,
         "connections": race_center_accounts.connection_counts(account.id),
-        "people": race_center_social_v6.enrich_people(people),
+        "people": race_center_social_v6.enrich_people(people, viewer_user_id=account.id),
     }
 
 
