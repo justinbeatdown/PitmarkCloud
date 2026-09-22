@@ -91,6 +91,10 @@ class RaceCommentCreate(BaseModel):
     body: str = Field(min_length=1, max_length=280)
 
 
+class RaceUserFollowChange(BaseModel):
+    user_id: int = Field(gt=0)
+
+
 def _race_account_or_401(request: Request) -> race_center_accounts.RaceCenterAccount:
     account = race_center_accounts.account_from_request(request)
     if not account:
@@ -118,6 +122,7 @@ def race_center_account(request: Request):
     payload = race_center_accounts.serialize_account(account)
     payload["follows"] = race_center_accounts.list_follows(account.id) if account else []
     payload["profile"] = race_center_accounts.ensure_profile(account.id) if account else None
+    payload["connections"] = race_center_accounts.connection_counts(account.id) if account else {"followers": 0, "following": 0}
     return payload
 
 
@@ -271,6 +276,51 @@ def race_center_comment(request: Request, post_id: int, body: RaceCommentCreate)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return result
+
+
+
+
+@router.get("/api/public/race-center/people/discover", include_in_schema=False)
+def race_center_people_discover(request: Request, limit: int = 12):
+    account = _race_account_or_401(request)
+    return {"people": race_center_accounts.discover_people(account.id, limit=limit)}
+
+
+@router.get("/api/public/race-center/people/{handle}", include_in_schema=False)
+def race_center_public_profile(request: Request, handle: str):
+    account = race_center_accounts.account_from_request(request)
+    profile = race_center_accounts.public_profile_by_handle(
+        handle,
+        viewer_user_id=account.id if account else None,
+    )
+    if not profile:
+        raise HTTPException(status_code=404, detail="Race Center profile not found.")
+    return profile
+
+
+@router.put("/api/public/race-center/people/follow", include_in_schema=False)
+def race_center_people_follow(request: Request, body: RaceUserFollowChange):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-people-follow", 60, 300)
+    try:
+        race_center_accounts.follow_user(account.id, body.user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {
+        "ok": True,
+        "connections": race_center_accounts.connection_counts(account.id),
+        "people": race_center_accounts.discover_people(account.id, limit=12),
+    }
+
+
+@router.delete("/api/public/race-center/people/follow", include_in_schema=False)
+def race_center_people_unfollow(request: Request, body: RaceUserFollowChange):
+    account = _race_account_or_401(request)
+    race_center_accounts.unfollow_user(account.id, body.user_id)
+    return {
+        "ok": True,
+        "connections": race_center_accounts.connection_counts(account.id),
+    }
 
 
 @router.get("/race-center", response_class=HTMLResponse, include_in_schema=False)
