@@ -4,7 +4,8 @@ const esc=(v='')=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','
 const num=v=>Number(v||0).toLocaleString();
 const money=v=>'$'+Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 let days=30;
-let tab='analytics';
+const initialTab=new URLSearchParams(location.search).get('tab');
+let tab=initialTab==='social'?'social':'analytics';
 
 function toast(message){const el=$('#toast');el.textContent=message;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2600)}
 async function request(url,options={}){
@@ -28,9 +29,11 @@ function row(title,detail,right=''){return '<div class="row"><div><strong>'+esc(
 
 function renderAnalytics(data){
   const e=data.executive||{}, commerce=data.commerce||{}, growth=data.growth||{}, sources=data.sources||{};
+  const googleReady=['ga4','search_console','youtube'].some(key=>sources[key]?.live);
   const top=commerce.top_products||[], recs=data.recommendations||[];
   const rel=growth.relationships||{}, prt=growth.prt||{};
   $('#analytics-view').innerHTML=
+    (googleReady?'':'<section class="card" style="margin-bottom:12px"><span class="section-label">Google Data</span><h2>Connect GA4 + Search Console + YouTube</h2><p style="color:var(--muted)">One read-only authorization unlocks website traffic, search performance, and YouTube metrics.</p><button id="connect-google" type="button" class="native-action">Connect Google Analytics</button></section>')+
     '<div class="grid metrics">'+
       metric('Revenue',money(e.revenue),num(e.orders)+' orders')+
       metric('AOV',money(e.average_order_value),'Shopify')+
@@ -89,7 +92,7 @@ function renderSocial(data){
         (groups.length?'<div class="calendar">'+groups.map(([day,items])=>'<div class="day"><strong>'+esc(day)+'</strong>'+items.slice(0,6).map(item=>'<div class="event"><b>'+esc(item.platform||'platform')+'</b><span>'+esc(item.status||'')+' · '+esc((item.title||item.body||'').slice(0,70))+'</span></div>').join('')+'</div>').join('')+'</div>':'<div class="empty">No calendar items in this window.</div>')+
       '</section>'+
       '<section class="card"><span class="section-label">Posting Windows</span><h2>Cadence guardrails</h2>'+
-        rows(Object.entries(windows).map(([platform,times])=>row(platform,times.join(' · '),badge((data.platforms||{})[platform]||0+' tracked'))))+
+        rows(Object.entries(windows).map(([platform,times])=>row(platform,times.join(' · '),badge(num((data.platforms||{})[platform])+' tracked'))))+
       '</section>'+
     '</div>'+
     '<div class="grid two" style="margin-top:12px">'+
@@ -117,13 +120,36 @@ async function load(force=false){
   }
 }
 
-$$('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>{
+async function connectGoogle(){
+  let popup=null;
+  try{
+    popup=window.open('about:blank','pitmark-google-intelligence');
+    const start=await request('/api/control/intelligence/google/oauth/start',{method:'POST'});
+    if(popup)popup.location.href=start.authorization_url;else window.open(start.authorization_url,'_blank','noopener');
+    const callback=prompt('After Google redirects to localhost, copy the full URL from the address bar and paste it here.');
+    if(!callback)return;
+    await request('/api/control/intelligence/google/oauth/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({callback_url:callback.trim()})});
+    await request('/api/control/native-ops/refresh',{method:'POST'});
+    toast('Google analytics connected.');
+    await load(true);
+  }catch(e){
+    try{popup?.close();}catch{}
+    toast(e.message||'Google connection failed.');
+  }
+}
+document.addEventListener('click',event=>{if(event.target.closest('#connect-google'))connectGoogle();});
+
+$('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>{
   tab=btn.dataset.tab;$$('[data-tab]').forEach(x=>x.classList.toggle('is-active',x===btn));
   $('#analytics-view').hidden=tab!=='analytics';$('#social-view').hidden=tab!=='social';load(false);
 }));
 $$('[data-days]').forEach(btn=>btn.addEventListener('click',()=>{
   days=Number(btn.dataset.days)||30;$$('[data-days]').forEach(x=>x.classList.toggle('is-active',x===btn));load(false);
 }));
+$('[data-tab]').forEach(btn=>btn.classList.toggle('is-active',btn.dataset.tab===tab));
+$('#analytics-view').hidden=tab!=='analytics';
+$('#social-view').hidden=tab!=='social';
+
 $('#refresh').addEventListener('click',async()=>{
   try{await request('/api/control/native-ops/refresh',{method:'POST'});}catch{}
   await load(true);toast('Pitmark data refreshed.');
