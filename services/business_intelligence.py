@@ -453,27 +453,10 @@ def _google_snapshot(days: int = 30) -> dict[str, Any]:
         except Exception as exc:
             errors.append("Search Console: %s" % str(exc)[:180])
 
-        try:
-            response = client.get(
-                "https://www.googleapis.com/youtube/v3/channels",
-                params={"part": "snippet,statistics", "mine": "true"},
-            )
-            response.raise_for_status()
-            channels = list((response.json() or {}).get("items") or [])
-            youtube["channels"] = channels
-            if channels:
-                channel = channels[0]
-                stats = channel.get("statistics") or {}
-                youtube["summary"] = {
-                    "title": ((channel.get("snippet") or {}).get("title")),
-                    "subscribers": int(stats.get("subscriberCount") or 0),
-                    "views": int(stats.get("viewCount") or 0),
-                    "videos": int(stats.get("videoCount") or 0),
-                }
-        except Exception as exc:
-            errors.append("YouTube: %s" % str(exc)[:180])
+        youtube["status"] = "separate_auth_required"
+        youtube["note"] = "YouTube uses a separate Google authorization so it cannot block GA4 or Search Console."
 
-    live = bool(ga4.get("selected_property") or search_console.get("selected_site") or youtube.get("channels"))
+    live = bool(ga4.get("selected_property") or search_console.get("selected_site"))
     return {
         "status": "live" if live else "error",
         "ga4": ga4,
@@ -728,7 +711,11 @@ def overview(days: int = 30) -> dict[str, Any]:
             "meta_ads": {"status": meta.get("status"), "live": bool((meta.get("ads") or {}).get("selected_account")), "error": meta.get("error")},
             "ga4": {"status": google.get("status"), "live": bool((google.get("ga4") or {}).get("selected_property")), "error": google.get("error")},
             "search_console": {"status": google.get("status"), "live": bool((google.get("search_console") or {}).get("selected_site")), "error": google.get("error")},
-            "youtube": {"status": google.get("status"), "live": bool((google.get("youtube") or {}).get("channels")), "error": google.get("error")},
+            "youtube": {
+                "status": "separate_auth_required",
+                "live": False,
+                "error": "YouTube is intentionally separated from the core Google analytics authorization.",
+            },
             "tiktok": {
                 "status": "auth_required" if (settings.tiktok_client_key and settings.tiktok_client_secret) else "not_configured",
                 "live": False,
