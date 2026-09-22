@@ -13,17 +13,19 @@ const readPrefs=()=>{
     const raw=JSON.parse(localStorage.getItem(PREF_KEY)||'{}');
     return {
       favorites:new Set(Array.isArray(raw.favorites)?raw.favorites.map(String):[]),
+      drivers:new Set(Array.isArray(raw.drivers)?raw.drivers.map(String):[]),
       lastSeries:String(raw.lastSeries||''),
       favoritesOnly:Boolean(raw.favoritesOnly)
     };
   }catch(_error){
-    return {favorites:new Set(),lastSeries:'',favoritesOnly:false};
+    return {favorites:new Set(),drivers:new Set(),lastSeries:'',favoritesOnly:false};
   }
 };
 const prefs=readPrefs();
 const state={
   payload:null,group:'All',search:'',view:pageView,
-  favorites:prefs.favorites,lastSeries:prefs.lastSeries,favoritesOnly:prefs.favoritesOnly
+  favorites:prefs.favorites,drivers:prefs.drivers,lastSeries:prefs.lastSeries,favoritesOnly:prefs.favoritesOnly,
+  account:null
 };
 const readCachedPayload=()=>{
   try{
@@ -40,11 +42,90 @@ const savePrefs=()=>{
   try{
     localStorage.setItem(PREF_KEY,JSON.stringify({
       favorites:[...state.favorites],
+      drivers:[...state.drivers],
       lastSeries:state.lastSeries,
       favoritesOnly:state.favoritesOnly
     }));
   }catch(_error){}
 };
+
+const apiJson=async(url,options={})=>{
+  const response=await fetch(url,{
+    ...options,
+    headers:{'Content-Type':'application/json',Accept:'application/json',...(options.headers||{})},
+    credentials:'same-origin'
+  });
+  let payload={};
+  try{payload=await response.json();}catch(_error){}
+  if(!response.ok)throw new Error(payload.detail||payload.message||'Request failed');
+  return payload;
+};
+
+const accountSeriesFollows=()=>new Set((state.account?.follows||[]).filter(x=>x.kind==='series').map(x=>String(x.key)));
+const accountDriverFollows=()=>new Set((state.account?.follows||[]).filter(x=>x.kind==='driver').map(x=>String(x.key)));
+
+function mergeAccountFollows(){
+  if(!state.account?.authenticated)return;
+  accountSeriesFollows().forEach(key=>state.favorites.add(key));
+  accountDriverFollows().forEach(key=>state.drivers.add(key));
+  savePrefs();
+}
+
+function renderAccount(){
+  const button=$('#accountButton');
+  const loggedOut=$('#accountLoggedOut');
+  const loggedIn=$('#accountLoggedIn');
+  if(!button||!loggedOut||!loggedIn)return;
+  const authed=Boolean(state.account?.authenticated);
+  button.textContent=authed
+    ?(state.account.display_name||state.account.email||'My Race Center')
+    :'My Race Center';
+  loggedOut.hidden=authed;
+  loggedIn.hidden=!authed;
+  if(authed){
+    const follows=state.account.follows||[];
+    $('#accountWelcome').textContent=`Welcome${state.account.display_name?' back, '+state.account.display_name:''}.`;
+    $('#accountIdentity').textContent=state.account.email||'Your racing board is synced.';
+    $('#accountSeriesCount').textContent=String(follows.filter(x=>x.kind==='series').length);
+    $('#accountDriverCount').textContent=String(follows.filter(x=>x.kind==='driver').length);
+  }
+}
+
+async function syncAccount(){
+  try{
+    state.account=await apiJson('/api/public/race-center/account',{method:'GET'});
+    mergeAccountFollows();
+  }catch(_error){
+    state.account={authenticated:false,follows:[]};
+  }
+  renderAccount();
+  if(state.payload)render();
+}
+
+async function cloudFollow(kind,key,label='',seriesKey=''){
+  if(!state.account?.authenticated)return;
+  const payload=await apiJson('/api/public/race-center/follows',{
+    method:'PUT',
+    body:JSON.stringify({kind,key,label,series_key:seriesKey})
+  });
+  state.account.follows=payload.follows||[];
+  renderAccount();
+}
+
+async function cloudUnfollow(kind,key,label='',seriesKey=''){
+  if(!state.account?.authenticated)return;
+  const payload=await apiJson('/api/public/race-center/follows',{
+    method:'DELETE',
+    body:JSON.stringify({kind,key,label,series_key:seriesKey})
+  });
+  state.account.follows=payload.follows||[];
+  renderAccount();
+}
+
+function driverFollowKey(series,row){
+  return `${String(series?.series_key||'series')}:${String(row?.name||'driver').trim().toLowerCase()}`;
+}
+
 const $=selector=>document.querySelector(selector);
 const $$=selector=>[...document.querySelectorAll(selector)];
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -573,7 +654,11 @@ function openSeries(key){
     {key:'position',label:'Pos',always:true,cell:row=>`<strong>${esc(row.position??'—')}</strong>`},
     {key:'number',label:'#',show:any('number'),cell:row=>`<strong>${esc(row.number||'—')}</strong>`},
     {key:'movement',label:'Move',always:true,cell:row=>move(row.movement,row.comparison_ready!==false)},
-    {key:'name',label:'Driver',always:true,cell:row=>`<strong>${esc(row.name||'Unknown')}</strong>`},
+    {key:'name',label:'Driver',always:true,cell:row=>{
+      const followKey=driverFollowKey(series,row);
+      const following=state.drivers.has(followKey);
+      return `<span class="driver-follow-cell"><button type="button" class="driver-follow ${following?'is-following':''}" data-driver-follow="${esc(followKey)}" data-driver-label="${esc(row.name||'Unknown')}" data-driver-series="${esc(series.series_key||'')}" aria-pressed="${following?'true':'false'}">${following?'★':'☆'}</button><strong>${esc(row.name||'Unknown')}</strong></span>`;
+    }},
     {key:'team',label:'Team',show:any('team'),cell:row=>esc(row.team||'—')},
     {key:'manufacturer',label:'Manufacturer',show:any('manufacturer'),cell:row=>esc(row.manufacturer||'—')},
     {key:'points',label:'Points',always:true,cell:row=>`<strong>${points(row.points)}</strong>${pointsDelta(row.points_delta,row.comparison_ready!==false)}`},
@@ -705,6 +790,7 @@ function bootRaceCenter(){
     }
   }
   load();
+  syncAccount();
   setInterval(()=>{if(state.payload)renderPulse();},30000);
 
   try{configurePage();}catch(error){
@@ -717,9 +803,35 @@ function bootRaceCenter(){
       event.preventDefault();
       event.stopPropagation();
       const key=String(favorite.dataset.favoriteKey||'');
-      if(state.favorites.has(key))state.favorites.delete(key);else state.favorites.add(key);
+      const series=(state.payload?.series||[]).find(item=>String(item.series_key)===key);
+      if(state.favorites.has(key)){
+        state.favorites.delete(key);
+        cloudUnfollow('series',key,series?.series_name||'',key).catch(()=>{});
+      }else{
+        state.favorites.add(key);
+        cloudFollow('series',key,series?.series_name||'',key).catch(()=>{});
+      }
       savePrefs();
       render();
+      return;
+    }
+    const driverFollow=event.target.closest('[data-driver-follow]');
+    if(driverFollow){
+      event.preventDefault();
+      event.stopPropagation();
+      const key=String(driverFollow.dataset.driverFollow||'');
+      const label=String(driverFollow.dataset.driverLabel||'');
+      const seriesKey=String(driverFollow.dataset.driverSeries||'');
+      if(state.drivers.has(key)){
+        state.drivers.delete(key);
+        cloudUnfollow('driver',key,label,seriesKey).catch(()=>{});
+      }else{
+        state.drivers.add(key);
+        cloudFollow('driver',key,label,seriesKey).catch(()=>{});
+      }
+      savePrefs();
+      if(state.lastSeries)openSeries(state.lastSeries);
+      renderAccount();
       return;
     }
     const filter=event.target.closest('[data-group]');
@@ -777,6 +889,71 @@ function bootRaceCenter(){
     savePrefs();
     render();
     $('#standingsStart')?.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+
+  safeBind('#accountButton','click',()=>{
+    renderAccount();
+    $('#accountDialog')?.showModal();
+  });
+  safeBind('#accountClose','click',()=>$('#accountDialog')?.close());
+  safeBind('#logoutButton','click',async()=>{
+    try{await apiJson('/api/public/race-center/account/logout',{method:'POST'});}catch(_error){}
+    state.account={authenticated:false,follows:[]};
+    renderAccount();
+  });
+
+  const signupForm=$('#signupForm');
+  if(signupForm)signupForm.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const form=new FormData(signupForm);
+    const message=$('#accountMessage');
+    if(message)message.textContent='Creating your Race Center…';
+    try{
+      state.account=await apiJson('/api/public/race-center/account/signup',{
+        method:'POST',
+        body:JSON.stringify({
+          display_name:String(form.get('display_name')||''),
+          email:String(form.get('email')||''),
+          password:String(form.get('password')||'')
+        })
+      });
+      for(const key of state.favorites){
+        const series=(state.payload?.series||[]).find(item=>String(item.series_key)===key);
+        await cloudFollow('series',key,series?.series_name||'',key);
+      }
+      for(const key of state.drivers){
+        const [seriesKey]=key.split(':',1);
+        await cloudFollow('driver',key,key.split(':').slice(1).join(':')||'Driver',seriesKey||'');
+      }
+      renderAccount();
+      if(message)message.textContent='';
+    }catch(error){
+      if(message)message.textContent=error.message||'Could not create account.';
+    }
+  });
+
+  const loginForm=$('#loginForm');
+  if(loginForm)loginForm.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const form=new FormData(loginForm);
+    const message=$('#accountMessage');
+    if(message)message.textContent='Signing in…';
+    try{
+      state.account=await apiJson('/api/public/race-center/account/login',{
+        method:'POST',
+        body:JSON.stringify({
+          email:String(form.get('email')||''),
+          password:String(form.get('password')||''),
+          display_name:''
+        })
+      });
+      mergeAccountFollows();
+      renderAccount();
+      render();
+      if(message)message.textContent='';
+    }catch(error){
+      if(message)message.textContent=error.message||'Could not sign in.';
+    }
   });
 
   safeBind('#clearSearch','click',()=>{

@@ -654,3 +654,54 @@ tbody tr:last-child td{border-bottom:0}
   .site-footer{padding-bottom:92px}
   .back-to-top{bottom:78px}
 }
+
+
+/* My Race Center accounts */
+.account-zone{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.account-button{
+  min-height:34px;padding:0 11px;border:1px solid rgba(155,135,255,.36);border-radius:999px;
+  background:rgba(155,135,255,.08);color:#d2caff;font-size:9px;font-weight:950;cursor:pointer;
+  max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.account-button:hover{border-color:rgba(155,135,255,.68);background:rgba(155,135,255,.14);color:#fff}
+.account-dialog{width:min(860px,calc(100% - 28px))}
+.account-shell{position:relative;padding:28px}
+.account-shell>div>h2{margin:6px 0 8px;font-size:clamp(28px,4vw,48px);letter-spacing:-.055em}
+.account-intro{margin:0 0 20px;color:#8e9bae;line-height:1.55;font-size:12px;max-width:650px}
+.account-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.account-form{
+  border:1px solid #27303a;border-radius:14px;background:#0c1116;padding:16px;display:flex;flex-direction:column;gap:11px
+}
+.account-form h3{margin:0 0 3px;font-size:17px}
+.account-form label{display:grid;gap:5px;color:#8391a4;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.07em}
+.account-form input{
+  height:42px;border:1px solid #2a333e;border-radius:9px;background:#080c10;color:#fff;padding:0 11px;outline:0;
+  font-size:12px;text-transform:none;letter-spacing:0
+}
+.account-form input:focus{border-color:rgba(255,85,0,.62);box-shadow:0 0 0 2px rgba(255,85,0,.08)}
+.account-message{min-height:18px;margin:12px 0 0;color:#ff9a69;font-size:10px}
+.account-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0}
+.account-stats>div{padding:14px;border:1px solid #27303a;border-radius:12px;background:#0d1217}
+.account-stats strong{display:block;font-size:22px;letter-spacing:-.04em}
+.account-stats span{display:block;margin-top:3px;color:#718095;font-size:8px;font-weight:950;text-transform:uppercase;letter-spacing:.08em}
+.driver-follow-cell{display:flex;align-items:center;gap:7px}
+.driver-follow{
+  flex:0 0 auto;width:27px;height:27px;border:1px solid #303a45;border-radius:8px;background:#0c1116;
+  color:#738196;display:grid;place-items:center;cursor:pointer;font-size:13px
+}
+.driver-follow:hover{color:#fff;border-color:#596574}
+.driver-follow.is-following{color:#ffd56a;border-color:rgba(255,213,106,.42);background:rgba(255,213,106,.08)}
+
+@media(max-width:1240px){
+  .account-zone .header-health{display:none}
+}
+@media(max-width:900px){
+  .account-zone{position:absolute;right:18px;top:12px}
+}
+@media(max-width:680px){
+  .account-button{max-width:120px}
+  .account-dialog{width:100%;height:100dvh;max-height:none;margin:0;border:0;border-radius:0}
+  .account-shell{padding:22px 14px}
+  .account-grid{grid-template-columns:1fr}
+  .account-stats{grid-template-columns:1fr 1fr 1fr}
+}

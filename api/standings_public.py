@@ -7,11 +7,14 @@ import time
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
+from pydantic import BaseModel, Field
 
 from services.racing_standings import SERIES as STANDINGS_SERIES, get_series_logo_info, get_series_roster, get_standings_snapshot_hub
 from services.racing_events import get_racing_event_hub
+from services import race_center_accounts
 from utils.config import settings
+from utils.security import enforce_rate_limit
 
 router = APIRouter()
 ASSET_DIR = Path(__file__).resolve().parent
@@ -53,6 +56,110 @@ def _asset(name: str, media_type: str) -> Response:
         media_type=media_type,
         headers={"Cache-Control": "no-store, max-age=0"},
     )
+
+
+class RaceAccountCredentials(BaseModel):
+    email: str = Field(min_length=5, max_length=254)
+    password: str = Field(min_length=12, max_length=256)
+    display_name: str = Field(default="", max_length=80)
+
+
+class RaceFollowChange(BaseModel):
+    kind: str = Field(min_length=3, max_length=20)
+    key: str = Field(min_length=1, max_length=220)
+    label: str = Field(default="", max_length=160)
+    series_key: str = Field(default="", max_length=120)
+
+
+def _race_account_or_401(request: Request) -> race_center_accounts.RaceCenterAccount:
+    account = race_center_accounts.account_from_request(request)
+    if not account:
+        raise HTTPException(status_code=401, detail="Race Center account required.")
+    return account
+
+
+def _race_session_response(payload: dict, account: race_center_accounts.RaceCenterAccount) -> JSONResponse:
+    response = JSONResponse(payload)
+    response.set_cookie(
+        race_center_accounts.SESSION_COOKIE,
+        race_center_accounts.issue_session(account),
+        max_age=race_center_accounts.SESSION_TTL_SECONDS,
+        httponly=True,
+        secure=str(settings.environment or "").lower() not in {"dev", "development", "local"},
+        samesite="lax",
+        path="/",
+    )
+    return response
+
+
+@router.get("/api/public/race-center/account", include_in_schema=False)
+def race_center_account(request: Request):
+    account = race_center_accounts.account_from_request(request)
+    payload = race_center_accounts.serialize_account(account)
+    payload["follows"] = race_center_accounts.list_follows(account.id) if account else []
+    return payload
+
+
+@router.post("/api/public/race-center/account/signup", include_in_schema=False)
+def race_center_signup(request: Request, body: RaceAccountCredentials):
+    enforce_rate_limit(request, "race-center-signup", 8, 300)
+    try:
+        account = race_center_accounts.create_account(body.email, body.password, body.display_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return _race_session_response(
+        {
+            **race_center_accounts.serialize_account(account),
+            "follows": [],
+            "message": "Welcome to My Race Center.",
+        },
+        account,
+    )
+
+
+@router.post("/api/public/race-center/account/login", include_in_schema=False)
+def race_center_login(request: Request, body: RaceAccountCredentials):
+    enforce_rate_limit(request, "race-center-login", 15, 300)
+    account = race_center_accounts.authenticate(body.email, body.password)
+    if not account:
+        raise HTTPException(status_code=401, detail="Email or password is incorrect.")
+    return _race_session_response(
+        {
+            **race_center_accounts.serialize_account(account),
+            "follows": race_center_accounts.list_follows(account.id),
+        },
+        account,
+    )
+
+
+@router.post("/api/public/race-center/account/logout", include_in_schema=False)
+def race_center_logout():
+    response = JSONResponse({"ok": True})
+    response.delete_cookie(race_center_accounts.SESSION_COOKIE, path="/")
+    return response
+
+
+@router.put("/api/public/race-center/follows", include_in_schema=False)
+def race_center_follow(request: Request, body: RaceFollowChange):
+    account = _race_account_or_401(request)
+    try:
+        race_center_accounts.set_follow(
+            account.id,
+            kind=body.kind,
+            key=body.key,
+            label=body.label,
+            series_key=body.series_key,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"ok": True, "follows": race_center_accounts.list_follows(account.id)}
+
+
+@router.delete("/api/public/race-center/follows", include_in_schema=False)
+def race_center_unfollow(request: Request, body: RaceFollowChange):
+    account = _race_account_or_401(request)
+    race_center_accounts.remove_follow(account.id, kind=body.kind, key=body.key)
+    return {"ok": True, "follows": race_center_accounts.list_follows(account.id)}
 
 
 @router.get("/race-center", response_class=HTMLResponse, include_in_schema=False)

@@ -390,6 +390,33 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertNotIn("{{PITMARK_STANDINGS_BOOTSTRAP}}", public_html)
         self.assertNotIn("{{PITMARK_STANDINGS_INLINE_JS}}", public_html)
 
+    def test_race_center_v4_customer_accounts_and_cloud_follows(self):
+        public_api = self.read("api/standings_public.py")
+        public_html = self.read("api/standings_public.html")
+        public_js = self.read("api/standings_public.js")
+        accounts = self.read("services/race_center_accounts.py")
+        database = self.read("services/database.py")
+        for route in (
+            "/api/public/race-center/account",
+            "/api/public/race-center/account/signup",
+            "/api/public/race-center/account/login",
+            "/api/public/race-center/account/logout",
+            "/api/public/race-center/follows",
+        ):
+            self.assertIn(route, public_api)
+        self.assertIn("race_center_users", accounts)
+        self.assertIn("race_center_follows", accounts)
+        self.assertIn("SESSION_COOKIE = \"pitmark_race_session\"", accounts)
+        self.assertIn("RaceCenterFollow", accounts)
+        self.assertIn("race_center_accounts  # noqa: F401", database)
+        self.assertIn('id="accountButton"', public_html)
+        self.assertIn('id="signupForm"', public_html)
+        self.assertIn('id="loginForm"', public_html)
+        self.assertIn("syncAccount", public_js)
+        self.assertIn("cloudFollow", public_js)
+        self.assertIn("data-driver-follow", public_js)
+        self.assertIn("credentials:'same-origin'", public_js)
+
     def test_control_center_readability_scale_covers_tiny_ui_text(self):
         css = self.read("api/control_center_overhaul.css")
         self.assertIn("Readability pass — 2026-09-20", css)
