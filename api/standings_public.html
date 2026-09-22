@@ -389,6 +389,23 @@
             <p>Blocked users cannot be friends with you and are removed from your personalized social feed.</p>
             <div id="blockedList" class="account-people-list"></div>
           </div>
+          <div class="account-list-section safety-settings-section">
+            <h3>Change password</h3>
+            <form id="changePasswordForm" class="safety-settings-form">
+              <label>Current password<input id="currentPassword" type="password" autocomplete="current-password" required></label>
+              <label>New password<input id="newPassword" type="password" minlength="12" maxlength="256" autocomplete="new-password" required placeholder="12+ characters"></label>
+              <div><button class="button" type="submit">Update password</button><span id="passwordMessage"></span></div>
+            </form>
+          </div>
+          <div class="account-list-section danger-zone">
+            <h3>Delete account</h3>
+            <p>Permanently deletes your Race Center profile, posts, friendships, follows, reactions, comments and notifications.</p>
+            <form id="deleteAccountForm" class="safety-settings-form">
+              <label>Password<input id="deletePassword" type="password" autocomplete="current-password" required></label>
+              <label>Type DELETE<input id="deleteConfirmation" autocomplete="off" required placeholder="DELETE"></label>
+              <div><button class="button danger" type="submit">Delete my Race Center account</button><span id="deleteAccountMessage"></span></div>
+            </form>
+          </div>
         </section>
 
         <section class="account-panel" data-account-panel="moderation">
