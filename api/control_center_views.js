@@ -340,7 +340,7 @@ async function renderContent(root,ctx){
   const labels={generated:'Pipeline',approval:'Needs Approval',approved:'Approved',scheduled:'Scheduled',published:'Published',archived:'Archived',editorial:'Editorial'};
   const countFor=(key)=>key==='generated'?rows.length:key==='approval'?(counts.pending||0):(counts[key]||0);
   const tabs=`<div class="pm-tabs pm-content-tabs">${CONTENT_TABS.map(key=>`<button class="pm-tab ${tab===key?'is-active':''}" type="button" data-content-tab="${key}"><span>${labels[key]||key}</span>${key!=='editorial'? `<b>${n(countFor(key))}</b>` : ''}</button>`).join('')}</div>`;
-  root.innerHTML=`${viewHeader('Social Manager','Content Pipeline','See exactly what needs approval, what is ready, what Astra scheduled, and what already published.',`<button class="pm-button pm-button-primary" type="button" data-compose>New post</button>`)}${tabs}${tab==='editorial'?renderEditorial(editorial):(tab==='generated'?renderContentPipeline(rows,selected):renderPosts(rows,tab,selected))}`;
+  root.innerHTML=`${viewHeader('Social Manager','Content Pipeline','See exactly what needs approval, what is ready, what Astra scheduled, and what already published.',`<a class="pm-button pm-button-ghost" href="/control/native-ops?tab=social">Social Desk</a><button class="pm-button pm-button-primary" type="button" data-compose>New post</button>`)}${tabs}${tab==='editorial'?renderEditorial(editorial):(tab==='generated'?renderContentPipeline(rows,selected):renderPosts(rows,tab,selected))}`;
 
   root.onclick=(event)=>{
     const t=event.target.closest('[data-content-tab]');
@@ -1079,7 +1079,7 @@ async function renderInsights(root,ctx){
     ? `${commerce.orders} Shopify order${commerce.orders===1?'':'s'} · $${Number(commerce.revenue||0).toFixed(2)} revenue`
     : 'Commerce is still in first-sale mode.';
   root.innerHTML=`
-    ${viewHeader('Operating Intelligence','Pitmark Intelligence','Our native business-data layer. Real sources only, built to replace paid aggregation tools and tell us what deserves attention.','<span class="pm-badge good">Native · no Supermetrics</span>')}
+    ${viewHeader('Operating Intelligence','Pitmark Intelligence','Our native business-data layer. Real sources only, built to replace paid aggregation tools and tell us what deserves attention.','<a class="pm-button pm-button-primary" href="/control/native-ops?tab=analytics">Open Analytics</a><span class="pm-badge good">Native · no Supermetrics</span>')}
     <section class="pm-brief"><div><span class="eyebrow">BUSINESS PULSE · LAST ${n(payload?.window_days||30)} DAYS</span><h2>${esc(commerceHeadline)}</h2><p>Generated ${esc(age(payload?.generated_at))}. Pitmark combines storefront, PRT, content, and relationship activity without paying another analytics middleman.</p></div><div class="pm-brief-meta"><span class="pm-badge ${commerce.status==='live'?'good':'warn'}">Shopify ${esc(commerce.status||'unknown')}</span><span class="pm-badge">${n(liveSources)} live sources</span></div></section>
     <div class="pm-metric-strip">
       <div class="pm-metric"><span>Revenue</span><strong>$${Number(commerce.revenue||0).toFixed(2)}</strong><small>Shopify · ${n(commerce.orders)} orders</small></div>
