@@ -76,6 +76,23 @@ def _post_row(row: SocialPost) -> dict[str, Any]:
     }
 
 
+def _normalize_channel_health(name: str, value: Any) -> dict[str, Any]:
+    raw = value if isinstance(value, dict) else {"ok": False, "error": str(value or "")}
+    error = str(raw.get("error") or "")
+    lower = error.lower()
+    if name.lower() == "facebook" and (
+        "pages_read_user_content" in lower or "page public content access" in lower
+    ):
+        return {
+            **raw,
+            "ok": True,
+            "status": "limited",
+            "error": None,
+            "note": "Engagement reading is limited by Meta permissions; publishing is unaffected.",
+        }
+    return raw
+
+
 def _latest_operator_health() -> dict[str, Any]:
     with SessionLocal() as db:
         latest = db.scalar(select(SocialOperatorRun).order_by(SocialOperatorRun.id.desc()).limit(1))
@@ -98,16 +115,37 @@ def _latest_operator_health() -> dict[str, Any]:
                 note = parsed
         except (TypeError, ValueError, json.JSONDecodeError):
             note = {"summary": latest.note}
+
+    channels = {
+        str(name): _normalize_channel_health(str(name), value)
+        for name, value in (note.get("channels") or {}).items()
+    }
+    degraded = [
+        name for name, value in channels.items()
+        if isinstance(value, dict) and value.get("ok") is False
+    ]
+    limited = [
+        name for name, value in channels.items()
+        if isinstance(value, dict) and value.get("status") == "limited"
+    ]
+    status = str(latest.status or "unknown")
+    if not degraded and limited and status == "degraded":
+        status = "limited"
+
+    summary = note.get("summary")
+    if limited and not degraded:
+        summary = "Limited engagement-read access on " + ", ".join(sorted(limited)) + "; publishing remains available."
+
     return {
-        "status": latest.status,
+        "status": status,
         "scanned": latest.scanned_count,
         "review": latest.review_count,
         "replied": latest.replies_sent_count,
         "posts_planned": latest.posts_planned_count,
         "review_queue": review_count,
-        "channels": note.get("channels") or {},
+        "channels": channels,
         "audience": note.get("audience") or {},
-        "summary": note.get("summary"),
+        "summary": summary,
         "created_at": latest.created_at.isoformat() if latest.created_at else None,
     }
 
@@ -125,12 +163,22 @@ def _calendar(days_back: int = 7, days_forward: int = 21) -> dict[str, Any]:
             ).all()
         )
     selected: list[dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
+    visible_statuses = {"scheduled", "published", "approved", "pending"}
+    failure_statuses = {"failed", "rejected"}
     for row in rows:
         scheduled = _dt(row.scheduled_for)
         reference = scheduled or _dt(row.updated_at) or _dt(row.created_at)
-        if reference and start <= reference <= end:
-            selected.append(_post_row(row))
+        if not reference or not (start <= reference <= end):
+            continue
+        item = _post_row(row)
+        status = str(row.status or "unknown").lower()
+        if status in visible_statuses:
+            selected.append(item)
+        elif status in failure_statuses:
+            failures.append(item)
     selected.sort(key=lambda item: str(item.get("scheduled_for") or item.get("updated_at") or ""), reverse=False)
+    failures.sort(key=lambda item: str(item.get("updated_at") or item.get("created_at") or ""), reverse=True)
 
     status_counts = Counter(str(row.status or "unknown").lower() for row in rows)
     platform_counts = Counter(str(row.platform or "unknown").lower() for row in rows)
@@ -148,6 +196,7 @@ def _calendar(days_back: int = 7, days_forward: int = 21) -> dict[str, Any]:
         "items": selected,
         "upcoming": upcoming[:80],
         "recent_published": list(reversed(recent_published))[:80],
+        "failures": failures[:20],
         "status_counts": dict(status_counts),
         "platform_counts": dict(platform_counts),
         "content_type_counts": dict(content_counts),

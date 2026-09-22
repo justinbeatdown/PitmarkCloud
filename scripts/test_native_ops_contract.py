@@ -93,6 +93,19 @@ class NativeOpsContractTests(unittest.TestCase):
         self.assertIn("ThreadPoolExecutor", service)
         self.assertIn("timeout=12.0", service)
 
+    def test_google_core_auth_does_not_bundle_youtube(self):
+        auth = (ROOT / "services" / "google_business_intelligence_auth.py").read_text(encoding="utf-8")
+        self.assertIn("analytics.readonly", auth)
+        self.assertIn("webmasters.readonly", auth)
+        scope_block = auth.split("ANALYTICS_SCOPES", 1)[1].split("])", 1)[0]
+        self.assertNotIn("youtube.readonly", scope_block)
+
+    def test_social_calendar_separates_failures(self):
+        service = (ROOT / "services" / "native_analytics_suite.py").read_text(encoding="utf-8")
+        self.assertIn('visible_statuses = {"scheduled", "published", "approved", "pending"}', service)
+        self.assertIn('failure_statuses = {"failed", "rejected"}', service)
+        self.assertIn('"failures": failures[:20]', service)
+
     def test_shopify_paginates(self):
         service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
         self.assertIn("pageInfo { hasNextPage endCursor }", service)
