@@ -143,7 +143,8 @@
     if(!state.account.profile_v6)state.account.profile_v6={};
     state.account.profile_v6[kind+'_url']=payload.url||'';
     v6RenderProfile();
-    if(message)message.textContent=kind.charAt(0).toUpperCase()+kind.slice(1)+' uploaded. Save profile to keep your changes.';
+    await saveProfileV6();
+    if(message)message.textContent=kind.charAt(0).toUpperCase()+kind.slice(1)+' uploaded and saved.';
   }
 
   async function saveProfileV6(){
@@ -305,6 +306,21 @@
       btn.textContent='•••';
       btn.setAttribute('aria-label','Post safety options');
       actions.appendChild(btn);
+
+      postEl.querySelectorAll('.wall-comment[data-v6-comment-id]').forEach(function(commentEl){
+        if(commentEl.querySelector('[data-v6-comment-safety]'))return;
+        const cid=commentEl.dataset.v6CommentId||'';
+        const authorId=commentEl.dataset.v6CommentAuthor||'';
+        if(!cid)return;
+        const safety=document.createElement('button');
+        safety.type='button';
+        safety.className='comment-safety';
+        safety.dataset.v6CommentSafety=cid;
+        safety.dataset.v6CommentAuthor=authorId;
+        safety.textContent='•••';
+        safety.setAttribute('aria-label','Comment safety options');
+        commentEl.appendChild(safety);
+      });
     });
   }
 
@@ -450,6 +466,11 @@
       if(postSafe){
         const post=(state.socialPosts||[]).find(function(x){return Number(x.id)===Number(postSafe.dataset.v6PostSafety);});
         if(post)openSafety('post',post.id,'post by @'+String(post.author&&post.author.handle||'racer'),post.author&&post.author.id);
+        return;
+      }
+      const commentSafe=event.target.closest('[data-v6-comment-safety]');
+      if(commentSafe){
+        openSafety('comment',commentSafe.dataset.v6CommentSafety,'comment',commentSafe.dataset.v6CommentAuthor);
         return;
       }
       const moderation=event.target.closest('[data-v6-moderate]');
