@@ -305,6 +305,11 @@ def public_standings_js():
     return _asset("standings_public.js", "application/javascript")
 
 
+@router.get("/race-center-v5.js", include_in_schema=False)
+def public_race_center_v5_js():
+    return _asset("race_center_v5.js", "application/javascript")
+
+
 @router.get("/race-center-assets/arca.webp", include_in_schema=False)
 def public_arca_logo():
     return Response(
