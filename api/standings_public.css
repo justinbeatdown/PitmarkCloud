@@ -1497,3 +1497,34 @@ main{min-width:0}
 }
 
 .social-profile-stats{grid-template-columns:1fr 1fr}
+
+
+/* V6 layout hardening: hub is the social/racing app, not the legacy marketing hero */
+body[data-view="hub"] main{
+  width:min(1480px,calc(100% - 28px));
+  margin-inline:auto;
+}
+body[data-view="hub"] .hero{
+  display:none!important;
+}
+body[data-view="hub"] .hub-nav-grid{
+  display:none!important;
+}
+body[data-view="hub"] .toolbar,
+body[data-view="hub"] .content-section,
+body[data-view="hub"] .race-center-grid,
+body[data-view="hub"] .leaders-section,
+body[data-view="hub"] .movers-section{
+  display:none!important;
+}
+body[data-view="hub"] .race-social{
+  margin-top:18px;
+}
+body[data-view="hub"] .site-footer{
+  margin-top:40px;
+}
+@media(max-width:860px){
+  body[data-view="hub"] main{
+    width:min(100% - 14px,1480px);
+  }
+}
