@@ -376,10 +376,12 @@ def toggle_reaction(user_id: int, post_id: int, reaction: str) -> dict:
     clean = (reaction or "").strip().lower()
     if clean not in ALLOWED_REACTIONS:
         raise ValueError("Unsupported reaction.")
+    post_owner_id = None
     with SessionLocal() as db:
         post = db.get(RaceCenterPost, post_id)
         if not post or post.deleted:
             raise ValueError("Post not found.")
+        post_owner_id = post.user_id
         existing = db.scalar(select(RaceCenterReaction).where(
             RaceCenterReaction.post_id == post_id,
             RaceCenterReaction.user_id == user_id,
@@ -392,11 +394,22 @@ def toggle_reaction(user_id: int, post_id: int, reaction: str) -> dict:
             db.add(RaceCenterReaction(post_id=post_id, user_id=user_id, reaction=clean))
             active = True
         db.commit()
+    if active and post_owner_id and post_owner_id != user_id:
+        from services import race_center_social_v6
+        race_center_social_v6.notify(
+            post_owner_id,
+            actor_user_id=user_id,
+            kind="reaction",
+            target_kind="post",
+            target_id=str(post_id),
+            text=f"reacted {clean} to your post",
+        )
     return {"ok": True, "active": active}
 
 
 def add_comment(user_id: int, post_id: int, body: str) -> dict:
     clean = (body or "").strip()
+    post_owner_id = None
     if not clean:
         raise ValueError("Comment cannot be empty.")
     if len(clean) > 280:
@@ -405,11 +418,23 @@ def add_comment(user_id: int, post_id: int, body: str) -> dict:
         post = db.get(RaceCenterPost, post_id)
         if not post or post.deleted:
             raise ValueError("Post not found.")
+        post_owner_id = post.user_id
         row = RaceCenterComment(post_id=post_id, user_id=user_id, body=clean)
         db.add(row)
         db.commit()
         db.refresh(row)
-        return {"id": row.id}
+        comment_id = row.id
+    if post_owner_id and post_owner_id != user_id:
+        from services import race_center_social_v6
+        race_center_social_v6.notify(
+            post_owner_id,
+            actor_user_id=user_id,
+            kind="comment",
+            target_kind="post",
+            target_id=str(post_id),
+            text="commented on your post",
+        )
+    return {"id": comment_id}
 
 
 def list_posts(*, viewer_user_id: int | None = None, limit: int = 40, series_keys: list[str] | None = None, excluded_user_ids: set[int] | None = None) -> list[dict]:
@@ -474,7 +499,7 @@ def list_posts(*, viewer_user_id: int | None = None, limit: int = 40, series_key
                 "body": item.body,
                 "created_at": item.created_at.isoformat() if item.created_at else None,
                 "author": {
-                    "id": post.user_id,
+                    "id": item.user_id,
                     "display_name": (user.display_name if user else "") or (profile.handle if profile else "Racer"),
                     "handle": profile.handle if profile else "",
                 },
@@ -490,6 +515,7 @@ def list_posts(*, viewer_user_id: int | None = None, limit: int = 40, series_key
                 "driver_key": post.driver_key,
                 "created_at": post.created_at.isoformat() if post.created_at else None,
                 "author": {
+                    "id": post.user_id,
                     "display_name": (user.display_name if user else "") or (profile.handle if profile else "Racer"),
                     "handle": profile.handle if profile else "",
                 },
@@ -555,12 +581,23 @@ def follow_user(follower_user_id: int, followed_user_id: int) -> dict:
             RaceCenterConnection.follower_user_id == follower_user_id,
             RaceCenterConnection.followed_user_id == followed_user_id,
         ))
-        if row is None:
+        created = row is None
+        if created:
             db.add(RaceCenterConnection(
                 follower_user_id=follower_user_id,
                 followed_user_id=followed_user_id,
             ))
             db.commit()
+    if created:
+        from services import race_center_social_v6
+        race_center_social_v6.notify(
+            followed_user_id,
+            actor_user_id=follower_user_id,
+            kind="follow",
+            target_kind="user",
+            target_id=str(follower_user_id),
+            text="followed you",
+        )
     return {"ok": True}
 
 
