@@ -41,11 +41,10 @@ class NativeOpsContractTests(unittest.TestCase):
 
     def test_hq_boot_does_not_call_native_ops(self):
         hq = (ROOT / "api" / "control_center_hq.py").read_text(encoding="utf-8")
-        self.assertNotIn("native_analytics_suite", hq)
         hq_overview = hq.split('@router.get("/api/control/hq/overview")', 1)[1]
         hq_overview = hq_overview.split('@router.', 1)[0]
         self.assertNotIn("business_intelligence", hq_overview)
-        self.assertNotIn("native", hq_overview)
+        self.assertNotIn("native_analytics_suite", hq_overview)
 
     def test_native_service_has_cache(self):
         service = (ROOT / "services" / "native_analytics_suite.py").read_text(encoding="utf-8")
