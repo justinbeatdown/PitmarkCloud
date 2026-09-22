@@ -93,6 +93,12 @@ class NativeOpsContractTests(unittest.TestCase):
         self.assertIn("ThreadPoolExecutor", service)
         self.assertIn("timeout=12.0", service)
 
+    def test_server_side_google_callback_exists(self):
+        hq = (ROOT / "api" / "control_center_hq.py").read_text(encoding="utf-8")
+        self.assertIn('@router.get("/control/google-callback"', hq)
+        self.assertIn('http://127.0.0.1:8765/?', hq)
+        self.assertIn('complete_analytics_authorization', hq)
+
     def test_google_oauth_uses_in_page_completion_panel(self):
         client = (ROOT / "api" / "control_native_ops.js").read_text(encoding="utf-8")
         self.assertIn("showGoogleConnectPanel", client)
