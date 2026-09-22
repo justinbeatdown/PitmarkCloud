@@ -153,6 +153,7 @@
             <div><span class="eyebrow">PEOPLE</span><h3>Who to follow</h3></div>
             <button id="discoverRefresh" type="button">Refresh</button>
           </div>
+          <label class="people-search"><span class="sr-only">Search Race Center people</span><input id="peopleSearchInput" type="search" autocomplete="off" placeholder="Search racers, handles, tracks…"></label>
           <div class="people-grid social-people-list" id="peopleGrid">
             <div class="loading-card">Sign in and follow racing to discover people.</div>
           </div>
@@ -345,6 +346,7 @@
           <button type="button" data-account-tab="friends">Friends <span id="friendRequestBadge"></span></button>
           <button type="button" data-account-tab="notifications">Notifications <span id="accountNotificationBadge"></span></button>
           <button type="button" data-account-tab="safety">Safety</button>
+          <button id="moderationTabButton" type="button" data-account-tab="moderation" hidden>Moderation <span id="moderationBadge"></span></button>
         </div>
 
         <section class="account-panel active" data-account-panel="profile">
@@ -387,6 +389,12 @@
             <p>Blocked users cannot be friends with you and are removed from your personalized social feed.</p>
             <div id="blockedList" class="account-people-list"></div>
           </div>
+        </section>
+
+        <section class="account-panel" data-account-panel="moderation">
+          <div class="account-panel-head"><h3>Race Center reports</h3><button class="button" id="moderationRefresh" type="button">Refresh</button></div>
+          <p class="moderation-intro">Available only to authenticated Pitmark Control Center owners/admins.</p>
+          <div id="moderationList" class="moderation-list"></div>
         </section>
 
         <div class="account-footer-actions"><button class="button" id="logoutButton" type="button">Sign Out</button></div>
