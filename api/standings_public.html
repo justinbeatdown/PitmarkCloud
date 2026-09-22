@@ -29,7 +29,10 @@
         <a href="/race-center/live" data-race-view="live">Live + Next</a>
         <a href="/racing-desk">Racing Desk</a>
       </nav>
-      <span class="header-health" id="headerStatus"><i></i> Loading data</span>
+      <div class="account-zone">
+        <button class="account-button" id="accountButton" type="button">My Race Center</button>
+        <span class="header-health" id="headerStatus"><i></i> Loading data</span>
+      </div>
     </div>
   </header>
 
@@ -203,6 +206,44 @@
     <button id="mobileFavorites" type="button"><span>☆</span>My Series</button>
   </nav>
   <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top" hidden>↑ Top</button>
+
+  <dialog id="accountDialog" class="account-dialog" aria-labelledby="accountDialogTitle">
+    <div class="account-shell">
+      <button class="dialog-close" id="accountClose" type="button" aria-label="Close account">×</button>
+      <div id="accountLoggedOut">
+        <span class="eyebrow">MY RACE CENTER</span>
+        <h2 id="accountDialogTitle">Make racing yours.</h2>
+        <p class="account-intro">Save series and drivers to your Pitmark account and carry your racing board across devices.</p>
+        <div class="account-grid">
+          <form id="signupForm" class="account-form">
+            <h3>Create account</h3>
+            <label>Display name<input name="display_name" maxlength="80" autocomplete="name" placeholder="Your name"></label>
+            <label>Email<input name="email" type="email" maxlength="254" autocomplete="email" required placeholder="you@example.com"></label>
+            <label>Password<input name="password" type="password" minlength="12" maxlength="256" autocomplete="new-password" required placeholder="12+ characters"></label>
+            <button class="button primary" type="submit">Create My Race Center</button>
+          </form>
+          <form id="loginForm" class="account-form">
+            <h3>Sign in</h3>
+            <label>Email<input name="email" type="email" maxlength="254" autocomplete="email" required placeholder="you@example.com"></label>
+            <label>Password<input name="password" type="password" minlength="12" maxlength="256" autocomplete="current-password" required></label>
+            <button class="button" type="submit">Sign In</button>
+          </form>
+        </div>
+        <p class="account-message" id="accountMessage"></p>
+      </div>
+      <div id="accountLoggedIn" hidden>
+        <span class="eyebrow">MY RACE CENTER</span>
+        <h2 id="accountWelcome">Welcome back.</h2>
+        <p class="account-intro" id="accountIdentity"></p>
+        <div class="account-stats">
+          <div><strong id="accountSeriesCount">0</strong><span>Series</span></div>
+          <div><strong id="accountDriverCount">0</strong><span>Drivers</span></div>
+          <div><strong>Cloud</strong><span>Synced</span></div>
+        </div>
+        <button class="button" id="logoutButton" type="button">Sign Out</button>
+      </div>
+    </div>
+  </dialog>
 
   <dialog id="standingsDialog" aria-labelledby="dialogSeriesTitle">
     <div class="dialog-shell">
