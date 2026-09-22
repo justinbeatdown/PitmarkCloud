@@ -469,6 +469,12 @@ def race_center_moderation_resolve(request: Request, report_id: int, body: RaceM
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@router.get("/api/public/race-center/people/search", include_in_schema=False)
+def race_center_people_search(request: Request, q: str = "", limit: int = 20):
+    account = _race_account_or_401(request)
+    return {"people": race_center_social_v6.search_people(account.id, q, limit=limit)}
+
+
 @router.get("/api/public/race-center/people/discover", include_in_schema=False)
 def race_center_people_discover(request: Request, limit: int = 12):
     account = _race_account_or_401(request)
