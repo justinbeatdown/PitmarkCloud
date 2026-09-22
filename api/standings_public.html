@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Pitmark Race Center V3 — Racing Standings, Schedules + Live Board</title>
-  <meta name="description" content="Pitmark Race Center V3 tracks racing standings, championship leaders, live and upcoming events, schedules and official watch information across major racing series.">
-  <meta property="og:title" content="Pitmark Race Center V3">
-  <meta property="og:description" content="All of racing. One clean command center.">
+  <title>Pitmark Race Center V4 — Racing Standings, Schedules + Live Board</title>
+  <meta name="description" content="Pitmark Race Center V4 tracks racing standings, championship leaders, live and upcoming events, schedules and official watch information across major racing series.">
+  <meta property="og:title" content="Pitmark Race Center V4">
+  <meta property="og:description" content="Live motorsports intelligence. One home base.">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#090b0e">
-  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-v3-rosters-health-20260921">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-v4-20260922">
 </head>
 <body data-view="{{RACE_CENTER_VIEW}}">
   <a class="skip-link" href="#standingsStart">Skip to Race Center</a>
@@ -38,10 +38,10 @@
       <div class="hero-copy">
         <div class="version-line">
           <span class="eyebrow">PITMARK RACE CENTER</span>
-          <span class="version-pill">V3</span>
+          <span class="version-pill">V4</span>
         </div>
-        <h1 id="heroTitle">The racing world,<br><em>organized.</em></h1>
-        <p id="heroIntro">Standings, movement, schedules, live events and official watch links across the series you actually care about — without living in forty tabs.</p>
+        <h1 id="heroTitle">Race day,<br><em>weaponized.</em></h1>
+        <p id="heroIntro">A live motorsports command center for what is happening now, what is next, who moved, and the series you actually follow.</p>
         <div class="hero-actions" id="heroActions">
           <a class="button primary" href="/race-center/standings">Open standings</a>
           <a class="button secondary" href="/race-center/schedules">Find the next race</a>
@@ -53,6 +53,26 @@
         <div><span>Live now</span><strong id="liveCount">—</strong><small>official event feeds</small></div>
         <div><span>Feed health</span><strong id="feedHealth">—</strong><small>available / tracked</small></div>
         <div><span>Last sync</span><strong id="updatedValue">—</strong><small id="seasonValue">Season —</small></div>
+      </div>
+    </section>
+
+    <section class="race-pulse" id="racePulse" aria-label="Race Pulse">
+      <div class="pulse-head">
+        <div><span class="eyebrow">RACE PULSE</span><h2>Your race-day command surface</h2></div>
+        <div class="pulse-actions">
+          <button class="pulse-action" id="focusFavorites" type="button">☆ My Series</button>
+          <button class="pulse-action" id="jumpSearch" type="button">⌕ Find anything</button>
+        </div>
+      </div>
+      <div class="pulse-grid">
+        <article class="pulse-card pulse-live"><span>LIVE NOW</span><strong id="pulseLive">—</strong><small id="pulseLiveText">Checking race control…</small></article>
+        <article class="pulse-card"><span>NEXT GREEN FLAG</span><strong id="pulseCountdown">—</strong><small id="pulseNextText">Loading next event…</small></article>
+        <article class="pulse-card"><span>MOVEMENT</span><strong id="pulseMoves">—</strong><small>verified championship changes</small></article>
+        <article class="pulse-card pulse-personal"><span>MY SERIES</span><strong id="pulseFavorites">0</strong><small id="pulseFavoriteText">Star a series to build your board</small></article>
+      </div>
+      <div class="my-series-shell" id="mySeriesShell">
+        <div class="my-series-head"><strong>My Series</strong><span id="mySeriesHint">Your saved championships live here.</span></div>
+        <div class="my-series-strip" id="mySeriesStrip"></div>
       </div>
     </section>
 
@@ -87,7 +107,10 @@
           <button id="clearSearch" class="clear-search" type="button" aria-label="Clear search" hidden>×</button>
         </label>
       </div>
-      <div class="filters" id="filters" aria-label="Racing categories"></div>
+      <div class="toolbar-actions">
+        <div class="filters" id="filters" aria-label="Racing categories"></div>
+        <button class="favorites-filter" id="favoritesFilter" type="button" aria-pressed="false">☆ My Series</button>
+      </div>
     </section>
 
     <section class="live-section content-section" id="raceWeekend">
@@ -172,6 +195,13 @@
     </section>
   </main>
 
+  <nav class="mobile-dock" aria-label="Race Center quick navigation">
+    <a href="/race-center/live"><span>●</span>Live</a>
+    <a href="/race-center/schedules"><span>◷</span>Next</a>
+    <a href="/race-center/standings"><span>≡</span>Standings</a>
+    <button id="mobileSearch" type="button"><span>⌕</span>Search</button>
+    <button id="mobileFavorites" type="button"><span>☆</span>My Series</button>
+  </nav>
   <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top" hidden>↑ Top</button>
 
   <dialog id="standingsDialog" aria-labelledby="dialogSeriesTitle">
@@ -200,6 +230,6 @@
     <small>Race Center prioritizes official and structured series sources. Pitmark hides unsupported identity fields instead of guessing. Use each linked official series source for final classifications, rules and race-control decisions.</small>
   </footer>
 
-  <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-v3-pages-hotfix-20260921" defer></script>
+  <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-v4-20260922" defer></script>
 </body>
 </html>
