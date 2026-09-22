@@ -397,6 +397,44 @@
     if(window.PitmarkRaceCenterV5)window.PitmarkRaceCenterV5.loadFeed();
   }
 
+
+  async function changePassword(){
+    const message=$('#passwordMessage');
+    if(message)message.textContent='Updating…';
+    try{
+      await apiJson('/api/public/race-center/account/password',{
+        method:'POST',
+        body:JSON.stringify({
+          current_password:String($('#currentPassword')?.value||''),
+          new_password:String($('#newPassword')?.value||'')
+        })
+      });
+      if($('#currentPassword'))$('#currentPassword').value='';
+      if($('#newPassword'))$('#newPassword').value='';
+      await v6RefreshAccount();
+      if(message)message.textContent='Password updated. Other sessions were signed out.';
+    }catch(error){
+      if(message)message.textContent=error.message||'Could not update password.';
+    }
+  }
+
+  async function deleteAccount(){
+    const message=$('#deleteAccountMessage');
+    if(message)message.textContent='Deleting…';
+    try{
+      await apiJson('/api/public/race-center/account/delete',{
+        method:'POST',
+        body:JSON.stringify({
+          password:String($('#deletePassword')?.value||''),
+          confirmation:String($('#deleteConfirmation')?.value||'')
+        })
+      });
+      location.href='/race-center';
+    }catch(error){
+      if(message)message.textContent=error.message||'Could not delete account.';
+    }
+  }
+
   function init(){
     const avatarFile=$('#profileAvatarFile');
     if(avatarFile)avatarFile.addEventListener('change',function(){
@@ -485,6 +523,15 @@
     });
 
     $('#moderationRefresh')?.addEventListener('click',function(){loadModeration();});
+
+    $('#changePasswordForm')?.addEventListener('submit',function(event){
+      event.preventDefault();
+      changePassword();
+    });
+    $('#deleteAccountForm')?.addEventListener('submit',function(event){
+      event.preventDefault();
+      deleteAccount();
+    });
 
     const feed=$('#pitWallFeed');
     if(feed){
