@@ -1,5 +1,6 @@
 const ENDPOINTS = Object.freeze({
   hq: '/api/control/hq/overview',
+  intelligence: '/api/control/intelligence/overview',
   work: '/api/control/work',
   search: '/api/control/search',
   prtOverview: '/api/control/ops/overview',
@@ -128,6 +129,7 @@ export const api = Object.freeze({
   // those identical reads a shared abort scope or the second call cancels the
   // first render before anything reaches the screen.
   hq: (options = {}) => request(ENDPOINTS.hq, { maxAge: 15000, ...options }),
+  intelligence: (days = 30, options = {}) => request(query(ENDPOINTS.intelligence, { days }), { scope: 'business-intelligence', maxAge: 30000, ...options }),
   work: (view = 'now', options = {}) => request(query(ENDPOINTS.work, { view }), { scope: 'work', maxAge: 12000, ...options }),
   updateWork: (rowNumber, body) => request(`${ENDPOINTS.work}/${encodeURIComponent(rowNumber)}`, { method: 'PATCH', body }),
   search: (q) => request(query(ENDPOINTS.search, { q }), { scope: 'search' }),
