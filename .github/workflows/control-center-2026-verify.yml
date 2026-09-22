@@ -25,6 +25,7 @@ on:
       - 'services/google_gmail.py'
       - 'services/master_checklist.py'
       - 'services/business_intelligence.py'
+      - 'services/google_business_intelligence_auth.py'
       - 'services/racing_standings.py'
       - 'services/business_intelligence.py'
       - 'requirements.txt'
@@ -85,6 +86,7 @@ jobs:
           if [ -f services/master_checklist.py ]; then python -m py_compile services/master_checklist.py; fi
           if [ -f services/racing_standings.py ]; then python -m py_compile services/racing_standings.py; fi
           if [ -f services/business_intelligence.py ]; then python -m py_compile services/business_intelligence.py; fi
+          if [ -f services/google_business_intelligence_auth.py ]; then python -m py_compile services/google_business_intelligence_auth.py; fi
       - name: Check JavaScript syntax
         run: |
           node --check api/control_center_overhaul.js
