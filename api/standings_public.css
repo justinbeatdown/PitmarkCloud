@@ -1465,3 +1465,24 @@ main{min-width:0}
   background:transparent;color:#667487;font-size:9px;cursor:pointer
 }
 .comment-safety:hover{background:#1a222a;color:#fff}
+
+
+.safety-settings-section,.danger-zone{
+  padding-top:14px;border-top:1px solid #252e37
+}
+.safety-settings-form{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+.safety-settings-form label{display:grid;gap:5px;color:#8391a4;font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}
+.safety-settings-form input{
+  width:100%;height:39px;border:1px solid #2a343f;border-radius:8px;background:#090d11;color:#fff;padding:0 10px;font-size:10px
+}
+.safety-settings-form>div{
+  grid-column:1/-1;display:flex;gap:9px;align-items:center;flex-wrap:wrap
+}
+.safety-settings-form>div span{color:#7f8da0;font-size:8px}
+.danger-zone{margin-top:18px}
+.danger-zone h3{color:#ffb0b0}
+.danger-zone p{color:#8f7679}
+@media(max-width:680px){
+  .safety-settings-form{grid-template-columns:1fr}
+  .safety-settings-form>div{grid-column:auto}
+}
