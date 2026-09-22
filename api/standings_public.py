@@ -126,6 +126,16 @@ class RaceModerationResolve(BaseModel):
     note: str = Field(default="", max_length=1000)
 
 
+class RacePasswordChange(BaseModel):
+    current_password: str = Field(min_length=1, max_length=256)
+    new_password: str = Field(min_length=12, max_length=256)
+
+
+class RaceAccountDelete(BaseModel):
+    password: str = Field(min_length=1, max_length=256)
+    confirmation: str = Field(min_length=6, max_length=20)
+
+
 def _race_account_or_401(request: Request) -> race_center_accounts.RaceCenterAccount:
     account = race_center_accounts.account_from_request(request)
     if not account:
@@ -202,6 +212,38 @@ def race_center_login(request: Request, body: RaceAccountCredentials):
 
 @router.post("/api/public/race-center/account/logout", include_in_schema=False)
 def race_center_logout():
+    response = JSONResponse({"ok": True})
+    response.delete_cookie(race_center_accounts.SESSION_COOKIE, path="/")
+    return response
+
+
+@router.post("/api/public/race-center/account/password", include_in_schema=False)
+def race_center_change_password(request: Request, body: RacePasswordChange):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-password", 10, 600)
+    try:
+        updated = race_center_social_v6.change_password(account.id, body.current_password, body.new_password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return _race_session_response(
+        {
+            **race_center_accounts.serialize_account(updated),
+            "message": "Password updated. Other Race Center sessions were signed out.",
+        },
+        updated,
+    )
+
+
+@router.post("/api/public/race-center/account/delete", include_in_schema=False)
+def race_center_delete_account(request: Request, body: RaceAccountDelete):
+    account = _race_account_or_401(request)
+    if body.confirmation.strip().upper() != "DELETE":
+        raise HTTPException(status_code=400, detail='Type DELETE to confirm account deletion.')
+    enforce_rate_limit(request, "race-center-delete-account", 5, 3600)
+    try:
+        race_center_social_v6.delete_account(account.id, body.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     response = JSONResponse({"ok": True})
     response.delete_cookie(race_center_accounts.SESSION_COOKIE, path="/")
     return response
