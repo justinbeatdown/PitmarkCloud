@@ -302,6 +302,11 @@
         '<div class="profile-action-row">'+friendButton+followButton+safety+'<a class="button" href="/race-center/u/'+encodeURIComponent(profile.handle)+'">Profile link ↗</a>'+(extra.website_url?'<a class="button" href="'+esc(extra.website_url)+'" target="_blank" rel="noopener">Website ↗</a>':'')+'</div>'+
         (series?'<div class="profile-tags"><strong>Series</strong><div>'+series+'</div></div>':'')+
         (drivers?'<div class="profile-tags"><strong>Drivers</strong><div>'+drivers+'</div></div>':'')+
+        '<div class="profile-posts"><strong>Recent posts</strong><div>'+
+          ((profile.posts||[]).length?(profile.posts||[]).map(function(post){
+            return '<article class="profile-post"><p>'+esc(post.body||'')+'</p><div><span>'+esc(post.visibility==='friends'?'Friends':'Public')+'</span><span>'+esc(post.created_at?new Date(post.created_at).toLocaleString():'')+'</span></div></article>';
+          }).join(''):'<p class="profile-post-empty">No visible posts yet.</p>')+
+        '</div></div>'+
       '</div>';
       $('#peopleDialog')?.showModal();
     }catch(_error){}
@@ -392,6 +397,13 @@
     '</article>';
   }
 
+  function moderatedUserRow(item){
+    return '<article class="moderation-row moderated-user-row">'+
+      '<div><span class="moderation-reason">'+esc(item.moderation_status||'moderated')+'</span><strong>'+esc(item.display_name||item.handle||'Race Center user')+'</strong><p>@'+esc(item.handle||'racer')+(item.moderation_reason?' · '+esc(item.moderation_reason):'')+'</p></div>'+
+      '<div class="moderation-actions"><button class="mini-action primary" data-v6-restore-user="'+String(item.id)+'">Restore account</button></div>'+
+    '</article>';
+  }
+
   async function loadModeration(){
     try{
       const payload=await apiJson('/api/control/race-center/moderation/reports?status=open&limit=100',{method:'GET'});
@@ -401,6 +413,12 @@
       if($('#moderationBadge'))$('#moderationBadge').textContent=reports.length?String(reports.length):'';
       const host=$('#moderationList');
       if(host)host.innerHTML=reports.length?reports.map(moderationRow).join(''):'<p class="empty-account-list">No open reports.</p>';
+      try{
+        const userPayload=await apiJson('/api/control/race-center/moderation/users?limit=100',{method:'GET'});
+        const moderated=userPayload.users||[];
+        const usersHost=$('#moderatedUsersList');
+        if(usersHost)usersHost.innerHTML=moderated.length?moderated.map(moderatedUserRow).join(''):'<p class="empty-account-list">No suspended or banned accounts.</p>';
+      }catch(_error){}
     }catch(_error){
       const tab=$('#moderationTabButton');
       if(tab)tab.hidden=true;
@@ -415,6 +433,16 @@
     await loadModeration();
     showToast('Moderation action applied.','success');
     if(window.PitmarkRaceCenterV5)window.PitmarkRaceCenterV5.loadFeed();
+  }
+
+
+  async function restoreModeratedUser(userId){
+    await apiJson('/api/control/race-center/moderation/users/'+String(Number(userId)),{
+      method:'POST',
+      body:JSON.stringify({status:'active',reason:'Restored by Pitmark moderation'})
+    });
+    showToast('Race Center account restored.','success');
+    await loadModeration();
   }
 
 
@@ -545,6 +573,11 @@
       }
       const moderation=event.target.closest('[data-v6-moderate]');
       if(moderation){moderate(Number(moderation.dataset.v6Moderate),moderation.dataset.action).catch(function(error){showToast(error.message||'Moderation action failed.','error');});return;}
+      const restoreUser=event.target.closest('[data-v6-restore-user]');
+      if(restoreUser){
+        restoreModeratedUser(restoreUser.dataset.v6RestoreUser).catch(function(error){showToast(error.message||'Could not restore account.','error');});
+        return;
+      }
       const follow=event.target.closest('[data-v6-follow-profile]');
       if(follow){
         const id=Number(follow.dataset.v6FollowProfile);
