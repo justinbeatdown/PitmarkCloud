@@ -516,3 +516,65 @@ def enrich_feed_posts(posts: list[dict]) -> list[dict]:
             post["comments"]=comments
             out.append(post)
         return out
+
+
+def change_password(user_id: int, current_password: str, new_password: str) -> RaceCenterAccount:
+    if len(new_password or "") < 12:
+        raise ValueError("New password must be at least 12 characters.")
+    with SessionLocal() as db:
+        user=db.get(RaceCenterUser,user_id)
+        if not user or not verify_password(current_password or "",user.password_salt,user.password_hash):
+            raise ValueError("Current password is incorrect.")
+        salt,password_hash=hash_password(new_password)
+        user.password_salt=salt
+        user.password_hash=password_hash
+        user.session_version=(user.session_version or 1)+1
+        user.updated_at=utcnow()
+        db.commit()
+        db.refresh(user)
+        return RaceCenterAccount(user.id,user.email,user.display_name,user.session_version)
+
+
+def delete_account(user_id: int, password: str) -> dict:
+    from services.race_center_accounts import (
+        RaceCenterComment,
+        RaceCenterFollow,
+        RaceCenterIdentity,
+        RaceCenterPost,
+        RaceCenterReaction,
+    )
+    with SessionLocal() as db:
+        user=db.get(RaceCenterUser,user_id)
+        if not user or not verify_password(password or "",user.password_salt,user.password_hash):
+            raise ValueError("Password is incorrect.")
+        post_ids=list(db.scalars(select(RaceCenterPost.id).where(RaceCenterPost.user_id==user_id)).all())
+        if post_ids:
+            db.execute(delete(RaceCenterReaction).where(RaceCenterReaction.post_id.in_(post_ids)))
+            db.execute(delete(RaceCenterComment).where(RaceCenterComment.post_id.in_(post_ids)))
+        db.execute(delete(RaceCenterReaction).where(RaceCenterReaction.user_id==user_id))
+        db.execute(delete(RaceCenterComment).where(RaceCenterComment.user_id==user_id))
+        db.execute(delete(RaceCenterPost).where(RaceCenterPost.user_id==user_id))
+        db.execute(delete(RaceCenterFollow).where(RaceCenterFollow.user_id==user_id))
+        db.execute(delete(RaceCenterConnection).where(or_(
+            RaceCenterConnection.follower_user_id==user_id,
+            RaceCenterConnection.followed_user_id==user_id,
+        )))
+        db.execute(delete(RaceCenterFriendship).where(or_(
+            RaceCenterFriendship.user_low==user_id,
+            RaceCenterFriendship.user_high==user_id,
+        )))
+        db.execute(delete(RaceCenterBlock).where(or_(
+            RaceCenterBlock.blocker_user_id==user_id,
+            RaceCenterBlock.blocked_user_id==user_id,
+        )))
+        db.execute(delete(RaceCenterNotification).where(or_(
+            RaceCenterNotification.user_id==user_id,
+            RaceCenterNotification.actor_user_id==user_id,
+        )))
+        db.execute(delete(RaceCenterReport).where(RaceCenterReport.reporter_user_id==user_id))
+        db.execute(delete(RaceCenterIdentity).where(RaceCenterIdentity.user_id==user_id))
+        db.execute(delete(RaceCenterProfileExtra).where(RaceCenterProfileExtra.user_id==user_id))
+        db.execute(delete(RaceCenterProfile).where(RaceCenterProfile.user_id==user_id))
+        db.delete(user)
+        db.commit()
+    return {"ok":True}
