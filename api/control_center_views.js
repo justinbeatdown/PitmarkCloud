@@ -1051,6 +1051,37 @@ async function renderResultsDesk(root,ctx){
   };
 }
 
+async function openGoogleIntelligenceConnect(ctx){
+  let popup=null;
+  try{
+    popup=window.open('about:blank','pitmark-google-intelligence');
+    const start=await api.intelligenceGoogleOAuthStart();
+    if(popup) popup.location.href=start.authorization_url;
+    else window.open(start.authorization_url,'_blank','noopener');
+    const inputId='intelligence-google-oauth-callback';
+    ctx.openSheet({
+      kicker:'Pitmark Intelligence',
+      title:'Connect Google Analytics',
+      body:'<div class="pm-form"><div class="pm-callout"><div><strong>One-time Google authorization</strong><p>Approve read-only GA4, Search Console, and YouTube access. This uses a separate encrypted token and does not replace Gmail or Sheets.</p></div></div><div class="pm-detail-block"><h4>Finish the connection</h4><p>Google will try to open '+esc(start.redirect_uri)+'. If localhost cannot load, copy the full URL from the address bar and paste it below.</p></div><div class="pm-field"><label>Google localhost callback URL</label><textarea class="pm-textarea" id="'+inputId+'" style="min-height:110px" placeholder="http://127.0.0.1:8766/?state=...&code=..."></textarea></div></div>',
+      actions:[
+        {label:'Cancel',tone:'ghost',run:ctx.closeSheet},
+        {label:'Complete connection',tone:'primary',run:async()=>{
+          const callbackUrl=document.getElementById(inputId)?.value?.trim()||'';
+          if(!callbackUrl){ctx.toast('Paste the full Google callback URL first.','bad');return;}
+          const result=await api.intelligenceGoogleOAuthComplete(callbackUrl);
+          clearCache('/api/control/intelligence');
+          ctx.toast(result?.connected?'Google Intelligence connected.':'Google connection needs attention.',result?.connected?'good':'bad');
+          ctx.closeSheet();
+          ctx.refresh(true);
+        }}
+      ]
+    });
+  }catch(e){
+    try{popup?.close();}catch{}
+    ctx.toast(e.message||'Google Intelligence connection could not start.','bad');
+  }
+}
+
 async function renderInsights(root,ctx){
   let payload;
   try{
@@ -1067,8 +1098,18 @@ async function renderInsights(root,ctx){
   const sources=payload?.sources||{};
   const recommendations=Array.isArray(payload?.recommendations)?payload.recommendations:[];
   const liveSources=Object.values(sources).filter(x=>x?.live).length;
+  const googleNeedsAuth=['ga4','search_console','youtube'].every(key=>['not_configured','planned'].includes(String(sources[key]?.status||'')));
+  const metaSocial=payload?.social?.meta||{};
+  const googleSocial=payload?.social?.google||{};
+  const fb=metaSocial.facebook||{};
+  const ig=metaSocial.instagram||{};
+  const metaAds=metaSocial.ads||{};
+  const ga4=googleSocial.ga4||{};
+  const search=googleSocial.search_console||{};
+  const youtube=googleSocial.youtube||{};
+  const topProduct=(commerce.top_products||[])[0]||{};
   const sourceRows=Object.entries(sources).map(([key,value])=>{
-    const label={shopify:'Shopify',pitmark_internal:'Pitmark Cloud',meta_ads:'Meta Ads',ga4:'GA4',search_console:'Search Console',youtube:'YouTube',tiktok:'TikTok'}[key]||key;
+    const label={shopify:'Shopify',pitmark_internal:'Pitmark Cloud',meta:'Meta / Instagram',meta_ads:'Meta Ads',ga4:'GA4',search_console:'Search Console',youtube:'YouTube',tiktok:'TikTok'}[key]||key;
     const tone=value?.live?'good':value?.status==='error'?'bad':'warn';
     return `<div class="pm-detail-pair"><span>${esc(label)}</span><strong><span class="pm-badge ${tone}">${esc(value?.live?'Live':value?.status||'planned')}</span></strong></div>`;
   }).join('');
@@ -1079,7 +1120,7 @@ async function renderInsights(root,ctx){
     ? `${commerce.orders} Shopify order${commerce.orders===1?'':'s'} · $${Number(commerce.revenue||0).toFixed(2)} revenue`
     : 'Commerce is still in first-sale mode.';
   root.innerHTML=`
-    ${viewHeader('Operating Intelligence','Pitmark Intelligence','Our native business-data layer. Real sources only, built to replace paid aggregation tools and tell us what deserves attention.','<span class="pm-badge good">Native · no Supermetrics</span>')}
+    ${viewHeader('Operating Intelligence','Pitmark Intelligence','Our native business-data layer. Real sources only, built to replace paid aggregation tools and tell us what deserves attention.',googleNeedsAuth?'<button class="pm-button pm-button-primary" type="button" data-intelligence-google-connect>Connect Google Analytics</button>':'<span class="pm-badge good">Native · no Supermetrics</span>')}
     <section class="pm-brief"><div><span class="eyebrow">BUSINESS PULSE · LAST ${n(payload?.window_days||30)} DAYS</span><h2>${esc(commerceHeadline)}</h2><p>Generated ${esc(age(payload?.generated_at))}. Pitmark combines storefront, PRT, content, and relationship activity without paying another analytics middleman.</p></div><div class="pm-brief-meta"><span class="pm-badge ${commerce.status==='live'?'good':'warn'}">Shopify ${esc(commerce.status||'unknown')}</span><span class="pm-badge">${n(liveSources)} live sources</span></div></section>
     <div class="pm-metric-strip">
       <div class="pm-metric"><span>Revenue</span><strong>$${Number(commerce.revenue||0).toFixed(2)}</strong><small>Shopify · ${n(commerce.orders)} orders</small></div>
@@ -1091,6 +1132,221 @@ async function renderInsights(root,ctx){
     <div class="pm-grid pm-grid-2">
       ${panel('What Deserves Attention','Decision Engine',recommendationRows,'')}
       ${panel('Data Sources','Connector Health',`<div class="pm-detail-list">${sourceRows}</div><div class="pm-callout"><div><strong>Connector rule</strong><p>Planned sources stay visibly planned until Pitmark has direct authenticated access. Missing data is never replaced with estimates.</p></div></div>`,'')}
+    </div>
+
+    <div class="pm-grid pm-grid-2 pm-hq-lower">
+      ${panel('Commerce Intelligence','Shopify Direct',details([
+        ['Top product',topProduct.title||'—'],
+        ['Top product revenue',topProduct.title?'
+        ['Applications',n(prt.applications_total)],
+        ['New',n(prt.applications_new)],
+        ['Accepted',n(prt.applications_accepted)],
+        ['Redeemed testers',n(prt.testers_redeemed)],
+        ['Open feedback',n(prt.feedback_open)]
+      ]))}
+      ${panel('Content & Relationships','Growth Operations',details([
+        ['Pending posts',n(content.pending)],
+        ['Scheduled posts',n(content.scheduled)],
+        ['Published posts',n(content.published)],
+        ['Editorial drafts',n(content.editorial_drafts)],
+        ['Relationship follow-ups',n(rel.waiting_follow_up)]
+      ]))}
+    </div>
+  `;
+  root.onclick=(event)=>{
+    if(event.target.closest('[data-intelligence-google-connect]')) openGoogleIntelligenceConnect(ctx);
+  };
+}
+
+export async function renderDomain(domain, root, ctx) {
+  root.onclick = null;
+  root.innerHTML = `<div class="pm-view-skeleton"><div class="pm-skeleton pm-skeleton-line wide"></div><div class="pm-skeleton-grid"><div class="pm-skeleton block"></div><div class="pm-skeleton block"></div><div class="pm-skeleton block"></div></div></div>`;
+  try {
+    if (domain === 'hq') return await renderHQ(root,ctx);
+    if (domain === 'work') return await renderWork(root,ctx);
+    if (domain === 'prt') return await renderPRT(root,ctx);
+    if (domain === 'partnerships') return await renderPartnerships(root,ctx);
+    if (domain === 'content') return await renderContent(root,ctx);
+    if (domain === 'store') return await renderStore(root,ctx);
+    if (domain === 'people') return await renderPeople(root,ctx);
+    if (domain === 'systems') return await renderSystems(root,ctx);
+    if (domain === 'insights') return await renderInsights(root,ctx);
+    if (domain === 'standings') return await renderStandings(root,ctx);
+    if (domain === 'results') return await renderResultsDesk(root,ctx);
+    throw new Error(`Unknown Pitmark operating area: ${domain}`);
+  } catch (error) {
+    if (error?.name === 'AbortError') return;
+    root.innerHTML = `${viewHeader('Control Center','This workspace hit a problem.','Other Pitmark areas are still available.')} ${moduleError(DOMAIN_META[domain]?.title || domain,error?.message || String(error),domain)}`;
+    root.onclick = (event) => { if (event.target.closest('[data-retry]')) ctx.refresh(true); };
+  }
+}
++Number(topProduct.revenue||0).toFixed(2):'—'],
+        ['Units sold',n(topProduct.quantity)],
+        ['Orders in window',n(commerce.orders)],
+        ['Average order','
+        ['Applications',n(prt.applications_total)],
+        ['New',n(prt.applications_new)],
+        ['Accepted',n(prt.applications_accepted)],
+        ['Redeemed testers',n(prt.testers_redeemed)],
+        ['Open feedback',n(prt.feedback_open)]
+      ]))}
+      ${panel('Content & Relationships','Growth Operations',details([
+        ['Pending posts',n(content.pending)],
+        ['Scheduled posts',n(content.scheduled)],
+        ['Published posts',n(content.published)],
+        ['Editorial drafts',n(content.editorial_drafts)],
+        ['Relationship follow-ups',n(rel.waiting_follow_up)]
+      ]))}
+    </div>
+  `;
+}
+
+export async function renderDomain(domain, root, ctx) {
+  root.onclick = null;
+  root.innerHTML = `<div class="pm-view-skeleton"><div class="pm-skeleton pm-skeleton-line wide"></div><div class="pm-skeleton-grid"><div class="pm-skeleton block"></div><div class="pm-skeleton block"></div><div class="pm-skeleton block"></div></div></div>`;
+  try {
+    if (domain === 'hq') return await renderHQ(root,ctx);
+    if (domain === 'work') return await renderWork(root,ctx);
+    if (domain === 'prt') return await renderPRT(root,ctx);
+    if (domain === 'partnerships') return await renderPartnerships(root,ctx);
+    if (domain === 'content') return await renderContent(root,ctx);
+    if (domain === 'store') return await renderStore(root,ctx);
+    if (domain === 'people') return await renderPeople(root,ctx);
+    if (domain === 'systems') return await renderSystems(root,ctx);
+    if (domain === 'insights') return await renderInsights(root,ctx);
+    if (domain === 'standings') return await renderStandings(root,ctx);
+    if (domain === 'results') return await renderResultsDesk(root,ctx);
+    throw new Error(`Unknown Pitmark operating area: ${domain}`);
+  } catch (error) {
+    if (error?.name === 'AbortError') return;
+    root.innerHTML = `${viewHeader('Control Center','This workspace hit a problem.','Other Pitmark areas are still available.')} ${moduleError(DOMAIN_META[domain]?.title || domain,error?.message || String(error),domain)}`;
+    root.onclick = (event) => { if (event.target.closest('[data-retry]')) ctx.refresh(true); };
+  }
+}
++Number(commerce.average_order_value||0).toFixed(2)]
+      ]))}
+      ${panel('Relationship Pipeline','Outreach Intelligence',details([
+        ['Warm',n(rel.warm)],
+        ['Overdue follow-ups',n(rel.overdue_follow_up)],
+        ['Stale open',n(rel.stale_open)],
+        ['Tracked relationships',n(rel.total)]
+      ]))}
+    </div>
+    <div class="pm-grid pm-grid-2 pm-hq-lower">
+      ${panel('Social Performance','Meta Direct',details([
+        ['Facebook followers',n(fb.page?.followers_count??fb.page?.fan_count)],
+        ['Facebook posts',n(fb.posts_count)],
+        ['Facebook engagement',n(fb.engagement_actions)],
+        ['Instagram followers',n(ig.profile?.followers_count)],
+        ['Instagram posts',n(ig.posts_count)],
+        ['Instagram engagement',n(ig.engagement_actions)]
+      ]))}
+      ${panel('Paid Media','Meta Ads Direct',details([
+        ['Ad account',metaAds.selected_account?.name||'—'],
+        ['Spend','
+        ['Applications',n(prt.applications_total)],
+        ['New',n(prt.applications_new)],
+        ['Accepted',n(prt.applications_accepted)],
+        ['Redeemed testers',n(prt.testers_redeemed)],
+        ['Open feedback',n(prt.feedback_open)]
+      ]))}
+      ${panel('Content & Relationships','Growth Operations',details([
+        ['Pending posts',n(content.pending)],
+        ['Scheduled posts',n(content.scheduled)],
+        ['Published posts',n(content.published)],
+        ['Editorial drafts',n(content.editorial_drafts)],
+        ['Relationship follow-ups',n(rel.waiting_follow_up)]
+      ]))}
+    </div>
+  `;
+}
+
+export async function renderDomain(domain, root, ctx) {
+  root.onclick = null;
+  root.innerHTML = `<div class="pm-view-skeleton"><div class="pm-skeleton pm-skeleton-line wide"></div><div class="pm-skeleton-grid"><div class="pm-skeleton block"></div><div class="pm-skeleton block"></div><div class="pm-skeleton block"></div></div></div>`;
+  try {
+    if (domain === 'hq') return await renderHQ(root,ctx);
+    if (domain === 'work') return await renderWork(root,ctx);
+    if (domain === 'prt') return await renderPRT(root,ctx);
+    if (domain === 'partnerships') return await renderPartnerships(root,ctx);
+    if (domain === 'content') return await renderContent(root,ctx);
+    if (domain === 'store') return await renderStore(root,ctx);
+    if (domain === 'people') return await renderPeople(root,ctx);
+    if (domain === 'systems') return await renderSystems(root,ctx);
+    if (domain === 'insights') return await renderInsights(root,ctx);
+    if (domain === 'standings') return await renderStandings(root,ctx);
+    if (domain === 'results') return await renderResultsDesk(root,ctx);
+    throw new Error(`Unknown Pitmark operating area: ${domain}`);
+  } catch (error) {
+    if (error?.name === 'AbortError') return;
+    root.innerHTML = `${viewHeader('Control Center','This workspace hit a problem.','Other Pitmark areas are still available.')} ${moduleError(DOMAIN_META[domain]?.title || domain,error?.message || String(error),domain)}`;
+    root.onclick = (event) => { if (event.target.closest('[data-retry]')) ctx.refresh(true); };
+  }
+}
++Number(metaAds.summary?.spend||0).toFixed(2)],
+        ['Impressions',n(metaAds.summary?.impressions)],
+        ['Clicks',n(metaAds.summary?.clicks)],
+        ['CTR',metaAds.summary?.ctr?Number(metaAds.summary.ctr).toFixed(2)+'%':'—'],
+        ['CPC',metaAds.summary?.cpc?'
+        ['Applications',n(prt.applications_total)],
+        ['New',n(prt.applications_new)],
+        ['Accepted',n(prt.applications_accepted)],
+        ['Redeemed testers',n(prt.testers_redeemed)],
+        ['Open feedback',n(prt.feedback_open)]
+      ]))}
+      ${panel('Content & Relationships','Growth Operations',details([
+        ['Pending posts',n(content.pending)],
+        ['Scheduled posts',n(content.scheduled)],
+        ['Published posts',n(content.published)],
+        ['Editorial drafts',n(content.editorial_drafts)],
+        ['Relationship follow-ups',n(rel.waiting_follow_up)]
+      ]))}
+    </div>
+  `;
+}
+
+export async function renderDomain(domain, root, ctx) {
+  root.onclick = null;
+  root.innerHTML = `<div class="pm-view-skeleton"><div class="pm-skeleton pm-skeleton-line wide"></div><div class="pm-skeleton-grid"><div class="pm-skeleton block"></div><div class="pm-skeleton block"></div><div class="pm-skeleton block"></div></div></div>`;
+  try {
+    if (domain === 'hq') return await renderHQ(root,ctx);
+    if (domain === 'work') return await renderWork(root,ctx);
+    if (domain === 'prt') return await renderPRT(root,ctx);
+    if (domain === 'partnerships') return await renderPartnerships(root,ctx);
+    if (domain === 'content') return await renderContent(root,ctx);
+    if (domain === 'store') return await renderStore(root,ctx);
+    if (domain === 'people') return await renderPeople(root,ctx);
+    if (domain === 'systems') return await renderSystems(root,ctx);
+    if (domain === 'insights') return await renderInsights(root,ctx);
+    if (domain === 'standings') return await renderStandings(root,ctx);
+    if (domain === 'results') return await renderResultsDesk(root,ctx);
+    throw new Error(`Unknown Pitmark operating area: ${domain}`);
+  } catch (error) {
+    if (error?.name === 'AbortError') return;
+    root.innerHTML = `${viewHeader('Control Center','This workspace hit a problem.','Other Pitmark areas are still available.')} ${moduleError(DOMAIN_META[domain]?.title || domain,error?.message || String(error),domain)}`;
+    root.onclick = (event) => { if (event.target.closest('[data-retry]')) ctx.refresh(true); };
+  }
+}
++Number(metaAds.summary.cpc).toFixed(2):'—']
+      ]))}
+    </div>
+    <div class="pm-grid pm-grid-2 pm-hq-lower">
+      ${panel('Search & Video','Google Direct',details([
+        ['GA4 sessions',n(ga4.summary?.sessions)],
+        ['GA4 users',n(ga4.summary?.total_users)],
+        ['GA4 page views',n(ga4.summary?.page_views)],
+        ['Search queries loaded',n((search.top_queries||[]).length)],
+        ['YouTube subscribers',n(youtube.summary?.subscribers)],
+        ['YouTube views',n(youtube.summary?.views)]
+      ]) + (googleNeedsAuth?'<div class="pm-callout"><div><strong>One authorization unlocks all three</strong><p>Connect GA4, Search Console, and YouTube without changing Gmail or Sheets.</p></div></div>':'')}
+      ${panel('PRT Funnel','Activation Health',details([
+        ['Applications',n(prt.applications_total)],
+        ['New',n(prt.applications_new)],
+        ['Accepted',n(prt.applications_accepted)],
+        ['Redeemed testers',n(prt.testers_redeemed)],
+        ['Outstanding invites',n(prt.testers_issued)],
+        ['Redemption rate',(prt.redemption_rate??0)+'%']
+      ]))}
     </div>
     <div class="pm-grid pm-grid-2 pm-hq-lower">
       ${panel('PRT Growth','Product Demand',details([
