@@ -89,7 +89,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             # official embed origins rather than opening frame access generally.
             frame_src = (
                 "frame-src https://www.youtube.com https://www.youtube-nocookie.com; "
-                if request.url.path.startswith("/prt")
+                if request.url.path.startswith(("/prt", "/standings", "/race-center"))
                 else ""
             )
             image_src = (
