@@ -542,3 +542,115 @@ tbody tr:last-child td{border-bottom:0}
   html{scroll-behavior:auto}
   *,*::before,*::after{transition:none!important;animation:none!important}
 }
+
+
+/* Race Center V4 — race-day command surface */
+:root{
+  --cyan:#61dafb;
+  --violet:#9b87ff;
+  --glass:rgba(14,18,24,.76);
+}
+.hero{position:relative}
+.hero::before{
+  content:"";position:absolute;inset:32px -18px 18px;z-index:-1;pointer-events:none;
+  background:
+    linear-gradient(110deg,rgba(255,85,0,.09),transparent 42%),
+    radial-gradient(circle at 72% 38%,rgba(97,218,251,.07),transparent 28rem);
+  border-radius:28px;
+}
+.version-pill{background:linear-gradient(135deg,#fff,#cbd4df);box-shadow:0 0 28px rgba(255,255,255,.08)}
+.race-pulse{
+  margin:0 0 24px;padding:18px;border:1px solid rgba(255,255,255,.11);border-radius:20px;
+  background:
+    linear-gradient(145deg,rgba(20,25,32,.94),rgba(9,12,16,.96)),
+    radial-gradient(circle at 0 0,rgba(255,85,0,.12),transparent 22rem);
+  box-shadow:0 24px 90px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.03);
+}
+.pulse-head{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:14px}
+.pulse-head h2{margin:4px 0 0;font-size:clamp(22px,2.4vw,34px);letter-spacing:-.045em}
+.pulse-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.pulse-action,.favorites-filter{
+  border:1px solid #303944;border-radius:10px;background:#0b0f14;color:#b8c3d0;
+  min-height:38px;padding:0 12px;font-size:10px;font-weight:950;cursor:pointer;transition:.14s ease
+}
+.pulse-action:hover,.favorites-filter:hover{border-color:#596574;color:#fff;background:#131920}
+.pulse-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.pulse-card{
+  min-height:128px;padding:16px;border:1px solid #252e38;border-radius:14px;
+  background:linear-gradient(150deg,#121820,#0b1015);display:flex;flex-direction:column;justify-content:flex-end;
+  overflow:hidden;position:relative
+}
+.pulse-card::after{
+  content:"";position:absolute;width:110px;height:110px;right:-58px;top:-60px;border-radius:50%;
+  background:rgba(255,255,255,.025);box-shadow:0 0 45px rgba(255,255,255,.02)
+}
+.pulse-card>span{color:#76859a;font-size:8px;font-weight:1000;letter-spacing:.13em}
+.pulse-card>strong{margin:6px 0 2px;font-size:clamp(27px,3vw,42px);letter-spacing:-.06em;line-height:.95}
+.pulse-card>small{color:#7f8da0;font-size:9px;line-height:1.35}
+.pulse-live{border-color:rgba(57,217,138,.3);background:linear-gradient(150deg,rgba(57,217,138,.08),#0b1015)}
+.pulse-live>strong{color:#8af2c1}
+.pulse-personal{border-color:rgba(155,135,255,.28);background:linear-gradient(150deg,rgba(155,135,255,.08),#0b1015)}
+.pulse-personal>strong{color:#c2b6ff}
+.my-series-shell{margin-top:10px;padding-top:11px;border-top:1px solid #252d36}
+.my-series-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:8px}
+.my-series-head strong{font-size:11px}
+.my-series-head span{color:#667488;font-size:9px}
+.my-series-strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.my-series-strip::-webkit-scrollbar{display:none}
+.my-series-chip{
+  flex:0 0 auto;min-width:190px;max-width:270px;padding:10px 11px;border:1px solid #2a333d;border-radius:11px;
+  background:#0d1217;display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:center;cursor:pointer
+}
+.my-series-chip:hover{border-color:rgba(255,85,0,.45);background:#121820}
+.my-series-chip .series-logo{width:50px;height:34px}
+.my-series-chip .series-wordmark{width:50px;min-height:34px;font-size:6px}
+.my-series-chip strong{display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.my-series-chip small{display:block;margin-top:2px;color:#708096;font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toolbar-actions{display:flex;align-items:center;gap:8px;min-width:0}
+.toolbar-actions .filters{flex:1 1 auto;min-width:0}
+.favorites-filter{flex:0 0 auto}
+.favorites-filter[aria-pressed="true"]{
+  color:#fff;border-color:rgba(155,135,255,.52);background:rgba(155,135,255,.12);box-shadow:inset 0 0 0 1px rgba(155,135,255,.05)
+}
+.series-card>header{position:relative}
+.favorite-star{
+  position:absolute;right:10px;top:10px;z-index:3;width:31px;height:31px;border-radius:9px;
+  border:1px solid #303a45;background:rgba(9,13,17,.86);color:#7f8b9b;display:grid;place-items:center;
+  cursor:pointer;font-size:15px;font-weight:900;backdrop-filter:blur(8px)
+}
+.favorite-star:hover{color:#fff;border-color:#596574}
+.favorite-star.is-favorite{color:#ffd56a;border-color:rgba(255,213,106,.42);background:rgba(255,213,106,.08)}
+.series-card>header .status{margin-right:34px}
+.mobile-dock{display:none}
+
+@media(max-width:900px){
+  .pulse-grid{grid-template-columns:1fr 1fr}
+  .pulse-card{min-height:104px}
+  .pulse-head{align-items:flex-start;flex-direction:column}
+  .pulse-actions{justify-content:flex-start}
+  .toolbar-actions{align-items:stretch;flex-direction:column}
+  .favorites-filter{width:100%}
+}
+@media(max-width:680px){
+  body{padding-bottom:72px}
+  .race-pulse{margin-left:-2px;margin-right:-2px;padding:13px;border-radius:16px}
+  .pulse-grid{grid-template-columns:1fr 1fr;gap:7px}
+  .pulse-card{min-height:92px;padding:12px}
+  .pulse-card>strong{font-size:27px}
+  .pulse-card>small{font-size:8px}
+  .my-series-head{align-items:flex-start;flex-direction:column;gap:2px}
+  .my-series-chip{min-width:72vw}
+  .mobile-dock{
+    position:fixed;display:grid;grid-template-columns:repeat(5,1fr);left:8px;right:8px;bottom:8px;z-index:80;
+    min-height:58px;border:1px solid rgba(255,255,255,.11);border-radius:16px;background:rgba(10,13,17,.94);
+    backdrop-filter:blur(22px) saturate(1.15);box-shadow:0 18px 60px rgba(0,0,0,.55);overflow:hidden
+  }
+  .mobile-dock a,.mobile-dock button{
+    border:0;background:transparent;color:#8794a6;display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;
+    font-size:8px;font-weight:900;min-width:0;padding:5px 2px;cursor:pointer
+  }
+  .mobile-dock span{font-size:15px;color:#bac4d0}
+  .mobile-dock a:active,.mobile-dock button:active{background:#171d23;color:#fff}
+  .site-footer{padding-bottom:92px}
+  .back-to-top{bottom:78px}
+}
