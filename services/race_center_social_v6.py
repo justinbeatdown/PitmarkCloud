@@ -8,7 +8,13 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, Uni
 from sqlalchemy.orm import Mapped, mapped_column
 
 from services.database import Base, SessionLocal
-from services.race_center_accounts import RaceCenterConnection, RaceCenterProfile, RaceCenterUser
+from services.race_center_accounts import (
+    RaceCenterAccount,
+    RaceCenterConnection,
+    RaceCenterProfile,
+    RaceCenterUser,
+)
+from services.control_auth import hash_password, verify_password
 
 VISIBILITIES = {"public", "friends", "private"}
 REPORT_REASONS = {"spam", "harassment", "impersonation", "hate", "threat", "sexual", "misinformation", "other"}
