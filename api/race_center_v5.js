@@ -523,7 +523,12 @@
 
       const profileButton=event.target.closest('[data-v5-profile]');
       if(profileButton){
-        v5OpenProfile(String(profileButton.dataset.v5Profile||''));
+        const handle=String(profileButton.dataset.v5Profile||'');
+        if(window.PitmarkRaceCenterV6&&typeof window.PitmarkRaceCenterV6.openProfile==='function'){
+          window.PitmarkRaceCenterV6.openProfile(handle);
+        }else{
+          v5OpenProfile(handle);
+        }
         return;
       }
 
