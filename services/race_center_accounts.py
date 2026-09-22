@@ -412,12 +412,14 @@ def add_comment(user_id: int, post_id: int, body: str) -> dict:
         return {"id": row.id}
 
 
-def list_posts(*, viewer_user_id: int | None = None, limit: int = 40, series_keys: list[str] | None = None) -> list[dict]:
+def list_posts(*, viewer_user_id: int | None = None, limit: int = 40, series_keys: list[str] | None = None, excluded_user_ids: set[int] | None = None) -> list[dict]:
     with SessionLocal() as db:
         stmt = select(RaceCenterPost).where(
             RaceCenterPost.deleted.is_(False),
             RaceCenterPost.visibility == "public",
         )
+        if excluded_user_ids:
+            stmt = stmt.where(RaceCenterPost.user_id.not_in(sorted(excluded_user_ids)))
         followed_people: list[int] = []
         if viewer_user_id:
             followed_people = list(db.scalars(select(RaceCenterConnection.followed_user_id).where(
@@ -472,6 +474,7 @@ def list_posts(*, viewer_user_id: int | None = None, limit: int = 40, series_key
                 "body": item.body,
                 "created_at": item.created_at.isoformat() if item.created_at else None,
                 "author": {
+                    "id": post.user_id,
                     "display_name": (user.display_name if user else "") or (profile.handle if profile else "Racer"),
                     "handle": profile.handle if profile else "",
                 },
