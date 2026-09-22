@@ -59,28 +59,31 @@ class SocialOperatorRun(Base):
 
 
 FACEBOOK_PROMPTS = [
-    "🏁 BUILD THE ULTIMATE DIRT TRACK\n\nYou get to build one track from scratch. Pick ONE thing for it:\n• Track length\n• Banking\n• Surface\n• Location\n• Weekly headline class\n• One must-have concession stand item 😂\n\nWe’ll build the track from the comments. What are you adding first?",
-    "Track roll call 🏁\n\nDrop your home track + state in the comments. Bonus points if you tell us the one race there that everybody should see at least once.",
-    "You get ONE rule change to make grassroots racing better tomorrow. What are you changing? 🏁\n\nNo wrong answers. We want to hear what racers and fans actually think.",
-    "Unlimited budget. One race car. One track. What are you building and where are you taking it first? 🏁",
-    "What’s one thing a race track does that instantly makes you want to come back? Could be the racing, food, announcing, pits, anything. 🏁",
-    "Settle a race-night argument for us: feature winner from the front row or somebody charging from deep in the field—which is more fun to watch? 👀🏁",
+    "🏁 TRACK ROLL CALL\n\nDrop your home track + state. Then tag ONE person who would argue that their track is better.\n\nWe’re building a map of the places Pitmark needs to know — and the races we need to see.",
+    "Who is the local racer more people should know about? 🏁\n\nTag them below and tell us why. Rookie, veteran, family team, Saturday-night grinder — doesn’t matter. If there’s a story there, we want to find it.",
+    "Name a race track that deserves more attention. 🏁\n\nTag the track if they’re on Facebook and tell us the one event, class, food item, tradition, or race-night detail that makes the place worth the trip.",
+    "You get ONE rule change to make grassroots racing better tomorrow. What are you changing? 🏁\n\nShare this with the friend you argue racing rules with and let them make the case against you.",
+    "Build the perfect Saturday night at the track: one class, one track, one concession item, one person you’re bringing. 🏁\n\nTag the person. We’ll take the best answers and turn them into future Pitmark posts.",
+    "What racing story does nobody outside your local scene know — but they should? 🏁\n\nDriver, team, track, family, tradition, comeback, heartbreak, weird race-night legend — point us toward it.",
+    "If Pitmark came to your home track this weekend, what should we make sure we don’t miss? 🏁\n\nTag the track or somebody from the local scene who can give us the real answer.",
 ]
 
 INSTAGRAM_PROMPTS = [
-    "Track roll call 🏁 Drop your home track + state. Bonus points for the one race there everybody should see at least once.",
-    "Unlimited budget. One race car. One track. What are you building and where are you taking it first? 🏁",
-    "You get ONE rule change to make grassroots racing better tomorrow. What are you changing? 🏁",
-    "What’s one thing a race track does that instantly makes you want to come back? Racing, food, announcing, pits — anything. 🏁",
-    "Local track, sim, or both — where are you racing this week? 🏁",
+    "Track roll call 🏁 Drop your home track + state — then tag the person who never misses a race with you.",
+    "Who’s the local racer people should be watching? Tag them and tell us why. We’re always looking for the next Pitmark story. 🏁",
+    "Name a track that deserves more eyes. Tag the track and give us the one reason a racing fan should make the trip. 🏁",
+    "Show us what you’re building for next race night. Tag Pitmark in the post/story so we can find the good stuff. 🏁",
+    "Local track, sim, or both — where are you racing this week? Tag your league, track, team, or racing buddy. 🏁",
+    "What racing photo on your camera roll tells a whole story? Post it, tag @pitmarkracingco, and tell us the story behind it. 🏁",
 ]
 
 X_PROMPTS = [
-    "Build the ultimate dirt track. Pick ONE: length, banking, surface, location, headline class, or concession item. What are you adding first? 🏁",
-    "Track roll call: what’s your home track + state? 🏁",
-    "You get one rule change to make grassroots racing better tomorrow. What are you changing?",
-    "Unlimited budget. One race car. One track. What are you building and where are you taking it first? 🏁",
-    "What’s one thing a race track does that instantly makes you want to come back?",
+    "Track roll call: home track + state. Tag the track if they’re here. We’re building the list of places Pitmark needs to know. 🏁",
+    "Who’s the local racer more people should know about? Tag them and tell us why. 🏁",
+    "Name one track that deserves more attention and the one reason a fan should go there.",
+    "What racing story in your local scene deserves a bigger audience? Driver, team, track, family, comeback — point us toward it. 🏁",
+    "You get one rule change to make grassroots racing better tomorrow. Quote this with your answer and tag the person who will disagree with you.",
+    "If Pitmark showed up at your home track this weekend, what should we make sure we don’t miss?",
 ]
 
 _BLOCKED_REPLY_TERMS = {
