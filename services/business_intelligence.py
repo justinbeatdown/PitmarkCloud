@@ -61,8 +61,8 @@ def _shopify_window(days: int = 30) -> dict[str, Any]:
 
     since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
     query = """
-    query PitmarkBusinessIntelligenceOrders($query: String!) {
-      orders(first: 100, sortKey: CREATED_AT, reverse: false, query: $query) {
+    query PitmarkBusinessIntelligenceOrders($query: String!, $after: String) {
+      orders(first: 100, after: $after, sortKey: CREATED_AT, reverse: false, query: $query) {
         nodes {
           name
           createdAt
@@ -78,13 +78,23 @@ def _shopify_window(days: int = 30) -> dict[str, Any]:
             }
           }
         }
-        pageInfo { hasNextPage }
+        pageInfo { hasNextPage endCursor }
       }
     }
     """
     try:
-        data = graphql(query, {"query": "created_at:>=" + since})
-        nodes = list(((data.get("orders") or {}).get("nodes") or []))
+        nodes: list[dict[str, Any]] = []
+        after: str | None = None
+        has_more = False
+        for _ in range(20):
+            data = graphql(query, {"query": "created_at:>=" + since, "after": after})
+            orders = data.get("orders") or {}
+            nodes.extend(list(orders.get("nodes") or []))
+            page_info = orders.get("pageInfo") or {}
+            has_more = bool(page_info.get("hasNextPage"))
+            after = str(page_info.get("endCursor") or "").strip() or None
+            if not has_more or not after:
+                break
         valid = [
             row for row in nodes
             if str(row.get("displayFinancialStatus") or "").upper() not in {"VOIDED", "REFUNDED"}
@@ -142,7 +152,7 @@ def _shopify_window(days: int = 30) -> dict[str, Any]:
             "daily": sorted(buckets.values(), key=lambda row: row["date"]),
             "top_products": sorted(products.values(), key=lambda row: (row["revenue"], row["quantity"]), reverse=True)[:12],
             "recent_orders": sorted(recent_orders, key=lambda row: str(row.get("created_at") or ""), reverse=True)[:10],
-            "has_more": bool((data.get("orders") or {}).get("pageInfo", {}).get("hasNextPage")),
+            "has_more": has_more,
             "error": None,
         }
     except Exception as exc:
@@ -529,7 +539,7 @@ def _internal_growth() -> dict[str, Any]:
             "testers_issued": issued,
             "testers_total_invites": total_invites,
             "redemption_rate": redemption_rate,
-            "feedback_open": int(feedback.get("open") or feedback.get("total") or 0),
+            "feedback_open": int(feedback["open"] if "open" in feedback else (feedback.get("total") or 0)),
             "onboarding_bottleneck": issued,
         },
         "content": {
