@@ -347,7 +347,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             self.assertIn(token, service)
         self.assertIn('@router.get("/standings"', public_api)
         self.assertIn('@router.get("/api/public/standings"', public_api)
-        self.assertIn("The racing world,", public_html)
+        self.assertIn("Race day,", public_html)
         self.assertIn('data-view="{{RACE_CENTER_VIEW}}"', public_html)
         self.assertIn("seriesVisible", public_js)
         self.assertIn("standings_public.router", main)
