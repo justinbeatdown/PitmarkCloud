@@ -459,3 +459,14 @@ def search_people(user_id: int, query: str, limit: int = 20) -> list[dict]:
             if len(out)>=max(1,min(limit,50)):
                 break
         return out
+
+
+def can_interact_with_post(user_id: int, post_id: int) -> bool:
+    from services.race_center_accounts import RaceCenterPost
+    with SessionLocal() as db:
+        post=db.get(RaceCenterPost, post_id)
+        if not post or post.deleted:
+            return False
+        if post.user_id == user_id:
+            return True
+        return post.user_id not in blocked_ids(user_id)
