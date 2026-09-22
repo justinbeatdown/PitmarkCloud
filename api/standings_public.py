@@ -132,6 +132,13 @@ class RaceUserModerationChange(BaseModel):
     reason: str = Field(default="", max_length=1000)
 
 
+class RaceIdentityChange(BaseModel):
+    account_type: str = Field(min_length=3, max_length=30)
+    verification_status: str = Field(min_length=8, max_length=30)
+    official_label: str = Field(default="", max_length=120)
+    external_url: str = Field(default="", max_length=1000)
+
+
 class RacePasswordChange(BaseModel):
     current_password: str = Field(min_length=1, max_length=256)
     new_password: str = Field(min_length=12, max_length=256)
@@ -547,6 +554,24 @@ def race_center_moderation_resolve(request: Request, report_id: int, body: RaceM
     require_permission(request, "users")
     try:
         return race_center_social_v6.moderate_report(report_id, action=body.status, note=body.note)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.put("/api/control/race-center/identity/{user_id}", include_in_schema=False)
+def race_center_identity_update(request: Request, user_id: int, body: RaceIdentityChange):
+    require_permission(request, "users")
+    try:
+        return {
+            "ok": True,
+            "identity": race_center_social_v6.set_identity(
+                user_id,
+                account_type=body.account_type,
+                verification_status=body.verification_status,
+                official_label=body.official_label,
+                external_url=body.external_url,
+            ),
+        }
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
