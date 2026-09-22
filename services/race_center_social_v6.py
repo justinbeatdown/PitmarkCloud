@@ -223,6 +223,13 @@ def send_friend_request(user_id: int, target_id: int) -> dict:
             row.status = "accepted"
             row.updated_at = utcnow()
             state = "friends"
+            for follower, followed in ((user_id, target_id), (target_id, user_id)):
+                existing_follow = db.scalar(select(RaceCenterConnection).where(
+                    RaceCenterConnection.follower_user_id == follower,
+                    RaceCenterConnection.followed_user_id == followed,
+                ))
+                if existing_follow is None:
+                    db.add(RaceCenterConnection(follower_user_id=follower, followed_user_id=followed))
             db.add(RaceCenterNotification(user_id=target_id, actor_user_id=user_id, kind="friend_accept", target_kind="user", target_id=str(user_id), text="accepted your friend request"))
         else:
             if row is None:
@@ -247,6 +254,13 @@ def respond_friend_request(user_id: int, target_id: int, accept: bool) -> dict:
         if accept:
             row.status = "accepted"
             row.updated_at = utcnow()
+            for follower, followed in ((user_id, target_id), (target_id, user_id)):
+                existing_follow = db.scalar(select(RaceCenterConnection).where(
+                    RaceCenterConnection.follower_user_id == follower,
+                    RaceCenterConnection.followed_user_id == followed,
+                ))
+                if existing_follow is None:
+                    db.add(RaceCenterConnection(follower_user_id=follower, followed_user_id=followed))
             db.add(RaceCenterNotification(user_id=target_id, actor_user_id=user_id, kind="friend_accept", target_kind="user", target_id=str(user_id), text="accepted your friend request"))
         else:
             db.delete(row)
@@ -358,3 +372,56 @@ def resolve_report(report_id: int, *, status: str, note: str = "") -> dict:
         row.resolved_at = utcnow()
         db.commit()
     return {"ok": True}
+
+
+
+def notify(user_id: int, *, actor_user_id: int | None, kind: str, target_kind: str = "", target_id: str = "", text: str = "") -> None:
+    if not user_id or (actor_user_id and user_id == actor_user_id):
+        return
+    with SessionLocal() as db:
+        if actor_user_id and actor_user_id in blocked_ids(user_id):
+            return
+        db.add(RaceCenterNotification(
+            user_id=user_id,
+            actor_user_id=actor_user_id,
+            kind=(kind or "update")[:40],
+            target_kind=(target_kind or "")[:40],
+            target_id=str(target_id or "")[:220],
+            text=(text or "")[:280],
+        ))
+        db.commit()
+
+
+def moderate_report(report_id: int, *, action: str, note: str = "") -> dict:
+    clean = (action or "").strip().lower()
+    if clean not in {"dismiss", "resolve", "hide_content"}:
+        raise ValueError("Moderation action must be dismiss, resolve, or hide_content.")
+    from services.race_center_accounts import RaceCenterPost, RaceCenterComment
+    with SessionLocal() as db:
+        row = db.get(RaceCenterReport, report_id)
+        if not row:
+            raise ValueError("Report not found.")
+        if clean == "hide_content":
+            if row.target_kind == "post":
+                try:
+                    post = db.get(RaceCenterPost, int(row.target_id))
+                except Exception:
+                    post = None
+                if post:
+                    post.deleted = True
+            elif row.target_kind == "comment":
+                try:
+                    comment = db.get(RaceCenterComment, int(row.target_id))
+                except Exception:
+                    comment = None
+                if comment:
+                    comment.deleted = True
+            else:
+                raise ValueError("Hide content is only available for post/comment reports.")
+            row.status = "resolved"
+        else:
+            row.status = "dismissed" if clean == "dismiss" else "resolved"
+        row.moderator_note = (note or "").strip()[:1000]
+        row.resolved_at = utcnow()
+        db.commit()
+    return {"ok": True, "status": row.status}
