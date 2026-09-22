@@ -566,6 +566,8 @@ class ControlCenter2026Contract(unittest.TestCase):
             "/api/public/race-center/reports",
             "/api/public/race-center/notifications",
             "/api/public/race-center/people/search",
+            "/api/public/race-center/account/password",
+            "/api/public/race-center/account/delete",
             "/api/control/race-center/moderation/reports",
             "/race-center-v6.js",
         ):
@@ -579,6 +581,9 @@ class ControlCenter2026Contract(unittest.TestCase):
             'data-account-tab="safety"',
             'id="safetyDialog"',
             'id="peopleSearchInput"',
+            'id="pitWallVisibility"',
+            'id="changePasswordForm"',
+            'id="deleteAccountForm"',
             'id="moderationTabButton"',
             '/race-center-v6.js',
         ):
@@ -593,6 +598,9 @@ class ControlCenter2026Contract(unittest.TestCase):
             "searchPeople",
             "loadModeration",
             "MutationObserver",
+            "changePassword",
+            "deleteAccount",
+            "data-v6-comment-safety",
         ):
             self.assertIn(token, v6_js)
 
@@ -608,6 +616,8 @@ class ControlCenter2026Contract(unittest.TestCase):
             self.assertIn(token, public_css)
 
         self.assertIn("race_center_social_v6  # noqa: F401", database)
+        self.assertIn("friend_user_ids", self.read("services/race_center_accounts.py"))
+        self.assertIn('visibility: str = "public"', self.read("services/race_center_accounts.py"))
         self.assertIn('"/api/control/social/assets/upload", "/api/public/race-center/profile/image"', security)
         self.assertIn("style-src 'self' 'unsafe-inline'", security)
 
