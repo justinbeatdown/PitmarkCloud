@@ -1572,3 +1572,167 @@ body[data-view="hub"] .site-footer{
   .identity-admin{grid-template-columns:1fr}
   .identity-admin>div{grid-column:auto;flex-wrap:wrap}
 }
+
+/* Race Center V6.1 — mobile product refinement
+   Feed-first home, thumb-safe navigation, visible people discovery, tighter hierarchy. */
+@media(max-width:860px){
+  :root{--header-h:60px}
+
+  .site-header{background:rgba(7,9,12,.96)}
+  .header-inner{
+    width:calc(100% - 16px);height:var(--header-h);gap:8px;
+    grid-template-columns:minmax(0,1fr) auto
+  }
+  .brand{gap:8px;min-width:0}
+  .brand img{width:104px;max-height:42px}
+  .brand-product{gap:5px;padding-left:8px}
+  .brand-product strong{font-size:10px}
+  .brand-product small{padding:2px 5px;font-size:7px}
+  .site-header nav{display:none}
+  .account-zone{position:static!important;display:flex;align-items:center;gap:5px;min-width:0}
+  .header-health{display:none!important}
+  .account-button{
+    width:auto;max-width:94px;height:32px;padding:0 9px;border-radius:9px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px
+  }
+  .notification-button{width:32px;height:32px;flex:0 0 32px}
+
+  main{width:calc(100% - 14px);padding-bottom:84px}
+
+  body[data-view="hub"] .hero{
+    min-height:0;padding:22px 4px 16px;display:block
+  }
+  body[data-view="hub"] .hero h1{
+    max-width:520px;margin:8px 0 10px;font-size:clamp(38px,11vw,52px);line-height:.92
+  }
+  body[data-view="hub"] .hero-copy>p{
+    max-width:620px;font-size:13px;line-height:1.48
+  }
+  body[data-view="hub"] .hero-actions{margin-top:14px;gap:7px}
+  body[data-view="hub"] .hero-actions .button{
+    min-height:38px;padding:9px 11px;font-size:10px
+  }
+  body[data-view="hub"] .hero-board{display:none}
+
+  .race-social{display:block!important;width:100%;max-width:100%;margin:0}
+  .social-left{position:static!important;margin:0!important}
+  .social-profile-card,.social-left-card{display:none!important}
+
+  /* Mobile app dock: keep the core Race Center destinations under the thumb. */
+  .social-nav{
+    position:fixed!important;left:0;right:0;bottom:0;top:auto!important;z-index:90;
+    height:calc(62px + env(safe-area-inset-bottom));
+    margin:0!important;padding:5px 7px max(5px,env(safe-area-inset-bottom));
+    display:flex!important;align-items:stretch;gap:3px;overflow-x:auto;overflow-y:hidden;
+    border-top:1px solid rgba(255,255,255,.10);
+    background:rgba(8,11,14,.96);backdrop-filter:blur(22px) saturate(1.15);
+    box-shadow:0 -14px 40px rgba(0,0,0,.42);scrollbar-width:none
+  }
+  .social-nav::-webkit-scrollbar{display:none}
+  .social-nav a,.social-nav button{
+    flex:1 0 66px;min-width:66px!important;height:52px;padding:4px 5px!important;
+    border:0!important;border-radius:10px!important;background:transparent!important;
+    display:flex!important;flex-direction:column;justify-content:center!important;align-items:center!important;gap:3px;
+    color:#788596!important;text-align:center
+  }
+  .social-nav a.active{background:#151b21!important;color:#fff!important}
+  .social-nav a:active,.social-nav button:active{background:#151b21!important;color:#fff!important}
+  .social-nav a span,.social-nav button span{font-size:15px;line-height:1}
+  .social-nav strong{display:block!important;font-size:6.5px;line-height:1.05;letter-spacing:.015em;white-space:nowrap}
+
+  .social-center{width:100%;max-width:100%;gap:8px}
+  .social-composer-card,
+  .social-for-you,
+  .social-feed-card,
+  .social-live-card{
+    border-radius:12px;margin:0
+  }
+  .social-composer-card{padding:10px;gap:8px}
+  .composer-avatar{width:36px;height:36px}
+  .social-composer-body textarea{min-height:54px;font-size:11px}
+  .social-composer-tools{grid-template-columns:minmax(0,1fr) auto;gap:6px}
+  .social-composer-tools select{height:32px;font-size:8px}
+  .social-composer-tools>span{justify-self:end}
+  .social-composer-tools .button{grid-column:1/-1;width:100%;min-height:36px}
+
+  .social-live-card{grid-template-columns:1fr!important;min-height:0}
+  .social-live-card .live-stage-copy{padding:15px}
+  .social-live-card h2{font-size:clamp(25px,8vw,36px);line-height:.95}
+  .social-live-card .live-stage-copy p{font-size:10px}
+  .social-live-card .live-stage-media,
+  .social-live-card .live-stage-media iframe{min-height:178px!important;height:178px}
+
+  .social-for-you,.social-feed-card{padding:10px}
+  .feed-heading{align-items:center;margin-bottom:8px}
+  .feed-heading h2{font-size:19px}
+  .feed-heading p{max-width:46%;text-align:right;font-size:7px}
+
+  .network-object{border-radius:11px}
+  .network-object header{padding:10px}
+  .network-object header .series-logo{width:48px;height:30px}
+  .network-event-line{padding:7px 10px}
+  .network-standings{padding:9px 10px}
+  .network-standing-row{min-height:34px}
+  .network-object footer{padding:8px 10px}
+
+  /* Find People was previously hidden at this breakpoint, making the mobile action a dead end. */
+  .social-right{
+    display:block!important;width:100%;margin-top:8px
+  }
+  .social-right-card{display:none!important}
+  .social-right-card.people-discovery{
+    display:block!important;padding:10px;border-radius:12px;
+    scroll-margin-top:calc(var(--header-h) + 10px);scroll-margin-bottom:82px
+  }
+  .social-people-list{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .social-people-list .people-card{min-width:0}
+
+  .hub-nav-grid{grid-template-columns:1fr;gap:8px;margin-top:10px}
+  .hub-nav-card{min-height:86px;padding:12px 13px;gap:10px}
+  .hub-nav-icon{width:34px;height:34px}
+  .hub-nav-card strong{font-size:15px}
+  .hub-nav-card p{font-size:9px}
+
+  body[data-view="hub"] .content-section{margin-top:28px}
+
+  .account-dialog,.people-dialog,.safety-dialog{
+    overscroll-behavior:contain
+  }
+  .account-shell,.people-profile-shell,.safety-shell{
+    padding-bottom:calc(84px + env(safe-area-inset-bottom))
+  }
+
+  .back-to-top{
+    bottom:calc(72px + env(safe-area-inset-bottom));right:10px
+  }
+
+  body[data-view="hub"] .site-footer{
+    padding-bottom:calc(76px + env(safe-area-inset-bottom))
+  }
+}
+
+@media(max-width:520px){
+  main{width:calc(100% - 10px)}
+  body[data-view="hub"] .hero{padding-top:17px}
+  body[data-view="hub"] .hero h1{font-size:39px}
+  body[data-view="hub"] .hero-copy>p{font-size:12px}
+  body[data-view="hub"] .hero-actions{display:grid;grid-template-columns:1fr 1fr}
+  body[data-view="hub"] .hero-actions .button{width:100%}
+
+  .social-people-list{grid-template-columns:1fr}
+  .feed-heading p{display:none}
+  .social-live-card .live-stage-media,
+  .social-live-card .live-stage-media iframe{min-height:156px!important;height:156px}
+
+  .network-standing-row{grid-template-columns:23px minmax(0,1fr) auto}
+  .network-standing-row .move{display:none}
+
+  .section-head{align-items:flex-start;gap:8px}
+  .section-head p{display:none}
+  .section-head h2{font-size:26px}
+
+  .toolbar{top:calc(var(--header-h) + 5px);padding:9px}
+  .toolbar-top{display:block;margin-bottom:8px}
+  .search{width:100%;margin-top:7px}
+}
+
