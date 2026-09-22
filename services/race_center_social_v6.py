@@ -85,6 +85,14 @@ class RaceCenterNotification(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
 
 
+class RaceCenterUserModeration(Base):
+    __tablename__ = "race_center_user_moderation"
+    user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), primary_key=True)
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 def _pair(a: int, b: int) -> tuple[int, int]:
     return (a, b) if a < b else (b, a)
 
@@ -311,18 +319,56 @@ def create_report(user_id: int, *, target_kind: str, target_id: str, reason: str
     clean_reason = (reason or "").strip().lower()
     if clean_reason not in REPORT_REASONS:
         raise ValueError("Choose a valid report reason.")
+    clean_target = str(target_id or "").strip()[:220]
+    if not clean_target:
+        raise ValueError("Report target is required.")
+
+    from services.race_center_accounts import RaceCenterComment, RaceCenterPost
     with SessionLocal() as db:
+        try:
+            numeric_target = int(clean_target)
+        except Exception:
+            numeric_target = 0
+
+        if kind == "user":
+            target = db.get(RaceCenterUser, numeric_target)
+            if not target:
+                raise ValueError("Race Center user not found.")
+            if numeric_target == user_id:
+                raise ValueError("You cannot report your own account.")
+        elif kind == "post":
+            target = db.get(RaceCenterPost, numeric_target)
+            if not target or target.deleted:
+                raise ValueError("Post not found.")
+            if target.user_id == user_id:
+                raise ValueError("You cannot report your own post.")
+        else:
+            target = db.get(RaceCenterComment, numeric_target)
+            if not target or target.deleted:
+                raise ValueError("Comment not found.")
+            if target.user_id == user_id:
+                raise ValueError("You cannot report your own comment.")
+
+        existing = db.scalar(select(RaceCenterReport.id).where(
+            RaceCenterReport.reporter_user_id == user_id,
+            RaceCenterReport.target_kind == kind,
+            RaceCenterReport.target_id == clean_target,
+            RaceCenterReport.status == "open",
+        ).limit(1))
+        if existing:
+            return {"ok": True, "report_id": int(existing), "duplicate": True}
+
         row = RaceCenterReport(
             reporter_user_id=user_id,
             target_kind=kind,
-            target_id=str(target_id)[:220],
+            target_id=clean_target,
             reason=clean_reason,
             details=(details or "").strip()[:1000],
         )
         db.add(row)
         db.commit()
         db.refresh(row)
-        return {"ok": True, "report_id": row.id}
+        return {"ok": True, "report_id": row.id, "duplicate": False}
 
 
 def list_notifications(user_id: int, limit: int = 40) -> list[dict]:
@@ -398,10 +444,49 @@ def notify(user_id: int, *, actor_user_id: int | None, kind: str, target_kind: s
         db.commit()
 
 
+def moderation_state(user_id: int) -> dict:
+    with SessionLocal() as db:
+        row = db.get(RaceCenterUserModeration, user_id)
+        return {
+            "status": row.status if row else "active",
+            "reason": row.reason if row else "",
+        }
+
+
+def ensure_account_allowed(user_id: int) -> None:
+    state = moderation_state(user_id)
+    if state["status"] == "banned":
+        raise ValueError("This Race Center account has been banned.")
+    if state["status"] == "suspended":
+        raise ValueError("This Race Center account is suspended.")
+
+
+def set_user_moderation(user_id: int, *, status: str, reason: str = "") -> dict:
+    clean = (status or "").strip().lower()
+    if clean not in {"active", "suspended", "banned"}:
+        raise ValueError("User status must be active, suspended, or banned.")
+    with SessionLocal() as db:
+        user = db.get(RaceCenterUser, user_id)
+        if not user:
+            raise ValueError("Race Center user not found.")
+        row = db.get(RaceCenterUserModeration, user_id)
+        if row is None:
+            row = RaceCenterUserModeration(user_id=user_id)
+            db.add(row)
+        row.status = clean
+        row.reason = (reason or "").strip()[:1000]
+        row.updated_at = utcnow()
+        if clean in {"suspended", "banned"}:
+            user.session_version = (user.session_version or 1) + 1
+            user.updated_at = utcnow()
+        db.commit()
+    return {"ok": True, "user_id": user_id, "status": clean}
+
+
 def moderate_report(report_id: int, *, action: str, note: str = "") -> dict:
     clean = (action or "").strip().lower()
-    if clean not in {"dismiss", "resolve", "hide_content"}:
-        raise ValueError("Moderation action must be dismiss, resolve, or hide_content.")
+    if clean not in {"dismiss", "resolve", "hide_content", "suspend_user", "ban_user"}:
+        raise ValueError("Unsupported moderation action.")
     from services.race_center_accounts import RaceCenterPost, RaceCenterComment
     with SessionLocal() as db:
         row = db.get(RaceCenterReport, report_id)
@@ -413,24 +498,47 @@ def moderate_report(report_id: int, *, action: str, note: str = "") -> dict:
                     post = db.get(RaceCenterPost, int(row.target_id))
                 except Exception:
                     post = None
-                if post:
-                    post.deleted = True
+                if not post:
+                    raise ValueError("Reported post not found.")
+                post.deleted = True
             elif row.target_kind == "comment":
                 try:
                     comment = db.get(RaceCenterComment, int(row.target_id))
                 except Exception:
                     comment = None
-                if comment:
-                    comment.deleted = True
+                if not comment:
+                    raise ValueError("Reported comment not found.")
+                comment.deleted = True
             else:
                 raise ValueError("Hide content is only available for post/comment reports.")
+            row.status = "resolved"
+        elif clean in {"suspend_user", "ban_user"}:
+            if row.target_kind != "user":
+                raise ValueError("Account actions are only available for user reports.")
+            try:
+                target_user_id = int(row.target_id)
+            except Exception as exc:
+                raise ValueError("Reported user is invalid.") from exc
+            target = db.get(RaceCenterUser, target_user_id)
+            if not target:
+                raise ValueError("Reported user not found.")
+            moderation = db.get(RaceCenterUserModeration, target_user_id)
+            if moderation is None:
+                moderation = RaceCenterUserModeration(user_id=target_user_id)
+                db.add(moderation)
+            moderation.status = "suspended" if clean == "suspend_user" else "banned"
+            moderation.reason = (note or row.reason or "moderation action").strip()[:1000]
+            moderation.updated_at = utcnow()
+            target.session_version = (target.session_version or 1) + 1
+            target.updated_at = utcnow()
             row.status = "resolved"
         else:
             row.status = "dismissed" if clean == "dismiss" else "resolved"
         row.moderator_note = (note or "").strip()[:1000]
         row.resolved_at = utcnow()
+        status = row.status
         db.commit()
-    return {"ok": True, "status": row.status}
+    return {"ok": True, "status": status}
 
 
 def search_people(user_id: int, query: str, limit: int = 20) -> list[dict]:
@@ -470,12 +578,18 @@ def search_people(user_id: int, query: str, limit: int = 20) -> list[dict]:
 def can_interact_with_post(user_id: int, post_id: int) -> bool:
     from services.race_center_accounts import RaceCenterPost
     with SessionLocal() as db:
-        post=db.get(RaceCenterPost, post_id)
+        post = db.get(RaceCenterPost, post_id)
         if not post or post.deleted:
             return False
         if post.user_id == user_id:
             return True
-        return post.user_id not in blocked_ids(user_id)
+        if post.user_id in blocked_ids(user_id):
+            return False
+        if post.visibility == "public":
+            return True
+        if post.visibility == "friends":
+            return post.user_id in friend_ids(user_id)
+        return False
 
 
 def enrich_people(items: list[dict]) -> list[dict]:
