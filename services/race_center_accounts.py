@@ -488,3 +488,195 @@ def list_posts(*, viewer_user_id: int | None = None, limit: int = 40, series_key
                 "comment_count": len(comment_map.get(post.id, [])),
             })
         return out
+
+
+class RaceCenterIdentity(Base):
+    """Optional public identity/verification metadata kept separate for safe schema evolution."""
+    __tablename__ = "race_center_identities"
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), primary_key=True)
+    account_type: Mapped[str] = mapped_column(String(30), default="fan", index=True)  # fan/driver/team/series/track/media
+    verification_status: Mapped[str] = mapped_column(String(30), default="unverified", index=True)
+    official_label: Mapped[str] = mapped_column(String(120), default="")
+    external_url: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RaceCenterConnection(Base):
+    __tablename__ = "race_center_connections"
+    __table_args__ = (
+        UniqueConstraint("follower_user_id", "followed_user_id", name="uq_race_center_connection"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    follower_user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), index=True)
+    followed_user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+def identity_for_user(user_id: int) -> dict:
+    with SessionLocal() as db:
+        row = db.get(RaceCenterIdentity, user_id)
+        if row is None:
+            return {
+                "account_type": "fan",
+                "verification_status": "unverified",
+                "official_label": "",
+                "external_url": "",
+            }
+        return {
+            "account_type": row.account_type or "fan",
+            "verification_status": row.verification_status or "unverified",
+            "official_label": row.official_label or "",
+            "external_url": row.external_url or "",
+        }
+
+
+def follow_user(follower_user_id: int, followed_user_id: int) -> dict:
+    if follower_user_id == followed_user_id:
+        raise ValueError("You cannot follow yourself.")
+    with SessionLocal() as db:
+        target = db.get(RaceCenterUser, followed_user_id)
+        if not target:
+            raise ValueError("Race Center user not found.")
+        row = db.scalar(select(RaceCenterConnection).where(
+            RaceCenterConnection.follower_user_id == follower_user_id,
+            RaceCenterConnection.followed_user_id == followed_user_id,
+        ))
+        if row is None:
+            db.add(RaceCenterConnection(
+                follower_user_id=follower_user_id,
+                followed_user_id=followed_user_id,
+            ))
+            db.commit()
+    return {"ok": True}
+
+
+def unfollow_user(follower_user_id: int, followed_user_id: int) -> dict:
+    with SessionLocal() as db:
+        db.execute(delete(RaceCenterConnection).where(
+            RaceCenterConnection.follower_user_id == follower_user_id,
+            RaceCenterConnection.followed_user_id == followed_user_id,
+        ))
+        db.commit()
+    return {"ok": True}
+
+
+def connection_counts(user_id: int) -> dict:
+    with SessionLocal() as db:
+        followers = db.scalar(select(func.count(RaceCenterConnection.id)).where(
+            RaceCenterConnection.followed_user_id == user_id
+        )) or 0
+        following = db.scalar(select(func.count(RaceCenterConnection.id)).where(
+            RaceCenterConnection.follower_user_id == user_id
+        )) or 0
+    return {"followers": int(followers), "following": int(following)}
+
+
+def public_profile_by_handle(handle: str, viewer_user_id: int | None = None) -> dict | None:
+    clean = (handle or "").strip().lower()
+    with SessionLocal() as db:
+        profile = db.scalar(select(RaceCenterProfile).where(RaceCenterProfile.handle == clean))
+        if not profile:
+            return None
+        user = db.get(RaceCenterUser, profile.user_id)
+        if not user:
+            return None
+        follows = list(db.scalars(select(RaceCenterFollow).where(
+            RaceCenterFollow.user_id == profile.user_id
+        )).all())
+        identity = db.get(RaceCenterIdentity, profile.user_id)
+        follower_count = db.scalar(select(func.count(RaceCenterConnection.id)).where(
+            RaceCenterConnection.followed_user_id == profile.user_id
+        )) or 0
+        following_count = db.scalar(select(func.count(RaceCenterConnection.id)).where(
+            RaceCenterConnection.follower_user_id == profile.user_id
+        )) or 0
+        viewer_follows = False
+        if viewer_user_id:
+            viewer_follows = db.scalar(select(RaceCenterConnection.id).where(
+                RaceCenterConnection.follower_user_id == viewer_user_id,
+                RaceCenterConnection.followed_user_id == profile.user_id,
+            ).limit(1)) is not None
+        return {
+            "id": profile.user_id,
+            "display_name": user.display_name or profile.handle,
+            "handle": profile.handle,
+            "bio": profile.bio,
+            "favorite_track": profile.favorite_track,
+            "identity": {
+                "account_type": identity.account_type if identity else "fan",
+                "verification_status": identity.verification_status if identity else "unverified",
+                "official_label": identity.official_label if identity else "",
+                "external_url": identity.external_url if identity else "",
+            },
+            "followers": int(follower_count),
+            "following": int(following_count),
+            "viewer_follows": viewer_follows,
+            "series": [
+                {"key": x.follow_key, "label": x.label}
+                for x in follows if x.kind == "series"
+            ],
+            "drivers": [
+                {"key": x.follow_key, "label": x.label, "series_key": x.series_key}
+                for x in follows if x.kind == "driver"
+            ],
+        }
+
+
+def discover_people(user_id: int, limit: int = 12) -> list[dict]:
+    """Rank people by shared series/driver follows; no hidden demographic profiling."""
+    with SessionLocal() as db:
+        mine = list(db.scalars(select(RaceCenterFollow).where(
+            RaceCenterFollow.user_id == user_id
+        )).all())
+        mine_keys = {(x.kind, x.follow_key) for x in mine}
+        already = set(db.scalars(select(RaceCenterConnection.followed_user_id).where(
+            RaceCenterConnection.follower_user_id == user_id
+        )).all())
+        profiles = list(db.scalars(select(RaceCenterProfile).where(
+            RaceCenterProfile.user_id != user_id
+        )).all())
+        candidates = []
+        for profile in profiles:
+            if profile.user_id in already:
+                continue
+            theirs = list(db.scalars(select(RaceCenterFollow).where(
+                RaceCenterFollow.user_id == profile.user_id
+            )).all())
+            shared = sorted(mine_keys & {(x.kind, x.follow_key) for x in theirs})
+            if not shared and mine_keys:
+                continue
+            user = db.get(RaceCenterUser, profile.user_id)
+            identity = db.get(RaceCenterIdentity, profile.user_id)
+            followers = db.scalar(select(func.count(RaceCenterConnection.id)).where(
+                RaceCenterConnection.followed_user_id == profile.user_id
+            )) or 0
+            candidates.append({
+                "id": profile.user_id,
+                "display_name": (user.display_name if user else "") or profile.handle,
+                "handle": profile.handle,
+                "bio": profile.bio,
+                "favorite_track": profile.favorite_track,
+                "shared_count": len(shared),
+                "shared": [{"kind": kind, "key": key} for kind, key in shared[:6]],
+                "followers": int(followers),
+                "identity": {
+                    "account_type": identity.account_type if identity else "fan",
+                    "verification_status": identity.verification_status if identity else "unverified",
+                    "official_label": identity.official_label if identity else "",
+                },
+            })
+        candidates.sort(key=lambda x: (
+            1 if x["identity"]["verification_status"] == "verified" else 0,
+            x["shared_count"],
+            x["followers"],
+        ), reverse=True)
+        return candidates[:max(1, min(limit, 30))]
+
+
+def followed_user_ids(user_id: int) -> list[int]:
+    with SessionLocal() as db:
+        return list(db.scalars(select(RaceCenterConnection.followed_user_id).where(
+            RaceCenterConnection.follower_user_id == user_id
+        )).all())
