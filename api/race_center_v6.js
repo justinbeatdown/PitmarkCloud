@@ -436,6 +436,17 @@
     }
   }
 
+
+  function openDeepSeries(seriesKey,attempt){
+    const key=String(seriesKey||'').trim();
+    if(!key)return;
+    if(state.payload){
+      openSeries(key);
+      return;
+    }
+    if((attempt||0)<20)setTimeout(function(){openDeepSeries(key,(attempt||0)+1);},200);
+  }
+
   function init(){
     const avatarFile=$('#profileAvatarFile');
     if(avatarFile)avatarFile.addEventListener('change',function(){
@@ -544,6 +555,8 @@
     setTimeout(loadModeration,500);
     const deepLinkedHandle=String(document.body?.dataset?.profileHandle||'').trim();
     if(deepLinkedHandle)setTimeout(function(){openProfileV6(deepLinkedHandle);},550);
+    const deepLinkedSeries=String(document.body?.dataset?.seriesKey||'').trim();
+    if(deepLinkedSeries)setTimeout(function(){openDeepSeries(deepLinkedSeries,0);},250);
     setInterval(function(){
       if(state.account&&state.account.authenticated)v6RefreshAccount();
     },60000);
