@@ -93,6 +93,11 @@ class NativeOpsContractTests(unittest.TestCase):
         self.assertIn("ThreadPoolExecutor", service)
         self.assertIn("timeout=12.0", service)
 
+    def test_google_connected_forbidden_state_is_distinct(self):
+        client = (ROOT / "api" / "control_native_ops.js").read_text(encoding="utf-8")
+        self.assertIn("googleAuthorized", client)
+        self.assertIn("Google connected · API access needs attention", client)
+
     def test_google_callback_does_not_require_control_cookie(self):
         hq = (ROOT / "api" / "control_center_hq.py").read_text(encoding="utf-8")
         block = hq.split('@router.get("/control/google-callback"', 1)[1].split('@router.', 1)[0]
