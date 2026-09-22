@@ -15,6 +15,7 @@ from services.race_center_accounts import (
     RaceCenterUser,
 )
 from services.control_auth import hash_password, verify_password
+from utils.config import settings
 
 VISIBILITIES = {"public", "friends", "private"}
 REPORT_REASONS = {"spam", "harassment", "impersonation", "hate", "threat", "sexual", "misinformation", "other"}
@@ -103,7 +104,28 @@ def _safe_https_url(value: str) -> str:
         return ""
     parsed = urlparse(raw)
     if len(raw) > 1000 or parsed.scheme != "https" or not parsed.netloc:
-        raise ValueError("Profile links and images must use a valid https:// URL.")
+        raise ValueError("Profile links must use a valid https:// URL.")
+    return raw
+
+
+def _safe_profile_image_url(value: str) -> str:
+    raw = (value or "").strip()
+    if not raw:
+        return ""
+    parsed = urlparse(raw)
+    configured = {
+        urlparse(str(getattr(settings, "social_asset_public_url", "") or "")).netloc.lower(),
+        urlparse(str(getattr(settings, "pitmark_cloud_public_url", "") or "")).netloc.lower(),
+        "pcc.pitmarkracing.com",
+    }
+    allowed_hosts = {host for host in configured if host}
+    if (
+        parsed.scheme != "https"
+        or parsed.netloc.lower() not in allowed_hosts
+        or not parsed.path.startswith("/social-assets/")
+        or len(raw) > 1000
+    ):
+        raise ValueError("Profile images must be uploaded through Race Center.")
     return raw
 
 
@@ -158,8 +180,8 @@ def update_extra(user_id: int, *, avatar_url: str, cover_url: str, accent_color:
             db.add(row)
         user.display_name = name
         user.updated_at = utcnow()
-        row.avatar_url = _safe_https_url(avatar_url)
-        row.cover_url = _safe_https_url(cover_url)
+        row.avatar_url = _safe_profile_image_url(avatar_url)
+        row.cover_url = _safe_profile_image_url(cover_url)
         row.accent_color = accent
         row.hometown = (hometown or "").strip()[:100]
         row.website_url = _safe_https_url(website_url)
