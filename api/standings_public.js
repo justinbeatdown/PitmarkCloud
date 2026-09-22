@@ -6,7 +6,45 @@ const pageView=routePath==='/standings'||routePath.endsWith('/standings')
     :routePath.endsWith('/live')
       ?'live'
       :'hub';
-const state={payload:null,group:'All',search:'',view:pageView};
+const PREF_KEY='pitmark-race-center-v4';
+const CACHE_KEY='pitmark-race-center-v4-feed';
+const readPrefs=()=>{
+  try{
+    const raw=JSON.parse(localStorage.getItem(PREF_KEY)||'{}');
+    return {
+      favorites:new Set(Array.isArray(raw.favorites)?raw.favorites.map(String):[]),
+      lastSeries:String(raw.lastSeries||''),
+      favoritesOnly:Boolean(raw.favoritesOnly)
+    };
+  }catch(_error){
+    return {favorites:new Set(),lastSeries:'',favoritesOnly:false};
+  }
+};
+const prefs=readPrefs();
+const state={
+  payload:null,group:'All',search:'',view:pageView,
+  favorites:prefs.favorites,lastSeries:prefs.lastSeries,favoritesOnly:prefs.favoritesOnly
+};
+const readCachedPayload=()=>{
+  try{
+    const raw=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');
+    if(!raw?.payload||!raw?.savedAt)return null;
+    if(Date.now()-Number(raw.savedAt)>6*60*60*1000)return null;
+    return raw.payload;
+  }catch(_error){return null;}
+};
+const saveCachedPayload=payload=>{
+  try{localStorage.setItem(CACHE_KEY,JSON.stringify({savedAt:Date.now(),payload}));}catch(_error){}
+};
+const savePrefs=()=>{
+  try{
+    localStorage.setItem(PREF_KEY,JSON.stringify({
+      favorites:[...state.favorites],
+      lastSeries:state.lastSeries,
+      favoritesOnly:state.favoritesOnly
+    }));
+  }catch(_error){}
+};
 const $=selector=>document.querySelector(selector);
 const $$=selector=>[...document.querySelectorAll(selector)];
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -34,32 +72,32 @@ function configurePage(){
 
   const config={
     hub:{
-      title:'The racing world,<br><em>organized.</em>',
-      intro:'Standings, movement, schedules, live events and official watch links across the series you actually care about — without living in forty tabs.',
+      title:'Race day,<br><em>weaponized.</em>',
+      intro:'Live motorsports intelligence for what is happening now, what is next, who moved, and the championships you actually follow.',
       primary:['Open standings','/race-center/standings'],
       secondary:['Find the next race','/race-center/schedules'],
-      pageTitle:'Pitmark Race Center V3 — Racing Hub'
+      pageTitle:'Pitmark Race Center V4 — Racing Hub'
     },
     standings:{
       title:'Championships,<br><em>at a glance.</em>',
       intro:'The full Pitmark standings board with current leaders, verified position movement and source-backed championship data.',
       primary:['Browse standings','#standingsBoard'],
       secondary:['Schedules + watch','/race-center/schedules'],
-      pageTitle:'Standings — Pitmark Race Center V3'
+      pageTitle:'Standings — Pitmark Race Center V4'
     },
     schedules:{
       title:'Race calendar,<br><em>without the hunt.</em>',
       intro:'Official schedule and viewing links across the racing world, organized into one searchable board.',
       primary:['Browse schedules','#schedules'],
       secondary:['Live + next','/race-center/live'],
-      pageTitle:'Schedules — Pitmark Race Center V3'
+      pageTitle:'Schedules — Pitmark Race Center V4'
     },
     live:{
       title:'What’s racing,<br><em>right now.</em>',
       intro:'Live events and the next races across Pitmark’s tracked series, with direct official watch and schedule links.',
       primary:['Open race weekend','#raceWeekend'],
       secondary:['Full schedules','/race-center/schedules'],
-      pageTitle:'Live + Next — Pitmark Race Center V3'
+      pageTitle:'Live + Next — Pitmark Race Center V4'
     }
   }[state.view];
 
@@ -161,6 +199,7 @@ const eventTime=event=>{
 const seriesVisible=series=>{
   const groupOk=state.group==='All'||series.group===state.group;
   if(!groupOk)return false;
+  if(state.favoritesOnly&&!state.favorites.has(String(series.series_key)))return false;
   const q=normalizeSearch(state.search);
   if(!q)return true;
   const hay=[
@@ -206,8 +245,11 @@ function card(series){
   const leader=(series.entries||[])[0];
   const count=(series.entries||[]).length;
   const rosterCount=Math.max(count,(series.roster||[]).length);
+  const key=String(series.series_key||'');
+  const favorite=state.favorites.has(key);
   return `<article class="series-card" data-key="${esc(series.series_key)}" role="button" tabindex="0" aria-label="Open ${esc(series.series_name)} standings">
     <header>
+      <button class="favorite-star ${favorite?'is-favorite':''}" type="button" data-favorite-key="${esc(key)}" aria-label="${favorite?'Remove':'Add'} ${esc(series.series_name)} ${favorite?'from':'to'} My Series" aria-pressed="${favorite?'true':'false'}">${favorite?'★':'☆'}</button>
       <div class="card-brand">${logo(series)}<div><span class="eyebrow">${esc(series.group||'RACING')}</span><h4>${esc(series.short_name||series.series_name)}</h4></div></div>
       ${statusBadge(series)}
     </header>
@@ -270,6 +312,92 @@ function renderSummary(){
   }
 }
 
+
+function allMovement(){
+  const movers=[];
+  (state.payload?.series||[]).forEach(series=>{
+    (series.entries||[]).forEach(row=>{
+      if(row.comparison_ready===false)return;
+      const movement=Number(row.movement||0);
+      const delta=Number(row.points_delta||0);
+      if(!movement&&!delta)return;
+      movers.push({series,row,movement,delta,score:Math.abs(movement)*100000+Math.abs(delta)});
+    });
+  });
+  return movers.sort((a,b)=>b.score-a.score);
+}
+
+function nextEventAcrossBoard(){
+  const next=state.payload?.events?.next||[];
+  return next
+    .filter(item=>item?.event?.start)
+    .map(item=>({...item,_time:new Date(item.event.start).getTime()}))
+    .filter(item=>Number.isFinite(item._time))
+    .sort((a,b)=>a._time-b._time)[0]||null;
+}
+
+function countdownText(timestamp){
+  if(!Number.isFinite(timestamp))return '—';
+  const diff=timestamp-Date.now();
+  if(diff<=0)return 'NOW';
+  const mins=Math.floor(diff/60000);
+  const days=Math.floor(mins/1440);
+  const hours=Math.floor((mins%1440)/60);
+  const rem=mins%60;
+  if(days>0)return `${days}d ${hours}h`;
+  if(hours>0)return `${hours}h ${rem}m`;
+  return `${Math.max(1,rem)}m`;
+}
+
+function renderMySeries(){
+  const shell=$('#mySeriesShell');
+  const strip=$('#mySeriesStrip');
+  const hint=$('#mySeriesHint');
+  if(!shell||!strip||!hint)return;
+  const series=(state.payload?.series||[]).filter(item=>state.favorites.has(String(item.series_key)));
+  $('#pulseFavorites').textContent=String(series.length);
+  $('#pulseFavoriteText').textContent=series.length
+    ?`${series.length} saved championship${series.length===1?'':'s'}`
+    :'Star a series to build your board';
+  if(!series.length){
+    strip.innerHTML='<button class="my-series-chip" id="emptyFavoriteCta" type="button"><span class="series-wordmark">START</span><span><strong>Build My Series</strong><small>Star the championships you care about.</small></span></button>';
+    hint.textContent='Your saved championships live here.';
+    return;
+  }
+  hint.textContent='Saved locally on this device.';
+  strip.innerHTML=series.map(item=>{
+    const leader=item.entries?.[0];
+    const event=item.current_event;
+    const meta=event
+      ?`${item.event_state==='live'?'LIVE · ':''}${event.name||eventWhen(event)}`
+      :leader?`Leader: ${leader.name||'—'}`:'Open championship';
+    return `<button class="my-series-chip" type="button" data-key="${esc(item.series_key)}">${logo(item)}<span><strong>${esc(item.short_name||item.series_name)}</strong><small>${esc(meta)}</small></span></button>`;
+  }).join('');
+}
+
+function renderPulse(){
+  if(!state.payload)return;
+  const events=state.payload.events||{};
+  const live=events.live||[];
+  const next=nextEventAcrossBoard();
+  const movers=allMovement();
+  $('#pulseLive').textContent=String(live.length);
+  $('#pulseLiveText').textContent=live.length
+    ?`${live.slice(0,2).map(item=>item.series_name).filter(Boolean).join(' · ')}${live.length>2?' +'+(live.length-2):''}`
+    :'No tracked series are live right now';
+  $('#pulseMoves').textContent=String(movers.length);
+  $('#pulseCountdown').textContent=next?countdownText(next._time):'—';
+  $('#pulseNextText').textContent=next
+    ?`${next.series_name||'Series'} · ${next.event?.name||'next event'}`
+    :'No upcoming start time available';
+  renderMySeries();
+  const favoriteButton=$('#favoritesFilter');
+  if(favoriteButton){
+    favoriteButton.setAttribute('aria-pressed',state.favoritesOnly?'true':'false');
+    favoriteButton.textContent=state.favoritesOnly?'★ My Series':'☆ My Series';
+  }
+}
+
 function renderLeaders(){
   const leaders=visibleSeries().filter(series=>series.entries?.length).slice(0,state.view==='hub'?4:8);
   $('#leaderStrip').innerHTML=leaders.length?leaders.map(series=>{
@@ -286,17 +414,7 @@ function renderLeaders(){
 }
 
 function renderMovers(){
-  const movers=[];
-  visibleSeries().forEach(series=>{
-    (series.entries||[]).forEach(row=>{
-      if(row.comparison_ready===false)return;
-      const movement=Number(row.movement||0);
-      const delta=Number(row.points_delta||0);
-      if(!movement&&!delta)return;
-      movers.push({series,row,movement,delta,score:Math.abs(movement)*100000+Math.abs(delta)});
-    });
-  });
-  movers.sort((a,b)=>b.score-a.score);
+  const movers=allMovement().filter(item=>visibleSeriesKeys().has(String(item.series.series_key)));
   const top=movers.slice(0,state.view==='hub'?4:8);
   $('#moversStrip').innerHTML=top.length?top.map(item=>`<article class="mover-card" data-key="${esc(item.series.series_key)}" role="button" tabindex="0">
     <span class="mover-rank">${esc(item.row.position??'—')}</span>
@@ -408,6 +526,7 @@ function renderScheduleCatalog(){
 
 function render(){
   renderSummary();
+  renderPulse();
   renderFilters();
   renderEvents();
   renderLeaders();
@@ -431,6 +550,8 @@ function render(){
 }
 
 function openSeries(key){
+  state.lastSeries=String(key||'');
+  savePrefs();
   const series=(state.payload?.series||[]).find(item=>String(item.series_key)===String(key));
   if(!series)return;
   const rows=(series.entries||[]).map(row=>({...row}));
@@ -536,7 +657,7 @@ async function load(){
   try{
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),10000);
-    const response=await fetch('/api/public/standings?v=race-center-v3-20260921',{
+    const response=await fetch('/api/public/standings?v=race-center-v4-20260922',{
       headers:{Accept:'application/json'},
       cache:'no-store',
       signal:controller.signal
@@ -544,6 +665,7 @@ async function load(){
     clearTimeout(timeout);
     if(!response.ok)throw new Error('Race Center feed unavailable');
     state.payload=await response.json();
+    saveCachedPayload(state.payload);
     render();
   }catch(error){
     setLoadError(error?.name==='AbortError'?'Race Center timed out. Refresh to retry.':(error.message||'Unable to load Race Center.'));
@@ -571,14 +693,35 @@ function safeBind(selector,eventName,handler){
 }
 
 function bootRaceCenter(){
-  // Kick off the data request first. UI wiring must never be allowed to block it.
+  // Render a recent saved board instantly, then refresh from the durable API.
+  const cached=readCachedPayload();
+  if(cached){
+    state.payload=cached;
+    render();
+    const status=$('#headerStatus');
+    if(status){
+      status.className='header-health warn';
+      status.innerHTML='<i></i> Refreshing live board';
+    }
+  }
   load();
+  setInterval(()=>{if(state.payload)renderPulse();},30000);
 
   try{configurePage();}catch(error){
     console.error('Race Center page configuration failed',error);
   }
 
   document.addEventListener('click',event=>{
+    const favorite=event.target.closest('[data-favorite-key]');
+    if(favorite){
+      event.preventDefault();
+      event.stopPropagation();
+      const key=String(favorite.dataset.favoriteKey||'');
+      if(state.favorites.has(key))state.favorites.delete(key);else state.favorites.add(key);
+      savePrefs();
+      render();
+      return;
+    }
     const filter=event.target.closest('[data-group]');
     if(filter){
       state.group=filter.dataset.group;
@@ -591,6 +734,12 @@ function bootRaceCenter(){
   });
 
   document.addEventListener('keydown',event=>{
+    if(event.key==='/'&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&document.activeElement?.tagName!=='INPUT'){
+      event.preventDefault();
+      const input=$('#searchInput');
+      input?.focus();
+      return;
+    }
     if(event.key!=='Enter'&&event.key!==' ')return;
     const card=event.target.closest('[data-key]');
     if(!card||event.target.closest('a,button,input'))return;
@@ -603,6 +752,31 @@ function bootRaceCenter(){
   });
   document.addEventListener('search',event=>{
     if(event.target?.id==='searchInput')applySearch(event.target.value);
+  });
+
+  safeBind('#favoritesFilter','click',()=>{
+    state.favoritesOnly=!state.favoritesOnly;
+    savePrefs();
+    render();
+  });
+  safeBind('#focusFavorites','click',()=>{
+    state.favoritesOnly=true;
+    savePrefs();
+    render();
+    $('#standingsStart')?.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+  const focusSearch=()=>{
+    const input=$('#searchInput');
+    input?.focus({preventScroll:false});
+    input?.scrollIntoView({behavior:'smooth',block:'center'});
+  };
+  safeBind('#jumpSearch','click',focusSearch);
+  safeBind('#mobileSearch','click',focusSearch);
+  safeBind('#mobileFavorites','click',()=>{
+    state.favoritesOnly=true;
+    savePrefs();
+    render();
+    $('#standingsStart')?.scrollIntoView({behavior:'smooth',block:'start'});
   });
 
   safeBind('#clearSearch','click',()=>{
@@ -625,6 +799,16 @@ function bootRaceCenter(){
     });
     dialog.addEventListener('close',()=>document.body.classList.remove('dialog-open'));
   }
+
+  document.addEventListener('click',event=>{
+    const emptyCta=event.target.closest('#emptyFavoriteCta');
+    if(emptyCta){
+      state.favoritesOnly=false;
+      savePrefs();
+      render();
+      $('#standingsStart')?.scrollIntoView({behavior:'smooth',block:'start'});
+    }
+  });
 
   const backToTop=$('#backToTop');
   if(backToTop){
