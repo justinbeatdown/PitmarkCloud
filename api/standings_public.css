@@ -939,3 +939,45 @@ body:not([data-view="hub"]) .v5-home{display:none}
   .people-head{align-items:flex-start;flex-direction:column;gap:3px}
   .profile-stats{grid-template-columns:1fr 1fr 1fr}
 }
+
+
+/* Hotfix: keep event branding subordinate to event information */
+.broadcast-event-card{
+  position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;
+  padding:24px;background:
+    radial-gradient(circle at 78% 16%,rgba(255,85,0,.08),transparent 18rem),
+    linear-gradient(160deg,#0e141a,#080b0f 72%);
+  overflow:hidden;
+}
+.broadcast-event-card::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:
+    linear-gradient(120deg,transparent 0 58%,rgba(255,255,255,.025) 58% 59%,transparent 59% 100%);
+}
+.broadcast-event-top,.broadcast-event-body{position:relative;z-index:1}
+.broadcast-event-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.broadcast-brand-chip{
+  display:inline-flex;align-items:center;justify-content:center;min-height:54px;max-width:180px;
+  padding:9px 12px;border:1px solid #2c3641;border-radius:12px;background:rgba(12,17,22,.88)
+}
+.broadcast-series-logo.compact{
+  width:auto;max-width:150px;max-height:36px;object-fit:contain;filter:none
+}
+.broadcast-series-mark.compact{
+  padding:0;border:0;background:transparent;box-shadow:none;font-size:14px;letter-spacing:.08em
+}
+.broadcast-event-state{
+  padding:6px 8px;border:1px solid rgba(255,255,255,.1);border-radius:999px;
+  color:#7f8ea2;background:rgba(255,255,255,.03);font-size:8px;font-weight:1000;letter-spacing:.12em
+}
+.broadcast-event-body{max-width:640px}
+.broadcast-event-body>small{display:block;color:#78879a;font-size:9px;font-weight:1000;letter-spacing:.12em;text-transform:uppercase}
+.broadcast-event-body>strong{display:block;margin:8px 0 7px;font-size:clamp(24px,3vw,40px);line-height:1;letter-spacing:-.045em}
+.broadcast-event-body>p{margin:0;color:#8593a6;font-size:10px;line-height:1.5;max-width:520px}
+.broadcast-event-card.empty .broadcast-event-body{max-width:520px}
+@media(max-width:680px){
+  .broadcast-event-card{padding:18px}
+  .broadcast-brand-chip{min-height:46px;max-width:145px}
+  .broadcast-series-logo.compact{max-width:120px;max-height:30px}
+  .broadcast-event-body>strong{font-size:25px}
+}
