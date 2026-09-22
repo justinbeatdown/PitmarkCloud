@@ -96,6 +96,22 @@ def _text_asset(filename: str, media_type: str, *, cache: str = 'no-store') -> R
 
 
 # Current Control Center assets.
+# Current modular Control Center application assets.
+@router.get('/control-center-app.js', include_in_schema=False)
+def control_center_app_js():
+    return _text_asset('control_center_app.js', 'application/javascript')
+
+
+@router.get('/control-center-api.js', include_in_schema=False)
+def control_center_api_js():
+    return _text_asset('control_center_api.js', 'application/javascript')
+
+
+@router.get('/control-center-views.js', include_in_schema=False)
+def control_center_views_js():
+    return _text_asset('control_center_views.js', 'application/javascript')
+
+
 @router.get('/control-center-overhaul.js', include_in_schema=False)
 def control_center_overhaul_js():
     return _text_asset('control_center_overhaul.js', 'application/javascript')
