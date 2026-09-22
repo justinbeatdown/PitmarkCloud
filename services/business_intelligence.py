@@ -588,7 +588,7 @@ def _recommendations(shopify: dict[str, Any], growth: dict[str, Any], meta: dict
             "priority": "medium",
             "type": "revenue",
             "title": "Protect what is already converting",
-            "reason": "Shopify shows %s qualifying order(s) and $%,.2f in the current reporting window.%s" % (orders, revenue, detail),
+            "reason": f"Shopify shows {orders} qualifying order(s) and ${revenue:,.2f} in the current reporting window.{detail}",
             "action": "Identify the channel and content behind those orders before increasing spend.",
         })
 
@@ -601,7 +601,7 @@ def _recommendations(shopify: dict[str, Any], growth: dict[str, Any], meta: dict
             "priority": "high",
             "type": "paid_media",
             "title": "Paid Meta spend occurred without a Shopify order in the same window",
-            "reason": "Meta reports $%,.2f in spend and %s click(s), while Shopify reports zero qualifying orders for the same reporting window." % (ad_spend, ad_clicks),
+            "reason": f"Meta reports ${ad_spend:,.2f} in spend and {ad_clicks} click(s), while Shopify reports zero qualifying orders for the same reporting window.",
             "action": "Do not increase paid spend until landing-page, offer, tracking, and checkout friction are reviewed.",
         })
     elif ad_spend > 0 and ad_clicks == 0:
@@ -609,7 +609,7 @@ def _recommendations(shopify: dict[str, Any], growth: dict[str, Any], meta: dict
             "priority": "high",
             "type": "paid_media",
             "title": "Meta spend is not producing clicks",
-            "reason": "Meta reports $%,.2f in spend with zero clicks in the current reporting window." % ad_spend,
+            "reason": f"Meta reports ${ad_spend:,.2f} in spend with zero clicks in the current reporting window.",
             "action": "Pause or inspect active campaigns before allowing additional spend.",
         })
 
