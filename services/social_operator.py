@@ -75,7 +75,7 @@ INSTAGRAM_PROMPTS = [
     "Name a track that deserves more eyes. Tag the track and give us the one reason a racing fan should make the trip. 🏁",
     "Show us what you’re building for next race night. Tag Pitmark in the post/story so we can find the good stuff. 🏁",
     "Local track, sim, or both — where are you racing this week? Tag your league, track, team, or racing buddy. 🏁",
-    "What racing photo on your camera roll tells a whole story? Post it, tag @pitmarkracingco, and tell us the story behind it. 🏁",
+    "What racing photo on your camera roll tells a whole story? Post it, tag @pitmarkracing, and tell us the story behind it. 🏁",
 ]
 
 X_PROMPTS = [

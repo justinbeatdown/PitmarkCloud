@@ -9,6 +9,9 @@ on:
       - 'api/control_social_daily_campaign.js'
       - 'api/control_social_daily_campaign.css'
       - 'services/social_asset_pool.py'
+      - 'services/social_operator.py'
+      - 'services/social_operator_logic.py'
+      - 'api/links.html'
       - 'services/social_daily_campaign.py'
       - 'services/social_daily_package.py'
       - 'services/autopilot_multiplatform.py'
@@ -51,6 +54,8 @@ jobs:
             api/social_operator.py \
             api/social_publish.py \
             services/social_asset_pool.py \
+            services/social_operator.py \
+            services/social_operator_logic.py \
             services/social_daily_campaign.py \
             services/social_daily_package.py \
             services/autopilot_multiplatform.py \
