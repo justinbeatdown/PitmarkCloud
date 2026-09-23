@@ -222,20 +222,36 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
                     })
                 team["series"].add(series_key)
 
-        if event:
-            ekey = _event_key(series_key, event)
-            track_key = _track_key(event)
+        event_rows = list(event_info.get("events") or [])
+        if not event_rows and event:
+            event_rows = [event]
+        chosen_key = _event_key(series_key, event) if event else None
+        for event_row_source in event_rows:
+            if not isinstance(event_row_source, dict):
+                continue
+            ekey = _event_key(series_key, event_row_source)
+            track_key = _track_key(event_row_source)
+            raw_state = str(event_row_source.get("state") or "").lower()
+            normalized_state = (
+                "live" if raw_state in {"in", "live"}
+                else "recent" if raw_state in {"post", "completed"}
+                else "next" if ekey == chosen_key and event_info.get("state") == "next"
+                else "schedule"
+            )
             event_row = {
                 "key": ekey,
+                "event_id": event_row_source.get("event_id"),
                 "series_key": series_key,
                 "series_name": series.get("series_name"),
                 "group": series.get("group"),
-                "name": event.get("name") or event.get("title") or series.get("series_name"),
-                "start": event.get("start"),
-                "state": event_info.get("state"),
-                "venue": event.get("venue") or event.get("track"),
-                "location": event.get("location"),
-                "broadcast": event.get("broadcast") or event_info.get("watch_name"),
+                "name": event_row_source.get("name") or event_row_source.get("title") or series.get("series_name"),
+                "start": event_row_source.get("start"),
+                "state": normalized_state,
+                "venue": event_row_source.get("venue") or event_row_source.get("track"),
+                "location": event_row_source.get("location"),
+                "broadcast": event_row_source.get("broadcast") or event_info.get("watch_name"),
+                "event_url": event_row_source.get("event_url"),
+                "source_url": event_row_source.get("source_url"),
                 "watch_url": event_info.get("watch_url"),
                 "schedule_url": event_info.get("schedule_url"),
                 "track_key": track_key or None,
@@ -249,6 +265,8 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
                     "series": set(),
                     "events": [],
                 })
+                if not track.get("location") and event_row.get("location"):
+                    track["location"] = event_row.get("location")
                 track["series"].add(series_key)
                 track["events"].append({
                     "key": ekey,
