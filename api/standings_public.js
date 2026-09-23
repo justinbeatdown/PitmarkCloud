@@ -13,7 +13,25 @@ const pageView=routePath==='/standings'||routePath.endsWith('/standings')
             ?'seriesprofile'
             :routePath.endsWith('/series')
               ?'series'
-              :'hub';
+              :routePath.includes('/race-center/track/')
+                ?'trackprofile'
+                :routePath.endsWith('/tracks')
+                  ?'tracks'
+                  :routePath.includes('/race-center/team/')
+                    ?'teamprofile'
+                    :routePath.endsWith('/teams')
+                      ?'teams'
+                      :routePath.includes('/race-center/event/')
+                        ?'event'
+                        :routePath.endsWith('/events')
+                          ?'events'
+                          :routePath.endsWith('/results')
+                            ?'results'
+                            :routePath.endsWith('/my-racing')
+                              ?'myracing'
+                              :routePath.endsWith('/data-health')
+                                ?'health'
+                                :'hub';
 const PREF_KEY='pitmark-race-center-v5';
 const CACHE_KEY='pitmark-race-center-v6-feed-20260923';
 const readPrefs=()=>{
@@ -158,7 +176,8 @@ function configurePage(){
   $$('[data-race-view]').forEach(link=>{
     const active=link.dataset.raceView===state.view
       ||(state.view==='driver'&&link.dataset.raceView==='drivers')
-      ||(state.view==='seriesprofile'&&link.dataset.raceView==='series');
+      ||(state.view==='seriesprofile'&&link.dataset.raceView==='series')
+      ||(state.view==='trackprofile'&&link.dataset.raceView==='tracks');
     link.classList.toggle('active',active);
     if(active)link.setAttribute('aria-current','page');
     else link.removeAttribute('aria-current');
@@ -220,6 +239,69 @@ function configurePage(){
       primary:['Open race weekend','#raceWeekend'],
       secondary:['Full schedules','/race-center/schedules'],
       pageTitle:'Live + Next — Pitmark Race Center V6'
+    },
+    tracks:{
+      title:'Tracks.<br><em>Where racing lives.</em>',
+      intro:'Follow venues, see visiting series, upcoming events and source-backed track activity.',
+      primary:['Browse tracks','#worldPage'],
+      secondary:['Race Day','/race-center/events'],
+      pageTitle:'Tracks — Pitmark Race Center'
+    },
+    trackprofile:{
+      title:'Track profile.<br><em>Everything racing there.</em>',
+      intro:'Upcoming events, visiting series, recent race activity and official source links.',
+      primary:['All tracks','/race-center/tracks'],
+      secondary:['Race Day','/race-center/events'],
+      pageTitle:'Track — Pitmark Race Center'
+    },
+    teams:{
+      title:'Teams.<br><em>Who races together.</em>',
+      intro:'Drivers, manufacturers, championships and connected racing organizations.',
+      primary:['Browse teams','#worldPage'],
+      secondary:['Drivers','/race-center/drivers'],
+      pageTitle:'Teams — Pitmark Race Center'
+    },
+    teamprofile:{
+      title:'Team profile.<br><em>Drivers connected.</em>',
+      intro:'Current drivers, series, manufacturers and championship context in one place.',
+      primary:['All teams','/race-center/teams'],
+      secondary:['Drivers','/race-center/drivers'],
+      pageTitle:'Team — Pitmark Race Center'
+    },
+    events:{
+      title:'Race Day.<br><em>Everything for the event.</em>',
+      intro:'Countdowns, venues, watch links, championship context, sources and results status.',
+      primary:['Browse events','#worldPage'],
+      secondary:['Live + Next','/race-center/live'],
+      pageTitle:'Race Day — Pitmark Race Center'
+    },
+    event:{
+      title:'Event Hub.<br><em>Race day in one page.</em>',
+      intro:'The event, the venue, the series, how to watch and championship context — connected.',
+      primary:['All events','/race-center/events'],
+      secondary:['Schedules','/race-center/schedules'],
+      pageTitle:'Event Hub — Pitmark Race Center'
+    },
+    results:{
+      title:'Results + history.<br><em>What changed.</em>',
+      intro:'Recent completed events and durable championship snapshots from Race Center’s source-backed archive.',
+      primary:['Browse archive','#worldPage'],
+      secondary:['Standings','/race-center/standings'],
+      pageTitle:'Results + History — Pitmark Race Center'
+    },
+    myracing:{
+      title:'My Racing.<br><em>What matters to you.</em>',
+      intro:'A personalized racing briefing built from the drivers, series, teams and tracks you follow.',
+      primary:['My briefing','#worldPage'],
+      secondary:['Explore racing','/race-center'],
+      pageTitle:'My Racing — Pitmark Race Center'
+    },
+    health:{
+      title:'Race Center health.<br><em>Trust the data.</em>',
+      intro:'Source coverage, freshness, driver identity completeness and the state of Race Center’s racing graph.',
+      primary:['Data health','#worldPage'],
+      secondary:['Race Center','/race-center'],
+      pageTitle:'Data Health — Pitmark Race Center'
     }
   }[state.view]||{
     title:'All of racing.<br><em>One home base.</em>',
