@@ -1133,6 +1133,23 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Race Center V7 Driver Compare", css)
         self.assertIn('body[data-view="compare"] .v7-compare', css)
 
+    def test_race_center_v7_race_day_prioritizes_relevant_near_term_racing(self):
+        entities = self.read("services/race_center_entities.py")
+        api = self.read("api/standings_public.py")
+        v7_js = self.read("api/race_center_v7.js")
+
+        for token in (
+            "def race_day_brief(",
+            '"FOLLOWED TRACK"',
+            '"FOLLOWED SERIES"',
+            '"window_hours": 30',
+            '"race_day_score"',
+        ):
+            self.assertIn(token, entities)
+        self.assertIn("race_center_entities.race_day_brief(follows)", api)
+        self.assertIn("eventCountdown(e.start,e.state)", v7_js)
+        self.assertIn("e.race_day_reason", v7_js)
+
     def test_race_center_v7_event_pages_are_race_weekend_hubs(self):
         entities = self.read("services/race_center_entities.py")
         v7_js = self.read("api/race_center_v7.js")
