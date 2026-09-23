@@ -1174,6 +1174,27 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Race Center V7 Driver Compare", css)
         self.assertIn('body[data-view="compare"] .v7-compare', css)
 
+    def test_race_center_v7_claims_have_server_owned_verification_and_audit(self):
+        entities = self.read("services/race_center_entities.py")
+        api = self.read("api/standings_public.py")
+        accounts = self.read("services/race_center_accounts.py")
+
+        for token in (
+            "class RaceCenterEntityClaimAudit",
+            "def entity_claims_for_review(",
+            "reviewer_user_id",
+            '"Claimed Driver"',
+            '"Official Team"',
+            '"Official Track"',
+            '"Series Representative"',
+        ):
+            self.assertIn(token, entities)
+
+        self.assertIn('"/api/public/race-center/entity-claims/review"', api)
+        self.assertIn("reviewer_user_id=staff.id", api)
+        self.assertIn("PITMARK_STAFF_ACCOUNTS", accounts)
+        self.assertIn("Server-owned staff identity", accounts)
+
     def test_race_center_v7_teams_are_first_class_racing_entities(self):
         entities = self.read("services/race_center_entities.py")
         v7_js = self.read("api/race_center_v7.js")
