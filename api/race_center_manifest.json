@@ -1,0 +1,25 @@
+{
+  "name": "Pitmark Race Center",
+  "short_name": "Race Center",
+  "description": "Your racing command center: drivers, series, tracks, teams, events, standings and My Racing.",
+  "start_url": "/race-center",
+  "scope": "/race-center",
+  "display": "standalone",
+  "background_color": "#090b0e",
+  "theme_color": "#090b0e",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/prt-logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {"name": "My Racing", "url": "/race-center/my-racing"},
+    {"name": "Live + Next", "url": "/race-center/live"},
+    {"name": "Drivers", "url": "/race-center/drivers"},
+    {"name": "Tracks", "url": "/race-center/tracks"}
+  ]
+}
