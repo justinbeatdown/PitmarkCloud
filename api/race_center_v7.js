@@ -418,7 +418,7 @@
         if($('#v7DriverConnections',content))return;
         const teams=[];
         if(driver.team)teams.push('<a href="/race-center/team/'+encodeURIComponent(String(driver.team).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''))+'"><strong>'+esc(driver.team)+'</strong><span>Team profile →</span></a>');
-        const series=(driver.series||[]).map(x=>'<a href="/race-center/series/'+encodeURIComponent(x.series_key)+'"><strong>'+esc(x.series_name||x.series_key)+'</strong><span>P'+esc(x.position||'—')+' · '+esc(x.points||'—')+' pts</span></a>').join('');
+        const series=(driver.series||[]).map(x=>'<a href="/race-center/series/'+encodeURIComponent(x.series_key)+'"><strong>'+esc(x.series_name||x.series_key)+'</strong><span>P'+esc(x.position||'—')+' · '+esc(x.points||'—')+' pts'+(x.wins!==undefined&&x.wins!==null?' · '+esc(x.wins)+' wins':'')+(x.starts!==undefined&&x.starts!==null?' · '+esc(x.starts)+' starts':'')+'</span></a>').join('');
         const section=document.createElement('section');
         section.id='v7DriverConnections';
         section.className='v7-driver-connections';
