@@ -123,6 +123,24 @@ class NativeOpsContractTests(unittest.TestCase):
         scope_block = auth.split("ANALYTICS_SCOPES", 1)[1].split("])", 1)[0]
         self.assertNotIn("youtube.readonly", scope_block)
 
+    def test_youtube_has_dedicated_read_only_oauth(self):
+        auth = (ROOT / "services" / "youtube_intelligence_auth.py").read_text(encoding="utf-8")
+        hq = (ROOT / "api" / "control_center_hq.py").read_text(encoding="utf-8")
+        client = (ROOT / "api" / "control_native_ops.js").read_text(encoding="utf-8")
+        service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
+        self.assertIn("youtube.readonly", auth)
+        self.assertIn("youtube_intelligence_refresh_token", auth)
+        self.assertIn('/api/control/intelligence/youtube/oauth/start', hq)
+        self.assertIn('/api/control/intelligence/youtube/oauth/complete', hq)
+        self.assertIn("data-connect-youtube", client)
+        self.assertIn("showYouTubeConnectPanel", client)
+        self.assertIn("completeYouTubeConnect", client)
+        self.assertIn("def _youtube_snapshot", service)
+        self.assertIn("youtube/v3/channels", service)
+        self.assertIn('"status": "live"', service)
+        compile(auth, "services/youtube_intelligence_auth.py", "exec")
+
+
     def test_social_calendar_separates_failures(self):
         service = (ROOT / "services" / "native_analytics_suite.py").read_text(encoding="utf-8")
         self.assertIn('visible_statuses = {"scheduled", "published", "approved", "pending"}', service)
@@ -159,8 +177,8 @@ class NativeOpsContractTests(unittest.TestCase):
 
     def test_native_ops_assets_are_cache_busted(self):
         html = (ROOT / "api" / "control_native_ops.html").read_text(encoding="utf-8")
-        self.assertIn("/control-native-ops.css?v=6", html)
-        self.assertIn("/control-native-ops.js?v=7", html)
+        self.assertIn("/control-native-ops.css?v=7", html)
+        self.assertIn("/control-native-ops.js?v=8", html)
 
 
     def test_meta_reporting_uses_published_posts_with_graceful_fallback(self):
@@ -198,8 +216,8 @@ class NativeOpsContractTests(unittest.TestCase):
 
     def test_native_ops_assets_are_cache_busted_for_v2(self):
         html = (ROOT / "api" / "control_native_ops.html").read_text(encoding="utf-8")
-        self.assertIn("/control-native-ops.css?v=6", html)
-        self.assertIn("/control-native-ops.js?v=7", html)
+        self.assertIn("/control-native-ops.css?v=7", html)
+        self.assertIn("/control-native-ops.js?v=8", html)
 
 
     def test_x_publish_service_has_credit_circuit_breaker(self):
