@@ -3394,12 +3394,182 @@ def _wikipedia_manufacturer(
     return None
 
 
+_WIKIPEDIA_SERIES_HINTS: dict[str, tuple[str, ...]] = {
+    "nascar-cup": ("nascar cup series",),
+    "nascar-oreilly": (
+        "nascar o'reilly auto parts series",
+        "nascar xfinity series",
+        "nascar nationwide series",
+        "nascar busch series",
+    ),
+    "nascar-truck": ("nascar craftsman truck series", "nascar truck series"),
+    "arca-menards": ("arca menards series",),
+    "indycar": ("indycar series", "ntt indycar series"),
+    "f1": ("formula one", "formula 1"),
+    "formula-e": ("formula e",),
+}
+
+
+def _wikipedia_series_clause(summary: str, series_key: str) -> str:
+    text = " ".join(str(summary or "").split()).strip()
+    if not text:
+        return ""
+    hints = _WIKIPEDIA_SERIES_HINTS.get(series_key, ())
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+    for sentence in sentences:
+        lower = sentence.lower()
+        if any(hint in lower for hint in hints):
+            return sentence
+    return text
+
+
+def _wikipedia_identity_from_summary(
+    summary: str,
+    series_key: str,
+) -> tuple[str | None, str | None, str | None]:
+    clause = _wikipedia_series_clause(summary, series_key)
+    if not clause:
+        return None, None, None
+
+    number: str | None = None
+    team: str | None = None
+    manufacturer: str | None = None
+
+    number_match = re.search(r"\bNo\.?\s*([A-Za-z0-9-]+)\b", clause, flags=re.IGNORECASE)
+    if number_match:
+        number = number_match.group(1).strip() or None
+
+    for make in sorted(_WIKIPEDIA_MANUFACTURERS, key=len, reverse=True):
+        if re.search(rf"\b{re.escape(make)}\b", clause, flags=re.IGNORECASE):
+            manufacturer = make
+            break
+
+    # Stock-car biographies commonly use:
+    # "driving the No. 5 Chevrolet ... for Hendrick Motorsports".
+    team_match = re.search(
+        r"\bfor\s+([A-Z][A-Za-z0-9&'’.\- ]{2,80}?)(?=,\s+(?:and|while|part|full)|[.;]|$)",
+        clause,
+    )
+    if team_match:
+        candidate = " ".join(team_match.group(1).split()).strip(" ,.;")
+        if candidate and not candidate.lower().startswith(("the ", "a ")):
+            team = candidate
+
+    return team, number, manufacturer
+
+
+def _wikipedia_page_payload(title: str) -> dict[str, Any]:
+    params = {
+        "action": "query",
+        "prop": "extracts|pageimages",
+        "titles": title,
+        "redirects": "1",
+        "exintro": "1",
+        "explaintext": "1",
+        "piprop": "name|thumbnail|original",
+        "pithumbsize": "720",
+        "format": "json",
+        "formatversion": "2",
+    }
+    with httpx.Client(
+        timeout=14.0,
+        follow_redirects=True,
+        headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+    ) as client:
+        response = client.get(WIKIPEDIA_API_URL, params=params)
+        response.raise_for_status()
+        pages = ((response.json() or {}).get("query") or {}).get("pages") or []
+    return pages[0] if pages else {}
+
+
+def _wikipedia_parsed_html(title: str) -> BeautifulSoup | None:
+    params = {
+        "action": "parse",
+        "page": title,
+        "prop": "text",
+        "format": "json",
+        "formatversion": "2",
+    }
+    with httpx.Client(
+        timeout=14.0,
+        follow_redirects=True,
+        headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+    ) as client:
+        response = client.get(WIKIPEDIA_API_URL, params=params)
+        response.raise_for_status()
+        html = ((response.json() or {}).get("parse") or {}).get("text") or ""
+    return BeautifulSoup(html, "html.parser") if html else None
+
+
+def _wikipedia_licensed_photo(page: dict[str, Any]) -> dict[str, Any]:
+    filename = " ".join(str(page.get("pageimage") or "").split()).strip()
+    if not filename:
+        return {}
+
+    params = {
+        "action": "query",
+        "prop": "imageinfo",
+        "titles": f"File:{filename}",
+        "iiprop": "url|extmetadata",
+        "iiurlwidth": "720",
+        "format": "json",
+        "formatversion": "2",
+    }
+    with httpx.Client(
+        timeout=14.0,
+        follow_redirects=True,
+        headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+    ) as client:
+        response = client.get(WIKIPEDIA_API_URL, params=params)
+        response.raise_for_status()
+        pages = ((response.json() or {}).get("query") or {}).get("pages") or []
+
+    info = ((pages[0] if pages else {}).get("imageinfo") or [{}])[0]
+    metadata = info.get("extmetadata") or {}
+    license_name = str((metadata.get("LicenseShortName") or {}).get("value") or "").strip()
+    normalized_license = license_name.lower()
+    allowed = (
+        normalized_license.startswith("cc by")
+        or normalized_license.startswith("cc0")
+        or normalized_license.startswith("public domain")
+        or normalized_license.startswith("pd-")
+    )
+    if not allowed:
+        return {
+            "photo_use_allowed": False,
+            "photo_license": license_name or None,
+            "photo_source_url": info.get("descriptionurl"),
+        }
+
+    artist_html = str((metadata.get("Artist") or {}).get("value") or "")
+    credit_html = str((metadata.get("Credit") or {}).get("value") or "")
+    artist = " ".join(BeautifulSoup(artist_html, "html.parser").get_text(" ", strip=True).split())
+    credit = " ".join(BeautifulSoup(credit_html, "html.parser").get_text(" ", strip=True).split())
+    attribution = artist or credit
+
+    thumbnail = page.get("thumbnail") or {}
+    original = page.get("original") or {}
+    photo_url = (
+        info.get("thumburl")
+        or thumbnail.get("source")
+        or info.get("url")
+        or original.get("source")
+    )
+    return {
+        "photo_use_allowed": bool(photo_url),
+        "photo_url": photo_url,
+        "photo_source_url": info.get("descriptionurl"),
+        "photo_license": license_name or None,
+        "photo_attribution": attribution[:320] if attribution else None,
+    }
+
+
 def _wikipedia_driver_identity(
     config: dict[str, Any],
     driver_name: str,
     season: int,
 ) -> dict[str, Any]:
-    cache_key = f"wikipedia-driver:{config.get('key')}:{_identity_key(driver_name)}"
+    cache_key = f"wikipedia-driver-v2:{config.get('key')}:{_identity_key(driver_name)}"
     cached = _profile_metadata_cache_get(cache_key)
     if cached:
         data, source_url = cached
@@ -3408,47 +3578,51 @@ def _wikipedia_driver_identity(
 
     picked = _wikipedia_pick_page(driver_name)
     if not picked:
+        log.info("Wikipedia driver page not found series=%s driver=%s", config.get("key"), driver_name)
         return {}
     title, page_url = picked
 
-    with httpx.Client(
-        timeout=14.0,
-        follow_redirects=True,
-        headers={
-            "User-Agent": USER_AGENT,
-            "Accept": "text/html,application/xhtml+xml",
-            "Accept-Language": "en-US,en;q=0.9",
-        },
-    ) as client:
-        response = client.get(page_url)
-        response.raise_for_status()
-    soup = BeautifulSoup(response.text, "html.parser")
-    infobox = _wikipedia_infobox(soup)
+    page = _wikipedia_page_payload(title)
+    summary = " ".join(str(page.get("extract") or "").split()).strip()
 
-    summary = ""
-    content = soup.select_one("div.mw-parser-output")
-    if content:
-        for paragraph in content.find_all("p", recursive=False):
-            text = " ".join(paragraph.get_text(" ", strip=True).split()).strip()
-            if len(text) >= 80:
-                summary = re.sub(r"\[\d+\]", "", text).strip()
-                break
+    infobox: dict[str, str] = {}
+    try:
+        soup = _wikipedia_parsed_html(title)
+        if soup:
+            infobox = _wikipedia_infobox(soup)
+    except Exception as exc:
+        log.info("Wikipedia infobox parse failed driver=%s error=%s", driver_name, exc)
 
     team, number = _wikipedia_team_and_number(infobox, str(config.get("key") or ""))
     manufacturer = _wikipedia_manufacturer(infobox, summary, number)
 
-    # NASCAR driver pages encode series-specific team + number reliably in the
-    # infobox. The opening paragraph normally contains the make/model, which
-    # lets us fill the manufacturer without guessing from team affiliation.
+    summary_team, summary_number, summary_manufacturer = _wikipedia_identity_from_summary(
+        summary,
+        str(config.get("key") or ""),
+    )
+    team = team or summary_team
+    number = number or summary_number
+    manufacturer = manufacturer or summary_manufacturer
+
+    photo: dict[str, Any] = {}
+    try:
+        photo = _wikipedia_licensed_photo(page)
+    except Exception as exc:
+        log.info("Wikipedia photo license lookup failed driver=%s error=%s", driver_name, exc)
+
     result = {
         "number": number,
         "team": team,
         "manufacturer": manufacturer,
         "bio": summary[:900] if summary else None,
         "wikipedia_title": title,
+        **photo,
     }
 
-    if not any(result.get(field) for field in ("number", "team", "manufacturer", "bio")):
+    if not any(
+        result.get(field)
+        for field in ("number", "team", "manufacturer", "bio", "photo_url")
+    ):
         return {}
 
     data = {_identity_key(driver_name): result}
@@ -3532,14 +3706,12 @@ def get_driver_identity(
 
     resolved = any((number, team, manufacturer))
     fully_official = bool(
-        resolved
+        number
+        and team
+        and manufacturer
         and all(
-            not value or field_sources.get(field) == "official"
-            for field, value in (
-                ("number", number),
-                ("team", team),
-                ("manufacturer", manufacturer),
-            )
+            field_sources.get(field) == "official"
+            for field in ("number", "team", "manufacturer")
         )
     )
     source_kind = (
@@ -3550,6 +3722,8 @@ def get_driver_identity(
         and any(value == "wikipedia" for value in field_sources.values())
         else "wikipedia"
         if any(value == "wikipedia" for value in field_sources.values())
+        else "official_partial"
+        if any(value == "official" for value in field_sources.values())
         else "unresolved"
     )
     return {
@@ -3561,6 +3735,11 @@ def get_driver_identity(
         "team": team,
         "manufacturer": manufacturer,
         "bio": secondary.get("bio"),
+        "photo_url": secondary.get("photo_url"),
+        "photo_use_allowed": bool(secondary.get("photo_use_allowed")),
+        "photo_source_url": secondary.get("photo_source_url"),
+        "photo_license": secondary.get("photo_license"),
+        "photo_attribution": secondary.get("photo_attribution"),
         "field_sources": field_sources,
         "source_kind": source_kind,
         "source_name": (
@@ -3569,7 +3748,7 @@ def get_driver_identity(
             else "Wikipedia"
             if source_kind == "wikipedia"
             else "Official racing source"
-            if source_kind == "official"
+            if source_kind in {"official", "official_partial"}
             else None
         ),
         "source_url": official_source_url if source_kind == "official" else secondary.get("source_url"),
