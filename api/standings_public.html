@@ -435,6 +435,28 @@
     </div>
   </dialog>
 
+  <dialog id="entityManageDialog" class="account-dialog" aria-labelledby="entityManageTitle">
+    <div class="account-shell claim-shell v7-manage-shell">
+      <button class="dialog-close" id="entityManageClose" type="button" aria-label="Close page manager">×</button>
+      <span class="eyebrow">VERIFIED PAGE CONTROL</span>
+      <h2 id="entityManageTitle">Manage racing page</h2>
+      <p class="account-intro">Your content lives around Pitmark's source-backed racing facts. Standings, results and official identity fields remain locked to trusted sources.</p>
+      <form id="entityManageForm" class="account-form claim-form">
+        <input id="entityManageType" type="hidden">
+        <input id="entityManageKey" type="hidden">
+        <label>Headline <input id="entityManageHeadline" maxlength="180" placeholder="Short owner-controlled headline"></label>
+        <label>Official website <input id="entityManageWebsite" type="url" maxlength="1500" placeholder="https://..."></label>
+        <label class="full">Bio / story <textarea id="entityManageBio" maxlength="4000" placeholder="Tell fans about the driver, team, track, series or event."></textarea></label>
+        <label>Merch link <input id="entityManageMerch" type="url" maxlength="1500" placeholder="https://..."></label>
+        <label>Social link <input id="entityManageSocial" type="url" maxlength="1500" placeholder="https://..."></label>
+        <label>Contact link <input id="entityManageContact" type="url" maxlength="1500" placeholder="https://..."></label>
+        <label class="full">Sponsors <textarea id="entityManageSponsors" maxlength="2500" placeholder="One sponsor per line or a simple comma-separated list."></textarea></label>
+        <button class="button primary" type="submit">Save page content</button>
+        <p class="account-message" id="entityManageMessage"></p>
+      </form>
+    </div>
+  </dialog>
+
   <dialog id="peopleDialog" class="people-dialog" aria-labelledby="peopleDialogTitle">
     <div class="people-profile-shell">
       <button class="dialog-close" id="peopleDialogClose" type="button" aria-label="Close profile">×</button>
