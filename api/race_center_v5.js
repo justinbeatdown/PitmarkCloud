@@ -688,7 +688,7 @@
     setInterval(function(){
       if(state.payload)v5RenderAll();
     },30000);
-    setInterval(v5LoadFeed,60000);
+    if($('#v5Home'))setInterval(v5LoadFeed,60000);
   }
 
   if(document.readyState==='loading'){

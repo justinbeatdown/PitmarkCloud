@@ -463,9 +463,9 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('id="profileAccountType"', public_html)
         self.assertIn("/race-center-v5.js", public_html)
         self.assertIn("v5LoadFeed", social_js)
-        self.assertIn('class="race-social"', public_html)
-        self.assertIn('id="raceFeed"', public_html)
-        self.assertIn('id="pitWallInput"', public_html)
+        self.assertNotIn('class="race-social"', public_html)
+        self.assertNotIn('id="raceFeed"', public_html)
+        self.assertNotIn('id="pitWallInput"', public_html)
         self.assertIn('"/standings", "/race-center"', security)
         self.assertIn("youtube-nocookie.com", security)
 
@@ -491,8 +491,8 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(route, public_api)
         self.assertIn('id="peopleDialog"', public_html)
-        self.assertIn('id="peopleDiscovery"', public_html)
-        self.assertIn('id="peopleGrid"', public_html)
+        self.assertNotIn('id="peopleDiscovery"', public_html)
+        self.assertNotIn('id="peopleGrid"', public_html)
         for token in (
             "v5BroadcastGraphic",
             "broadcast-photo-card",
@@ -526,7 +526,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             'id="seriesGroups"',
         ):
             self.assertIn(token, public_html)
-        self.assertIn("Your racing.<br><em>One place.</em>", public_js)
+        self.assertIn("Your racing.<br><em>One command center.</em>", public_js)
         self.assertIn("renderMySeries", public_js)
         self.assertIn("renderPulse", public_js)
         self.assertIn("bindMySeriesScroller", public_js)
@@ -539,10 +539,13 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn(".my-series-strip.is-dragging", css)
         self.assertIn("Race Center usability reset", css)
         self.assertIn('body[data-view="hub"] .home-race-pulse', css)
-        self.assertIn('body[data-view="hub"] .race-social{display:grid!important}', css)
-        self.assertIn('body[data-view="hub"] .series-section,', css)
-        self.assertIn('class="race-social"', public_html)
-        self.assertIn('id="raceFeed"', public_html)
+        self.assertIn('RACE CENTER V6 — racing-first home correction', css)
+        self.assertIn('body[data-view="hub"] .race-social{display:none!important}', css)
+        self.assertIn('body[data-view="hub"] .live-section,', css)
+        self.assertIn('body[data-view="hub"] .leaders-section,', css)
+        self.assertIn('body[data-view="hub"] .series-section{', css)
+        self.assertNotIn('class="race-social"', public_html)
+        self.assertNotIn('id="raceFeed"', public_html)
         self.assertIn('id="raceSearchInput"', public_html)
 
     def test_race_center_drivers_claims_and_public_profiles(self):
@@ -872,17 +875,22 @@ class ControlCenter2026Contract(unittest.TestCase):
         css = self.read("api/standings_public.css")
 
         for token in (
-            'id="v5Home"',
-            'id="raceFeedList"',
             'id="raceSearchInput"',
             'id="raceSearchResults"',
+            'id="racePulseTitle"',
+            'id="mySeriesShell"',
+            'id="raceWeekend"',
+            'id="leaderStrip"',
+            'id="standingsBoard"',
             '/race-center-v6.js',
             '<small>V6</small>',
         ):
             self.assertIn(token, public_html)
+        self.assertNotIn('id="v5Home"', public_html)
+        self.assertNotIn('id="raceFeedList"', public_html)
 
         for token in (
-            "Pitmark Race Center — The Social Home for Racing",
+            "Pitmark Race Center — Your Racing Command Center",
             "cache:'no-store'",
             "identity_quality",
             "Not published by source",
@@ -922,7 +930,8 @@ class ControlCenter2026Contract(unittest.TestCase):
 
         for token in (
             "RACE CENTER V6 — finished product shell",
-            "body[data-view=\"hub\"] .race-social{display:grid!important}",
+            "RACE CENTER V6 — racing-first home correction",
+            "body[data-view=\"hub\"] .race-social{display:none!important}",
             ".race-search-results",
             ".social-staff-badge",
             ".driver-identity-status.complete",

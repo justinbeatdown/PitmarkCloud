@@ -2740,3 +2740,96 @@ body[data-view="live"] .hero-copy>p{font-size:14px!important;max-width:800px}
   height:24px;
   object-fit:contain;
 }
+
+
+/* ============================================================
+   RACE CENTER V6 — racing-first home correction
+   Social infrastructure stays available to profiles/community,
+   but the Race Center home is a racing command center.
+   ============================================================ */
+body[data-view="hub"] .race-social{display:none!important}
+
+body[data-view="hub"] #hubNavigation,
+body[data-view="hub"] .movers-section,
+body[data-view="hub"] .schedule-section,
+body[data-view="hub"] .race-center-grid,
+body[data-view="hub"] .drivers-directory,
+body[data-view="hub"] .driver-profile-page,
+body[data-view="hub"] .series-directory,
+body[data-view="hub"] .series-profile-page{
+  display:none!important;
+}
+
+body[data-view="hub"] .toolbar{
+  display:flex!important;
+  position:sticky!important;
+  top:calc(var(--header-h) + 8px);
+  z-index:18;
+  margin:0 0 28px!important;
+  backdrop-filter:blur(14px);
+}
+
+body[data-view="hub"] .live-section,
+body[data-view="hub"] .leaders-section,
+body[data-view="hub"] .series-section{
+  display:block!important;
+}
+
+body[data-view="hub"] .content-section{margin-top:34px!important}
+body[data-view="hub"] .section-head{margin-bottom:12px!important}
+body[data-view="hub"] .series-section{margin-top:42px!important}
+body[data-view="hub"] .leader-strip{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+body[data-view="hub"] .series-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+
+/* Keep the top of Race Center compact and data-led. */
+body[data-view="hub"] .hero{
+  grid-template-columns:minmax(0,1.08fr) minmax(340px,.92fr)!important;
+  gap:30px!important;
+  align-items:center!important;
+  padding:34px 0 22px!important;
+}
+body[data-view="hub"] .hero-board{
+  grid-template-columns:1fr 1fr!important;
+  align-self:center!important;
+}
+body[data-view="hub"] .home-race-pulse{
+  margin-bottom:24px!important;
+  border-color:#29333e!important;
+}
+body[data-view="hub"] .my-series-shell{
+  margin-top:14px!important;
+  border-top:1px solid #27313a;
+  padding-top:12px;
+}
+
+/* The home search is a racing lookup, not a social search. */
+body[data-view="hub"] .race-search-dock>label span::after{
+  content:" · drivers, series, teams, events";
+  color:#687688;
+  letter-spacing:.03em;
+  font-weight:800;
+}
+
+/* Remove social-network visual language from the home viewport entirely. */
+body[data-view="hub"] .social-profile-card,
+body[data-view="hub"] .social-nav,
+body[data-view="hub"] .social-composer-card,
+body[data-view="hub"] .people-discovery,
+body[data-view="hub"] .social-right,
+body[data-view="hub"] .social-left,
+body[data-view="hub"] .social-feed-card{
+  display:none!important;
+}
+
+@media(max-width:1100px){
+  body[data-view="hub"] .hero{grid-template-columns:1fr!important}
+  body[data-view="hub"] .hero-board{max-width:760px!important}
+  body[data-view="hub"] .leader-strip{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  body[data-view="hub"] .series-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:680px){
+  body[data-view="hub"] .toolbar{position:static!important}
+  body[data-view="hub"] .leader-strip,
+  body[data-view="hub"] .series-grid{grid-template-columns:1fr!important}
+  body[data-view="hub"] .race-search-dock>label span::after{content:"";}
+}
