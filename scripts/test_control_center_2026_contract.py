@@ -1112,6 +1112,27 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("/api/public/race-center/calendar/series/", v7_js)
         self.assertIn("Race Center V7 calendar export", css)
 
+    def test_race_center_v7_driver_compare(self):
+        public_api = self.read("api/standings_public.py")
+        public_html = self.read("api/standings_public.html")
+        public_js = self.read("api/standings_public.js")
+        v7_js = self.read("api/race_center_v7.js")
+        css = self.read("api/standings_public.css")
+
+        self.assertIn('@router.get("/race-center/compare"', public_api)
+        self.assertIn('@router.get("/api/public/race-center/compare"', public_api)
+        self.assertIn('"shared_series": shared', public_api)
+        self.assertIn('id="v7Compare"', public_html)
+        self.assertIn('id="v7CompareA"', public_html)
+        self.assertIn('href="/race-center/compare"', public_html)
+        self.assertIn("routePath.endsWith('/compare')", public_js)
+        self.assertIn("Driver Compare — Pitmark Race Center V7", public_js)
+        self.assertIn("function renderCompare()", v7_js)
+        self.assertIn("/api/public/race-center/compare", v7_js)
+        self.assertIn("Compare driver ↔", v7_js)
+        self.assertIn("Race Center V7 Driver Compare", css)
+        self.assertIn('body[data-view="compare"] .v7-compare', css)
+
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
         public_api = self.read("api/standings_public.py")
