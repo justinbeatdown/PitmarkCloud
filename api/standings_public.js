@@ -148,7 +148,7 @@ const numericValue=value=>{
 function configurePage(){
   document.body.dataset.view=state.view;
   $('[data-race-view]').forEach(link=>{
-    const active=link.dataset.raceView===state.view;
+    const active=link.dataset.raceView===state.view||(state.view==='driver'&&link.dataset.raceView==='drivers');
     link.classList.toggle('active',active);
     if(active)link.setAttribute('aria-current','page');
     else link.removeAttribute('aria-current');
@@ -587,6 +587,8 @@ function renderMySeries(){
   if(!series.length){
     strip.innerHTML='<button class="my-series-chip" id="emptyFavoriteCta" type="button"><span class="series-wordmark">START</span><span><strong>Build My Series</strong><small>Star the championships you care about.</small></span></button>';
     hint.textContent='Your saved championships live here.';
+    const controls=$('#mySeriesControls');
+    if(controls)controls.hidden=true;
     return;
   }
   hint.textContent=state.account?.authenticated?'Synced to your Race Center account.':'Saved on this device.';
