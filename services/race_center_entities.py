@@ -130,21 +130,19 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
     with _graph_lock:
         cached_at = _graph_cache.get("at")
         cached_value = _graph_cache.get("value")
+        ttl = 60 if (cached_value or {}).get("warming") else 300
         if (
             not force
             and cached_at
             and cached_value
-            and (now - cached_at).total_seconds() < 300
+            and (now - cached_at).total_seconds() < ttl
         ):
             return cached_value
 
     standings = get_standings_snapshot_hub()
+    # Event sources are refreshed by the dedicated background sync loop. Public
+    # graph requests never trigger dozens of remote schedule fetches themselves.
     events = get_racing_event_hub()
-    if events.get("warming") or not any((item.get("event") for item in (events.get("catalog") or []))):
-        try:
-            events = get_racing_event_hub(force=True)
-        except Exception:
-            pass
     event_series = events.get("series") or {}
 
     series_items: list[dict[str, Any]] = []
@@ -299,6 +297,7 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
         "tracks": sorted(tracks.values(), key=lambda x: x["name"]),
         "events": event_items,
         "health": data_health(standings=standings),
+        "warming": bool(events.get("warming")),
     }
     with _graph_lock:
         _graph_cache["at"] = now
