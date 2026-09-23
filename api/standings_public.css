@@ -3734,3 +3734,43 @@ body[data-view="compare"] .v7-compare{
   justify-content:flex-end;
   margin:12px 0 0;
 }
+
+
+/* Race Center V7 embeddable standings */
+.v7-embed-dialog{
+  width:min(920px,calc(100% - 24px));
+  max-height:92vh;
+  border:1px solid #313d48;
+  border-radius:18px;
+  padding:0;
+  background:#0b1015;
+  color:#f3f6f8;
+}
+.v7-embed-dialog::backdrop{background:rgba(0,0,0,.74);backdrop-filter:blur(5px)}
+.v7-embed-shell{padding:20px}
+.v7-embed-shell .dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.v7-embed-shell h2{margin:5px 0 5px;font-size:28px}
+.v7-embed-shell p{margin:0;color:#8290a2;font-size:11px}
+.v7-embed-code{
+  width:100%;
+  min-height:92px;
+  margin:14px 0 10px;
+  border:1px solid #303b46;
+  border-radius:10px;
+  background:#070b0f;
+  color:#bdc7d3;
+  padding:10px;
+  resize:vertical;
+  font:10px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+.v7-embed-preview{
+  width:100%;
+  height:520px;
+  margin-top:12px;
+  border:1px solid #27313b;
+  border-radius:12px;
+  background:#090d11;
+}
+@media(max-width:680px){
+  .v7-embed-preview{height:440px}
+}
