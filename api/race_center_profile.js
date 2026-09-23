@@ -35,7 +35,8 @@ function renderAvatar(){
   if(!host||!profile)return;
   host.innerHTML='';
   const img=document.createElement('img');
-  img.src=(profile.photo_url||'/api/public/race-center/profile-photo/'+encodeURIComponent(profile.handle))+'?v='+Date.now();
+  const photoUrl=profile.photo_url||'/api/public/race-center/profile-photo/'+encodeURIComponent(profile.handle);
+  img.src=photoUrl+(photoUrl.includes('?')?'&':'?')+'v='+Date.now();
   img.alt=profile.display_name||profile.handle;
   img.onload=()=>{host.classList.add('has-photo');};
   img.onerror=()=>{host.classList.remove('has-photo');host.textContent=initials(profile.display_name||profile.handle);};
