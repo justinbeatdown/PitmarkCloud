@@ -1181,7 +1181,7 @@ class ControlCenter2026Contract(unittest.TestCase):
 
         for token in (
             "def entity_relationships(",
-            'relationships["',
+            "relationships[name] = nodes[:48]",
             'result["relationships"] = entity_relationships',
             '"drivers", "driver"',
             '"events", "event"',
