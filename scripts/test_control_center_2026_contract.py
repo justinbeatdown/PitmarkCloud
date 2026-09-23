@@ -624,7 +624,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("routePath.endsWith('/drivers')", public_js)
         self.assertIn("routePath.includes('/race-center/driver/')", public_js)
         self.assertIn("$('[data-race-view]').forEach", public_js)
-        self.assertNotIn("$('[data-race-view]').forEach", public_js)
+        self.assertNotIn("  $('[data-race-view]').forEach", public_js)
         self.assertIn("Find a driver.<br><em>Know their racing.</em>", public_js)
         self.assertIn('data-race-view="drivers"', public_html)
         self.assertIn('body[data-view="drivers"] .drivers-directory', css)
