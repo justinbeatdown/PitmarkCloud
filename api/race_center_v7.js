@@ -667,14 +667,22 @@
       const add=()=>{
         if($('#v7SeriesArchive',content))return;
         const rows=archive.snapshots||[];
+        const events=archive.events||[];
         const section=document.createElement('section');
         section.id='v7SeriesArchive';
         section.className='v7-driver-connections';
-        section.innerHTML='<div class="section-head"><div><span class="eyebrow">RESULTS ARCHIVE</span><h2>Championship snapshots</h2></div><p>'+Number(archive.snapshot_count||0)+' saved snapshots for '+esc(String(archive.season||''))+'.</p></div>'+
-          '<div class="v7-archive-grid">'+(rows.length?rows.map(row=>{
+        section.innerHTML='<div class="section-head"><div><span class="eyebrow">RESULTS ARCHIVE</span><h2>'+esc(String(archive.season||''))+' season history</h2></div><p>'+Number(archive.event_count||0)+' race results · '+Number(archive.snapshot_count||0)+' championship snapshots.</p></div>'+
+          '<div class="v7-profile-section"><span class="eyebrow">RACE HISTORY</span><h3>Events + winners</h3><div class="v7-related-list">'+
+          (events.length?events.map(event=>{
+            const winner=event.winner||{};
+            const resultCount=(event.results||[]).length;
+            return '<a href="/race-center/event/'+encodeURIComponent(event.key||'')+'"><strong>'+esc(event.name||'Race event')+'</strong><span>'+esc([eventWhen(event.start),event.venue,winner.name||winner.driver?('Winner: '+(winner.name||winner.driver)):'',resultCount?(resultCount+' results'):''].filter(Boolean).join(' · '))+'</span></a>';
+          }).join(''):'<p>No source-backed race results are available for this season yet.</p>')+
+          '</div></div>'+
+          '<div class="v7-profile-section"><span class="eyebrow">CHAMPIONSHIP HISTORY</span><h3>Saved standings snapshots</h3><div class="v7-archive-grid">'+(rows.length?rows.map(row=>{
             const leader=row.leader||{};
             return '<article class="v7-archive-card"><span>'+esc(eventWhen(row.fetched_at))+'</span><strong>'+esc(leader.name||'Snapshot saved')+'</strong><p>'+(leader.position?'P'+esc(leader.position)+' · ':'')+esc(leader.points??'—')+' pts · '+Number(row.field_size||0)+' drivers</p><small>'+esc(row.source_name||'Race Center source')+'</small></article>';
-          }).join(''):'<div class="loading-card">No saved archive snapshots yet.</div>')+'</div>';
+          }).join(''):'<div class="loading-card">No saved championship snapshots yet.</div>')+'</div></div>';
         if(entity){
           section.innerHTML+=ownerContentBlock(entity)+editorialBlock(entity.editorial||[])+
             '<div class="v7-profile-actions">'+claimButton('series',entity)+
