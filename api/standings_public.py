@@ -600,6 +600,23 @@ def public_race_center_v6_js():
     return _asset("race_center_v6.js", "application/javascript")
 
 
+@router.get("/race-center-world.js", include_in_schema=False)
+def public_race_center_world_js():
+    return _asset("race_center_world.js", "application/javascript")
+
+
+@router.get("/race-center-manifest.json", include_in_schema=False)
+def public_race_center_manifest():
+    return _asset("race_center_manifest.json", "application/manifest+json")
+
+
+@router.get("/race-center-sw.js", include_in_schema=False)
+def public_race_center_service_worker():
+    response = _asset("race_center_sw.js", "application/javascript")
+    response.headers["Service-Worker-Allowed"] = "/"
+    return response
+
+
 @router.get("/race-center-assets/arca.webp", include_in_schema=False)
 def public_arca_logo():
     return Response(
