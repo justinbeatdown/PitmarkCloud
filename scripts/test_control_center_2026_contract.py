@@ -552,6 +552,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         profile_html = self.read("api/race_center_profile.html")
         profile_js = self.read("api/race_center_profile.js")
         css = self.read("api/standings_public.css")
+        security = self.read("utils/security.py")
 
         for token in (
             "race_center_profile_photos",
@@ -608,13 +609,21 @@ class ControlCenter2026Contract(unittest.TestCase):
             "/api/public/race-center/profile-wall/",
             "/api/public/race-center/feed",
             "profileFollowButton",
+            "prepareProfilePhoto",
+            "createImageBitmap",
+            "canvas.toBlob",
+            "Preparing photo…",
         ):
             self.assertIn(token, profile_js)
 
         self.assertIn("Race Center readability + drivers/profile pass", css)
         self.assertIn(".drivers-grid", css)
         self.assertIn(".public-profile-hero", css)
+        self.assertIn(".profile-photo-upload[hidden]", css)
+        self.assertIn(".public-profile-actions [hidden]", css)
         self.assertIn('grid-template-columns:repeat(4,minmax(0,1fr))!important', css)
+        self.assertIn("PROFILE_PHOTO_UPLOAD_MAX_REQUEST_BODY", security)
+        self.assertIn('path == "/api/public/race-center/profile/photo"', security)
 
     def test_race_center_drivers_route_is_distinct_from_home(self):
         public_js = self.read("api/standings_public.js")
