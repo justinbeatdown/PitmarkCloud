@@ -1174,6 +1174,25 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Race Center V7 Driver Compare", css)
         self.assertIn('body[data-view="compare"] .v7-compare', css)
 
+    def test_race_center_v7_relationship_graph_is_reusable(self):
+        entities = self.read("services/race_center_entities.py")
+        api = self.read("api/standings_public.py")
+        v7_js = self.read("api/race_center_v7.js")
+
+        for token in (
+            "def entity_relationships(",
+            'relationships["',
+            'result["relationships"] = entity_relationships',
+            '"drivers", "driver"',
+            '"events", "event"',
+            '"tracks", "track"',
+        ):
+            self.assertIn(token, entities)
+
+        self.assertIn('"/api/public/race-center/relationships/{entity_type}/{entity_key}"', api)
+        self.assertIn("function relationshipBlock(", v7_js)
+        self.assertIn("EXPLORE NEXT", v7_js)
+
     def test_race_center_v7_search_is_entity_aware_and_number_aware(self):
         entities = self.read("services/race_center_entities.py")
         v7_js = self.read("api/race_center_v7.js")
