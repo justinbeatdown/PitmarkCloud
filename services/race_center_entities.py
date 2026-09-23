@@ -91,6 +91,28 @@ class RaceCenterNotificationPreference(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class RaceCenterResultArchive(Base):
+    __tablename__ = "race_center_result_archive"
+    __table_args__ = (
+        UniqueConstraint("event_key", name="uq_race_center_result_archive_event"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_key: Mapped[str] = mapped_column(String(220), index=True)
+    series_key: Mapped[str] = mapped_column(String(120), index=True)
+    season: Mapped[int] = mapped_column(Integer, index=True)
+    event_name: Mapped[str] = mapped_column(String(260), default="")
+    start_at: Mapped[str] = mapped_column(String(80), default="")
+    track_key: Mapped[str] = mapped_column(String(220), default="", index=True)
+    venue: Mapped[str] = mapped_column(String(260), default="")
+    location: Mapped[str] = mapped_column(String(260), default="")
+    winner_name: Mapped[str] = mapped_column(String(180), default="", index=True)
+    winner_number: Mapped[str] = mapped_column(String(40), default="")
+    results_json: Mapped[str] = mapped_column(Text, default="[]")
+    source_urls_json: Mapped[str] = mapped_column(Text, default="[]")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
 class RaceCenterEditorialLink(Base):
     __tablename__ = "race_center_editorial_links"
 
@@ -521,6 +543,212 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
     event_items.sort(key=lambda x: str(x.get("start") or ""))
     series_items.sort(key=lambda x: (str(x.get("group") or ""), str(x.get("name") or "")))
 
+def _result_position(value: Any) -> int:
+    try:
+        return int(str(value or "").strip())
+    except Exception:
+        return 10_000
+
+
+def _archive_event_payload(row: RaceCenterResultArchive) -> dict[str, Any]:
+    try:
+        results = json.loads(row.results_json or "[]")
+    except Exception:
+        results = []
+    try:
+        source_urls = json.loads(row.source_urls_json or "[]")
+    except Exception:
+        source_urls = []
+    winner = next(
+        (
+            item for item in results
+            if isinstance(item, dict) and str(item.get("position") or "") == "1"
+        ),
+        None,
+    )
+    if winner is None and row.winner_name:
+        winner = {"name": row.winner_name, "number": row.winner_number, "position": 1}
+    return {
+        "key": row.event_key,
+        "series_key": row.series_key,
+        "season": row.season,
+        "name": row.event_name,
+        "start": row.start_at,
+        "track_key": row.track_key or None,
+        "venue": row.venue or None,
+        "location": row.location or None,
+        "winner": winner,
+        "results": results if isinstance(results, list) else [],
+        "source_urls": source_urls if isinstance(source_urls, list) else [],
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+def _persist_result_events(events: list[dict[str, Any]], default_season: int | None) -> None:
+    result_events = [
+        event for event in events
+        if isinstance(event, dict) and any(isinstance(item, dict) for item in (event.get("results") or []))
+    ]
+    if not result_events:
+        return
+
+    with SessionLocal() as db:
+        for event in result_events:
+            event_key = str(event.get("key") or "").strip()
+            series_key = str(event.get("series_key") or "").strip()
+            if not event_key or not series_key:
+                continue
+
+            start_at = str(event.get("start") or "")
+            season = int(start_at[:4]) if start_at[:4].isdigit() else int(default_season or utcnow().year)
+            results = sorted(
+                [item for item in (event.get("results") or []) if isinstance(item, dict)],
+                key=lambda item: (_result_position(item.get("position")), str(item.get("name") or item.get("driver") or "")),
+            )
+            if not results:
+                continue
+            winner = next((item for item in results if str(item.get("position") or "") == "1"), results[0])
+            source_urls = sorted({str(value) for value in (event.get("source_urls") or []) if value})
+            results_json = json.dumps(results, sort_keys=True, default=str)
+            sources_json = json.dumps(source_urls, sort_keys=True)
+
+            row = db.scalar(select(RaceCenterResultArchive).where(
+                RaceCenterResultArchive.event_key == event_key
+            ))
+            if row is None:
+                row = RaceCenterResultArchive(event_key=event_key, series_key=series_key, season=season)
+                db.add(row)
+
+            changed = (
+                row.series_key != series_key
+                or row.season != season
+                or row.event_name != str(event.get("name") or "")
+                or row.start_at != start_at
+                or row.track_key != str(event.get("track_key") or "")
+                or row.venue != str(event.get("venue") or "")
+                or row.location != str(event.get("location") or "")
+                or row.winner_name != str(winner.get("name") or winner.get("driver") or "")
+                or row.winner_number != str(winner.get("number") or "")
+                or row.results_json != results_json
+                or row.source_urls_json != sources_json
+            )
+            if not changed:
+                continue
+
+            row.series_key = series_key
+            row.season = season
+            row.event_name = str(event.get("name") or "")[:260]
+            row.start_at = start_at[:80]
+            row.track_key = str(event.get("track_key") or "")[:220]
+            row.venue = str(event.get("venue") or "")[:260]
+            row.location = str(event.get("location") or "")[:260]
+            row.winner_name = str(winner.get("name") or winner.get("driver") or "")[:180]
+            row.winner_number = str(winner.get("number") or "")[:40]
+            row.results_json = results_json
+            row.source_urls_json = sources_json
+            row.updated_at = utcnow()
+        db.commit()
+
+
+def _archive_matches_result(result: dict[str, Any], scope_type: str, scope_key: str) -> bool:
+    if scope_type == "driver":
+        key = identity_key(result.get("name") or result.get("driver") or "")
+        return key == identity_key(scope_key)
+    if scope_type == "team":
+        return identity_key(result.get("team") or "") == identity_key(scope_key)
+    return True
+
+
+def results_archive(
+    *,
+    scope_type: str = "",
+    scope_key: str = "",
+    season: int | None = None,
+    limit: int = 120,
+) -> dict[str, Any]:
+    clean_type = str(scope_type or "").strip().lower()
+    clean_key = str(scope_key or "").strip()
+    if clean_type not in {"", "series", "driver", "track", "team"}:
+        raise ValueError("Result archive scope must be series, driver, track, team, or blank.")
+
+    graph = build_entity_graph()
+    try:
+        _persist_result_events(list(graph.get("events") or []), graph.get("season"))
+    except Exception:
+        pass
+
+    with SessionLocal() as db:
+        stmt = select(RaceCenterResultArchive).order_by(
+            RaceCenterResultArchive.start_at.desc(),
+            RaceCenterResultArchive.updated_at.desc(),
+        )
+        if season is not None:
+            stmt = stmt.where(RaceCenterResultArchive.season == int(season))
+        if clean_type == "series" and clean_key:
+            stmt = stmt.where(RaceCenterResultArchive.series_key == clean_key)
+        elif clean_type == "track" and clean_key:
+            stmt = stmt.where(RaceCenterResultArchive.track_key == clean_key)
+        rows = list(db.scalars(stmt.limit(500)).all())
+
+    events: list[dict[str, Any]] = []
+    winner_counts: dict[str, dict[str, Any]] = {}
+    series_counts: dict[str, int] = {}
+    track_counts: dict[str, dict[str, Any]] = {}
+    seasons: set[int] = set()
+
+    for row in rows:
+        payload = _archive_event_payload(row)
+        seasons.add(int(row.season))
+        matching = list(payload.get("results") or [])
+        if clean_type in {"driver", "team"} and clean_key:
+            matching = [result for result in matching if _archive_matches_result(result, clean_type, clean_key)]
+            if not matching:
+                continue
+            payload["matching_results"] = matching
+
+        events.append(payload)
+        series_counts[row.series_key] = series_counts.get(row.series_key, 0) + 1
+        track_key = str(row.track_key or "")
+        if track_key:
+            track = track_counts.setdefault(track_key, {
+                "key": track_key,
+                "name": row.venue or track_key,
+                "events": 0,
+            })
+            track["events"] += 1
+
+        winner = payload.get("winner") or {}
+        winner_name = str(winner.get("name") or winner.get("driver") or "").strip()
+        if winner_name:
+            winner_key = identity_key(winner_name)
+            winner_row = winner_counts.setdefault(winner_key, {
+                "key": winner_key,
+                "name": winner_name,
+                "number": winner.get("number"),
+                "wins": 0,
+            })
+            winner_row["wins"] += 1
+
+        if len(events) >= max(1, min(int(limit or 120), 250)):
+            break
+
+    return {
+        "scope_type": clean_type or "all",
+        "scope_key": clean_key,
+        "season": int(season) if season is not None else None,
+        "available_seasons": sorted(seasons, reverse=True),
+        "event_count": len(events),
+        "events": events,
+        "top_winners": sorted(winner_counts.values(), key=lambda item: (-int(item["wins"]), item["name"]))[:20],
+        "series_counts": [
+            {"series_key": key, "events": count}
+            for key, count in sorted(series_counts.items(), key=lambda item: (-item[1], item[0]))
+        ],
+        "tracks": sorted(track_counts.values(), key=lambda item: (-int(item["events"]), item["name"]))[:30],
+        "generated_at": utcnow().isoformat(),
+    }
+
+
     value = {
         "generated_at": utcnow().isoformat(),
         "season": standings.get("season"),
@@ -532,6 +760,12 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
         "health": data_health(standings=standings),
         "warming": bool(events.get("warming")),
     }
+    try:
+        _persist_result_events(event_items, standings.get("season"))
+    except Exception:
+        # Results persistence is additive; it must never make the live graph fail.
+        pass
+
     with _graph_lock:
         _graph_cache["at"] = now
         _graph_cache["value"] = value
@@ -943,40 +1177,13 @@ def series_archive(series_key: str, season: int | None = None, limit: int = 24) 
             "top_three": [_entry_identity(item) for item in entries[:3]],
         })
 
-    graph = build_entity_graph()
-    event_history = []
-    for event in graph.get("events") or []:
-        if str(event.get("series_key") or "") != key:
-            continue
-        start_text = str(event.get("start") or "")
-        if start_text[:4].isdigit() and int(start_text[:4]) != season:
-            continue
-        results = [row for row in (event.get("results") or []) if isinstance(row, dict)]
-        if event.get("state") != "recent" and not results:
-            continue
-        ordered_results = sorted(
-            results,
-            key=lambda row: (
-                int(row.get("position")) if str(row.get("position") or "").isdigit() else 10_000,
-                str(row.get("name") or row.get("driver") or ""),
-            ),
-        )
-        winner = next(
-            (row for row in ordered_results if str(row.get("position") or "") == "1"),
-            ordered_results[0] if ordered_results else None,
-        )
-        event_history.append({
-            "key": event.get("key"),
-            "name": event.get("name"),
-            "start": event.get("start"),
-            "venue": event.get("venue"),
-            "track_key": event.get("track_key"),
-            "winner": winner,
-            "results": ordered_results[:60],
-            "source_urls": event.get("source_urls") or [],
-        })
-
-    event_history.sort(key=lambda row: str(row.get("start") or ""), reverse=True)
+    result_history = results_archive(
+        scope_type="series",
+        scope_key=key,
+        season=season,
+        limit=limit,
+    )
+    event_history = list(result_history.get("events") or [])
     available_seasons = sorted({int(value) for value in season_rows if value is not None}, reverse=True)
     if season not in available_seasons:
         available_seasons.append(season)
