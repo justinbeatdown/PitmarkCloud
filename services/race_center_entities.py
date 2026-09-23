@@ -48,6 +48,17 @@ class RaceCenterEntityClaim(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class RaceCenterEntityClaimAudit(Base):
+    __tablename__ = "race_center_entity_claim_audit"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    claim_id: Mapped[int] = mapped_column(ForeignKey("race_center_entity_claims.id", ondelete="CASCADE"), index=True)
+    actor_user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), index=True)
+    action: Mapped[str] = mapped_column(String(30), index=True)
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
 class RaceCenterEntityProfile(Base):
     __tablename__ = "race_center_entity_profiles"
     __table_args__ = (
@@ -811,9 +822,49 @@ def submit_entity_claim(
         row.note = str(note or "")[:4000]
         row.status = "pending"
         row.updated_at = utcnow()
+        db.flush()
+        db.add(RaceCenterEntityClaimAudit(
+            claim_id=row.id,
+            actor_user_id=user_id,
+            action="submitted",
+            note=row.note,
+        ))
         db.commit()
         db.refresh(row)
         return {"id": row.id, "status": row.status, "entity_type": row.entity_type, "entity_key": row.entity_key}
+
+
+def _claim_audit_rows(db, claim_id: int) -> list[dict[str, Any]]:
+    rows = list(db.scalars(
+        select(RaceCenterEntityClaimAudit)
+        .where(RaceCenterEntityClaimAudit.claim_id == claim_id)
+        .order_by(RaceCenterEntityClaimAudit.created_at.asc(), RaceCenterEntityClaimAudit.id.asc())
+    ).all())
+    return [
+        {
+            "action": row.action,
+            "note": row.note,
+            "actor_user_id": row.actor_user_id,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        }
+        for row in rows
+    ]
+
+
+def _claim_payload(db, row: RaceCenterEntityClaim) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "entity_type": row.entity_type,
+        "entity_key": row.entity_key,
+        "entity_name": row.entity_name,
+        "evidence_url": row.evidence_url,
+        "note": row.note,
+        "status": row.status,
+        "user_id": row.user_id,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+        "audit": _claim_audit_rows(db, row.id),
+    }
 
 
 def entity_claims_for_user(user_id: int) -> list[dict[str, Any]]:
@@ -821,17 +872,19 @@ def entity_claims_for_user(user_id: int) -> list[dict[str, Any]]:
         rows = list(db.scalars(select(RaceCenterEntityClaim).where(
             RaceCenterEntityClaim.user_id == user_id
         ).order_by(RaceCenterEntityClaim.created_at.desc())).all())
-    return [
-        {
-            "id": row.id,
-            "entity_type": row.entity_type,
-            "entity_key": row.entity_key,
-            "entity_name": row.entity_name,
-            "status": row.status,
-            "created_at": row.created_at.isoformat() if row.created_at else None,
-        }
-        for row in rows
-    ]
+        return [_claim_payload(db, row) for row in rows]
+
+
+def entity_claims_for_review(status: str = "", limit: int = 100) -> list[dict[str, Any]]:
+    clean = str(status or "").strip().lower()
+    with SessionLocal() as db:
+        stmt = select(RaceCenterEntityClaim)
+        if clean in {"pending", "approved", "denied"}:
+            stmt = stmt.where(RaceCenterEntityClaim.status == clean)
+        rows = list(db.scalars(
+            stmt.order_by(RaceCenterEntityClaim.updated_at.desc()).limit(max(1, min(limit, 250)))
+        ).all())
+        return [_claim_payload(db, row) for row in rows]
 
 
 def editorial_for_entity(entity_type: str, entity_key: str, limit: int = 12) -> list[dict[str, Any]]:
@@ -943,10 +996,16 @@ def entity_verification(entity_type: str, entity_key: str) -> dict[str, Any]:
             RaceCenterEntityClaim.entity_key == key,
             RaceCenterEntityClaim.status == "approved",
         ).order_by(RaceCenterEntityClaim.updated_at.desc()).limit(1))
+    labels = {
+        "driver": "Claimed Driver",
+        "team": "Official Team",
+        "track": "Official Track",
+        "series": "Series Representative",
+    }
     return {
         "claimed": bool(approved),
         "verified": bool(approved),
-        "label": "Verified owner" if approved else "Unclaimed",
+        "label": labels.get(kind, "Verified owner") if approved else "Unclaimed",
     }
 
 
@@ -1020,7 +1079,13 @@ def update_entity_owner_content(
     return entity_owner_content(kind, key) or {}
 
 
-def review_entity_claim(claim_id: int, *, status: str) -> dict[str, Any]:
+def review_entity_claim(
+    claim_id: int,
+    *,
+    status: str,
+    reviewer_user_id: int,
+    note: str = "",
+) -> dict[str, Any]:
     clean = str(status or "").strip().lower()
     if clean not in {"approved", "denied", "pending"}:
         raise ValueError("Claim status must be approved, denied, or pending.")
@@ -1030,14 +1095,14 @@ def review_entity_claim(claim_id: int, *, status: str) -> dict[str, Any]:
             raise ValueError("Claim not found.")
         row.status = clean
         row.updated_at = utcnow()
+        db.add(RaceCenterEntityClaimAudit(
+            claim_id=row.id,
+            actor_user_id=int(reviewer_user_id),
+            action=clean,
+            note=str(note or "")[:4000],
+        ))
         db.commit()
-        return {
-            "id": row.id,
-            "status": row.status,
-            "entity_type": row.entity_type,
-            "entity_key": row.entity_key,
-            "user_id": row.user_id,
-        }
+        return _claim_payload(db, row)
 
 
 def attach_editorial(
