@@ -25,7 +25,9 @@ const pageView=routePath==='/standings'||routePath.endsWith('/standings')
                         ?'eventprofile'
                         :routePath.endsWith('/events')
                           ?'events'
-                          :routePath.endsWith('/my-racing')
+                          :routePath.endsWith('/results')
+                            ?'results'
+                            :routePath.endsWith('/my-racing')
                             ?'myracing'
                             :routePath.endsWith('/compare')
                               ?'compare'
@@ -282,6 +284,13 @@ function configurePage(){
       primary:['All events','/race-center/events'],
       secondary:['Live + Next','/race-center/live'],
       pageTitle:'Event Hub — Pitmark Race Center V7'
+    },
+    results:{
+      title:'Results archive.<br><em>Racing remembers.</em>',
+      intro:'Source-backed race results preserved across events, series, tracks, teams and drivers — with winners and full finishing orders when published.',
+      primary:['Browse results','#v7ResultsArchive'],
+      secondary:['Event hubs','/race-center/events'],
+      pageTitle:'Results Archive — Pitmark Race Center V7'
     },
     myracing:{
       title:'My Racing.<br><em>Only what matters to you.</em>',
