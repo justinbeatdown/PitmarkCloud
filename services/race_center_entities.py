@@ -48,6 +48,25 @@ class RaceCenterEntityClaim(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class RaceCenterEntityProfile(Base):
+    __tablename__ = "race_center_entity_profiles"
+    __table_args__ = (
+        UniqueConstraint("entity_type", "entity_key", name="uq_race_center_entity_profile"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_type: Mapped[str] = mapped_column(String(24), index=True)
+    entity_key: Mapped[str] = mapped_column(String(220), index=True)
+    owner_user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), index=True)
+    bio: Mapped[str] = mapped_column(Text, default="")
+    website_url: Mapped[str] = mapped_column(Text, default="")
+    shop_url: Mapped[str] = mapped_column(Text, default="")
+    contact_url: Mapped[str] = mapped_column(Text, default="")
+    hero_url: Mapped[str] = mapped_column(Text, default="")
+    sponsors_json: Mapped[str] = mapped_column(Text, default="[]")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class RaceCenterNotificationPreference(Base):
     __tablename__ = "race_center_notification_preferences"
 
@@ -362,6 +381,8 @@ def entity_detail(entity_type: str, entity_key: str) -> dict[str, Any] | None:
             result = dict(item)
             result["type"] = entity_type
             result["editorial"] = editorial_for_entity(entity_type, key)
+            result["owner_content"] = entity_owner_content(entity_type, key)
+            result["verification"] = entity_verification(entity_type, key)
             return result
     return None
 
@@ -599,3 +620,133 @@ def eventWhenText(value: Any) -> str:
         return dt.astimezone(timezone.utc).strftime("%b %d · %H:%M UTC")
     except Exception:
         return raw
+
+
+def entity_verification(entity_type: str, entity_key: str) -> dict[str, Any]:
+    kind = str(entity_type or "").strip().lower()
+    key = str(entity_key or "").strip()
+    with SessionLocal() as db:
+        approved = db.scalar(select(RaceCenterEntityClaim).where(
+            RaceCenterEntityClaim.entity_type == kind,
+            RaceCenterEntityClaim.entity_key == key,
+            RaceCenterEntityClaim.status == "approved",
+        ).order_by(RaceCenterEntityClaim.updated_at.desc()).limit(1))
+    return {
+        "claimed": bool(approved),
+        "verified": bool(approved),
+        "label": "Verified owner" if approved else "Unclaimed",
+    }
+
+
+def entity_owner_content(entity_type: str, entity_key: str) -> dict[str, Any] | None:
+    kind = str(entity_type or "").strip().lower()
+    key = str(entity_key or "").strip()
+    with SessionLocal() as db:
+        row = db.scalar(select(RaceCenterEntityProfile).where(
+            RaceCenterEntityProfile.entity_type == kind,
+            RaceCenterEntityProfile.entity_key == key,
+        ))
+        if row is None:
+            return None
+        try:
+            sponsors = json.loads(row.sponsors_json or "[]")
+        except Exception:
+            sponsors = []
+        return {
+            "bio": row.bio,
+            "website_url": row.website_url,
+            "shop_url": row.shop_url,
+            "contact_url": row.contact_url,
+            "hero_url": row.hero_url,
+            "sponsors": sponsors if isinstance(sponsors, list) else [],
+            "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+        }
+
+
+def update_entity_owner_content(
+    user_id: int,
+    *,
+    entity_type: str,
+    entity_key: str,
+    bio: str = "",
+    website_url: str = "",
+    shop_url: str = "",
+    contact_url: str = "",
+    hero_url: str = "",
+    sponsors: list[str] | None = None,
+) -> dict[str, Any]:
+    kind = str(entity_type or "").strip().lower()
+    key = str(entity_key or "").strip()
+    with SessionLocal() as db:
+        claim = db.scalar(select(RaceCenterEntityClaim).where(
+            RaceCenterEntityClaim.user_id == user_id,
+            RaceCenterEntityClaim.entity_type == kind,
+            RaceCenterEntityClaim.entity_key == key,
+            RaceCenterEntityClaim.status == "approved",
+        ).limit(1))
+        if claim is None:
+            raise ValueError("A verified claim is required before editing this racing profile.")
+
+        row = db.scalar(select(RaceCenterEntityProfile).where(
+            RaceCenterEntityProfile.entity_type == kind,
+            RaceCenterEntityProfile.entity_key == key,
+        ))
+        if row is None:
+            row = RaceCenterEntityProfile(entity_type=kind, entity_key=key, owner_user_id=user_id)
+            db.add(row)
+        elif row.owner_user_id != user_id:
+            raise ValueError("This racing profile is controlled by another verified owner.")
+
+        row.bio = str(bio or "")[:5000]
+        row.website_url = str(website_url or "")[:4000]
+        row.shop_url = str(shop_url or "")[:4000]
+        row.contact_url = str(contact_url or "")[:4000]
+        row.hero_url = str(hero_url or "")[:4000]
+        row.sponsors_json = json.dumps([str(x)[:180] for x in (sponsors or []) if str(x).strip()][:30])
+        row.updated_at = utcnow()
+        db.commit()
+    return entity_owner_content(kind, key) or {}
+
+
+def review_entity_claim(claim_id: int, *, status: str) -> dict[str, Any]:
+    clean = str(status or "").strip().lower()
+    if clean not in {"approved", "denied", "pending"}:
+        raise ValueError("Claim status must be approved, denied, or pending.")
+    with SessionLocal() as db:
+        row = db.get(RaceCenterEntityClaim, int(claim_id))
+        if row is None:
+            raise ValueError("Claim not found.")
+        row.status = clean
+        row.updated_at = utcnow()
+        db.commit()
+        return {
+            "id": row.id,
+            "status": row.status,
+            "entity_type": row.entity_type,
+            "entity_key": row.entity_key,
+            "user_id": row.user_id,
+        }
+
+
+def attach_editorial(
+    *,
+    entity_type: str,
+    entity_key: str,
+    title: str,
+    url: str,
+    summary: str = "",
+    published_at: datetime | None = None,
+) -> dict[str, Any]:
+    with SessionLocal() as db:
+        row = RaceCenterEditorialLink(
+            entity_type=str(entity_type or "").strip().lower()[:24],
+            entity_key=str(entity_key or "").strip()[:220],
+            title=str(title or "").strip()[:240],
+            url=str(url or "").strip()[:4000],
+            summary=str(summary or "").strip()[:4000],
+            published_at=published_at or utcnow(),
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return {"id": row.id}
