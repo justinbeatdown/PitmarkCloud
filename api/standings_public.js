@@ -153,11 +153,11 @@ function configurePage(){
 
   const config={
     hub:{
-      title:'Your racing world,<br><em>organized.</em>',
-      intro:'Live events, standings, schedules, championship movement, and the series and drivers you care about — all in one place.',
+      title:'All of racing.<br><em>One home base.</em>',
+      intro:'See what is live, what is next, who leads, and where the championships stand — without digging through a dozen different sites.',
       primary:['Open standings','/race-center/standings'],
       secondary:['Find the next race','/race-center/schedules'],
-      pageTitle:'Pitmark Race Center V5 — Racing Hub'
+      pageTitle:'Pitmark Race Center — Racing Standings, Schedules + Live'
     },
     standings:{
       title:'Championships,<br><em>at a glance.</em>',
@@ -445,7 +445,7 @@ function renderMySeries(){
     hint.textContent='Your saved championships live here.';
     return;
   }
-  hint.textContent='Saved locally on this device.';
+  hint.textContent=state.account?.authenticated?'Synced to your Race Center account.':'Saved on this device.';
   strip.innerHTML=series.map(item=>{
     const leader=item.entries?.[0];
     const event=item.current_event;
