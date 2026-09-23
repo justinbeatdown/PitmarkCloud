@@ -838,7 +838,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('body[data-view="standings"] .series-section', css)
         self.assertIn('body[data-view="driver"] .hero-actions', css)
         self.assertIn(".profile-followed-racing>a", css)
-        self.assertIn("pitmark-race-center-v5-feed-20260923b", public_js)
+        self.assertIn("pitmark-race-center-v6-feed-20260923", public_js)
         self.assertIn("controller.abort(),20000", public_js)
         self.assertIn("Home is a racing home, not a sticky browse toolbar", css)
 
