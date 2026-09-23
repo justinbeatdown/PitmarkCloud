@@ -2708,3 +2708,35 @@ body[data-view="live"] .hero-copy>p{font-size:14px!important;max-width:800px}
   .social-composer-tools .button{grid-column:1/-1;width:100%}
   .feed-heading{align-items:flex-start!important;flex-direction:column!important}
 }
+
+
+/* V6 people identity */
+.people-avatar.has-photo{
+  overflow:hidden;
+  padding:0!important;
+  background:#0b1015!important;
+}
+.people-avatar.has-photo img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+.people-staff{
+  display:block!important;
+  margin-top:3px!important;
+  color:#ff9460!important;
+  font-size:8px!important;
+  font-weight:950!important;
+}
+.pitmark-person-badge{
+  display:inline-flex!important;
+  align-items:center;
+  gap:6px;
+  margin-left:6px;
+}
+.pitmark-person-badge img{
+  width:52px;
+  height:24px;
+  object-fit:contain;
+}
