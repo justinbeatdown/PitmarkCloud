@@ -7,7 +7,7 @@ from utils.config import settings
 
 class XPublishError(RuntimeError): pass
 
-_X_CREDIT_COOLDOWN_SECONDS = 60 * 60
+_X_CREDIT_COOLDOWN_SECONDS = 5 * 60
 _credits_depleted_until = 0.0
 
 def configured()->bool:
@@ -53,7 +53,7 @@ def publish_x_post(text:str)->dict:
     global _credits_depleted_until
     if not configured(): raise XPublishError('X publishing is not configured on the server.')
     if time.time() < _credits_depleted_until:
-        raise XPublishError('X publishing is paused because API credits are depleted. Pitmark will retry after the credit cooldown instead of repeatedly billing the API.')
+        raise XPublishError('X publishing is paused because API credits are depleted. Pitmark will retry after a short credit cooldown instead of repeatedly billing the API.')
     body=(text or '').strip()
     if not body: raise XPublishError('X post body is empty.')
     max_chars = _max_post_chars()
