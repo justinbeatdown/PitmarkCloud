@@ -867,6 +867,35 @@ def public_race_center_manifest():
     return _asset("race-center.webmanifest", "application/manifest+json")
 
 
+def _race_center_icon(size: int) -> Response:
+    if size not in {192, 512}:
+        raise HTTPException(status_code=404, detail="Race Center icon size not found.")
+    source = Image.open(ASSET_DIR / "pitmark_favicon.png").convert("RGBA")
+    inset = max(18, int(size * 0.14))
+    mark = ImageOps.contain(source, (size - inset * 2, size - inset * 2), method=Image.Resampling.LANCZOS)
+    canvas = Image.new("RGBA", (size, size), (9, 11, 14, 255))
+    x = (size - mark.width) // 2
+    y = (size - mark.height) // 2
+    canvas.alpha_composite(mark, (x, y))
+    out = BytesIO()
+    canvas.save(out, format="PNG", optimize=True)
+    return Response(
+        out.getvalue(),
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
+
+
+@router.get("/race-center-icon-192.png", include_in_schema=False)
+def public_race_center_icon_192():
+    return _race_center_icon(192)
+
+
+@router.get("/race-center-icon-512.png", include_in_schema=False)
+def public_race_center_icon_512():
+    return _race_center_icon(512)
+
+
 @router.get("/race-center-sw.js", include_in_schema=False)
 def public_race_center_service_worker():
     response = _asset("race_center_sw.js", "application/javascript")
