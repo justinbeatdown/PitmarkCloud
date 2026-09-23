@@ -227,6 +227,22 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Post approved — ready to publish.", views)
         self.assertIn("ctx.state.contentTab='published'", views)
 
+    def test_content_publish_failures_stay_visible_and_show_platform_health(self):
+        api_js = self.read("api/control_center_api.js")
+        views = self.read("api/control_center_views.js")
+        publish = self.read("api/social_publish.py")
+        self.assertIn("/api/control/social/status", api_js)
+        self.assertIn("socialPublishStatus:", api_js)
+        self.assertIn("publishBlockReason", views)
+        self.assertIn("Nothing was moved out of Approved & Ready.", views)
+        self.assertIn("stayed Approved & Ready", views)
+        self.assertIn("X publishing is paused", views)
+        self.assertIn("ctx.state.contentSelection=[...keepSelected]", views)
+        self.assertIn('"publishable_platforms": publishable', publish)
+        self.assertIn('"blocked_platforms": blocked', publish)
+        self.assertIn('code = 402 if "credits are depleted"', publish)
+
+
     def test_legacy_mobile_mail_shell_is_retired(self):
         legacy_html = self.read("api/control_mobile.html")
         legacy_js = self.read("api/control_center_overhaul.js")
