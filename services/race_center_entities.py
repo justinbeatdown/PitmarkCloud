@@ -251,7 +251,9 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
             raw_state = str(event_row_source.get("state") or "").lower()
             normalized_state = (
                 "live" if raw_state in {"in", "live"}
-                else "recent" if raw_state in {"post", "completed"}
+                else "recent" if raw_state in {"post", "completed", "complete", "final"}
+                else "postponed" if raw_state in {"postponed", "ppd"}
+                else "cancelled" if raw_state in {"cancelled", "canceled"}
                 else "next" if ekey == chosen_key and event_info.get("state") == "next"
                 else "schedule"
             )
@@ -1131,35 +1133,133 @@ def series_archive(series_key: str, season: int | None = None, limit: int = 24) 
     }
 
 
-def alerts_for_user(follows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def alerts_for_user(
+    follows: list[dict[str, Any]],
+    preferences: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     brief = my_racing_brief(follows)
+    prefs = preferences or {
+        "race_day": True,
+        "live_now": True,
+        "results_posted": True,
+        "standings_move": True,
+        "schedule_change": True,
+        "editorial": False,
+    }
+    now = utcnow()
     alerts: list[dict[str, Any]] = []
-    for event in brief.get("live") or []:
+
+    def add(
+        *,
+        alert_type: str,
+        priority: int,
+        title: str,
+        body: str,
+        url: str,
+        entity_key: str = "",
+        occurred_at: str | None = None,
+    ) -> None:
         alerts.append({
-            "type": "live_now",
-            "priority": 100,
-            "title": f"{event.get('series_name') or 'Racing'} is live",
-            "body": event.get("name") or "Race Center live event",
-            "url": f"/race-center/event/{event.get('key')}",
+            "id": slugify(f"{alert_type}-{entity_key or title}-{occurred_at or ''}"),
+            "type": alert_type,
+            "priority": priority,
+            "title": title,
+            "body": body,
+            "url": url,
+            "entity_key": entity_key,
+            "occurred_at": occurred_at or utcnow().isoformat(),
         })
-    for event in brief.get("upcoming") or []:
-        alerts.append({
-            "type": "race_day",
-            "priority": 80,
-            "title": event.get("name") or "Upcoming race",
-            "body": f"{event.get('series_name') or ''} · {eventWhenText(event.get('start'))}",
-            "url": f"/race-center/event/{event.get('key')}",
-        })
-    for move in brief.get("movement") or []:
-        alerts.append({
-            "type": "standings_move",
-            "priority": 60,
-            "title": f"{move.get('driver')} moved in the standings",
-            "body": f"{move.get('series_name') or ''} · P{move.get('position') or '—'}",
-            "url": f"/race-center/driver/{move.get('series_key')}/{move.get('driver')}",
-        })
-    alerts.sort(key=lambda item: -int(item.get("priority") or 0))
-    return alerts[:20]
+
+    if prefs.get("live_now", True):
+        for event in brief.get("live") or []:
+            add(
+                alert_type="live_now",
+                priority=100,
+                title=f"{event.get('series_name') or 'Racing'} is live",
+                body=event.get("name") or "Race Center live event",
+                url=f"/race-center/event/{event.get('key')}",
+                entity_key=str(event.get("key") or ""),
+                occurred_at=event.get("start"),
+            )
+
+    if prefs.get("race_day", True):
+        for event in brief.get("upcoming") or []:
+            raw = str(event.get("start") or "").strip()
+            try:
+                when = datetime.fromisoformat(raw.replace("Z", "+00:00")).astimezone(timezone.utc)
+            except Exception:
+                when = None
+            if not when:
+                continue
+            minutes = int((when - now).total_seconds() // 60)
+            if minutes < 0 or minutes > 120:
+                continue
+            add(
+                alert_type="race_starts_soon",
+                priority=85,
+                title=event.get("name") or "Race starts soon",
+                body=f"{event.get('series_name') or ''} · starts in {max(1, minutes)} min",
+                url=f"/race-center/event/{event.get('key')}",
+                entity_key=str(event.get("key") or ""),
+                occurred_at=event.get("start"),
+            )
+
+    if prefs.get("results_posted", True):
+        for event in brief.get("recent_results") or []:
+            add(
+                alert_type="results_posted",
+                priority=72,
+                title=f"Results posted: {event.get('name') or 'Race event'}",
+                body=f"{event.get('series_name') or ''} · {event.get('venue') or ''}".strip(" ·"),
+                url=f"/race-center/event/{event.get('key')}",
+                entity_key=str(event.get("key") or ""),
+                occurred_at=event.get("start"),
+            )
+
+    if prefs.get("schedule_change", True):
+        for event in [*(brief.get("upcoming") or []), *(brief.get("recent_results") or [])]:
+            state = str(event.get("state") or "")
+            if state not in {"postponed", "cancelled"}:
+                continue
+            add(
+                alert_type=f"race_{state}",
+                priority=95,
+                title=f"{event.get('name') or 'Race event'} {state}",
+                body=f"{event.get('series_name') or ''} · check the official event source for the latest schedule.",
+                url=f"/race-center/event/{event.get('key')}",
+                entity_key=str(event.get("key") or ""),
+                occurred_at=event.get("start"),
+            )
+
+    if prefs.get("standings_move", True):
+        for move in brief.get("movement") or []:
+            add(
+                alert_type="standings_move",
+                priority=60,
+                title=f"{move.get('driver')} moved in the standings",
+                body=f"{move.get('series_name') or ''} · P{move.get('position') or '—'}",
+                url=f"/race-center/driver/{move.get('series_key')}/{move.get('driver')}",
+                entity_key=str(move.get("driver_key") or ""),
+            )
+
+    if prefs.get("editorial", False):
+        for article in brief.get("coverage") or []:
+            add(
+                alert_type="editorial",
+                priority=40,
+                title=article.get("title") or "New Pitmark coverage",
+                body=article.get("summary") or "New coverage about racing you follow.",
+                url=article.get("url") or "/race-center",
+                entity_key=str(article.get("entity_key") or ""),
+                occurred_at=article.get("published_at"),
+            )
+
+    deduped: dict[str, dict[str, Any]] = {}
+    for item in alerts:
+        deduped[str(item["id"])] = item
+    rows = list(deduped.values())
+    rows.sort(key=lambda item: (-int(item.get("priority") or 0), str(item.get("occurred_at") or "")), reverse=False)
+    return rows[:30]
 
 
 def eventWhenText(value: Any) -> str:
