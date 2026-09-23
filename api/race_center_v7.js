@@ -2,7 +2,7 @@
   const $7=(selector,root=document)=>(root||document).querySelector(selector);
   const $$7=(selector,root=document)=>[...(root||document).querySelectorAll(selector)];
   const e7=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const RC7={platform:null,briefing:null,loading:false,entityContent:{}};
+  const RC7={platform:null,briefing:null,loading:false,entityContent:{},claimQueue:null};
 
   const currentView=()=>String(document.body.dataset.view||'hub');
   const followRows=()=>Array.isArray(state?.account?.follows)?state.account.follows:[];
@@ -198,7 +198,7 @@
     if(staff&&RC7.platform?.health){
       const health=RC7.platform.health;
       cards.push(
-        '<article class="v7-brief-card data-health"><span>DATA HEALTH · STAFF</span><strong>'+e7(health.standings.fresh)+'/'+e7(health.standings.total)+' standings feeds fresh</strong><small>'+e7(health.identity.coverage_pct)+'% complete driver identity · '+e7(health.schedules.events_indexed)+' events · '+e7(health.schedules.tracks_indexed)+' tracks indexed</small></article>'
+        '<article class="v7-brief-card data-health"><span>DATA HEALTH · STAFF</span><strong>'+e7(health.standings.fresh)+'/'+e7(health.standings.total)+' standings feeds fresh</strong><small>'+e7(health.identity.coverage_pct)+'% complete driver identity · '+e7(health.schedules.events_indexed)+' events · '+e7(health.schedules.tracks_indexed)+' tracks indexed</small><button class="v7-brief-action" id="openStaffClaims" type="button">Review verification claims</button></article>'
       );
     }
     host.innerHTML=cards.length?cards.join(''):'<div class="loading-card">Nothing urgent in your racing right now.</div>';
@@ -526,6 +526,67 @@
     }
   }
 
+  async function loadStaffClaims(force=false){
+    if(!state?.account?.profile?.staff)return null;
+    if(RC7.claimQueue&&!force)return RC7.claimQueue;
+    try{
+      RC7.claimQueue=await apiJson('/api/public/race-center/staff/claims',{method:'GET',cache:'no-store'});
+      return RC7.claimQueue;
+    }catch(_error){
+      return null;
+    }
+  }
+
+  function claimQueueCard(kind,row){
+    const name=kind==='driver'?row.driver_name:row.entity_name;
+    const type=kind==='driver'?'Driver':String(row.entity_type||'Entity');
+    return '<article class="v7-claim-review">'+
+      '<div><span class="eyebrow">'+e7(type.toUpperCase())+'</span><strong>'+e7(name||'Claim')+'</strong>'+
+      '<small>'+e7(row.driver_key||row.entity_key||'')+'</small>'+
+      (row.note?'<p>'+e7(row.note)+'</p>':'')+
+      (row.evidence_url?'<a href="'+e7(row.evidence_url)+'" target="_blank" rel="noopener">Open evidence ↗</a>':'')+
+      '</div><div class="v7-claim-review-actions">'+
+        '<button class="button primary" type="button" data-v7-moderate-kind="'+e7(kind)+'" data-v7-moderate-id="'+e7(row.id)+'" data-v7-moderate-status="verified">Verify</button>'+
+        '<button class="button" type="button" data-v7-moderate-kind="'+e7(kind)+'" data-v7-moderate-id="'+e7(row.id)+'" data-v7-moderate-status="rejected">Reject</button>'+
+      '</div></article>';
+  }
+
+  async function openStaffClaims(){
+    if(!state?.account?.profile?.staff)return;
+    const host=$7('#staffClaimsList');
+    const dialog=$7('#staffClaimsDialog');
+    if(!host||!dialog)return;
+    host.innerHTML='<div class="loading-card">Loading verification claims…</div>';
+    dialog.showModal();
+    const queue=await loadStaffClaims(true);
+    if(!queue){host.innerHTML='<div class="loading-card">Verification queue is unavailable.</div>';return;}
+    const rows=[
+      ...(queue.driver_claims||[]).map(row=>claimQueueCard('driver',row)),
+      ...(queue.entity_claims||[]).map(row=>claimQueueCard('entity',row))
+    ];
+    host.innerHTML=rows.length?rows.join(''):'<div class="loading-card">No pending verification claims. 🏁</div>';
+  }
+
+  async function moderateClaim(button){
+    const kind=String(button.dataset.v7ModerateKind||'');
+    const id=Number(button.dataset.v7ModerateId||0);
+    const status=String(button.dataset.v7ModerateStatus||'');
+    if(!kind||!id||!status)return;
+    button.disabled=true;
+    try{
+      await apiJson('/api/public/race-center/staff/claims/'+encodeURIComponent(kind)+'/'+id,{
+        method:'PUT',
+        body:JSON.stringify({status})
+      });
+      RC7.claimQueue=null;
+      await openStaffClaims();
+    }catch(error){
+      alert(error.message||'Could not update claim.');
+    }finally{
+      button.disabled=false;
+    }
+  }
+
   async function openManage(button){
     if(!state?.account?.authenticated){$7('#accountDialog')?.showModal();return;}
     const type=String(button.dataset.v7ManageType||'');
@@ -590,6 +651,9 @@
       if(claim){event.preventDefault();openClaim(claim);return;}
       const manage=event.target.closest('[data-v7-manage-type]');
       if(manage){event.preventDefault();openManage(manage);return;}
+      if(event.target.closest('#openStaffClaims')){event.preventDefault();openStaffClaims();return;}
+      const moderate=event.target.closest('[data-v7-moderate-kind]');
+      if(moderate){event.preventDefault();moderateClaim(moderate);return;}
     });
     const form=$7('#entityClaimForm');
     if(form&&!form.dataset.v7Wired){form.dataset.v7Wired='1';form.addEventListener('submit',submitClaim);}
@@ -599,6 +663,8 @@
     if(manageForm&&!manageForm.dataset.v7Wired){manageForm.dataset.v7Wired='1';manageForm.addEventListener('submit',submitManage);}
     const manageClose=$7('#entityManageClose');
     if(manageClose&&!manageClose.dataset.v7Wired){manageClose.dataset.v7Wired='1';manageClose.addEventListener('click',()=>$7('#entityManageDialog')?.close());}
+    const staffClose=$7('#staffClaimsClose');
+    if(staffClose&&!staffClose.dataset.v7Wired){staffClose.dataset.v7Wired='1';staffClose.addEventListener('click',()=>$7('#staffClaimsDialog')?.close());}
   }
 
   function registerPwa(){
