@@ -883,7 +883,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             'id="leaderStrip"',
             'id="standingsBoard"',
             '/race-center-v6.js',
-            '<small>V6</small>',
+            '<small>V7</small>',
         ):
             self.assertIn(token, public_html)
         self.assertNotIn('id="v5Home"', public_html)
