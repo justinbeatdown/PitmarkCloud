@@ -3747,3 +3747,44 @@ body.race-live-active[data-view="hub"] #racePulseTitle::after{
 @media(max-width:680px){
   .v7-manage-shell .account-form{grid-template-columns:1fr}
 }
+
+
+/* V7 staff verification operations */
+.v7-brief-action{
+  align-self:flex-start;
+  margin-top:7px;
+  padding:6px 8px;
+  border:1px solid rgba(142,169,255,.3);
+  border-radius:7px;
+  background:rgba(142,169,255,.06);
+  color:#a9bcff;
+  font-size:8px;
+  font-weight:950;
+  cursor:pointer;
+}
+.v7-staff-shell{max-width:900px}
+#staffClaimsList{display:grid;gap:8px;margin-top:14px}
+.v7-claim-review{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:14px;
+  align-items:center;
+  padding:12px;
+  border:1px solid #2d3843;
+  border-radius:10px;
+  background:#0b1015;
+}
+.v7-claim-review strong{
+  display:block;
+  margin:3px 0;
+  color:#f0f3f5;
+  font-size:13px;
+}
+.v7-claim-review small{color:#738193;font-size:9px}
+.v7-claim-review p{margin:7px 0;color:#a0aab6;font-size:10px;line-height:1.45}
+.v7-claim-review a{color:#ff9565;font-size:9px;font-weight:900}
+.v7-claim-review-actions{display:flex;gap:6px}
+@media(max-width:680px){
+  .v7-claim-review{grid-template-columns:1fr}
+  .v7-claim-review-actions{justify-content:flex-start}
+}
