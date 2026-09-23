@@ -329,6 +329,69 @@ function driverPortrait(driver,large=false){
   return '<span class="driver-photo driver-photo-fallback'+(large?' is-large':'')+'">'+esc(driverInitials(driver.name))+'</span>';
 }
 
+
+let driverDirectoryObserver=null;
+
+function applyDriverIdentityToCards(seriesKey,driverName,payload){
+  if(!payload||payload.status!=='ready')return;
+  $('[data-driver-enrich-series]').forEach(card=>{
+    if(String(card.dataset.driverEnrichSeries||'')!==String(seriesKey||''))return;
+    if(driverIdentityKey(card.dataset.driverEnrichName)!==driverIdentityKey(driverName))return;
+    const currentPhoto=card.querySelector('.driver-photo');
+    if(payload.photo_use_allowed&&payload.photo_url&&currentPhoto){
+      const img=document.createElement('img');
+      img.className='driver-photo';
+      img.src=String(payload.photo_url);
+      img.alt=String(driverName||'Driver');
+      img.loading='lazy';
+      img.decoding='async';
+      currentPhoto.replaceWith(img);
+    }
+    const identity=card.querySelector('.driver-directory-main small');
+    if(identity){
+      const values=[payload.team,payload.manufacturer].filter(Boolean);
+      if(values.length)identity.textContent=[...new Set(values.map(String))].join(' · ');
+    }
+    const number=card.querySelector('.driver-number');
+    if(number&&payload.number)number.textContent='#'+String(payload.number);
+    card.dataset.driverEnriched='1';
+  });
+}
+
+function hydrateDriverDirectoryCards(){
+  if(state.view!=='drivers')return;
+  if(driverDirectoryObserver&&driverDirectoryObserver.disconnect)driverDirectoryObserver.disconnect();
+  const cards=$('[data-driver-enrich-series]').filter(card=>card.dataset.driverEnriched!=='1');
+  if(!cards.length)return;
+
+  const hydrate=card=>{
+    const seriesKey=String(card.dataset.driverEnrichSeries||'');
+    const name=String(card.dataset.driverEnrichName||'');
+    if(!seriesKey||!name)return;
+    const cacheKey=seriesKey+':'+driverIdentityKey(name);
+    const cached=state.driverIdentity[cacheKey];
+    if(cached&&cached.status==='ready'){
+      applyDriverIdentityToCards(seriesKey,name,cached);
+      return;
+    }
+    loadDriverIdentity(seriesKey,name);
+  };
+
+  if(!('IntersectionObserver' in window)){
+    cards.slice(0,24).forEach(hydrate);
+    return;
+  }
+
+  driverDirectoryObserver=new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+      if(!entry.isIntersecting)return;
+      driverDirectoryObserver.unobserve(entry.target);
+      hydrate(entry.target);
+    });
+  },{rootMargin:'500px 0px'});
+  cards.forEach(card=>driverDirectoryObserver.observe(card));
+}
+
 function renderDrivers(){
   const grid=$('#driversGrid');
   if(!grid||!state.payload)return;
@@ -342,7 +405,7 @@ function renderDrivers(){
 
   grid.innerHTML=filtered.length?filtered.slice(0,600).map(driver=>{
     const followed=state.drivers.has(driver.key);
-    return '<article class="driver-directory-card">'+
+    return '<article class="driver-directory-card" data-driver-enrich-series="'+esc(driver.series_key)+'" data-driver-enrich-name="'+esc(driver.name)+'">'+
       '<a class="driver-directory-main" href="'+driverProfileHref(driver.series_key,driver.name)+'">'+
         driverPortrait(driver)+
         '<div><span class="driver-number">'+(driver.number?'#'+esc(driver.number):esc(driver.series_short))+'</span>'+
@@ -353,6 +416,7 @@ function renderDrivers(){
       '<button class="driver-directory-follow '+(followed?'is-following':'')+'" type="button" data-driver-follow="'+esc(driver.key)+'" data-driver-label="'+esc(driver.name)+'" data-driver-series="'+esc(driver.series_key)+'" aria-pressed="'+(followed?'true':'false')+'" aria-label="'+(followed?'Unfollow ':'Follow ')+esc(driver.name)+'">'+(followed?'★':'☆')+'</button>'+
     '</article>';
   }).join(''):'<div class="loading-card">No drivers match that search.</div>';
+  requestAnimationFrame(hydrateDriverDirectoryCards);
 }
 
 
@@ -566,6 +630,7 @@ function loadDriverIdentity(seriesKey,driverName){
   apiJson('/api/public/race-center/driver-identity/'+encodeURIComponent(seriesKey)+'/'+encodeURIComponent(driverName),{method:'GET'})
     .then(payload=>{
       state.driverIdentity[cacheKey]={status:'ready',...payload};
+      applyDriverIdentityToCards(seriesKey,driverName,state.driverIdentity[cacheKey]);
       renderDriverProfile();
     })
     .catch(error=>{
