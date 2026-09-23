@@ -666,6 +666,22 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, css)
 
+    def test_race_center_driver_identity_enriches_on_demand(self):
+        standings = self.read("services/racing_standings.py")
+        public_api = self.read("api/standings_public.py")
+        public_js = self.read("api/standings_public.js")
+
+        self.assertIn('"carsonhocevar": {"number": "77", "team": "Spire Motorsports", "manufacturer": "Chevrolet"}', standings)
+        self.assertIn("cache_scope =", standings)
+        self.assertIn("def get_driver_identity(", standings)
+        self.assertIn("/api/public/race-center/driver-identity/{series_key}/{driver_name:path}", public_api)
+        self.assertIn("get_driver_identity(series_key, driver_name)", public_api)
+        self.assertIn("function loadDriverIdentity(", public_js)
+        self.assertIn("/api/public/race-center/driver-identity/", public_js)
+        self.assertIn("Checking official source…", public_js)
+        self.assertNotIn("primary.team||'Not verified'", public_js)
+        self.assertNotIn("primary.manufacturer||'Not verified'", public_js)
+
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
         public_api = self.read("api/standings_public.py")
