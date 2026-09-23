@@ -134,6 +134,33 @@ class NativeOpsContractTests(unittest.TestCase):
         self.assertIn('orders(first: 100, after: $after', service)
         self.assertIn('after = str(page_info.get("endCursor")', service)
 
+    def test_meta_business_intelligence_uses_page_token_for_page_reads(self):
+        service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
+        self.assertIn("meta_page_token", service)
+        self.assertIn('"/published_posts"', service)
+        self.assertIn("likes.limit(0).summary(true)", service)
+        self.assertIn('"access_token": base_token', service)
+
+    def test_connector_health_keeps_google_errors_separate(self):
+        service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
+        self.assertIn('ga4["error"]', service)
+        self.assertIn('search_console["error"]', service)
+        source_block = service.split('"sources": {', 1)[1].split('"commerce": shopify', 1)[0]
+        self.assertIn('(google.get("ga4") or {}).get("error")', source_block)
+        self.assertIn('(google.get("search_console") or {}).get("error")', source_block)
+
+    def test_native_connector_health_has_google_enable_actions(self):
+        client = (ROOT / "api" / "control_native_ops.js").read_text(encoding="utf-8")
+        self.assertIn("function connectorAction", client)
+        self.assertIn("analyticsadmin.googleapis.com", client)
+        self.assertIn("searchconsole.googleapis.com", client)
+        self.assertIn("Enable API", client)
+
+    def test_native_ops_assets_are_cache_busted(self):
+        html = (ROOT / "api" / "control_native_ops.html").read_text(encoding="utf-8")
+        self.assertIn("/control-native-ops.css?v=6", html)
+        self.assertIn("/control-native-ops.js?v=7", html)
+
 
     def test_meta_reporting_uses_published_posts_with_graceful_fallback(self):
         service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
