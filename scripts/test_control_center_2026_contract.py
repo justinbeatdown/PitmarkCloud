@@ -741,6 +741,63 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertNotIn("Unavailable from official source", public_js)
         self.assertIn("Driver secondary-source enrichment", css)
 
+    def test_race_center_series_staff_and_shared_profile_layout(self):
+        accounts = self.read("services/race_center_accounts.py")
+        public_api = self.read("api/standings_public.py")
+        public_html = self.read("api/standings_public.html")
+        public_js = self.read("api/standings_public.js")
+        profile_html = self.read("api/race_center_profile.html")
+        profile_js = self.read("api/race_center_profile.js")
+        css = self.read("api/standings_public.css")
+
+        for token in (
+            "PITMARK_STAFF_ACCOUNTS",
+            "def _pitmark_staff_identity(",
+            '"staff": _pitmark_staff_identity(user.email)',
+        ):
+            self.assertIn(token, accounts)
+
+        for token in (
+            '@router.get("/race-center/series"',
+            '@router.get("/race-center/series/{series_key}"',
+            '"seriesprofile" if "/race-center/series/" in path',
+            '"series" if path.endswith("/series")',
+        ):
+            self.assertIn(token, public_api)
+
+        for token in (
+            'data-race-view="series"',
+            'id="seriesDirectory"',
+            'id="seriesProfilePage"',
+            'id="seriesSearch"',
+            'href="/race-center/series"',
+        ):
+            self.assertIn(token, public_html)
+
+        for token in (
+            "function seriesDirectoryRows()",
+            "function renderSeriesDirectory()",
+            "function renderSeriesProfile()",
+            "seriesProfileHref",
+            "seriesprofile",
+            "seriesSearch",
+        ):
+            self.assertIn(token, public_js)
+
+        self.assertIn('id="pitmarkStaffBadge"', profile_html)
+        self.assertIn('href="/race-center/series"', profile_html)
+        self.assertIn("const staff=profile.staff||{};", profile_js)
+        self.assertIn("staffBadge.classList.toggle('is-founder'", profile_js)
+
+        for token in (
+            ".pitmark-staff-badge",
+            ".series-directory-grid",
+            ".series-profile-hero",
+            ".series-profile-layout",
+            "Shared header, staff identity + Series destination",
+        ):
+            self.assertIn(token, css)
+
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
         public_api = self.read("api/standings_public.py")
