@@ -128,9 +128,40 @@
     return {series:series,row:row};
   }
 
+  function v5RaceMomentObject(){
+    if(!state.payload)return null;
+    const events=state.payload.events||{};
+    const live=(events.live||[])[0]||null;
+    const next=v5NextEvent();
+    const item=live||next;
+    if(!item)return null;
+
+    const event=item.event||{};
+    const series=v5SeriesForItem(item);
+    const logoMarkup=series?logo(series):'<span class="race-moment-mark">PITMARK</span>';
+    const stateLabel=live?'LIVE NOW':'NEXT GREEN FLAG';
+    const detail=String(event.name||item.series_name||'Race event')+(event.start?' · '+eventTime(event):'');
+    let actions='';
+    if(item.watch_url)actions+='<a class="race-moment-action primary" href="'+esc(item.watch_url)+'" target="_blank" rel="noopener">'+(live?'Watch / official info ↗':'Official watch info ↗')+'</a>';
+    if(item.schedule_url)actions+='<a class="race-moment-action" href="'+esc(item.schedule_url)+'" target="_blank" rel="noopener">Schedule ↗</a>';
+    if(item.series_key)actions+='<button class="race-moment-action" type="button" data-v5-open-series="'+esc(item.series_key)+'">Standings</button>';
+
+    return {
+      kind:'race-moment',
+      priority:live?180:145,
+      html:'<article class="race-moment-card '+(live?'is-live':'')+'">'+
+        '<div class="race-moment-logo">'+logoMarkup+'</div>'+
+        '<div class="race-moment-copy"><small><span class="race-moment-dot"></span>'+stateLabel+'</small><strong>'+esc(item.series_name||'Racing')+'</strong><span>'+esc(detail)+'</span></div>'+
+        '<div class="race-moment-actions">'+actions+'</div>'+
+      '</article>'
+    };
+  }
+
   function v5BuildRacingObjects(){
     if(!state.payload)return [];
     const objects=[];
+    const raceMoment=v5RaceMomentObject();
+    if(raceMoment)objects.push(raceMoment);
     const followedSeries=(state.payload.series||[]).filter(function(series){
       return state.favorites.has(String(series.series_key));
     });
@@ -483,6 +514,13 @@
         baseRenderAccount();
         v5RenderProfile();
         v5RenderSocialShell();
+        if(state.account&&state.account.authenticated){
+          v5LoadPeople();
+          v5LoadFeed();
+        }else{
+          v5People=[];
+          v5RenderPeople();
+        }
       };
     }catch(error){
       console.error('Race Center V5 render hooks failed',error);
