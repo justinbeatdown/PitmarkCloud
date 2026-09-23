@@ -256,6 +256,91 @@
     host.innerHTML=archive.length?archive.slice(0,150).map(event=>eventCard(event)).join(''):'<div class="loading-card">No completed events are indexed in the current source-backed archive yet.</div>';
   }
 
+  function renderDriverRelationships(){
+    if(currentView()!=='driver'||!RC7.platform||typeof currentDriverRoute!=='function')return;
+    const route=currentDriverRoute();
+    if(!route)return;
+    const main=$7('.driver-profile-main');
+    const aside=$7('.driver-profile-aside');
+    if(!main||!aside)return;
+    $7('#v7DriverRaceGraph')?.remove();
+    $7('#v7DriverTeamGraph')?.remove();
+
+    const wanted=String(route.name||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+    const team=(RC7.platform.teams||[]).find(team=>
+      (team.drivers||[]).some(driver=>
+        String(driver.series_key)===String(route.series_key)&&
+        String(driver.name||'').toLowerCase().replace(/[^a-z0-9]+/g,'')===wanted
+      )
+    );
+    const upcoming=(RC7.platform.events||[])
+      .filter(event=>String(event.series_key)===String(route.series_key)&&!event.completed&&event.state!=='post')
+      .sort((a,b)=>String(a.start||'').localeCompare(String(b.start||'')))
+      .slice(0,4);
+    const recent=(RC7.platform.archive||[])
+      .filter(event=>String(event.series_key)===String(route.series_key))
+      .slice(0,3);
+
+    const graph=document.createElement('section');
+    graph.id='v7DriverRaceGraph';
+    graph.className='driver-detail-card v7-driver-connected';
+    graph.innerHTML='<span class="eyebrow">RACE GRAPH</span><h3>What is next for this racing world</h3>'+
+      '<div class="v7-driver-event-stack">'+(
+        upcoming.length
+          ?upcoming.map(event=>eventCard(event,true)).join('')
+          :'<div class="loading-card">No upcoming indexed event is attached to this series yet.</div>'
+      )+'</div>'+
+      (recent.length?'<div class="v7-recent-links"><strong>Recent event sources</strong>'+recent.map(event=>'<a href="'+eventHref(event)+'">'+e7(event.name)+' <span>'+e7(formatDate(event.start,event.date_only))+'</span></a>').join('')+'</div>':'');
+    main.appendChild(graph);
+
+    if(team){
+      const panel=document.createElement('section');
+      panel.id='v7DriverTeamGraph';
+      panel.className='driver-detail-card';
+      panel.innerHTML='<span class="eyebrow">TEAM CONNECTION</span><h3>'+e7(team.name)+'</h3><p>'+e7((team.manufacturers||[]).join(' · ')||'Race Center team identity')+'</p><a class="button" href="/race-center/team/'+encodeURIComponent(team.key)+'">Open team profile</a>';
+      aside.appendChild(panel);
+    }
+  }
+
+  function renderSeriesRelationships(){
+    if(currentView()!=='seriesprofile'||!RC7.platform)return;
+    const host=$7('#seriesProfileContent');
+    if(!host)return;
+    $7('#v7SeriesRaceGraph')?.remove();
+    const key=routeKey('series');
+    const upcoming=(RC7.platform.events||[])
+      .filter(event=>String(event.series_key)===String(key)&&!event.completed&&event.state!=='post')
+      .sort((a,b)=>String(a.start||'').localeCompare(String(b.start||'')))
+      .slice(0,5);
+    const tracks=new Map();
+    (RC7.platform.events||[]).filter(event=>String(event.series_key)===String(key)&&event.track_key).forEach(event=>{
+      tracks.set(event.track_key,{key:event.track_key,name:event.venue||event.track_key,location:event.location||''});
+    });
+    const section=document.createElement('section');
+    section.id='v7SeriesRaceGraph';
+    section.className='v7-series-graph';
+    section.innerHTML='<div><span class="eyebrow">SERIES RACE GRAPH</span><h3>Events + tracks</h3><p>Race Center connects the championship to the places and event pages around it.</p></div>'+
+      '<div class="v7-series-graph-grid"><div><strong>Upcoming events</strong><div class="v7-event-list">'+(
+        upcoming.length?upcoming.map(event=>eventCard(event,true)).join(''):'<div class="loading-card">No upcoming indexed events yet.</div>'
+      )+'</div></div><div><strong>Tracks on the index</strong><div class="v7-related-list">'+(
+        [...tracks.values()].slice(0,12).map(track=>'<a class="v7-related-chip" href="/race-center/track/'+encodeURIComponent(track.key)+'"><span class="v7-track-dot">⌖</span><span>'+e7(track.name)+(track.location?' · '+e7(track.location):'')+'</span></a>').join('')||
+        '<p>No venue connections are indexed yet.</p>'
+      )+'</div></div></div>';
+    host.appendChild(section);
+  }
+
+  function applyRaceDayMode(){
+    if(!RC7.platform)return;
+    const raceDay=RC7.platform.race_day||[];
+    const live=raceDay.filter(event=>event.race_day_state==='live');
+    document.body.classList.toggle('race-day-active',raceDay.length>0);
+    document.body.classList.toggle('race-live-active',live.length>0);
+    if(currentView()!=='hub')return;
+    const title=$7('#racePulseTitle');
+    if(title&&live.length)title.textContent='Race Day · live now';
+    else if(title&&raceDay.length)title.textContent='Race Day · next green flags';
+  }
+
   function augmentMyRacing(){
     const strip=$7('#mySeriesStrip');
     if(!strip||!RC7.platform||!state?.account?.authenticated)return;
@@ -285,6 +370,9 @@
     renderEvents();
     renderEventProfile();
     renderArchive();
+    renderDriverRelationships();
+    renderSeriesRelationships();
+    applyRaceDayMode();
     augmentMyRacing();
   }
 
