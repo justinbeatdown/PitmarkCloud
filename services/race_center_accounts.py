@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from fastapi import Request
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, delete, func, select
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, delete, func, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from services.control_auth import hash_password, verify_password
@@ -242,6 +242,30 @@ class RaceCenterProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class RaceCenterProfilePhoto(Base):
+    __tablename__ = "race_center_profile_photos"
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), primary_key=True)
+    image_data: Mapped[bytes] = mapped_column(LargeBinary)
+    content_type: Mapped[str] = mapped_column(String(80), default="image/webp")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RaceCenterDriverClaim(Base):
+    __tablename__ = "race_center_driver_claims"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), index=True)
+    driver_key: Mapped[str] = mapped_column(String(220), index=True)
+    driver_name: Mapped[str] = mapped_column(String(160), default="")
+    series_key: Mapped[str] = mapped_column(String(120), default="", index=True)
+    evidence_url: Mapped[str] = mapped_column(Text, default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class RaceCenterPost(Base):
     __tablename__ = "race_center_posts"
 
@@ -433,18 +457,26 @@ def add_comment(user_id: int, post_id: int, body: str) -> dict:
         return {"id": row.id}
 
 
-def list_posts(*, viewer_user_id: int | None = None, limit: int = 40, series_keys: list[str] | None = None) -> list[dict]:
+def list_posts(
+    *,
+    viewer_user_id: int | None = None,
+    limit: int = 40,
+    series_keys: list[str] | None = None,
+    author_user_id: int | None = None,
+) -> list[dict]:
     with SessionLocal() as db:
         stmt = select(RaceCenterPost).where(
             RaceCenterPost.deleted.is_(False),
             RaceCenterPost.visibility == "public",
         )
+        if author_user_id:
+            stmt = stmt.where(RaceCenterPost.user_id == author_user_id)
         followed_people: list[int] = []
         if viewer_user_id:
             followed_people = list(db.scalars(select(RaceCenterConnection.followed_user_id).where(
                 RaceCenterConnection.follower_user_id == viewer_user_id
             )).all())
-        if series_keys or followed_people:
+        if not author_user_id and (series_keys or followed_people):
             conditions = [RaceCenterPost.user_id == viewer_user_id] if viewer_user_id else []
             if followed_people:
                 conditions.append(RaceCenterPost.user_id.in_(followed_people))
@@ -518,6 +550,93 @@ def list_posts(*, viewer_user_id: int | None = None, limit: int = 40, series_key
                 "comment_count": len(comment_map.get(post.id, [])),
             })
         return out
+
+
+def set_profile_photo(user_id: int, image_data: bytes, content_type: str = "image/webp") -> dict:
+    if not image_data:
+        raise ValueError("Profile photo is empty.")
+    with SessionLocal() as db:
+        row = db.get(RaceCenterProfilePhoto, user_id)
+        if row is None:
+            row = RaceCenterProfilePhoto(user_id=user_id, image_data=image_data, content_type=content_type)
+            db.add(row)
+        else:
+            row.image_data = image_data
+            row.content_type = content_type
+            row.updated_at = utcnow()
+        db.commit()
+    return {"ok": True}
+
+
+def profile_photo_by_handle(handle: str) -> tuple[bytes, str] | None:
+    clean = (handle or "").strip().lower()
+    with SessionLocal() as db:
+        profile = db.scalar(select(RaceCenterProfile).where(RaceCenterProfile.handle == clean))
+        if not profile:
+            return None
+        row = db.get(RaceCenterProfilePhoto, profile.user_id)
+        if not row:
+            return None
+        return bytes(row.image_data), row.content_type or "image/webp"
+
+
+def submit_driver_claim(
+    user_id: int,
+    *,
+    driver_key: str,
+    driver_name: str,
+    series_key: str = "",
+    evidence_url: str = "",
+    note: str = "",
+) -> dict:
+    clean_key = (driver_key or "").strip()[:220]
+    clean_name = (driver_name or "").strip()[:160]
+    clean_series = (series_key or "").strip()[:120]
+    clean_evidence = (evidence_url or "").strip()[:1200]
+    clean_note = (note or "").strip()[:1200]
+    if not clean_key or not clean_name:
+        raise ValueError("Driver identity is required.")
+    with SessionLocal() as db:
+        existing = db.scalar(select(RaceCenterDriverClaim).where(
+            RaceCenterDriverClaim.user_id == user_id,
+            RaceCenterDriverClaim.driver_key == clean_key,
+            RaceCenterDriverClaim.status == "pending",
+        ))
+        if existing:
+            return {"ok": True, "id": existing.id, "status": existing.status}
+        row = RaceCenterDriverClaim(
+            user_id=user_id,
+            driver_key=clean_key,
+            driver_name=clean_name,
+            series_key=clean_series,
+            evidence_url=clean_evidence,
+            note=clean_note,
+            status="pending",
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return {"ok": True, "id": row.id, "status": row.status}
+
+
+def driver_claims_for_user(user_id: int) -> list[dict]:
+    with SessionLocal() as db:
+        rows = list(db.scalars(
+            select(RaceCenterDriverClaim)
+            .where(RaceCenterDriverClaim.user_id == user_id)
+            .order_by(RaceCenterDriverClaim.created_at.desc())
+        ).all())
+    return [
+        {
+            "id": row.id,
+            "driver_key": row.driver_key,
+            "driver_name": row.driver_name,
+            "series_key": row.series_key,
+            "status": row.status,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        }
+        for row in rows
+    ]
 
 
 class RaceCenterIdentity(Base):
@@ -643,6 +762,7 @@ def public_profile_by_handle(handle: str, viewer_user_id: int | None = None) -> 
             "followers": int(follower_count),
             "following": int(following_count),
             "viewer_follows": viewer_follows,
+            "photo_url": f"/api/public/race-center/profile-photo/{profile.handle}",
             "series": [
                 {"key": x.follow_key, "label": x.label}
                 for x in follows if x.kind == "series"
