@@ -25,6 +25,8 @@ on:
       - 'api/standings_public.css'
       - 'api/standings_public.js'
       - 'api/race_center_v5.js'
+      - 'api/race_center_profile.html'
+      - 'api/race_center_profile.js'
       - 'api/__init__.py'
       - 'services/google_workspace_auth.py'
       - 'services/google_gmail.py'
@@ -120,4 +122,5 @@ jobs:
           if [ -f api/control_sw.js ]; then node --check api/control_sw.js; fi
           if [ -f api/standings_public.js ]; then node --check api/standings_public.js; fi
           if [ -f api/race_center_v5.js ]; then node --check api/race_center_v5.js; fi
+          if [ -f api/race_center_profile.js ]; then node --check api/race_center_profile.js; fi
           if [ -f api/control_native_ops.js ]; then node --check api/control_native_ops.js; fi
