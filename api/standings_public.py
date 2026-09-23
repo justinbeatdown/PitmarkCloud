@@ -770,14 +770,12 @@ def public_standings_data():
     safe_series = []
     for series in payload.get("series") or []:
         identity_verified = bool(series.get("metadata_verified"))
-        safe_entries = []
-        for raw_entry in series.get("entries") or []:
-            entry = dict(raw_entry)
-            if not identity_verified:
-                entry["number"] = None
-                entry["team"] = None
-                entry["manufacturer"] = None
-            safe_entries.append(entry)
+        # Saved standings are already hydrated server-side with source-backed
+        # identity from official series data, persistent verified enrichment,
+        # and explicit verified fallbacks. Do not erase that trusted per-driver
+        # identity merely because the original series-wide metadata scrape was
+        # incomplete.
+        safe_entries = [dict(raw_entry) for raw_entry in (series.get("entries") or [])]
         series_key = str(series.get("series_key") or "")
         logo_info = get_series_logo_info(series_key)
         event_info = event_series.get(series_key) or {}
