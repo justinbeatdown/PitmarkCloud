@@ -575,44 +575,74 @@ def data_health(*, standings: dict[str, Any] | None = None) -> dict[str, Any]:
 
 
 def graph_search(query: str, limit: int = 24) -> list[dict[str, Any]]:
-    q = str(query or "").strip().casefold()
+    raw = str(query or "").strip()
+    q = raw.casefold()
+    q_plain = re.sub(r"^#+", "", q).strip()
     if not q:
         return []
     graph = build_entity_graph()
     results: list[tuple[int, dict[str, Any]]] = []
 
-    def score(text: str) -> int:
-        hay = text.casefold()
-        if hay == q:
-            return 120
-        if hay.startswith(q):
-            return 100
-        if q in hay:
-            return 70
+    def field_score(value: Any, *, exact_bonus: int = 0) -> int:
+        text = str(value or "").strip().casefold()
+        if not text:
+            return 0
+        if text == q or text == q_plain:
+            return 120 + exact_bonus
+        if text.startswith(q) or text.startswith(q_plain):
+            return 95 + exact_bonus
+        if q in text or (q_plain and q_plain in text):
+            return 65 + exact_bonus
         return 0
 
     for driver in graph["drivers"]:
-        hay = " ".join(str(x or "") for x in (driver.get("name"), driver.get("number"), driver.get("team"), driver.get("manufacturer")))
-        s = score(hay)
+        scores = [
+            field_score(driver.get("name"), exact_bonus=25),
+            field_score(driver.get("number"), exact_bonus=35 if raw.startswith("#") else 15),
+            field_score(driver.get("team"), exact_bonus=10),
+            field_score(driver.get("manufacturer"), exact_bonus=5),
+        ]
+        s = max(scores)
         if s:
-            results.append((s + 10, {"type": "driver", **driver}))
+            results.append((s + 20, {"type": "driver", **driver}))
+
     for series in graph["series"]:
-        hay = " ".join(str(x or "") for x in (series.get("name"), series.get("short_name"), series.get("group")))
-        s = score(hay)
+        s = max(
+            field_score(series.get("name"), exact_bonus=20),
+            field_score(series.get("short_name"), exact_bonus=25),
+            field_score(series.get("group"), exact_bonus=5),
+        )
         if s:
-            results.append((s + 8, {"type": "series", **series}))
+            results.append((s + 16, {"type": "series", **series}))
+
     for team in graph["teams"]:
-        s = score(" ".join(str(x or "") for x in (team.get("name"), team.get("manufacturer"))))
+        s = max(
+            field_score(team.get("name"), exact_bonus=20),
+            field_score(team.get("manufacturer"), exact_bonus=5),
+            *(field_score(number, exact_bonus=20 if raw.startswith("#") else 0) for number in (team.get("cars") or [])),
+        )
         if s:
-            results.append((s + 6, {"type": "team", **team}))
+            results.append((s + 12, {"type": "team", **team}))
+
     for track in graph["tracks"]:
-        s = score(" ".join(str(x or "") for x in (track.get("name"), track.get("location"))))
+        s = max(
+            field_score(track.get("name"), exact_bonus=20),
+            field_score(track.get("location"), exact_bonus=15),
+            field_score(track.get("surface"), exact_bonus=5),
+            field_score(track.get("track_type"), exact_bonus=5),
+        )
         if s:
-            results.append((s + 5, {"type": "track", **track}))
+            results.append((s + 10, {"type": "track", **track}))
+
     for event in graph["events"]:
-        s = score(" ".join(str(x or "") for x in (event.get("name"), event.get("series_name"), event.get("venue"), event.get("location"))))
+        s = max(
+            field_score(event.get("name"), exact_bonus=20),
+            field_score(event.get("series_name"), exact_bonus=10),
+            field_score(event.get("venue"), exact_bonus=10),
+            field_score(event.get("location"), exact_bonus=10),
+        )
         if s:
-            results.append((s + 4, {"type": "event", **event}))
+            results.append((s + 8, {"type": "event", **event}))
 
     results.sort(key=lambda item: (-item[0], str(item[1].get("name") or "")))
     return [item for _, item in results[:max(1, min(limit, 60))]]
