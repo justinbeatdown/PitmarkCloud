@@ -45,6 +45,49 @@ def _clean(value: str | None, limit: int = 6000) -> str:
     return " ".join(str(value or "").split())[:limit]
 
 
+def _headline(value: str | None, limit: int = 82) -> str:
+    """Create a public-facing headline without chopping a word or name in half."""
+    full = _clean(value, 240)
+    if not full:
+        return "Pitmark Racing"
+    if len(full) <= limit:
+        return full
+
+    if ":" in full:
+        hook = full.split(":", 1)[0].strip()
+        if 18 <= len(hook) <= limit:
+            return hook
+
+    words = full.split()
+    kept: list[str] = []
+    for word in words:
+        candidate = " ".join([*kept, word])
+        if len(candidate) > limit - 1:
+            break
+        kept.append(word)
+    while kept and kept[-1].lower().strip(",:;-/") in {"and", "or", "with", "at", "for", "the", "a", "an"}:
+        kept.pop()
+    shortened = " ".join(kept).rstrip(",:;-/–— ")
+    return (shortened + "…") if shortened else "Pitmark Racing"
+
+
+def _public_kicker(topic_type: str | None) -> str:
+    raw = str(topic_type or "").strip().lower()
+    labels = {
+        "blog_publish": "RACING CULTURE",
+        "community_growth": "PITMARK COMMUNITY",
+        "shopify_product": "PITMARK SHOP",
+        "partnership": "PITMARK PARTNERS",
+        "prt_milestone": "PRT UPDATE",
+        "street_team_milestone": "PITMARK COMMUNITY",
+    }
+    if raw in labels:
+        return labels[raw]
+    if "blog" in raw or "publish" in raw:
+        return "RACING CULTURE"
+    return "PITMARK"
+
+
 def _campaign_context(campaign: dict) -> str:
     url = campaign.get("url") or "No public URL supplied."
     return (
@@ -133,7 +176,7 @@ def visual_prompt(*, campaign: dict, headline: str, beat: str, aspect: str) -> s
 
 
 def build_slide_plan(campaign: dict) -> dict:
-    title = _clean(campaign.get("title"), 90) or "Pitmark Racing"
+    title = _headline(campaign.get("title"))
     summary = _clean(campaign.get("summary"), 500)
     url = (campaign.get("url") or "").strip()
     ig = [
@@ -198,7 +241,10 @@ def _fit_text(draw, text: str, *, max_width: int, start_size: int, min_size: int
         if len(lines) <= 4:
             return font, lines, line_height
     font = _font(min_size, bold=True)
-    return font, textwrap.wrap(text, width=26)[:4], int(min_size * 1.15)
+    lines = textwrap.wrap(text, width=26)
+    if len(lines) > 4:
+        raise ValueError("Headline cannot fit safely without truncation")
+    return font, lines, int(min_size * 1.15)
 
 
 def render_final_asset(*, source: bytes, output_size: tuple[int, int], headline: str, topic_type: str) -> bytes:
@@ -229,7 +275,7 @@ def render_final_asset(*, source: bytes, output_size: tuple[int, int], headline:
             pass
 
     kicker_font = _font(max(24, int(w * 0.027)), bold=True)
-    kicker = (topic_type or "PITMARK").replace("_", " ").upper()
+    kicker = _public_kicker(topic_type)
     draw.text(
         (int(w * 0.06), int(h * 0.62)),
         kicker,
