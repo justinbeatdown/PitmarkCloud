@@ -2833,3 +2833,14 @@ body[data-view="hub"] .social-feed-card{
   body[data-view="hub"] .series-grid{grid-template-columns:1fr!important}
   body[data-view="hub"] .race-search-dock>label span::after{content:"";}
 }
+
+
+/* Right Now header cleanup — no duplicate nav controls */
+body[data-view="hub"] .home-race-pulse .pulse-head{
+  display:block!important;
+  width:100%!important;
+  margin-bottom:12px!important;
+}
+body[data-view="hub"] .home-race-pulse .pulse-actions{
+  display:none!important;
+}
