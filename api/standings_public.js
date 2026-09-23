@@ -166,11 +166,11 @@ function configurePage(){
 
   const config={
     hub:{
-      title:'All of racing.<br><em>One home base.</em>',
-      intro:'See what is live, what is next, who leads, and where the championships stand — without digging through a dozen different sites.',
+      title:'Your racing.<br><em>One place.</em>',
+      intro:'Follow drivers and series, see what is live, search the racing world, and join the conversation — without bouncing between a dozen sites.',
       primary:['Open standings','/race-center/standings'],
-      secondary:['Find the next race','/race-center/schedules'],
-      pageTitle:'Pitmark Race Center — Racing Standings, Schedules + Live'
+      secondary:['Find a driver','/race-center/drivers'],
+      pageTitle:'Pitmark Race Center — The Social Home for Racing'
     },
     drivers:{
       title:'Find a driver.<br><em>Know their racing.</em>',
@@ -205,21 +205,21 @@ function configurePage(){
       intro:'The full Pitmark standings board with current leaders, verified position movement and source-backed championship data.',
       primary:['Browse standings','#standingsBoard'],
       secondary:['Schedules + watch','/race-center/schedules'],
-      pageTitle:'Standings — Pitmark Race Center V5'
+      pageTitle:'Standings — Pitmark Race Center V6'
     },
     schedules:{
       title:'Race calendar,<br><em>without the hunt.</em>',
       intro:'Official schedule and viewing links across the racing world, organized into one searchable board.',
       primary:['Browse schedules','#schedules'],
       secondary:['Live + next','/race-center/live'],
-      pageTitle:'Schedules — Pitmark Race Center V5'
+      pageTitle:'Schedules — Pitmark Race Center V6'
     },
     live:{
       title:'What’s racing,<br><em>right now.</em>',
       intro:'Live events and the next races across Pitmark’s tracked series, with direct official watch and schedule links.',
       primary:['Open race weekend','#raceWeekend'],
       secondary:['Full schedules','/race-center/schedules'],
-      pageTitle:'Live + Next — Pitmark Race Center V5'
+      pageTitle:'Live + Next — Pitmark Race Center V6'
     }
   }[state.view]||{
     title:'All of racing.<br><em>One home base.</em>',
@@ -625,16 +625,20 @@ function driverNextRace(series){
 function loadDriverIdentity(seriesKey,driverName){
   const cacheKey=String(seriesKey||'')+':'+driverIdentityKey(driverName);
   const existing=state.driverIdentity[cacheKey];
-  if(existing?.status==='loading'||existing?.status==='ready'||existing?.status==='failed')return existing;
-  state.driverIdentity[cacheKey]={status:'loading'};
-  apiJson('/api/public/race-center/driver-identity/'+encodeURIComponent(seriesKey)+'/'+encodeURIComponent(driverName),{method:'GET'})
+  if(existing?.status==='loading'||existing?.status==='ready')return existing;
+  if(existing?.status==='failed'&&Date.now()-Number(existing.failedAt||0)<30000)return existing;
+  state.driverIdentity[cacheKey]={status:'loading',startedAt:Date.now()};
+  apiJson('/api/public/race-center/driver-identity/'+encodeURIComponent(seriesKey)+'/'+encodeURIComponent(driverName)+'?v=6',{
+    method:'GET',
+    cache:'no-store'
+  })
     .then(payload=>{
       state.driverIdentity[cacheKey]={status:'ready',...payload};
       applyDriverIdentityToCards(seriesKey,driverName,state.driverIdentity[cacheKey]);
       renderDriverProfile();
     })
     .catch(error=>{
-      state.driverIdentity[cacheKey]={status:'failed',error:error.message||'Driver identity lookup failed'};
+      state.driverIdentity[cacheKey]={status:'failed',failedAt:Date.now(),error:error.message||'Driver identity lookup failed'};
       renderDriverProfile();
     });
   return state.driverIdentity[cacheKey];
@@ -698,7 +702,15 @@ function renderDriverProfile(){
     }
   }
   const identityLoading=officialIdentity?.status==='loading';
-  const identityFallback=identityLoading?'Checking trusted sources…':'Not found yet';
+  const identityFailed=officialIdentity?.status==='failed';
+  const identityQuality=officialIdentity?.status==='ready'
+    ?String(officialIdentity.identity_quality||'partial')
+    :identityLoading?'loading':identityFailed?'unavailable':'partial';
+  const identityFallback=identityLoading
+    ?'Checking sources…'
+    :identityFailed
+      ?'Source temporarily unavailable'
+      :'Not published by source';
   const identitySourceName=officialIdentity?.status==='ready'&&officialIdentity.source_name
     ?String(officialIdentity.source_name)
     :'';
@@ -797,6 +809,12 @@ function renderDriverProfile(){
         '<section class="driver-detail-card">'+
           '<span class="eyebrow">RACING IDENTITY</span>'+
           '<h3>What Race Center knows</h3>'+
+          '<div class="driver-identity-status '+esc(identityQuality)+'"><span></span>'+(
+            identityQuality==='complete'?'Complete identity':
+            identityQuality==='loading'?'Checking identity':
+            identityQuality==='unavailable'?'Identity source unavailable':
+            'Partial identity'
+          )+'</div>'+
           (identitySourceName?'<p class="driver-identity-source">Identity enriched from '+esc(identitySourceName)+'.</p>':'')+
           '<dl class="driver-identity-list">'+
             '<div><dt>Car number</dt><dd>'+esc(primary.number||identityFallback)+'</dd></div>'+

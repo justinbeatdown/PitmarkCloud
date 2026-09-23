@@ -359,6 +359,8 @@ def ensure_profile(user_id: int) -> dict:
             "bio": profile.bio,
             "favorite_track": profile.favorite_track,
             "account_type": identity.account_type if identity else "fan",
+            "photo_url": f"/api/public/race-center/profile-photo/{profile.handle}",
+            "staff": _pitmark_staff_identity(user.email),
         }
 
 
@@ -835,6 +837,8 @@ def discover_people(user_id: int, limit: int = 12) -> list[dict]:
                 "shared_count": len(shared),
                 "shared": [{"kind": kind, "key": key} for kind, key in shared[:6]],
                 "followers": int(followers),
+                "photo_url": f"/api/public/race-center/profile-photo/{profile.handle}",
+                "staff": _pitmark_staff_identity(user.email if user else ""),
                 "identity": {
                     "account_type": identity.account_type if identity else "fan",
                     "verification_status": identity.verification_status if identity else "unverified",
