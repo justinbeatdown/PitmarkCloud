@@ -310,12 +310,12 @@ def ensure_profile(user_id: int) -> dict:
             db.add(profile)
             db.commit()
             db.refresh(profile)
-        identity = identity_for_user(user_id)
+        identity = db.get(RaceCenterIdentity, user_id)
         return {
             "handle": profile.handle,
             "bio": profile.bio,
             "favorite_track": profile.favorite_track,
-            "account_type": identity["account_type"],
+            "account_type": identity.account_type if identity else "fan",
         }
 
 
