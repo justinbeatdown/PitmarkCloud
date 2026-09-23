@@ -149,6 +149,26 @@
     return '<button class="button primary v7-follow-entity" type="button" data-kind="'+esc(type)+'" data-key="'+esc(item.key)+'" data-label="'+esc(item.name)+'">☆ Follow '+esc(type)+'</button>';
   }
 
+  function shareButton(title){
+    return '<button class="button v7-share-page" type="button" data-share-title="'+esc(title||'Pitmark Race Center')+'">Share ↗</button>';
+  }
+
+  async function shareCurrentPage(title){
+    const payload={title:String(title||document.title||'Pitmark Race Center'),url:location.href};
+    try{
+      if(navigator.share){
+        await navigator.share(payload);
+        return;
+      }
+      await navigator.clipboard.writeText(payload.url);
+      const notice=document.createElement('div');
+      notice.className='v7-copy-toast';
+      notice.textContent='Race Center link copied';
+      document.body.appendChild(notice);
+      setTimeout(()=>notice.remove(),1800);
+    }catch(_error){}
+  }
+
   function claimButton(type,item){
     if(!['track','team','series','driver'].includes(type))return '';
     return '<button class="button v7-claim-entity" type="button" data-kind="'+esc(type)+'" data-key="'+esc(item.key)+'" data-label="'+esc(item.name||item.series_name||'Racing entity')+'">Claim this '+esc(type)+'</button>';
@@ -182,7 +202,9 @@
     const events=(item.events||[]).slice(0,12);
     return '<article class="v7-profile-hero"><div><span class="eyebrow">TRACK</span><h2>'+esc(item.name)+'</h2><p>'+esc(item.location||'Location sourced from connected events')+'</p>'+
       '<div class="v7-profile-actions">'+followButton('track',item)+claimButton('track',item)+
-      '<a class="button" href="/api/public/race-center/calendar/track/'+encodeURIComponent(item.key)+'.ics">Calendar ↓</a></div></div>'+
+      '<a class="button" href="/api/public/race-center/calendar/track/'+encodeURIComponent(item.key)+'.ics">Calendar ↓</a>'+
+      '<a class="button" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent([item.name,item.location].filter(Boolean).join(', '))+'" target="_blank" rel="noopener">Map ↗</a>'+
+      shareButton(item.name+' — Pitmark Race Center')+'</div></div>'+
       '<div class="v7-profile-stats"><div><span>SERIES</span><strong>'+Number((item.series||[]).length)+'</strong></div><div><span>EVENTS</span><strong>'+Number(events.length)+'</strong></div></div></article>'+
       '<div class="v7-profile-layout"><section class="v7-profile-section"><span class="eyebrow">UPCOMING / RECENT</span><h3>Events at '+esc(item.name)+'</h3><div class="v7-related-list">'+
       (events.length?events.map(e=>'<a href="/race-center/event/'+encodeURIComponent(e.key)+'"><strong>'+esc(e.name)+'</strong><span>'+esc([e.series_name,eventWhen(e.start)].filter(Boolean).join(' · '))+'</span></a>').join(''):'<p>No connected events are available yet.</p>')+
@@ -192,7 +214,7 @@
   function teamProfile(item){
     const drivers=item.drivers||[];
     return '<article class="v7-profile-hero"><div><span class="eyebrow">TEAM</span><h2>'+esc(item.name)+'</h2><p>'+esc(item.manufacturer||'Manufacturer not consistently published across connected series')+'</p>'+
-      '<div class="v7-profile-actions">'+followButton('team',item)+claimButton('team',item)+'</div></div>'+
+      '<div class="v7-profile-actions">'+followButton('team',item)+claimButton('team',item)+shareButton(item.name+' — Pitmark Race Center')+'</div></div>'+
       '<div class="v7-profile-stats"><div><span>DRIVERS</span><strong>'+drivers.length+'</strong></div><div><span>SERIES</span><strong>'+Number((item.series||[]).length)+'</strong></div></div></article>'+
       '<div class="v7-profile-layout"><section class="v7-profile-section"><span class="eyebrow">DRIVER ROSTER</span><h3>Connected drivers</h3><div class="v7-related-list">'+drivers.map(d=>
         '<a href="/race-center/driver/'+encodeURIComponent(d.series_key||'')+'/'+encodeURIComponent(d.name||'')+'"><strong>'+esc((d.number?'#'+d.number+' · ':'')+d.name)+'</strong><span>'+esc(d.series_key||'Race Center driver')+'</span></a>'
@@ -205,6 +227,7 @@
       (item.watch_url?'<a class="button primary" href="'+esc(item.watch_url)+'" target="_blank" rel="noopener">Watch info ↗</a>':'')+
       (item.schedule_url?'<a class="button" href="'+esc(item.schedule_url)+'" target="_blank" rel="noopener">Official schedule ↗</a>':'')+
       '<a class="button" href="/api/public/race-center/calendar/event/'+encodeURIComponent(item.key)+'.ics">Add to calendar ↓</a>'+
+      shareButton(item.name+' — Pitmark Race Center')+
       '</div></div><div class="v7-profile-stats"><div><span>STATUS</span><strong>'+esc(String(item.state||'schedule').toUpperCase())+'</strong></div><div><span>SERIES</span><strong>'+esc(item.series_name||'—')+'</strong></div></div></article>'+
       '<div class="v7-profile-layout"><section class="v7-profile-section"><span class="eyebrow">EVENT HUB</span><h3>Race-day connections</h3><div class="v7-related-list">'+
       '<a href="/race-center/series/'+encodeURIComponent(item.series_key||'')+'"><strong>'+esc(item.series_name||'Series')+'</strong><span>Championship profile + standings</span></a>'+
@@ -398,6 +421,7 @@
           '<div class="v7-compare-vs">VS</div>'+
           compareDriverCard(data.b,'DRIVER B')+
         '</div>'+
+        '<div class="v7-compare-share"><button class="button v7-share-page" type="button" data-share-title="'+esc(data.a.name+' vs '+data.b.name+' — Pitmark Race Center')+'">Share comparison ↗</button></div>'+
         '<section class="v7-profile-section v7-compare-series"><span class="eyebrow">HEAD TO HEAD</span><h3>Shared championships</h3>'+
           (shared.length
             ?'<div class="v7-compare-table"><div class="v7-compare-row header"><span>Series</span><span>'+esc(data.a.name)+'</span><span>'+esc(data.b.name)+'</span></div>'+
@@ -521,7 +545,7 @@
         const section=document.createElement('section');
         section.id='v7DriverConnections';
         section.className='v7-driver-connections';
-        section.innerHTML='<div class="section-head"><div><span class="eyebrow">CONNECTED RACING</span><h2>Across Race Center</h2></div><div class="v7-profile-actions"><a class="button" href="/race-center/compare?a='+encodeURIComponent(driver.key)+'">Compare driver ↔</a></div></div><div class="v7-profile-layout"><section class="v7-profile-section"><h3>Team</h3><div class="v7-related-list">'+(teams.join('')||'<p>No team relationship is published yet.</p>')+'</div></section><section class="v7-profile-section"><h3>Current championships</h3><div class="v7-related-list">'+series+'</div></section></div>'+ownerContentBlock(entity||{})+editorialBlock(entity?.editorial||[]);
+        section.innerHTML='<div class="section-head"><div><span class="eyebrow">CONNECTED RACING</span><h2>Across Race Center</h2></div><div class="v7-profile-actions"><a class="button" href="/race-center/compare?a='+encodeURIComponent(driver.key)+'">Compare driver ↔</a>'+shareButton(driver.name+' — Pitmark Race Center')+'</div></div><div class="v7-profile-layout"><section class="v7-profile-section"><h3>Team</h3><div class="v7-related-list">'+(teams.join('')||'<p>No team relationship is published yet.</p>')+'</div></section><section class="v7-profile-section"><h3>Current championships</h3><div class="v7-related-list">'+series+'</div></section></div>'+ownerContentBlock(entity||{})+editorialBlock(entity?.editorial||[]);
         content.appendChild(section);
       };
       add();
@@ -556,7 +580,7 @@
         if(entity){
           section.innerHTML+=ownerContentBlock(entity)+editorialBlock(entity.editorial||[])+
             '<div class="v7-profile-actions">'+claimButton('series',entity)+
-            '<a class="button" href="/api/public/race-center/calendar/series/'+encodeURIComponent(key)+'.ics">Series calendar ↓</a></div>';
+            '<a class="button" href="/api/public/race-center/calendar/series/'+encodeURIComponent(key)+'.ics">Series calendar ↓</a>'+shareButton((entity.name||entity.series_name||'Series')+' — Pitmark Race Center')+'</div>';
         }
         content.appendChild(section);
       };
@@ -634,6 +658,8 @@
       if(follow){event.preventDefault();setFollow(follow);return;}
       const claim=event.target.closest('.v7-claim-entity');
       if(claim){event.preventDefault();claimEntity(claim);return;}
+      const share=event.target.closest('.v7-share-page');
+      if(share){event.preventDefault();shareCurrentPage(share.dataset.shareTitle||document.title);return;}
     });
 
     const alerts=$('#v7AlertsButton');
