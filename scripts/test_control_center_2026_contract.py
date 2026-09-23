@@ -841,6 +841,25 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("controller.abort(),20000", public_js)
         self.assertIn("Home is a racing home, not a sticky browse toolbar", css)
 
+    def test_race_center_completion_pass_guarantees_known_nascar_identity_and_readable_staff_badge(self):
+        standings = self.read("services/racing_standings.py")
+        css = self.read("api/standings_public.css")
+        profile_html = self.read("api/race_center_profile.html")
+
+        for token in (
+            "def _nascar_profile_url(",
+            "Hard completeness floor for current NASCAR profiles",
+            'NASCAR_2026_IDENTITY_FALLBACK',
+            '"kylelarson": {"number": "5", "team": "Hendrick Motorsports", "manufacturer": "Chevrolet"}',
+            "secondary = _wikipedia_driver_identity(config, clean_name, season)",
+        ):
+            self.assertIn(token, standings)
+
+        self.assertIn("Staff badge readability completion", css)
+        self.assertIn("min-width:248px!important", css)
+        self.assertIn("width:112px!important", css)
+        self.assertIn("race-center-complete-20260923", profile_html)
+
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
         public_api = self.read("api/standings_public.py")
