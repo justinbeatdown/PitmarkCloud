@@ -302,6 +302,19 @@ function syncContentSelection(root, rows, ctx){
   root.querySelectorAll('[data-bulk-action]').forEach(button => { button.disabled = selectedVisible === 0; });
 }
 
+function contentPublishHealth(status,rows){
+  if(!status)return '';
+  const approvedX=(rows||[]).filter(row=>['approved','scheduled'].includes(low(row.status))&&low(row.platform)==='x').length;
+  if(approvedX&&status?.x?.publishing_paused){
+    return `<div class="pm-callout is-warn pm-content-publish-health"><span class="icon">!</span><div><strong>X publishing is paused</strong><p>X API credits are depleted. ${n(approvedX)} X post${approvedX===1?'':'s'} will stay Approved & Ready until credits are restored. Facebook and Instagram publishing are unaffected.</p></div></div>`;
+  }
+  const blocked=Object.entries(status?.blocked_platforms||{}).filter(([platform])=>(rows||[]).some(row=>['approved','scheduled'].includes(low(row.status))&&low(row.platform)===platform));
+  if(blocked.length){
+    return `<div class="pm-callout is-warn pm-content-publish-health"><span class="icon">!</span><div><strong>Publishing attention needed</strong><p>${esc(blocked.map(([platform,reason])=>`${platform}: ${reason}`).join(' · '))}</p></div></div>`;
+  }
+  return '';
+}
+
 function contentBulkBar(rows, selected){
   if(!rows.length) return '';
   const allSelected = rows.every(row => selected.has(String(row.id)));
@@ -322,13 +335,14 @@ function contentBulkBar(rows, selected){
 
 async function renderContent(root,ctx){
   const tab=ctx.state.contentTab||'generated';
-  let rows=[];let editorial=[];
+  let rows=[];let editorial=[];let publishHealth=null;
   try{
     if(tab==='editorial'){editorial=await api.blogDrafts();}
     else if(tab==='generated'){rows=await api.posts();}
     else if(tab==='approval'){rows=await api.posts('pending');}
     else if(tab==='archived'){const [a,b]=await Promise.all([api.posts('archived'),api.posts('rejected')]);rows=[...a,...b];}
     else{rows=await api.posts(tab);}
+    if(tab!=='editorial')publishHealth=await api.socialPublishStatus().catch(()=>null);
   }catch(e){root.innerHTML=moduleError('Content',e.message,'content');return;}
 
   const visibleIds=new Set(rows.map(row=>String(row.id)));
@@ -340,7 +354,7 @@ async function renderContent(root,ctx){
   const labels={generated:'Pipeline',approval:'Needs Approval',approved:'Approved',scheduled:'Scheduled',published:'Published',archived:'Archived',editorial:'Editorial'};
   const countFor=(key)=>key==='generated'?rows.length:key==='approval'?(counts.pending||0):(counts[key]||0);
   const tabs=`<div class="pm-tabs pm-content-tabs">${CONTENT_TABS.map(key=>`<button class="pm-tab ${tab===key?'is-active':''}" type="button" data-content-tab="${key}"><span>${labels[key]||key}</span>${key!=='editorial'? `<b>${n(countFor(key))}</b>` : ''}</button>`).join('')}</div>`;
-  root.innerHTML=`${viewHeader('Social Manager','Content Pipeline','See exactly what needs approval, what is ready, what Astra scheduled, and what already published.',`<a class="pm-button pm-button-ghost" href="/control/native-ops?tab=social">Social Desk</a><button class="pm-button pm-button-primary" type="button" data-compose>New post</button>`)}${tabs}${tab==='editorial'?renderEditorial(editorial):(tab==='generated'?renderContentPipeline(rows,selected):renderPosts(rows,tab,selected))}`;
+  root.innerHTML=`${viewHeader('Social Manager','Content Pipeline','See exactly what needs approval, what is ready, what Astra scheduled, and what already published.',`<a class="pm-button pm-button-ghost" href="/control/native-ops?tab=social">Social Desk</a><button class="pm-button pm-button-primary" type="button" data-compose>New post</button>`)}${tab==='editorial'?'':contentPublishHealth(publishHealth,rows)}${tabs}${tab==='editorial'?renderEditorial(editorial):(tab==='generated'?renderContentPipeline(rows,selected):renderPosts(rows,tab,selected))}`;
 
   root.onclick=(event)=>{
     const t=event.target.closest('[data-content-tab]');
