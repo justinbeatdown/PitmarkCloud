@@ -264,11 +264,30 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
                     "key": track_key,
                     "name": event_row["venue"],
                     "location": event_row["location"],
+                    "track_type": event_row_source.get("track_type"),
+                    "surface": event_row_source.get("surface"),
+                    "length": event_row_source.get("length"),
+                    "configuration": event_row_source.get("configuration"),
+                    "official_url": event_row_source.get("track_url") or event_row_source.get("official_url"),
+                    "social_links": list(event_row_source.get("social_links") or []),
+                    "photo_url": event_row_source.get("photo_url"),
+                    "photo_license": event_row_source.get("photo_license"),
+                    "photo_attribution": event_row_source.get("photo_attribution"),
                     "series": set(),
                     "events": [],
+                    "source_urls": set(),
                 })
                 if not track.get("location") and event_row.get("location"):
                     track["location"] = event_row.get("location")
+                for field in ("track_type", "surface", "length", "configuration", "official_url", "photo_url", "photo_license", "photo_attribution"):
+                    if not track.get(field) and event_row_source.get(field):
+                        track[field] = event_row_source.get(field)
+                for link in event_row_source.get("social_links") or []:
+                    if link and link not in track["social_links"]:
+                        track["social_links"].append(link)
+                for source in (event_row.get("source_url"), event_row.get("schedule_url"), event_row_source.get("track_url"), event_row_source.get("official_url")):
+                    if source:
+                        track["source_urls"].add(str(source))
                 track["series"].add(series_key)
                 track["events"].append({
                     "key": ekey,
@@ -284,6 +303,34 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
     for track in tracks.values():
         track["series"] = sorted(track["series"])
         track["events"].sort(key=lambda x: str(x.get("start") or ""))
+        track["source_urls"] = sorted(track.get("source_urls") or [])
+        related = []
+        seen_driver_keys: set[str] = set()
+        track_series = set(track["series"])
+        for driver in drivers.values():
+            if not any(str(row.get("series_key") or "") in track_series for row in driver.get("series") or []):
+                continue
+            dkey = str(driver.get("key") or "")
+            if not dkey or dkey in seen_driver_keys:
+                continue
+            seen_driver_keys.add(dkey)
+            related.append({
+                "key": dkey,
+                "name": driver.get("name"),
+                "number": driver.get("number"),
+                "team": driver.get("team"),
+                "photo_url": driver.get("photo_url"),
+                "series": [
+                    row for row in (driver.get("series") or [])
+                    if str(row.get("series_key") or "") in track_series
+                ],
+            })
+        track["related_drivers"] = sorted(related, key=lambda row: str(row.get("name") or ""))[:48]
+        track["provenance"] = {
+            "source_urls": track["source_urls"],
+            "generated_at": now.isoformat(),
+            "confidence": "source-backed" if track["source_urls"] else "derived",
+        }
 
     event_items.sort(key=lambda x: str(x.get("start") or ""))
     series_items.sort(key=lambda x: (str(x.get("group") or ""), str(x.get("name") or "")))
