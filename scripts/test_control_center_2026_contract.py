@@ -1133,6 +1133,25 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Race Center V7 Driver Compare", css)
         self.assertIn('body[data-view="compare"] .v7-compare', css)
 
+    def test_race_center_v7_share_and_track_map_actions(self):
+        v7_js = self.read("api/race_center_v7.js")
+        css = self.read("api/standings_public.css")
+
+        for token in (
+            "function shareButton(",
+            "function shareCurrentPage(",
+            "navigator.share",
+            "navigator.clipboard.writeText",
+            "google.com/maps/search/?api=1&query=",
+            "v7-share-page",
+            "Share comparison ↗",
+        ):
+            self.assertIn(token, v7_js)
+
+        self.assertIn("Race Center V7 sharing + map utilities", css)
+        self.assertIn(".v7-copy-toast", css)
+        self.assertIn(".v7-compare-share", css)
+
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
         public_api = self.read("api/standings_public.py")
