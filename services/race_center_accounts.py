@@ -359,6 +359,8 @@ def ensure_profile(user_id: int) -> dict:
             "bio": profile.bio,
             "favorite_track": profile.favorite_track,
             "account_type": identity.account_type if identity else "fan",
+            "photo_url": f"/api/public/race-center/profile-photo/{profile.handle}",
+            "staff": _pitmark_staff_identity(user.email),
         }
 
 
