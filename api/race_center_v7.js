@@ -547,6 +547,7 @@
     return '<article class="v7-claim-review">'+
       '<div><span class="eyebrow">'+e7(type.toUpperCase())+'</span><strong>'+e7(name||'Claim')+'</strong>'+
       '<small>'+e7(row.driver_key||row.entity_key||'')+'</small>'+
+      '<em>'+e7(row.claimant_name||'Race Center user')+(row.claimant_email?' · '+e7(row.claimant_email):'')+'</em>'+
       (row.note?'<p>'+e7(row.note)+'</p>':'')+
       (row.evidence_url?'<a href="'+e7(row.evidence_url)+'" target="_blank" rel="noopener">Open evidence ↗</a>':'')+
       '</div><div class="v7-claim-review-actions">'+
