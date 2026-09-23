@@ -94,8 +94,9 @@ class NativeOpsContractTests(unittest.TestCase):
 
     def test_google_connected_forbidden_state_is_distinct(self):
         client = (ROOT / "api" / "control_native_ops.js").read_text(encoding="utf-8")
-        self.assertIn("googleAuthorized", client)
-        self.assertIn("Google connected · API access needs attention", client)
+        self.assertIn("googleConnected", client)
+        self.assertIn("googleNeedsApi", client)
+        self.assertIn("Google is connected — turn on the data pipes", client)
 
     def test_google_callback_does_not_require_control_cookie(self):
         hq = (ROOT / "api" / "control_center_hq.py").read_text(encoding="utf-8")
@@ -138,8 +139,9 @@ class NativeOpsContractTests(unittest.TestCase):
         service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
         self.assertIn("meta_page_token", service)
         self.assertIn('"/published_posts"', service)
-        self.assertIn("likes.limit(0).summary(true)", service)
-        self.assertIn('"access_token": base_token', service)
+        self.assertIn("reactions.limit(0).summary(true)", service)
+        self.assertIn('"access_token": page_token', service)
+        self.assertIn('"access_token": system_token', service)
 
     def test_connector_health_keeps_google_errors_separate(self):
         service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
@@ -151,9 +153,8 @@ class NativeOpsContractTests(unittest.TestCase):
 
     def test_native_connector_health_has_google_enable_actions(self):
         client = (ROOT / "api" / "control_native_ops.js").read_text(encoding="utf-8")
-        self.assertIn("function connectorAction", client)
-        self.assertIn("analyticsadmin.googleapis.com", client)
-        self.assertIn("searchconsole.googleapis.com", client)
+        self.assertIn("function sourceActions", client)
+        self.assertIn("setup_urls", client)
         self.assertIn("Enable API", client)
 
     def test_native_ops_assets_are_cache_busted(self):
