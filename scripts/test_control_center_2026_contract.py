@@ -394,7 +394,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("fetch('/api/public/standings", public_js)
         self.assertIn("AbortController", public_js)
         self.assertIn("bootRaceCenter", public_js)
-        self.assertIn("<small>V6</small>", public_html)
+        self.assertIn("<small>V7</small>", public_html)
         self.assertIn('class="race-pulse home-race-pulse"', public_html)
         self.assertIn('id="pulseLive"', public_html)
         self.assertIn('id="favoritesFilter"', public_html)
@@ -862,7 +862,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Staff badge readability completion", css)
         self.assertIn("min-width:248px!important", css)
         self.assertIn("width:112px!important", css)
-        self.assertIn("race-center-complete-20260923", profile_html)
+        self.assertIn("race-center-v7-platform-20260923", profile_html)
 
     def test_race_center_v6_finished_vision_contract(self):
         public_html = self.read("api/standings_public.html")
@@ -960,6 +960,161 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('body[data-view="hub"] .leaders-section,', css)
         self.assertIn('body[data-view="hub"] .series-section{', css)
         self.assertIn('display:block!important', css)
+
+    def test_race_center_v7_platform_foundation_contract(self):
+        events = self.read("services/racing_events.py")
+        platform = self.read("services/race_center_platform.py")
+        accounts = self.read("services/race_center_accounts.py")
+        public_api = self.read("api/standings_public.py")
+        public_html = self.read("api/standings_public.html")
+        public_js = self.read("api/standings_public.js")
+        v6_js = self.read("api/race_center_v6.js")
+        v7_js = self.read("api/race_center_v7.js")
+        profile_js = self.read("api/race_center_profile.js")
+        css = self.read("api/standings_public.css")
+
+        for token in (
+            '"events": events',
+            '"venue": str(venue.get("fullName")',
+            '"venue": str(circuit.get("circuitName")',
+            "TRACK_VENUE_TOKENS",
+            "def _event_venue_from_context(",
+        ):
+            self.assertIn(token, events)
+
+        for token in (
+            "def build_event_catalog(",
+            "def build_track_catalog(",
+            "def build_team_catalog(",
+            "def build_results_archive(",
+            "def build_data_health(",
+            "def build_race_day(",
+            "def build_my_racing_brief(",
+            "def standings_history(",
+            "PLATFORM_CACHE_SECONDS = 30",
+        ):
+            self.assertIn(token, platform)
+
+        for token in (
+            '"series", "driver", "track", "team", "event"',
+            "class RaceCenterEntityClaim(Base):",
+            "class RaceCenterEntityContent(Base):",
+            "class RaceCenterCoverageLink(Base):",
+            "def submit_entity_claim(",
+            "def update_entity_content(",
+            "def add_coverage_link(",
+            "def staff_claim_queue(",
+            "def moderate_claim(",
+        ):
+            self.assertIn(token, accounts)
+
+        for route in (
+            '/race-center/tracks',
+            '/race-center/track/{track_key}',
+            '/race-center/teams',
+            '/race-center/team/{team_key}',
+            '/race-center/events',
+            '/race-center/event/{event_key:path}',
+            '/race-center/archive',
+            '/api/public/race-center/platform',
+            '/api/public/race-center/briefing',
+            '/api/public/race-center/history/{series_key}',
+            '/api/public/race-center/entity-claims',
+            '/api/public/race-center/entity-content/{entity_type}/{entity_key:path}',
+            '/api/public/race-center/coverage-links',
+            '/api/public/race-center/staff/claims',
+            '/race-center.webmanifest',
+            '/race-center-sw.js',
+            '/race-center-v7.js',
+        ):
+            self.assertIn(route, public_api)
+
+        for token in (
+            'data-race-view="tracks"',
+            'data-race-view="teams"',
+            'data-race-view="events"',
+            'id="myRacingBriefing"',
+            'id="tracksDirectory"',
+            'id="trackProfilePage"',
+            'id="teamsDirectory"',
+            'id="teamProfilePage"',
+            'id="eventsDirectory"',
+            'id="eventProfilePage"',
+            'id="archivePage"',
+            'id="entityClaimDialog"',
+            'id="entityManageDialog"',
+            'id="staffClaimsDialog"',
+            '/race-center-v7.js',
+            '<small>V7</small>',
+        ):
+            self.assertIn(token, public_html)
+
+        for token in (
+            "trackprofile",
+            "teamprofile",
+            "eventprofile",
+            "Results Archive — Pitmark Race Center",
+        ):
+            self.assertIn(token, public_js)
+
+        for token in (
+            "platform.tracks",
+            "platform.teams",
+            "platform.events",
+            "/race-center/track/",
+            "/race-center/team/",
+            "/race-center/event/",
+        ):
+            self.assertIn(token, v6_js)
+
+        for token in (
+            "function renderBriefing(",
+            "function renderTracks(",
+            "function renderTrackProfile(",
+            "function renderTeams(",
+            "function renderTeamProfile(",
+            "function renderEvents(",
+            "function renderEventProfile(",
+            "function renderArchive(",
+            "function renderDriverRelationships(",
+            "function renderSeriesRelationships(",
+            "function applyRaceDayMode(",
+            "function loadEntityContent(",
+            "VERIFIED OWNER CONTENT",
+            "PITMARK COVERAGE",
+            "function loadStaffClaims(",
+            "navigator.serviceWorker.register",
+        ):
+            self.assertIn(token, v7_js)
+
+        self.assertIn("profile.tracks", profile_js)
+        self.assertIn("profile.teams", profile_js)
+        self.assertIn("profile.events", profile_js)
+
+        for token in (
+            "RACE CENTER V7 — racing platform layer",
+            ".v7-entity-grid",
+            ".v7-event-card",
+            ".v7-briefing-grid",
+            ".v7-profile-hero",
+            ".v7-owner-card",
+            ".v7-coverage-list",
+            ".v7-claim-review",
+        ):
+            self.assertIn(token, css)
+
+    def test_race_center_v7_preserves_trusted_driver_identity_per_entry(self):
+        standings = self.read("services/racing_standings.py")
+        public_api = self.read("api/standings_public.py")
+        for token in (
+            "Fail closed per driver",
+            'entry["identity_provenance"] = "verified_fallback"',
+            'entry["identity_source_name"] = "Verified racing identity"',
+            'entry["identity_resolved"]',
+        ):
+            self.assertIn(token, standings)
+        self.assertIn("entry_resolved = bool(entry.get(\"identity_resolved\"))", public_api)
+        self.assertIn("if not identity_verified and not entry_resolved:", public_api)
 
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
