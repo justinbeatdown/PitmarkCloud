@@ -488,6 +488,7 @@ NASCAR_2026_IDENTITY_FALLBACK: dict[str, dict[str, dict[str, str | None]]] = {
         "joeylogano": {"number": "22", "team": "Team Penske", "manufacturer": "Ford"},
         "christopherbell": {"number": "20", "team": "Joe Gibbs Racing", "manufacturer": "Toyota"},
         "tygibbs": {"number": "54", "team": "Joe Gibbs Racing", "manufacturer": "Toyota"},
+        "carsonhocevar": {"number": "77", "team": "Spire Motorsports", "manufacturer": "Chevrolet"},
     },
     "nascar-oreilly": {
         "sheldoncreed": {"number": "00", "team": "Haas Factory Team", "manufacturer": "Chevrolet"},
@@ -1832,7 +1833,9 @@ def _official_metadata_nascar_driver_directory(
     if not url:
         return {}, None
 
-    cache_key = f"nascar:{url}"
+    wanted_keys = {_identity_key(name) for name in (wanted_names or []) if _identity_key(name)}
+    cache_scope = ",".join(sorted(wanted_keys)) if wanted_keys else "all"
+    cache_key = f"nascar:{url}:{cache_scope}"
     cached = _profile_metadata_cache_get(cache_key)
     if cached:
         return cached
@@ -1938,7 +1941,6 @@ def _official_metadata_nascar_driver_directory(
 
     # Do not let a temporary official-site block erase verified 2026 identity.
     verified_fallback = NASCAR_2026_IDENTITY_FALLBACK.get(str(config.get("key") or ""), {})
-    wanted_keys = {_identity_key(name) for name in (wanted_names or []) if _identity_key(name)}
     for key, values in verified_fallback.items():
         if wanted_keys and key not in wanted_keys:
             continue
@@ -3125,6 +3127,55 @@ def get_series_roster(
             }
         )
     return roster
+
+
+def get_driver_identity(
+    series_key: str,
+    driver_name: str,
+    *,
+    season: int | None = None,
+) -> dict[str, Any]:
+    """Resolve official identity fields lazily for one driver profile.
+
+    Standings snapshots stay lightweight. A driver page can ask for the richer
+    identity only when somebody actually opens that profile.
+    """
+    season = int(season or utcnow().year)
+    config = next((item for item in SERIES if item["key"] == series_key), None)
+    clean_name = " ".join(str(driver_name or "").split()).strip()
+    if not config or not clean_name:
+        return {
+            "verified": False,
+            "series_key": series_key,
+            "driver_name": clean_name,
+            "number": None,
+            "team": None,
+            "manufacturer": None,
+            "source_url": None,
+        }
+
+    try:
+        metadata, source_url = _official_metadata(config, season, [clean_name])
+    except Exception as exc:
+        log.warning(
+            "Driver identity lookup failed series=%s driver=%s error=%s",
+            series_key,
+            clean_name,
+            exc,
+        )
+        metadata, source_url = {}, None
+
+    values = _identity_metadata_lookup(metadata, clean_name) or {}
+    verified = any(values.get(field) for field in ("number", "team", "manufacturer"))
+    return {
+        "verified": bool(verified),
+        "series_key": series_key,
+        "driver_name": clean_name,
+        "number": values.get("number"),
+        "team": values.get("team"),
+        "manufacturer": values.get("manufacturer"),
+        "source_url": source_url or (str(config.get("metadata_url") or "").strip() or _series_url(config, season)),
+    }
 
 
 def clear_standings_cache() -> None:

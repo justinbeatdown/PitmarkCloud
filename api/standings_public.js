@@ -29,7 +29,7 @@ const prefs=readPrefs();
 const state={
   payload:null,group:'All',search:'',driverSearch:'',view:pageView,
   favorites:prefs.favorites,drivers:prefs.drivers,lastSeries:prefs.lastSeries,favoritesOnly:prefs.favoritesOnly,
-  account:null,socialPosts:[]
+  account:null,socialPosts:[],driverIdentity:{}
 };
 const readCachedPayload=()=>{
   try{
@@ -410,6 +410,23 @@ function driverNextRace(series){
   '</section>';
 }
 
+function loadDriverIdentity(seriesKey,driverName){
+  const cacheKey=String(seriesKey||'')+':'+driverIdentityKey(driverName);
+  const existing=state.driverIdentity[cacheKey];
+  if(existing?.status==='loading'||existing?.status==='ready'||existing?.status==='failed')return existing;
+  state.driverIdentity[cacheKey]={status:'loading'};
+  apiJson('/api/public/race-center/driver-identity/'+encodeURIComponent(seriesKey)+'/'+encodeURIComponent(driverName),{method:'GET'})
+    .then(payload=>{
+      state.driverIdentity[cacheKey]={status:'ready',...payload};
+      renderDriverProfile();
+    })
+    .catch(error=>{
+      state.driverIdentity[cacheKey]={status:'failed',error:error.message||'Official identity lookup failed'};
+      renderDriverProfile();
+    });
+  return state.driverIdentity[cacheKey];
+}
+
 function renderDriverProfile(){
   const host=$('#driverProfileContent');
   if(!host||state.view!=='driver'||!state.payload)return;
@@ -453,6 +470,19 @@ function renderDriverProfile(){
     group:series.group||'RACING',
     photo_url:row.photo_use_allowed===true?String(row.photo_url||''):''
   };
+
+  const identityKey=String(primary.series_key||'')+':'+driverIdentityKey(primary.name);
+  let officialIdentity=state.driverIdentity[identityKey];
+  if(!primary.team||!primary.manufacturer||!primary.number){
+    officialIdentity=loadDriverIdentity(primary.series_key,primary.name);
+  }
+  if(officialIdentity?.status==='ready'&&officialIdentity.verified){
+    if(!primary.number&&officialIdentity.number)primary.number=officialIdentity.number;
+    if(!primary.team&&officialIdentity.team)primary.team=officialIdentity.team;
+    if(!primary.manufacturer&&officialIdentity.manufacturer)primary.manufacturer=officialIdentity.manufacturer;
+  }
+  const identityLoading=officialIdentity?.status==='loading';
+  const identityFallback=identityLoading?'Checking official source…':'Unavailable from official source';
 
   const followed=state.drivers.has(primary.key);
   const identityLine=[primary.number?'#'+primary.number:'',primary.team,primary.manufacturer].filter(Boolean);
@@ -521,9 +551,9 @@ function renderDriverProfile(){
           '<span class="eyebrow">RACING IDENTITY</span>'+
           '<h3>What Race Center knows</h3>'+
           '<dl class="driver-identity-list">'+
-            '<div><dt>Car number</dt><dd>'+esc(primary.number||'Not verified')+'</dd></div>'+
-            '<div><dt>Team</dt><dd>'+esc(primary.team||'Not verified')+'</dd></div>'+
-            '<div><dt>Manufacturer</dt><dd>'+esc(primary.manufacturer||'Not verified')+'</dd></div>'+
+            '<div><dt>Car number</dt><dd>'+esc(primary.number||identityFallback)+'</dd></div>'+
+            '<div><dt>Team</dt><dd>'+esc(primary.team||identityFallback)+'</dd></div>'+
+            '<div><dt>Manufacturer</dt><dd>'+esc(primary.manufacturer||identityFallback)+'</dd></div>'+
             '<div><dt>Series</dt><dd>'+esc(primary.series_name)+'</dd></div>'+
             '<div><dt>Season</dt><dd>'+esc(series.season||'Current')+'</dd></div>'+
           '</dl>'+
