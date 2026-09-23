@@ -3788,3 +3788,11 @@ body.race-live-active[data-view="hub"] #racePulseTitle::after{
   .v7-claim-review{grid-template-columns:1fr}
   .v7-claim-review-actions{justify-content:flex-start}
 }
+
+.v7-claim-review em{
+  display:block;
+  margin-top:4px;
+  color:#97a4b4;
+  font-size:9px;
+  font-style:normal;
+}
