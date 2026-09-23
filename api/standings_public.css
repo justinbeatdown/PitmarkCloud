@@ -2896,3 +2896,656 @@ body[data-view="hub"] .home-race-pulse .pulse-actions{
     font-size:9px!important;
   }
 }
+
+
+/* ============================================================
+   RACE CENTER V7 — racing knowledge graph + race-day platform
+   ============================================================ */
+
+.v7-race-day,
+.v7-entity-directory,
+.v7-entity-profile,
+.v7-my-racing,
+.v7-health{display:none}
+
+body[data-view="hub"] .v7-race-day{
+  display:block!important;
+  margin-top:28px!important;
+}
+body[data-view="hub"] #hubNavigation{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  margin-top:30px!important;
+}
+
+/* V7 dedicated routes own the page; legacy race-board sections stay off them. */
+body[data-view="tracks"] .hero,
+body[data-view="trackprofile"] .hero,
+body[data-view="teams"] .hero,
+body[data-view="teamprofile"] .hero,
+body[data-view="events"] .hero,
+body[data-view="eventprofile"] .hero,
+body[data-view="myracing"] .hero,
+body[data-view="health"] .hero,
+body[data-view="tracks"] .home-race-pulse,
+body[data-view="trackprofile"] .home-race-pulse,
+body[data-view="teams"] .home-race-pulse,
+body[data-view="teamprofile"] .home-race-pulse,
+body[data-view="events"] .home-race-pulse,
+body[data-view="eventprofile"] .home-race-pulse,
+body[data-view="myracing"] .home-race-pulse,
+body[data-view="health"] .home-race-pulse,
+body[data-view="tracks"] #hubNavigation,
+body[data-view="trackprofile"] #hubNavigation,
+body[data-view="teams"] #hubNavigation,
+body[data-view="teamprofile"] #hubNavigation,
+body[data-view="events"] #hubNavigation,
+body[data-view="eventprofile"] #hubNavigation,
+body[data-view="myracing"] #hubNavigation,
+body[data-view="health"] #hubNavigation,
+body[data-view="tracks"] .toolbar,
+body[data-view="trackprofile"] .toolbar,
+body[data-view="teams"] .toolbar,
+body[data-view="teamprofile"] .toolbar,
+body[data-view="events"] .toolbar,
+body[data-view="eventprofile"] .toolbar,
+body[data-view="myracing"] .toolbar,
+body[data-view="health"] .toolbar,
+body[data-view="tracks"] .live-section,
+body[data-view="trackprofile"] .live-section,
+body[data-view="teams"] .live-section,
+body[data-view="teamprofile"] .live-section,
+body[data-view="events"] .live-section,
+body[data-view="eventprofile"] .live-section,
+body[data-view="myracing"] .live-section,
+body[data-view="health"] .live-section,
+body[data-view="tracks"] .leaders-section,
+body[data-view="trackprofile"] .leaders-section,
+body[data-view="teams"] .leaders-section,
+body[data-view="teamprofile"] .leaders-section,
+body[data-view="events"] .leaders-section,
+body[data-view="eventprofile"] .leaders-section,
+body[data-view="myracing"] .leaders-section,
+body[data-view="health"] .leaders-section,
+body[data-view="tracks"] .movers-section,
+body[data-view="trackprofile"] .movers-section,
+body[data-view="teams"] .movers-section,
+body[data-view="teamprofile"] .movers-section,
+body[data-view="events"] .movers-section,
+body[data-view="eventprofile"] .movers-section,
+body[data-view="myracing"] .movers-section,
+body[data-view="health"] .movers-section,
+body[data-view="tracks"] .series-section,
+body[data-view="trackprofile"] .series-section,
+body[data-view="teams"] .series-section,
+body[data-view="teamprofile"] .series-section,
+body[data-view="events"] .series-section,
+body[data-view="eventprofile"] .series-section,
+body[data-view="myracing"] .series-section,
+body[data-view="health"] .series-section,
+body[data-view="tracks"] .schedule-section,
+body[data-view="trackprofile"] .schedule-section,
+body[data-view="teams"] .schedule-section,
+body[data-view="teamprofile"] .schedule-section,
+body[data-view="events"] .schedule-section,
+body[data-view="eventprofile"] .schedule-section,
+body[data-view="myracing"] .schedule-section,
+body[data-view="health"] .schedule-section,
+body[data-view="tracks"] .race-center-grid,
+body[data-view="trackprofile"] .race-center-grid,
+body[data-view="teams"] .race-center-grid,
+body[data-view="teamprofile"] .race-center-grid,
+body[data-view="events"] .race-center-grid,
+body[data-view="eventprofile"] .race-center-grid,
+body[data-view="myracing"] .race-center-grid,
+body[data-view="health"] .race-center-grid,
+body[data-view="tracks"] .drivers-directory,
+body[data-view="trackprofile"] .drivers-directory,
+body[data-view="teams"] .drivers-directory,
+body[data-view="teamprofile"] .drivers-directory,
+body[data-view="events"] .drivers-directory,
+body[data-view="eventprofile"] .drivers-directory,
+body[data-view="myracing"] .drivers-directory,
+body[data-view="health"] .drivers-directory,
+body[data-view="tracks"] .driver-profile-page,
+body[data-view="trackprofile"] .driver-profile-page,
+body[data-view="teams"] .driver-profile-page,
+body[data-view="teamprofile"] .driver-profile-page,
+body[data-view="events"] .driver-profile-page,
+body[data-view="eventprofile"] .driver-profile-page,
+body[data-view="myracing"] .driver-profile-page,
+body[data-view="health"] .driver-profile-page,
+body[data-view="tracks"] .series-directory,
+body[data-view="trackprofile"] .series-directory,
+body[data-view="teams"] .series-directory,
+body[data-view="teamprofile"] .series-directory,
+body[data-view="events"] .series-directory,
+body[data-view="eventprofile"] .series-directory,
+body[data-view="myracing"] .series-directory,
+body[data-view="health"] .series-directory,
+body[data-view="tracks"] .series-profile-page,
+body[data-view="trackprofile"] .series-profile-page,
+body[data-view="teams"] .series-profile-page,
+body[data-view="teamprofile"] .series-profile-page,
+body[data-view="events"] .series-profile-page,
+body[data-view="eventprofile"] .series-profile-page,
+body[data-view="myracing"] .series-profile-page,
+body[data-view="health"] .series-profile-page{
+  display:none!important;
+}
+
+body[data-view="tracks"] .v7-entity-directory,
+body[data-view="teams"] .v7-entity-directory,
+body[data-view="events"] .v7-entity-directory,
+body[data-view="trackprofile"] .v7-entity-profile,
+body[data-view="teamprofile"] .v7-entity-profile,
+body[data-view="eventprofile"] .v7-entity-profile,
+body[data-view="myracing"] .v7-my-racing,
+body[data-view="health"] .v7-health{
+  display:block!important;
+  width:min(var(--content-max,1400px),calc(100% - 34px));
+  margin:34px auto 80px!important;
+}
+
+.v7-directory-head,
+.v7-page-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:22px;
+  margin-bottom:18px;
+}
+.v7-directory-head h2,
+.v7-page-head h2{
+  margin:6px 0 7px;
+  font-size:clamp(34px,4vw,56px);
+  line-height:.98;
+  letter-spacing:-.045em;
+}
+.v7-directory-head p,
+.v7-page-head p{
+  max-width:760px;
+  margin:0;
+  color:#8c99aa;
+  font-size:13px;
+  line-height:1.55;
+}
+.v7-directory-head .driver-search{width:min(420px,100%)}
+.v7-directory-meta{
+  display:flex;
+  justify-content:space-between;
+  gap:20px;
+  margin:0 0 12px;
+  color:#758397;
+  font-size:10px;
+}
+.v7-directory-meta strong{color:#e8edf3;font-size:11px}
+
+.v7-entity-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
+.v7-entity-card{
+  min-height:180px;
+  display:flex;
+  flex-direction:column;
+  padding:18px;
+  border:1px solid #2a3540;
+  border-radius:16px;
+  background:
+    radial-gradient(circle at 100% 0%,rgba(255,85,0,.07),transparent 36%),
+    linear-gradient(145deg,#12181e,#0b0f13);
+  box-shadow:0 14px 38px rgba(0,0,0,.13);
+  transition:transform .15s ease,border-color .15s ease,background .15s ease;
+}
+.v7-entity-card:hover{
+  transform:translateY(-2px);
+  border-color:rgba(255,95,32,.5);
+  background:
+    radial-gradient(circle at 100% 0%,rgba(255,85,0,.12),transparent 40%),
+    linear-gradient(145deg,#151c22,#0c1116);
+}
+.v7-card-kicker{
+  color:#ff8d55;
+  font-size:9px;
+  font-weight:1000;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+}
+.v7-entity-card h3{
+  margin:8px 0 6px;
+  color:#f6f8fa;
+  font-size:22px;
+  line-height:1.05;
+  letter-spacing:-.025em;
+}
+.v7-entity-card p{
+  margin:0;
+  color:#8795a7;
+  font-size:11px;
+  line-height:1.5;
+}
+.v7-card-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:auto;
+  padding-top:18px;
+}
+.v7-card-meta span{
+  padding:5px 7px;
+  border:1px solid #28333d;
+  border-radius:7px;
+  background:#0a0f13;
+  color:#9aa6b5;
+  font-size:9px;
+  font-weight:850;
+}
+.v7-entity-card>strong{
+  margin-top:12px;
+  color:#ff9868;
+  font-size:10px;
+}
+.v7-event-card.live{
+  border-color:rgba(57,217,138,.42);
+  box-shadow:0 0 0 1px rgba(57,217,138,.05),0 14px 38px rgba(0,0,0,.13);
+}
+.v7-event-card.live .v7-card-kicker{color:#50e4a0}
+
+.v7-profile-hero{
+  display:grid;
+  grid-template-columns:minmax(0,1.5fr) minmax(320px,.75fr);
+  gap:30px;
+  align-items:center;
+  padding:28px;
+  border:1px solid #2a3540;
+  border-radius:20px;
+  background:
+    radial-gradient(circle at 100% 0%,rgba(255,85,0,.09),transparent 38%),
+    linear-gradient(145deg,#141a20,#0b1014);
+  box-shadow:0 18px 48px rgba(0,0,0,.18);
+}
+.v7-profile-hero h2{
+  margin:7px 0 8px;
+  color:#f7f8fa;
+  font-size:clamp(42px,5vw,70px);
+  line-height:.93;
+  letter-spacing:-.055em;
+}
+.v7-profile-hero p{
+  max-width:800px;
+  margin:0;
+  color:#91a0b2;
+  font-size:14px;
+}
+.v7-profile-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:18px;
+}
+.v7-profile-stats{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+.v7-profile-stats>div{
+  padding:16px;
+  border:1px solid #2b3641;
+  border-radius:13px;
+  background:#090e12;
+}
+.v7-profile-stats span{
+  display:block;
+  color:#718095;
+  font-size:9px;
+  font-weight:950;
+  letter-spacing:.09em;
+}
+.v7-profile-stats strong{
+  display:block;
+  margin-top:6px;
+  color:#f4f7fa;
+  font-size:19px;
+}
+.v7-event-time{
+  margin-top:12px;
+  color:#d5dbe3;
+  font-size:18px;
+  font-weight:900;
+}
+.v7-profile-layout{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+  margin-top:14px;
+}
+.v7-profile-section{
+  padding:18px;
+  border:1px solid #29343e;
+  border-radius:15px;
+  background:#0d1217;
+}
+.v7-profile-section h3{
+  margin:5px 0 12px;
+  color:#f1f4f7;
+  font-size:21px;
+}
+.v7-profile-section>p{
+  color:#8997a8;
+  font-size:12px;
+  line-height:1.55;
+}
+.v7-related-list,
+.v7-editorial-list{
+  display:grid;
+  gap:7px;
+}
+.v7-related-list>a,
+.v7-editorial-list>a{
+  display:grid;
+  gap:3px;
+  padding:10px 11px;
+  border:1px solid #26313a;
+  border-radius:9px;
+  background:#090e12;
+}
+.v7-related-list>a:hover,
+.v7-editorial-list>a:hover{border-color:#465666}
+.v7-related-list strong,
+.v7-editorial-list strong{font-size:11px;color:#e8edf3}
+.v7-related-list span,
+.v7-editorial-list span{font-size:9px;color:#758397}
+.v7-chip-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+}
+.v7-chip-list a{
+  padding:7px 9px;
+  border:1px solid #2c3742;
+  border-radius:8px;
+  background:#090e12;
+  color:#c4ced9;
+  font-size:10px;
+  font-weight:850;
+}
+.v7-chip-list a:hover{border-color:#ff7f43;color:#fff}
+
+.v7-race-day-grid,
+.v7-brief-row{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:9px;
+}
+.v7-brief-card{
+  min-height:112px;
+  display:flex;
+  flex-direction:column;
+  padding:13px;
+  border:1px solid #29343e;
+  border-radius:12px;
+  background:linear-gradient(145deg,#11171d,#0a0f13);
+}
+.v7-brief-card:hover{border-color:rgba(255,85,0,.42)}
+.v7-brief-card>strong{
+  margin:7px 0 5px;
+  color:#eff3f7;
+  font-size:14px;
+  line-height:1.2;
+}
+.v7-brief-card p{
+  margin:0;
+  color:#7f8d9f;
+  font-size:10px;
+  line-height:1.45;
+}
+.v7-page-head{padding-bottom:16px;border-bottom:1px solid #252f38}
+.v7-my-racing-grid{
+  display:grid;
+  gap:14px;
+}
+.v7-brief-section{
+  padding:18px;
+  border:1px solid #29343e;
+  border-radius:15px;
+  background:#0d1217;
+}
+.v7-brief-section h3{
+  margin:5px 0 13px;
+  font-size:23px;
+  color:#f2f5f8;
+}
+.v7-alert-stream{
+  border-color:rgba(255,85,0,.32);
+  background:linear-gradient(145deg,rgba(255,85,0,.045),#0d1217 45%);
+}
+.v7-follow-summary{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:8px;
+}
+.v7-follow-summary>div{
+  padding:14px;
+  border:1px solid #29343e;
+  border-radius:11px;
+  background:#090e12;
+}
+.v7-follow-summary strong{display:block;font-size:28px;color:#f1f5f8}
+.v7-follow-summary span{display:block;margin-top:3px;color:#78879a;font-size:9px;text-transform:uppercase;font-weight:950}
+
+.v7-health-stats{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:8px;
+}
+.v7-health-stats>div{
+  padding:15px;
+  border:1px solid #29343e;
+  border-radius:12px;
+  background:#0b1015;
+}
+.v7-health-stats span{display:block;color:#758397;font-size:8px;font-weight:950;letter-spacing:.08em}
+.v7-health-stats strong{display:block;margin:6px 0 2px;font-size:27px;color:#f5f7f9}
+.v7-health-stats small{color:#7f8d9d;font-size:9px}
+.v7-health-lists{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin-top:14px;
+}
+.v7-health-lists section{
+  padding:16px;
+  border:1px solid #29343e;
+  border-radius:13px;
+  background:#0d1217;
+}
+.v7-health-lists h3{margin:0 0 10px;font-size:17px}
+.v7-health-lists a{
+  display:block;
+  padding:7px 0;
+  border-top:1px solid #222c35;
+  color:#bcc7d3;
+  font-size:10px;
+}
+.v7-health-lists a:first-of-type{border-top:0}
+
+.v7-alert-dialog{
+  width:min(620px,calc(100% - 24px));
+  border:1px solid #35414c;
+  border-radius:17px;
+  background:#0d1217;
+  color:#f4f7f9;
+  padding:0;
+  box-shadow:0 30px 90px rgba(0,0,0,.65);
+}
+.v7-alert-dialog::backdrop{background:rgba(0,0,0,.72);backdrop-filter:blur(5px)}
+.v7-alert-dialog form{padding:18px}
+.v7-alert-options{display:grid;gap:7px;margin:18px 0}
+.v7-alert-options label{
+  display:grid;
+  grid-template-columns:auto 1fr;
+  gap:10px;
+  align-items:center;
+  padding:11px;
+  border:1px solid #29343e;
+  border-radius:10px;
+  background:#090e12;
+  cursor:pointer;
+}
+.v7-alert-options input{width:17px;height:17px;accent-color:#ff5500}
+.v7-alert-options strong{display:block;font-size:11px}
+.v7-alert-options small{display:block;margin-top:2px;color:#78879a;font-size:9px}
+.v7-alert-dialog .dialog-actions{display:flex;justify-content:flex-end;gap:8px}
+
+.v7-driver-connections{
+  margin-top:20px;
+  padding-top:6px;
+}
+.v7-archive-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:9px;
+}
+.v7-archive-card{
+  padding:13px;
+  border:1px solid #29343e;
+  border-radius:11px;
+  background:#0b1015;
+}
+.v7-archive-card span{display:block;color:#ff9360;font-size:9px;font-weight:950}
+.v7-archive-card strong{display:block;margin:6px 0 4px;font-size:13px}
+.v7-archive-card p{margin:0;color:#8492a4;font-size:10px}
+.v7-archive-card small{display:block;margin-top:7px;color:#657488;font-size:8px}
+
+/* V7 navigation can grow without destroying the header. */
+@media(max-width:1500px){
+  .site-header nav{
+    justify-content:flex-start!important;
+    overflow-x:auto!important;
+    scrollbar-width:none;
+  }
+  .site-header nav::-webkit-scrollbar{display:none}
+  .site-header nav a{flex:0 0 auto}
+}
+@media(max-width:1100px){
+  body[data-view="hub"] #hubNavigation{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .v7-entity-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .v7-race-day-grid,.v7-brief-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .v7-health-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:760px){
+  body[data-view="tracks"] .v7-entity-directory,
+  body[data-view="trackprofile"] .v7-entity-profile,
+  body[data-view="teams"] .v7-entity-directory,
+  body[data-view="teamprofile"] .v7-entity-profile,
+  body[data-view="events"] .v7-entity-directory,
+  body[data-view="eventprofile"] .v7-entity-profile,
+  body[data-view="myracing"] .v7-my-racing,
+  body[data-view="health"] .v7-health{
+    width:calc(100% - 20px);
+    margin-top:20px!important;
+  }
+  .v7-directory-head,.v7-page-head{align-items:flex-start;flex-direction:column}
+  .v7-directory-head .driver-search{width:100%}
+  .v7-entity-grid,
+  body[data-view="hub"] #hubNavigation,
+  .v7-race-day-grid,
+  .v7-brief-row,
+  .v7-profile-layout,
+  .v7-health-lists,
+  .v7-archive-grid{grid-template-columns:1fr!important}
+  .v7-profile-hero{grid-template-columns:1fr;padding:18px}
+  .v7-profile-stats{grid-template-columns:1fr 1fr}
+  .v7-follow-summary{grid-template-columns:1fr 1fr}
+  .v7-health-stats{grid-template-columns:1fr 1fr}
+  .v7-directory-meta{align-items:flex-start;flex-direction:column;gap:4px}
+}
+
+
+/* V7 verified owner content */
+.v7-owner-content{
+  margin-top:14px;
+  border-color:rgba(255,85,0,.28);
+  background:linear-gradient(145deg,rgba(255,85,0,.045),#0d1217 45%);
+}
+.v7-owner-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.v7-verified-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:5px 8px;
+  border:1px solid rgba(57,217,138,.3);
+  border-radius:999px;
+  background:rgba(57,217,138,.06);
+  color:#6fe7ae;
+  font-size:8px;
+  font-weight:1000;
+  letter-spacing:.08em;
+}
+.v7-owner-content>p{
+  margin:0 0 12px;
+  color:#a6b2c0;
+  font-size:12px;
+  line-height:1.65;
+}
+.v7-sponsor-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin:10px 0;
+}
+.v7-sponsor-list span{
+  padding:6px 8px;
+  border:1px solid #2d3944;
+  border-radius:8px;
+  background:#090e12;
+  color:#c9d1db;
+  font-size:9px;
+  font-weight:850;
+}
+.v7-owner-links{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  margin-top:12px;
+}
+.v7-owner-links a{
+  padding:7px 9px;
+  border:1px solid #2e3a45;
+  border-radius:8px;
+  color:#ff996a;
+  font-size:9px;
+  font-weight:900;
+}
+
+
+/* V7 account + My Racing extras */
+.v7-account-stats{
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+}
+.v7-follow-chip{
+  text-decoration:none;
+}
+.v7-chip-icon{
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  flex:0 0 38px;
+  border:1px solid #2f3a45;
+  border-radius:9px;
+  background:#0b1015;
+  color:#ff925d;
+  font-size:13px;
+  font-weight:1000;
+}
+@media(max-width:760px){
+  .v7-account-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}

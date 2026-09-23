@@ -363,7 +363,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             self.assertIn(token, service)
         self.assertIn('@router.get("/standings"', public_api)
         self.assertIn('@router.get("/api/public/standings"', public_api)
-        self.assertIn("All of racing.", public_html)
+        self.assertIn("Your racing.", public_html)
         self.assertIn('data-view="{{RACE_CENTER_VIEW}}"', public_html)
         self.assertIn("seriesVisible", public_js)
         self.assertIn("standings_public.router", main)
@@ -394,7 +394,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("fetch('/api/public/standings", public_js)
         self.assertIn("AbortController", public_js)
         self.assertIn("bootRaceCenter", public_js)
-        self.assertIn("<small>V6</small>", public_html)
+        self.assertIn("<small>V7</small>", public_html)
         self.assertIn('class="race-pulse home-race-pulse"', public_html)
         self.assertIn('id="pulseLive"', public_html)
         self.assertIn('id="favoritesFilter"', public_html)
@@ -862,7 +862,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Staff badge readability completion", css)
         self.assertIn("min-width:248px!important", css)
         self.assertIn("width:112px!important", css)
-        self.assertIn("race-center-complete-20260923", profile_html)
+        self.assertIn("race-center-v7-profile-20260923", profile_html)
 
     def test_race_center_v6_finished_vision_contract(self):
         public_html = self.read("api/standings_public.html")
@@ -883,7 +883,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             'id="leaderStrip"',
             'id="standingsBoard"',
             '/race-center-v6.js',
-            '<small>V6</small>',
+            '<small>V7</small>',
         ):
             self.assertIn(token, public_html)
         self.assertNotIn('id="v5Home"', public_html)
@@ -960,6 +960,133 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('body[data-view="hub"] .leaders-section,', css)
         self.assertIn('body[data-view="hub"] .series-section{', css)
         self.assertIn('display:block!important', css)
+
+    def test_race_center_v7_platform_contract(self):
+        public_html = self.read("api/standings_public.html")
+        public_js = self.read("api/standings_public.js")
+        public_api = self.read("api/standings_public.py")
+        v7_js = self.read("api/race_center_v7.js")
+        css = self.read("api/standings_public.css")
+        accounts = self.read("services/race_center_accounts.py")
+        entities = self.read("services/race_center_entities.py")
+        events = self.read("services/racing_events.py")
+        database = self.read("services/database.py")
+        profile_js = self.read("api/race_center_profile.js")
+        manifest = self.read("api/race-center.webmanifest")
+        service_worker = self.read("api/race_center_sw.js")
+
+        for token in (
+            '<small>V7</small>',
+            'data-race-view="tracks"',
+            'data-race-view="events"',
+            'id="v7RaceDay"',
+            'id="v7EntityDirectory"',
+            'id="v7EntityProfile"',
+            'id="v7MyRacing"',
+            'id="v7Health"',
+            '/race-center-v7.js',
+            '/race-center.webmanifest',
+        ):
+            self.assertIn(token, public_html)
+
+        for token in (
+            "trackprofile",
+            "teamprofile",
+            "eventprofile",
+            "myracing",
+            "health",
+            "Tracks — Pitmark Race Center V7",
+            "Events — Pitmark Race Center V7",
+            "My Racing — Pitmark Race Center V7",
+        ):
+            self.assertIn(token, public_js)
+
+        for token in (
+            '@router.get("/race-center/tracks"',
+            '@router.get("/race-center/track/{entity_key}"',
+            '@router.get("/race-center/teams"',
+            '@router.get("/race-center/team/{entity_key}"',
+            '@router.get("/race-center/events"',
+            '@router.get("/race-center/event/{entity_key}"',
+            '@router.get("/race-center/my-racing"',
+            '@router.get("/race-center/health"',
+            '@router.get("/api/public/race-center/graph"',
+            '@router.get("/api/public/race-center/search"',
+            '@router.get("/api/public/race-center/my-racing"',
+            '@router.get("/api/public/race-center/race-day"',
+            '@router.get("/api/public/race-center/data-health"',
+            '@router.get("/api/public/race-center/archive/{series_key}"',
+            '@router.get("/api/public/race-center/alerts"',
+            '@router.get("/api/public/race-center/notifications"',
+            '@router.post("/api/public/race-center/entity-claims"',
+            '@router.put("/api/public/race-center/entity-profile/{entity_type}/{entity_key}"',
+            '@router.get("/race-center-v7.js"',
+            '@router.get("/race-center.webmanifest"',
+            '@router.get("/race-center-sw.js"',
+            "Do not erase that trusted per-driver",
+        ):
+            self.assertIn(token, public_api)
+
+        for token in (
+            "class RaceCenterEntityClaim(Base):",
+            "class RaceCenterEntityProfile(Base):",
+            "class RaceCenterNotificationPreference(Base):",
+            "class RaceCenterEditorialLink(Base):",
+            "def build_entity_graph(",
+            "def graph_search(",
+            "def entity_detail(",
+            "def my_racing_brief(",
+            "def data_health(",
+            "def series_archive(",
+            "def alerts_for_user(",
+            "def submit_entity_claim(",
+            "def update_entity_owner_content(",
+            "def attach_editorial(",
+        ):
+            self.assertIn(token, entities)
+
+        for token in (
+            '"events": events[:40]',
+            '"venue": venue_data.get("fullName")',
+            '"venue": circuit.get("circuitName")',
+        ):
+            self.assertIn(token, events)
+
+        self.assertIn('{"series", "driver", "track", "team"}', accounts)
+        self.assertIn('"tracks": [', accounts)
+        self.assertIn('"teams": [', accounts)
+        self.assertIn("from services import race_center_entities", database)
+        self.assertIn("profile.tracks", profile_js)
+        self.assertIn("profile.teams", profile_js)
+
+        for token in (
+            "function renderDirectory(",
+            "function renderEntityProfile(",
+            "function renderRaceDay(",
+            "function renderMyRacing(",
+            "function renderHealth(",
+            "function augmentSeriesProfile(",
+            "function augmentDriverPage(",
+            "function registerPwa(",
+            "VERIFIED PROFILE CONTENT",
+            "RESULTS ARCHIVE",
+        ):
+            self.assertIn(token, v7_js)
+
+        for token in (
+            "RACE CENTER V7 — racing knowledge graph + race-day platform",
+            ".v7-entity-grid",
+            ".v7-profile-hero",
+            ".v7-race-day-grid",
+            ".v7-health-stats",
+            ".v7-verified-badge",
+        ):
+            self.assertIn(token, css)
+
+        self.assertIn('"display": "standalone"', manifest)
+        self.assertIn('"My Racing"', manifest)
+        self.assertIn("self.addEventListener('push'", service_worker)
+        self.assertIn("notificationclick", service_worker)
 
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
