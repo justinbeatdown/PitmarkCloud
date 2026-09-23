@@ -225,6 +225,7 @@ class RaceEntityOwnerProfileChange(BaseModel):
 
 class RaceEntityClaimReview(BaseModel):
     status: str = Field(min_length=6, max_length=20)
+    note: str = Field(default="", max_length=4000)
 
 
 class RaceEditorialLinkCreate(BaseModel):
@@ -583,11 +584,22 @@ def race_center_entity_profile_update(
     return {"ok": True, "profile": profile}
 
 
+@router.get("/api/public/race-center/entity-claims/review", include_in_schema=False)
+def race_center_entity_claim_review_queue(request: Request, status: str = "", limit: int = 100):
+    _race_staff_or_403(request)
+    return {"claims": race_center_entities.entity_claims_for_review(status=status, limit=limit)}
+
+
 @router.put("/api/public/race-center/entity-claims/{claim_id}/review", include_in_schema=False)
 def race_center_entity_claim_review(request: Request, claim_id: int, body: RaceEntityClaimReview):
-    _race_staff_or_403(request)
+    staff = _race_staff_or_403(request)
     try:
-        return race_center_entities.review_entity_claim(claim_id, status=body.status)
+        return race_center_entities.review_entity_claim(
+            claim_id,
+            status=body.status,
+            reviewer_user_id=staff.id,
+            note=body.note,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
