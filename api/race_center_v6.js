@@ -186,6 +186,11 @@
       card.dataset.v6Wired='1';
       card.tabIndex=0;
       const go=()=>{
+        const driverHref=String(card.dataset.driverHref||'');
+        if(driverHref){
+          location.href=driverHref;
+          return;
+        }
         const key=String(card.dataset.key||'');
         if(key)location.href='/race-center/series/'+encodeURIComponent(key);
       };
@@ -232,6 +237,9 @@
     enhance();
     setTimeout(enhance,250);
     setTimeout(enhance,1200);
+    // V5's live/social renderer refreshes independently. Re-apply the V6
+    // identity/photo layer so those refreshes can never downgrade the profile UI.
+    setInterval(enhance,10000);
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
