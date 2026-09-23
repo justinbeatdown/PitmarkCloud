@@ -153,6 +153,23 @@
     return '<button class="button v7-claim-entity" type="button" data-kind="'+esc(type)+'" data-key="'+esc(item.key)+'" data-label="'+esc(item.name||item.series_name||'Racing entity')+'">Claim this '+esc(type)+'</button>';
   }
 
+  function ownerContentBlock(item){
+    const owner=item&&item.owner_content;
+    const verification=item&&item.verification;
+    if(!owner&&!verification?.claimed)return '';
+    const links=[];
+    if(owner?.website_url)links.push('<a href="'+esc(owner.website_url)+'" target="_blank" rel="noopener">Official website ↗</a>');
+    if(owner?.shop_url)links.push('<a href="'+esc(owner.shop_url)+'" target="_blank" rel="noopener">Shop ↗</a>');
+    if(owner?.contact_url)links.push('<a href="'+esc(owner.contact_url)+'" target="_blank" rel="noopener">Contact ↗</a>');
+    return '<section class="v7-profile-section v7-owner-content">'+
+      '<div class="v7-owner-head"><span class="eyebrow">VERIFIED PROFILE CONTENT</span>'+(verification?.verified?'<span class="v7-verified-badge">✓ VERIFIED OWNER</span>':'')+'</div>'+
+      '<h3>From the people behind this '+esc(item.type||'racing profile')+'</h3>'+
+      (owner?.bio?'<p>'+esc(owner.bio)+'</p>':'')+
+      (owner?.sponsors?.length?'<div class="v7-sponsor-list">'+owner.sponsors.map(x=>'<span>'+esc(x)+'</span>').join('')+'</div>':'')+
+      (links.length?'<div class="v7-owner-links">'+links.join('')+'</div>':'')+
+    '</section>';
+  }
+
   function editorialBlock(items){
     if(!items||!items.length)return '';
     return '<section class="v7-profile-section"><span class="eyebrow">PITMARK COVERAGE</span><h3>Stories connected to this page</h3><div class="v7-editorial-list">'+items.map(x=>
@@ -209,6 +226,7 @@
     try{
       const item=await getJson('/api/public/race-center/entity/'+type+'/'+encodeURIComponent(key)+'?v=7');
       let html=type==='track'?trackProfile(item):type==='team'?teamProfile(item):eventProfile(item);
+      html+=ownerContentBlock(item);
       html+=editorialBlock(item.editorial);
       content.innerHTML=html;
     }catch(error){
@@ -393,6 +411,7 @@
       const data=await graph();
       const driver=(data.drivers||[]).find(x=>normalize(x.name)===normalize(name));
       if(!driver)return;
+      const entity=await getJson('/api/public/race-center/entity/driver/'+encodeURIComponent(driver.key)+'?v=7').catch(()=>null);
       const add=()=>{
         if($('#v7DriverConnections',content))return;
         const teams=[];
@@ -401,7 +420,11 @@
         const section=document.createElement('section');
         section.id='v7DriverConnections';
         section.className='v7-driver-connections';
-        section.innerHTML='<div class="section-head"><div><span class="eyebrow">CONNECTED RACING</span><h2>Across Race Center</h2></div><p>Team and championship relationships tied to this driver.</p></div><div class="v7-profile-layout"><section class="v7-profile-section"><h3>Team</h3><div class="v7-related-list">'+(teams.join('')||'<p>No team relationship is published yet.</p>')+'</div></section><section class="v7-profile-section"><h3>Current championships</h3><div class="v7-related-list">'+series+'</div></section></div>';
+        section.innerHTML='<div class="section-head"><div><span class="eyebrow">CONNECTED RACING</span><h2>Across Race Center</h2></div><p>Team and championship relationships tied to this driver.</p></div><div class="v7-profile-layout"><section class="v7-profile-section"><h3>Team</h3><div class="v7-related-list">'+(teams.join('')||'<p>No team relationship is published yet.</p>')+'</div></section><section class="v7-profile-section"><h3>Current championships</h3><div class="v7-related-list">'+series+'</div></section></div>'+ownerContentBlock(entity||{})+editorialBlock(entity?.editorial||[]);
+        if(entity){
+          section.innerHTML+=ownerContentBlock(entity)+editorialBlock(entity.editorial||[])+
+            '<div class="v7-profile-actions">'+claimButton('series',entity)+'</div>';
+        }
         content.appendChild(section);
       };
       add();
@@ -418,7 +441,10 @@
     const key=entityRouteKey('series');
     if(!key)return;
     try{
-      const archive=await getJson('/api/public/race-center/archive/'+encodeURIComponent(key)+'?limit=12&v=7');
+      const [archive,entity]=await Promise.all([
+        getJson('/api/public/race-center/archive/'+encodeURIComponent(key)+'?limit=12&v=7'),
+        getJson('/api/public/race-center/entity/series/'+encodeURIComponent(key)+'?v=7').catch(()=>null)
+      ]);
       const add=()=>{
         if($('#v7SeriesArchive',content))return;
         const rows=archive.snapshots||[];
