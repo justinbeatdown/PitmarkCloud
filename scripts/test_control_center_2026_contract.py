@@ -363,7 +363,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             self.assertIn(token, service)
         self.assertIn('@router.get("/standings"', public_api)
         self.assertIn('@router.get("/api/public/standings"', public_api)
-        self.assertIn("All of racing.", public_html)
+        self.assertIn("Your racing.", public_html)
         self.assertIn('data-view="{{RACE_CENTER_VIEW}}"', public_html)
         self.assertIn("seriesVisible", public_js)
         self.assertIn("standings_public.router", main)
@@ -394,7 +394,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("fetch('/api/public/standings", public_js)
         self.assertIn("AbortController", public_js)
         self.assertIn("bootRaceCenter", public_js)
-        self.assertIn("<small>V6</small>", public_html)
+        self.assertIn("<small>V7</small>", public_html)
         self.assertIn('class="race-pulse home-race-pulse"', public_html)
         self.assertIn('id="pulseLive"', public_html)
         self.assertIn('id="favoritesFilter"', public_html)
@@ -862,7 +862,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Staff badge readability completion", css)
         self.assertIn("min-width:248px!important", css)
         self.assertIn("width:112px!important", css)
-        self.assertIn("race-center-complete-20260923", profile_html)
+        self.assertIn("race-center-v7-profile-20260923", profile_html)
 
     def test_race_center_v6_finished_vision_contract(self):
         public_html = self.read("api/standings_public.html")
