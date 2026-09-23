@@ -1174,6 +1174,27 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Race Center V7 Driver Compare", css)
         self.assertIn('body[data-view="compare"] .v7-compare', css)
 
+    def test_race_center_v7_results_archive_includes_race_history(self):
+        entities = self.read("services/race_center_entities.py")
+        v7_js = self.read("api/race_center_v7.js")
+
+        for token in (
+            '"available_seasons"',
+            '"event_count"',
+            '"winner"',
+            '"results": ordered_results',
+            '"source_urls"',
+        ):
+            self.assertIn(token, entities)
+
+        for token in (
+            "RACE HISTORY",
+            "Events + winners",
+            "CHAMPIONSHIP HISTORY",
+            "race results",
+        ):
+            self.assertIn(token, v7_js)
+
     def test_race_center_v7_claims_have_server_owned_verification_and_audit(self):
         entities = self.read("services/race_center_entities.py")
         api = self.read("api/standings_public.py")
