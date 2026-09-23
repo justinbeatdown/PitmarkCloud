@@ -2141,3 +2141,28 @@ body[data-view="series"] .series-directory{margin-top:24px}
   .series-profile-stat-grid{grid-template-columns:1fr}
   .series-profile-driver{grid-template-columns:40px minmax(0,1fr) auto}
 }
+
+
+@media(max-width:900px){
+  .header-inner{
+    grid-template-columns:1fr;
+    gap:8px;
+    height:auto;
+    min-height:var(--header-h);
+    padding:10px 0;
+  }
+  .account-zone{
+    min-width:0;
+    width:100%;
+    justify-content:flex-start;
+  }
+  .profile-account-zone{display:none}
+  .site-header nav{
+    width:100%;
+    justify-content:flex-start;
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .site-header nav::-webkit-scrollbar{display:none}
+  .site-header nav a{padding:7px 9px;font-size:11px}
+}
