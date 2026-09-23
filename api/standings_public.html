@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/race-center.webmanifest?v={{PITMARK_VERSION}}">
-  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-share-map-20260923">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-pwa-mobile-20260923">
 </head>
 <body data-view="{{RACE_CENTER_VIEW}}">
   <a class="skip-link" href="#standingsStart">Skip to Race Center</a>
@@ -370,6 +370,18 @@
         <span class="tile-arrow">Explore PRT →</span>
       </a>
     </section>
+
+    <aside class="v7-install-prompt" id="v7InstallPrompt" hidden>
+      <div>
+        <span class="eyebrow">RACE CENTER APP</span>
+        <strong id="v7InstallTitle">Add Race Center to your device</strong>
+        <p id="v7InstallText">Faster race-day access, an offline shell, and notification-ready My Racing.</p>
+      </div>
+      <div class="v7-install-actions">
+        <button class="button primary" id="v7InstallApp" type="button">Install Race Center</button>
+        <button class="button" id="v7InstallDismiss" type="button">Not now</button>
+      </div>
+    </aside>
   </main>
 
   <nav class="mobile-dock" aria-label="Race Center quick navigation">
@@ -501,6 +513,6 @@
   <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-v7-core-20260923" defer></script>
   <script src="/race-center-v5.js?v={{PITMARK_VERSION}}-v6-social-20260923" defer></script>
   <script src="/race-center-v6.js?v={{PITMARK_VERSION}}-finished-final-20260923" defer></script>
-  <script src="/race-center-v7.js?v={{PITMARK_VERSION}}-share-map-20260923" defer></script>
+  <script src="/race-center-v7.js?v={{PITMARK_VERSION}}-pwa-mobile-20260923" defer></script>
 </body>
 </html>

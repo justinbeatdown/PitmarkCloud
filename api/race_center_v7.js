@@ -693,10 +693,86 @@
     }catch(_error){}
   }
 
+  let deferredInstallPrompt=null;
+
+  function pwaStandalone(){
+    return window.matchMedia?.('(display-mode: standalone)').matches===true
+      || window.navigator.standalone===true;
+  }
+
+  function installDismissedRecently(){
+    try{
+      const at=Number(localStorage.getItem('pitmark-race-center-install-dismissed')||0);
+      return at>0&&Date.now()-at<7*24*60*60*1000;
+    }catch(_error){return false;}
+  }
+
+  function hideInstallPrompt(){
+    const host=$('#v7InstallPrompt');
+    if(host)host.hidden=true;
+  }
+
+  function showInstallPrompt(mode='install'){
+    if(pwaStandalone()||installDismissedRecently())return;
+    const host=$('#v7InstallPrompt');
+    const install=$('#v7InstallApp');
+    const dismiss=$('#v7InstallDismiss');
+    const title=$('#v7InstallTitle');
+    const text=$('#v7InstallText');
+    if(!host||!install||!dismiss)return;
+    if(mode==='ios'){
+      if(title)title.textContent='Add Race Center to your Home Screen';
+      if(text)text.textContent='In Safari, tap Share, then “Add to Home Screen” for the app-style Race Center experience.';
+      install.hidden=true;
+      dismiss.textContent='Got it';
+    }else{
+      if(title)title.textContent='Install Pitmark Race Center';
+      if(text)text.textContent='Faster race-day access, an offline shell, and notification-ready My Racing.';
+      install.hidden=false;
+      install.textContent='Install Race Center';
+      dismiss.textContent='Not now';
+    }
+    host.hidden=false;
+  }
+
   function registerPwa(){
     if('serviceWorker' in navigator){
-      navigator.serviceWorker.register('/race-center-sw.js?v=7',{scope:'/race-center/'}).catch(()=>{});
+      navigator.serviceWorker.register('/race-center-sw.js?v=7.2',{scope:'/race-center/'}).catch(()=>{});
     }
+
+    window.addEventListener('beforeinstallprompt',event=>{
+      event.preventDefault();
+      deferredInstallPrompt=event;
+      showInstallPrompt('install');
+    });
+
+    window.addEventListener('appinstalled',()=>{
+      deferredInstallPrompt=null;
+      hideInstallPrompt();
+      try{localStorage.removeItem('pitmark-race-center-install-dismissed');}catch(_error){}
+    });
+
+    const install=$('#v7InstallApp');
+    if(install)install.addEventListener('click',async()=>{
+      if(!deferredInstallPrompt)return;
+      install.disabled=true;
+      try{
+        deferredInstallPrompt.prompt();
+        await deferredInstallPrompt.userChoice;
+      }catch(_error){}
+      deferredInstallPrompt=null;
+      install.disabled=false;
+      hideInstallPrompt();
+    });
+
+    const dismiss=$('#v7InstallDismiss');
+    if(dismiss)dismiss.addEventListener('click',()=>{
+      try{localStorage.setItem('pitmark-race-center-install-dismissed',String(Date.now()));}catch(_error){}
+      hideInstallPrompt();
+    });
+
+    const ios=/iphone|ipad|ipod/i.test(navigator.userAgent||'');
+    if(ios&&!pwaStandalone())setTimeout(()=>showInstallPrompt('ios'),1200);
   }
 
   function init(){
