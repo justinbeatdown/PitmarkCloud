@@ -603,10 +603,30 @@
         const teams=[];
         if(driver.team)teams.push('<a href="/race-center/team/'+encodeURIComponent(String(driver.team).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''))+'"><strong>'+esc(driver.team)+'</strong><span>Team profile →</span></a>');
         const series=(driver.series||[]).map(x=>'<a href="/race-center/series/'+encodeURIComponent(x.series_key)+'"><strong>'+esc(x.series_name||x.series_key)+'</strong><span>P'+esc(x.position||'—')+' · '+esc(x.points||'—')+' pts'+(x.wins!==undefined&&x.wins!==null?' · '+esc(x.wins)+' wins':'')+(x.starts!==undefined&&x.starts!==null?' · '+esc(x.starts)+' starts':'')+'</span></a>').join('');
+        const summary=entity?.tracked_summary||{};
+        const upcoming=entity?.upcoming_events||[];
+        const history=entity?.championship_history||[];
+        const summaryCards=[
+          ['SERIES',summary.series_count],
+          ['BEST RANK',summary.best_position?'P'+summary.best_position:'—'],
+          ['STARTS',summary.starts??'—'],
+          ['WINS',summary.wins??'—']
+        ].map(item=>'<div><span>'+esc(item[0])+'</span><strong>'+esc(item[1]??'—')+'</strong></div>').join('');
+        const upcomingRows=upcoming.length?upcoming.map(event=>
+          '<a href="/race-center/event/'+encodeURIComponent(event.key||'')+'"><strong>'+esc(event.name||event.series_name||'Race event')+'</strong><span>'+esc([event.series_name,event.venue,eventWhen(event.start)].filter(Boolean).join(' · '))+'</span></a>'
+        ).join(''):'<p>No upcoming events are currently connected to this driver’s tracked series.</p>';
+        const historyRows=history.length?history.map(row=>
+          '<a href="/race-center/series/'+encodeURIComponent(row.series_key||'')+'"><strong>'+esc(row.series_name||row.series_key||'Series')+'</strong><span>'+esc([eventWhen(row.fetched_at),'P'+(row.position??'—'),(row.points??'—')+' pts',row.wins!==undefined&&row.wins!==null?row.wins+' wins':''].filter(Boolean).join(' · '))+'</span></a>'
+        ).join(''):'<p>Race Center does not have enough saved championship history for this driver yet.</p>';
         const section=document.createElement('section');
         section.id='v7DriverConnections';
         section.className='v7-driver-connections';
-        section.innerHTML='<div class="section-head"><div><span class="eyebrow">CONNECTED RACING</span><h2>Across Race Center</h2></div><div class="v7-profile-actions"><a class="button" href="/race-center/compare?a='+encodeURIComponent(driver.key)+'">Compare driver ↔</a>'+shareButton(driver.name+' — Pitmark Race Center')+'</div></div><div class="v7-profile-layout"><section class="v7-profile-section"><h3>Team</h3><div class="v7-related-list">'+(teams.join('')||'<p>No team relationship is published yet.</p>')+'</div></section><section class="v7-profile-section"><h3>Current championships</h3><div class="v7-related-list">'+series+'</div></section></div>'+ownerContentBlock(entity||{})+editorialBlock(entity?.editorial||[]);
+        section.innerHTML=
+          '<div class="section-head"><div><span class="eyebrow">DRIVER INTELLIGENCE</span><h2>'+esc(driver.name)+' across Race Center</h2></div><div class="v7-profile-actions"><a class="button" href="/race-center/compare?a='+encodeURIComponent(driver.key)+'">Compare driver ↔</a>'+shareButton(driver.name+' — Pitmark Race Center')+'</div></div>'+
+          '<div class="v7-driver-summary"><div class="v7-driver-summary-head"><span class="eyebrow">CURRENT TRACKED DATA</span><p>'+esc(summary.scope||'Current data available in Race Center')+'</p></div><div class="v7-driver-summary-grid">'+summaryCards+'</div></div>'+
+          '<div class="v7-profile-layout"><section class="v7-profile-section"><span class="eyebrow">TEAM</span><h3>Current team connection</h3><div class="v7-related-list">'+(teams.join('')||'<p>No team relationship is published yet.</p>')+'</div></section><section class="v7-profile-section"><span class="eyebrow">CHAMPIONSHIPS</span><h3>Current series</h3><div class="v7-related-list">'+series+'</div></section></div>'+
+          '<div class="v7-profile-layout"><section class="v7-profile-section"><span class="eyebrow">UPCOMING</span><h3>Where this driver races next</h3><div class="v7-related-list">'+upcomingRows+'</div></section><section class="v7-profile-section"><span class="eyebrow">CHAMPIONSHIP HISTORY</span><h3>Saved Race Center snapshots</h3><div class="v7-related-list v7-driver-history">'+historyRows+'</div></section></div>'+
+          ownerContentBlock(entity||{})+editorialBlock(entity?.editorial||[]);
         content.appendChild(section);
       };
       add();
