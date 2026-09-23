@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from io import BytesIO
+from datetime import datetime, timedelta, timezone
 import base64
 import threading
 import time
@@ -293,6 +294,108 @@ def race_center_driver_claim_submit(request: Request, body: RaceDriverClaimCreat
 def race_center_driver_claims_me(request: Request):
     account = _race_account_or_401(request)
     return {"claims": race_center_accounts.driver_claims_for_user(account.id)}
+
+
+def _ics_escape(value: object) -> str:
+    return (
+        str(value or "")
+        .replace("\\", "\\\\")
+        .replace("\n", "\\n")
+        .replace(",", "\\,")
+        .replace(";", "\\;")
+    )
+
+
+def _event_ics(event: dict, *, uid_prefix: str = "race-center") -> str:
+    raw_start = str(event.get("start") or "").strip()
+    try:
+        start = datetime.fromisoformat(raw_start.replace("Z", "+00:00"))
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        start = start.astimezone(timezone.utc)
+    except Exception:
+        start = datetime.now(timezone.utc)
+    end = start + timedelta(hours=4)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    dtstart = start.strftime("%Y%m%dT%H%M%SZ")
+    dtend = end.strftime("%Y%m%dT%H%M%SZ")
+    key = str(event.get("key") or event.get("event_id") or "event")
+    summary = event.get("name") or event.get("series_name") or "Race Center Event"
+    location = ", ".join(str(x) for x in (event.get("venue"), event.get("location")) if x)
+    description = " · ".join(str(x) for x in (
+        event.get("series_name"),
+        event.get("broadcast"),
+        "Pitmark Race Center",
+    ) if x)
+    url = f"https://pitmarkcloud.onrender.com/race-center/event/{key}"
+    return "\r\n".join([
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Pitmark Racing Co.//Race Center//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        "BEGIN:VEVENT",
+        f"UID:{_ics_escape(uid_prefix)}-{_ics_escape(key)}@pitmarkracing.com",
+        f"DTSTAMP:{stamp}",
+        f"DTSTART:{dtstart}",
+        f"DTEND:{dtend}",
+        f"SUMMARY:{_ics_escape(summary)}",
+        f"LOCATION:{_ics_escape(location)}",
+        f"DESCRIPTION:{_ics_escape(description)}",
+        f"URL:{url}",
+        "END:VEVENT",
+        "END:VCALENDAR",
+        "",
+    ])
+
+
+@router.get("/api/public/race-center/event/{entity_key}/calendar.ics", include_in_schema=False)
+def race_center_event_calendar(entity_key: str):
+    event = race_center_entities.entity_detail("event", entity_key)
+    if not event:
+        raise HTTPException(status_code=404, detail="Race Center event not found.")
+    return Response(
+        _event_ics(event),
+        media_type="text/calendar; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="race-center-{entity_key[:80]}.ics"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.get("/api/public/race-center/my-racing/calendar.ics", include_in_schema=False)
+def race_center_my_racing_calendar(request: Request):
+    account = _race_account_or_401(request)
+    follows = race_center_accounts.list_follows(account.id)
+    brief = race_center_entities.my_racing_brief(follows)
+    events = list(brief.get("live") or []) + list(brief.get("upcoming") or [])
+    seen: set[str] = set()
+    chunks = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Pitmark Racing Co.//My Racing//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+    ]
+    for event in events[:40]:
+        key = str(event.get("key") or "")
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        raw = _event_ics(event, uid_prefix=f"my-racing-{account.id}").split("\r\n")
+        begin = raw.index("BEGIN:VEVENT")
+        end = raw.index("END:VEVENT")
+        chunks.extend(raw[begin:end + 1])
+    chunks.extend(["END:VCALENDAR", ""])
+    return Response(
+        "\r\n".join(chunks),
+        media_type="text/calendar; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="pitmark-my-racing.ics"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.get("/api/public/race-center/graph", include_in_schema=False)
