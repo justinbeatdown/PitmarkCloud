@@ -135,5 +135,44 @@ class NativeOpsContractTests(unittest.TestCase):
         self.assertIn('after = str(page_info.get("endCursor")', service)
 
 
+    def test_meta_reporting_uses_published_posts_with_graceful_fallback(self):
+        service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
+        self.assertIn('"/published_posts"', service)
+        self.assertIn("reactions.limit(0).summary(true)", service)
+        self.assertIn('basic_fields = "id,message,created_time,permalink_url,shares"', service)
+        self.assertIn('"permission_required"', service)
+        self.assertIn('"ads_read access', service)
+
+    def test_google_sources_expose_setup_actions_independently(self):
+        service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
+        self.assertIn("def _google_setup_urls", service)
+        self.assertIn('"analyticsadmin.googleapis.com"', service)
+        self.assertIn('"analyticsdata.googleapis.com"', service)
+        self.assertIn('"searchconsole.googleapis.com"', service)
+        self.assertIn('"api_disabled"', service)
+        self.assertIn('"setup_urls": (google.get("ga4")', service)
+        self.assertIn('"setup_urls": (google.get("search_console")', service)
+
+    def test_native_analytics_has_replacement_dashboard_sections(self):
+        client = (ROOT / "api" / "control_native_ops.js").read_text(encoding="utf-8")
+        self.assertIn("function sourceHealthRow", client)
+        self.assertIn("Social Performance", client)
+        self.assertIn("Website + Google Search", client)
+        self.assertIn("Recent Orders", client)
+        self.assertIn("Replacement Coverage", client)
+        self.assertIn("setup_urls", client)
+
+    def test_native_analytics_rows_escape_detail_by_default(self):
+        client = (ROOT / "api" / "control_native_ops.js").read_text(encoding="utf-8")
+        self.assertIn("detailIsHtml=false", client)
+        self.assertIn("const safeDetail=detailIsHtml?String(detail||''):esc(detail)", client)
+        self.assertIn("rel=\"noopener noreferrer\"", client)
+
+    def test_native_ops_assets_are_cache_busted_for_v2(self):
+        html = (ROOT / "api" / "control_native_ops.html").read_text(encoding="utf-8")
+        self.assertIn("/control-native-ops.css?v=6", html)
+        self.assertIn("/control-native-ops.js?v=7", html)
+
+
 if __name__ == "__main__":
     unittest.main()
