@@ -27,9 +27,11 @@ const pageView=routePath==='/standings'||routePath.endsWith('/standings')
                           ?'events'
                           :routePath.endsWith('/my-racing')
                             ?'myracing'
-                            :routePath.endsWith('/health')
-                              ?'health'
-                              :'hub';
+                            :routePath.endsWith('/compare')
+                              ?'compare'
+                              :routePath.endsWith('/health')
+                                ?'health'
+                                :'hub';
 const PREF_KEY='pitmark-race-center-v5';
 const CACHE_KEY='pitmark-race-center-v6-feed-20260923';
 const readPrefs=()=>{
@@ -287,6 +289,13 @@ function configurePage(){
       primary:['My briefing','#v7MyRacing'],
       secondary:['Explore racing','/race-center'],
       pageTitle:'My Racing — Pitmark Race Center V7'
+    },
+    compare:{
+      title:'Driver compare.<br><em>Side by side.</em>',
+      intro:'Compare two Race Center drivers across identity, current championships, points, position, starts and wins where the source publishes them.',
+      primary:['Compare drivers','#v7Compare'],
+      secondary:['Driver directory','/race-center/drivers'],
+      pageTitle:'Driver Compare — Pitmark Race Center V7'
     },
     health:{
       title:'Data health.<br><em>See the plumbing.</em>',

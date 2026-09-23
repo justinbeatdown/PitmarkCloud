@@ -3561,3 +3561,153 @@ body[data-view="health"] .v7-health{
 @media(max-width:680px){
   .v7-page-actions{width:100%;justify-content:flex-start}
 }
+
+
+/* Race Center V7 Driver Compare */
+.v7-compare{display:none}
+body[data-view="compare"] .hero,
+body[data-view="compare"] .home-race-pulse,
+body[data-view="compare"] #hubNavigation,
+body[data-view="compare"] .toolbar,
+body[data-view="compare"] .live-section,
+body[data-view="compare"] .leaders-section,
+body[data-view="compare"] .movers-section,
+body[data-view="compare"] .series-section,
+body[data-view="compare"] .schedule-section,
+body[data-view="compare"] .race-center-grid,
+body[data-view="compare"] .drivers-directory,
+body[data-view="compare"] .driver-profile-page,
+body[data-view="compare"] .series-directory,
+body[data-view="compare"] .series-profile-page,
+body[data-view="compare"] .v7-entity-directory,
+body[data-view="compare"] .v7-entity-profile,
+body[data-view="compare"] .v7-my-racing,
+body[data-view="compare"] .v7-health{display:none!important}
+body[data-view="compare"] .v7-compare{
+  display:block!important;
+  width:min(var(--content-max,1400px),calc(100% - 34px));
+  margin:34px auto 80px!important;
+}
+.v7-compare-controls{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto;
+  gap:10px;
+  align-items:end;
+  padding:14px;
+  border:1px solid #2a3540;
+  border-radius:14px;
+  background:#0c1116;
+}
+.v7-compare-controls label{
+  display:grid;
+  gap:6px;
+  color:#8694a5;
+  font-size:9px;
+  font-weight:950;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+}
+.v7-compare-controls select{
+  height:42px;
+  min-width:0;
+  border:1px solid #323d48;
+  border-radius:9px;
+  background:#090d11;
+  color:#eef2f6;
+  padding:0 10px;
+  font-size:12px;
+}
+.v7-compare-controls>span{
+  align-self:center;
+  color:#ff8d55;
+  font-size:11px;
+  font-weight:1000;
+  letter-spacing:.1em;
+}
+.v7-compare-results{margin-top:14px}
+.v7-compare-pair{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 54px minmax(0,1fr);
+  gap:12px;
+  align-items:stretch;
+}
+.v7-compare-driver{
+  padding:20px;
+  border:1px solid #2c3742;
+  border-radius:16px;
+  background:linear-gradient(145deg,#12181e,#0b0f13);
+}
+.v7-compare-driver h3{
+  margin:7px 0 5px;
+  font-size:clamp(28px,3vw,42px);
+  line-height:1;
+  letter-spacing:-.045em;
+}
+.v7-compare-driver>p{margin:0;color:#8d9bad;font-size:12px;line-height:1.45}
+.v7-compare-vs{
+  display:grid;
+  place-items:center;
+  color:#ff8d55;
+  font-size:12px;
+  font-weight:1000;
+  letter-spacing:.1em;
+}
+.v7-compare-stat-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px;
+  margin:16px 0;
+}
+.v7-compare-stat-grid>div{
+  padding:10px;
+  border:1px solid #27323c;
+  border-radius:10px;
+  background:#090d11;
+}
+.v7-compare-stat-grid span{
+  display:block;
+  color:#738195;
+  font-size:8px;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+.v7-compare-stat-grid strong{display:block;margin-top:4px;font-size:17px}
+.v7-compare-series{margin-top:14px}
+.v7-compare-table{
+  margin-top:12px;
+  border:1px solid #2b3540;
+  border-radius:12px;
+  overflow:hidden;
+}
+.v7-compare-row{
+  display:grid;
+  grid-template-columns:minmax(180px,.9fr) minmax(0,1fr) minmax(0,1fr);
+  gap:10px;
+  align-items:center;
+  min-height:48px;
+  padding:9px 12px;
+  border-top:1px solid #222c35;
+  font-size:11px;
+}
+.v7-compare-row:first-child{border-top:0}
+.v7-compare-row.header{
+  background:#111820;
+  color:#768497;
+  font-size:8px;
+  font-weight:950;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.v7-compare-row strong{font-size:12px}
+.v7-compare-row span{color:#a8b2bf}
+@media(max-width:760px){
+  .v7-compare-controls{grid-template-columns:1fr}
+  .v7-compare-controls>span{display:none}
+  .v7-compare-controls .button{width:100%}
+  .v7-compare-pair{grid-template-columns:1fr}
+  .v7-compare-vs{min-height:26px}
+  .v7-compare-stat-grid{grid-template-columns:1fr 1fr}
+  .v7-compare-row{grid-template-columns:1fr;gap:4px;padding:12px}
+  .v7-compare-row.header{display:none}
+}
