@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from PIL import Image, ImageOps
 
 from services.racing_standings import SERIES as STANDINGS_SERIES, get_driver_identity, get_series_logo_info, get_series_roster, get_standings_snapshot_hub
-from services.racing_events import get_racing_event_hub
+from services.racing_events import get_racing_event_hub, get_series_event_schedule
 from services import race_center_accounts
 from services.race_center_world import (
     build_world,
@@ -197,6 +197,11 @@ def race_center_login(request: Request, body: RaceAccountCredentials):
 def race_center_world(request: Request):
     account = race_center_accounts.account_from_request(request)
     return build_world(account_id=account.id if account else None)
+
+
+@router.get("/api/public/race-center/schedule/{series_key}", include_in_schema=False)
+def race_center_series_schedule(series_key: str):
+    return {"series_key": series_key, "events": get_series_event_schedule(series_key)}
 
 
 @router.get("/api/public/race-center/event/{series_key}/{event_key}", include_in_schema=False)
