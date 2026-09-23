@@ -650,7 +650,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             "CHAMPIONSHIP SNAPSHOT",
             "RACING ACROSS RACE CENTER",
             "RACING IDENTITY",
-            "OFFICIAL SOURCES",
+            "SOURCES",
             "Gap to leader",
             "Series tracked",
         ):
@@ -678,7 +678,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("get_driver_identity(series_key, driver_name)", public_api)
         self.assertIn("function loadDriverIdentity(", public_js)
         self.assertIn("/api/public/race-center/driver-identity/", public_js)
-        self.assertIn("Checking official source…", public_js)
+        self.assertIn("Checking trusted sources…", public_js)
         self.assertNotIn("primary.team||'Not verified'", public_js)
         self.assertNotIn("primary.manufacturer||'Not verified'", public_js)
 
