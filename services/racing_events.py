@@ -361,6 +361,61 @@ def _event_title(lines: list[str], index: int, match: re.Match[str], config: dic
     return "See official schedule"
 
 
+TRACK_VENUE_TOKENS = (
+    "speedway",
+    "raceway",
+    "motorsports park",
+    "motor speedway",
+    "motorsport park",
+    "dirt track",
+    "dragway",
+    "circuit",
+    "race park",
+    "speedplex",
+    "fairgrounds",
+    "race course",
+    "road course",
+)
+
+
+def _event_venue_from_context(
+    lines: list[str],
+    index: int,
+) -> tuple[str | None, str | None]:
+    candidates: list[tuple[str, str | None]] = []
+    date_pattern = re.compile(
+        r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*[-–]\s*\d{1,2}(?:st|nd|rd|th)?)?(?:,?\s*20\d{2})?\b",
+        re.IGNORECASE,
+    )
+    for pos in range(max(0, index - 2), min(len(lines), index + 3)):
+        value = _clean_schedule_text(lines[pos])
+        value = date_pattern.sub(" ", value)
+        value = re.sub(r"\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b,?", " ", value, flags=re.IGNORECASE)
+        value = re.sub(r"\s*[|·]\s*", " · ", value)
+        value = re.sub(r"\s+", " ", value).strip(" ·|-")
+        if not value:
+            continue
+        segments = [seg.strip() for seg in value.split(" · ") if seg.strip()]
+        for i, segment in enumerate(segments):
+            low = segment.casefold()
+            if not any(token in low for token in TRACK_VENUE_TOKENS):
+                continue
+            if len(segment) > 120:
+                continue
+            location = None
+            if i + 1 < len(segments):
+                nearby = segments[i + 1]
+                if "," in nearby or re.search(r"\b[A-Z]{2}\b", nearby):
+                    location = nearby[:120]
+            candidates.append((segment, location))
+    if not candidates:
+        return None, None
+    # Prefer the shortest explicit venue phrase. It is less likely to include
+    # ticket/marketing text while still retaining the actual track name.
+    candidates.sort(key=lambda item: len(item[0]))
+    return candidates[0]
+
+
 def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
     url = str(config.get("schedule_url") or "").strip()
     if not url:
@@ -398,6 +453,7 @@ def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
             if dt < now - timedelta(days=2) or dt > now + timedelta(days=370):
                 continue
             title = _event_title(lines, i, match, config)
+            venue, location = _event_venue_from_context(lines, i)
             key = (dt.date().isoformat(), title.casefold())
             if key in seen:
                 continue
@@ -410,8 +466,8 @@ def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
                 "state": "pre" if dt.date() >= now.date() else "post",
                 "completed": dt.date() < now.date(),
                 "broadcast": None,
-                "venue": None,
-                "location": None,
+                "venue": venue,
+                "location": location,
                 "source_url": url,
             })
 
