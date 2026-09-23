@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from services.database import Base, SessionLocal
 from services.racing_events import get_racing_event_hub
-from services.racing_standings import get_standings_snapshot_hub
+from services.racing_standings import RacingStandingSnapshot, get_standings_snapshot_hub
 
 
 def utcnow() -> datetime:
@@ -490,3 +490,86 @@ def editorial_for_entity(entity_type: str, entity_key: str, limit: int = 12) -> 
         }
         for row in rows
     ]
+
+
+def series_archive(series_key: str, season: int | None = None, limit: int = 24) -> dict[str, Any]:
+    season = int(season or utcnow().year)
+    key = str(series_key or "").strip()
+    if not key:
+        return {"series_key": key, "season": season, "snapshots": []}
+    with SessionLocal() as db:
+        rows = list(db.scalars(
+            select(RacingStandingSnapshot)
+            .where(
+                RacingStandingSnapshot.series_key == key,
+                RacingStandingSnapshot.season == season,
+            )
+            .order_by(RacingStandingSnapshot.fetched_at.desc())
+            .limit(max(1, min(limit, 80)))
+        ).all())
+    snapshots = []
+    for row in rows:
+        try:
+            payload = json.loads(row.payload_json or "{}")
+        except Exception:
+            payload = {}
+        entries = list(payload.get("entries") or [])
+        snapshots.append({
+            "id": row.id,
+            "fetched_at": row.fetched_at.isoformat() if row.fetched_at else None,
+            "source_name": row.source_name,
+            "source_url": row.source_url,
+            "field_size": len(entries),
+            "leader": _entry_identity(entries[0]) if entries else None,
+            "top_three": [_entry_identity(item) for item in entries[:3]],
+        })
+    return {
+        "series_key": key,
+        "season": season,
+        "snapshot_count": len(snapshots),
+        "snapshots": snapshots,
+    }
+
+
+def alerts_for_user(follows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    brief = my_racing_brief(follows)
+    alerts: list[dict[str, Any]] = []
+    for event in brief.get("live") or []:
+        alerts.append({
+            "type": "live_now",
+            "priority": 100,
+            "title": f"{event.get('series_name') or 'Racing'} is live",
+            "body": event.get("name") or "Race Center live event",
+            "url": f"/race-center/event/{event.get('key')}",
+        })
+    for event in brief.get("upcoming") or []:
+        alerts.append({
+            "type": "race_day",
+            "priority": 80,
+            "title": event.get("name") or "Upcoming race",
+            "body": f"{event.get('series_name') or ''} · {eventWhenText(event.get('start'))}",
+            "url": f"/race-center/event/{event.get('key')}",
+        })
+    for move in brief.get("movement") or []:
+        alerts.append({
+            "type": "standings_move",
+            "priority": 60,
+            "title": f"{move.get('driver')} moved in the standings",
+            "body": f"{move.get('series_name') or ''} · P{move.get('position') or '—'}",
+            "url": f"/race-center/driver/{move.get('series_key')}/{move.get('driver')}",
+        })
+    alerts.sort(key=lambda item: -int(item.get("priority") or 0))
+    return alerts[:20]
+
+
+def eventWhenText(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return "time from official schedule"
+    try:
+        dt = datetime.fromisoformat(raw)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).strftime("%b %d · %H:%M UTC")
+    except Exception:
+        return raw
