@@ -981,6 +981,13 @@ def staff_claim_queue(user_id: int) -> dict:
             .where(RaceCenterEntityClaim.status == "pending")
             .order_by(RaceCenterEntityClaim.created_at.asc())
         ).all())
+        claimant_ids = {row.user_id for row in [*driver_rows, *entity_rows]}
+        users = {
+            user.id: user
+            for user in db.scalars(
+                select(RaceCenterUser).where(RaceCenterUser.id.in_(claimant_ids))
+            ).all()
+        } if claimant_ids else {}
     return {
         "driver_claims": [
             {
@@ -991,6 +998,8 @@ def staff_claim_queue(user_id: int) -> dict:
                 "series_key": row.series_key,
                 "evidence_url": row.evidence_url,
                 "note": row.note,
+                "claimant_name": (users.get(row.user_id).display_name if users.get(row.user_id) else "") or "Race Center user",
+                "claimant_email": users.get(row.user_id).email if users.get(row.user_id) else "",
                 "created_at": row.created_at.isoformat() if row.created_at else None,
             }
             for row in driver_rows
@@ -1004,6 +1013,8 @@ def staff_claim_queue(user_id: int) -> dict:
                 "entity_name": row.entity_name,
                 "evidence_url": row.evidence_url,
                 "note": row.note,
+                "claimant_name": (users.get(row.user_id).display_name if users.get(row.user_id) else "") or "Race Center user",
+                "claimant_email": users.get(row.user_id).email if users.get(row.user_id) else "",
                 "created_at": row.created_at.isoformat() if row.created_at else None,
             }
             for row in entity_rows
