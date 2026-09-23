@@ -188,8 +188,8 @@ def list_follows(user_id: int) -> list[dict]:
 def set_follow(user_id: int, *, kind: str, key: str, label: str = "", series_key: str = "") -> dict:
     clean_kind = (kind or "").strip().lower()
     clean_key = (key or "").strip()[:220]
-    if clean_kind not in {"series", "driver"}:
-        raise ValueError("Follow kind must be series or driver.")
+    if clean_kind not in {"series", "driver", "track", "team", "event"}:
+        raise ValueError("Follow kind must be series, driver, track, team, or event.")
     if not clean_key:
         raise ValueError("Follow key is required.")
     clean_label = (label or "").strip()[:160]
@@ -264,6 +264,64 @@ class RaceCenterDriverClaim(Base):
     status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RaceCenterEntityClaim(Base):
+    __tablename__ = "race_center_entity_claims"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "entity_type",
+            "entity_key",
+            "status",
+            name="uq_race_center_entity_claim_status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), index=True)
+    entity_type: Mapped[str] = mapped_column(String(30), index=True)
+    entity_key: Mapped[str] = mapped_column(String(220), index=True)
+    entity_name: Mapped[str] = mapped_column(String(180), default="")
+    evidence_url: Mapped[str] = mapped_column(Text, default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RaceCenterEntityContent(Base):
+    __tablename__ = "race_center_entity_content"
+    __table_args__ = (
+        UniqueConstraint("entity_type", "entity_key", name="uq_race_center_entity_content"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_type: Mapped[str] = mapped_column(String(30), index=True)
+    entity_key: Mapped[str] = mapped_column(String(220), index=True)
+    owner_user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), index=True)
+    headline: Mapped[str] = mapped_column(String(180), default="")
+    bio: Mapped[str] = mapped_column(Text, default="")
+    website_url: Mapped[str] = mapped_column(Text, default="")
+    merch_url: Mapped[str] = mapped_column(Text, default="")
+    social_url: Mapped[str] = mapped_column(Text, default="")
+    sponsors: Mapped[str] = mapped_column(Text, default="")
+    contact_url: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RaceCenterCoverageLink(Base):
+    __tablename__ = "race_center_coverage_links"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_type: Mapped[str] = mapped_column(String(30), index=True)
+    entity_key: Mapped[str] = mapped_column(String(220), index=True)
+    title: Mapped[str] = mapped_column(String(220))
+    url: Mapped[str] = mapped_column(Text)
+    summary: Mapped[str] = mapped_column(Text, default="")
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    created_by_user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class RaceCenterPost(Base):
@@ -664,6 +722,337 @@ def driver_claims_for_user(user_id: int) -> list[dict]:
     ]
 
 
+def submit_entity_claim(
+    user_id: int,
+    *,
+    entity_type: str,
+    entity_key: str,
+    entity_name: str,
+    evidence_url: str = "",
+    note: str = "",
+) -> dict:
+    clean_type = (entity_type or "").strip().lower()
+    if clean_type not in {"team", "track", "series", "event"}:
+        raise ValueError("Entity claim must be for a team, track, series, or event.")
+    clean_key = (entity_key or "").strip()[:220]
+    clean_name = (entity_name or "").strip()[:180]
+    clean_evidence = (evidence_url or "").strip()[:1200]
+    clean_note = (note or "").strip()[:1200]
+    if not clean_key or not clean_name:
+        raise ValueError("Entity identity is required.")
+    if not clean_evidence and not clean_note:
+        raise ValueError("Add a proof link or a short verification note.")
+    if clean_evidence and not clean_evidence.lower().startswith(("http://", "https://")):
+        raise ValueError("Proof link must start with http:// or https://.")
+    with SessionLocal() as db:
+        existing = db.scalar(select(RaceCenterEntityClaim).where(
+            RaceCenterEntityClaim.user_id == user_id,
+            RaceCenterEntityClaim.entity_type == clean_type,
+            RaceCenterEntityClaim.entity_key == clean_key,
+            RaceCenterEntityClaim.status == "pending",
+        ))
+        if existing:
+            return {"ok": True, "id": existing.id, "status": existing.status}
+        row = RaceCenterEntityClaim(
+            user_id=user_id,
+            entity_type=clean_type,
+            entity_key=clean_key,
+            entity_name=clean_name,
+            evidence_url=clean_evidence,
+            note=clean_note,
+            status="pending",
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return {"ok": True, "id": row.id, "status": row.status}
+
+
+def entity_claims_for_user(user_id: int) -> list[dict]:
+    with SessionLocal() as db:
+        rows = list(db.scalars(
+            select(RaceCenterEntityClaim)
+            .where(RaceCenterEntityClaim.user_id == user_id)
+            .order_by(RaceCenterEntityClaim.created_at.desc())
+        ).all())
+    return [
+        {
+            "id": row.id,
+            "entity_type": row.entity_type,
+            "entity_key": row.entity_key,
+            "entity_name": row.entity_name,
+            "status": row.status,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        }
+        for row in rows
+    ]
+
+
+def _valid_public_url(value: str, field_name: str) -> str:
+    clean = (value or "").strip()[:1500]
+    if clean and not clean.lower().startswith(("http://", "https://")):
+        raise ValueError(f"{field_name} must start with http:// or https://.")
+    return clean
+
+
+def is_pitmark_staff_user(user_id: int) -> bool:
+    with SessionLocal() as db:
+        user = db.get(RaceCenterUser, user_id)
+        return bool(user and _pitmark_staff_identity(user.email))
+
+
+def can_manage_entity(user_id: int, entity_type: str, entity_key: str) -> bool:
+    clean_type = (entity_type or "").strip().lower()
+    clean_key = (entity_key or "").strip()
+    if not clean_type or not clean_key:
+        return False
+    if is_pitmark_staff_user(user_id):
+        return True
+    with SessionLocal() as db:
+        if clean_type == "driver":
+            claim = db.scalar(select(RaceCenterDriverClaim.id).where(
+                RaceCenterDriverClaim.user_id == user_id,
+                RaceCenterDriverClaim.driver_key == clean_key,
+                RaceCenterDriverClaim.status.in_(("verified", "approved")),
+            ).limit(1))
+        else:
+            claim = db.scalar(select(RaceCenterEntityClaim.id).where(
+                RaceCenterEntityClaim.user_id == user_id,
+                RaceCenterEntityClaim.entity_type == clean_type,
+                RaceCenterEntityClaim.entity_key == clean_key,
+                RaceCenterEntityClaim.status.in_(("verified", "approved")),
+            ).limit(1))
+        return claim is not None
+
+
+def entity_content(
+    entity_type: str,
+    entity_key: str,
+    *,
+    viewer_user_id: int | None = None,
+) -> dict:
+    clean_type = (entity_type or "").strip().lower()
+    clean_key = (entity_key or "").strip()
+    with SessionLocal() as db:
+        row = db.scalar(select(RaceCenterEntityContent).where(
+            RaceCenterEntityContent.entity_type == clean_type,
+            RaceCenterEntityContent.entity_key == clean_key,
+        ))
+        coverage = list(db.scalars(
+            select(RaceCenterCoverageLink)
+            .where(
+                RaceCenterCoverageLink.entity_type == clean_type,
+                RaceCenterCoverageLink.entity_key == clean_key,
+            )
+            .order_by(
+                RaceCenterCoverageLink.published_at.desc(),
+                RaceCenterCoverageLink.created_at.desc(),
+            )
+            .limit(12)
+        ).all())
+    can_manage = bool(
+        viewer_user_id and can_manage_entity(viewer_user_id, clean_type, clean_key)
+    )
+    return {
+        "entity_type": clean_type,
+        "entity_key": clean_key,
+        "content": {
+            "headline": row.headline if row else "",
+            "bio": row.bio if row else "",
+            "website_url": row.website_url if row else "",
+            "merch_url": row.merch_url if row else "",
+            "social_url": row.social_url if row else "",
+            "sponsors": row.sponsors if row else "",
+            "contact_url": row.contact_url if row else "",
+            "updated_at": row.updated_at.isoformat() if row and row.updated_at else None,
+        },
+        "coverage": [
+            {
+                "id": item.id,
+                "title": item.title,
+                "url": item.url,
+                "summary": item.summary,
+                "published_at": item.published_at.isoformat() if item.published_at else None,
+            }
+            for item in coverage
+        ],
+        "can_manage": can_manage,
+    }
+
+
+def update_entity_content(
+    user_id: int,
+    *,
+    entity_type: str,
+    entity_key: str,
+    headline: str = "",
+    bio: str = "",
+    website_url: str = "",
+    merch_url: str = "",
+    social_url: str = "",
+    sponsors: str = "",
+    contact_url: str = "",
+) -> dict:
+    clean_type = (entity_type or "").strip().lower()
+    clean_key = (entity_key or "").strip()[:220]
+    if clean_type not in {"driver", "team", "track", "series", "event"}:
+        raise ValueError("Unsupported Race Center entity type.")
+    if not clean_key:
+        raise ValueError("Race Center entity key is required.")
+    if not can_manage_entity(user_id, clean_type, clean_key):
+        raise PermissionError("Verified ownership or Pitmark staff access is required.")
+    with SessionLocal() as db:
+        row = db.scalar(select(RaceCenterEntityContent).where(
+            RaceCenterEntityContent.entity_type == clean_type,
+            RaceCenterEntityContent.entity_key == clean_key,
+        ))
+        if row is None:
+            row = RaceCenterEntityContent(
+                entity_type=clean_type,
+                entity_key=clean_key,
+                owner_user_id=user_id,
+            )
+            db.add(row)
+        row.owner_user_id = user_id
+        row.headline = (headline or "").strip()[:180]
+        row.bio = (bio or "").strip()[:4000]
+        row.website_url = _valid_public_url(website_url, "Website")
+        row.merch_url = _valid_public_url(merch_url, "Merch link")
+        row.social_url = _valid_public_url(social_url, "Social link")
+        row.contact_url = _valid_public_url(contact_url, "Contact link")
+        row.sponsors = (sponsors or "").strip()[:2500]
+        row.updated_at = utcnow()
+        db.commit()
+    return entity_content(clean_type, clean_key, viewer_user_id=user_id)
+
+
+def add_coverage_link(
+    user_id: int,
+    *,
+    entity_type: str,
+    entity_key: str,
+    title: str,
+    url: str,
+    summary: str = "",
+    published_at: datetime | None = None,
+) -> dict:
+    if not is_pitmark_staff_user(user_id):
+        raise PermissionError("Pitmark staff access is required.")
+    clean_type = (entity_type or "").strip().lower()
+    clean_key = (entity_key or "").strip()[:220]
+    clean_title = (title or "").strip()[:220]
+    clean_url = _valid_public_url(url, "Coverage URL")
+    if clean_type not in {"driver", "team", "track", "series", "event"} or not clean_key or not clean_title or not clean_url:
+        raise ValueError("Entity, title, and coverage URL are required.")
+    with SessionLocal() as db:
+        existing = db.scalar(select(RaceCenterCoverageLink).where(
+            RaceCenterCoverageLink.entity_type == clean_type,
+            RaceCenterCoverageLink.entity_key == clean_key,
+            RaceCenterCoverageLink.url == clean_url,
+        ).limit(1))
+        if existing:
+            return {"ok": True, "id": existing.id, "duplicate": True}
+        row = RaceCenterCoverageLink(
+            entity_type=clean_type,
+            entity_key=clean_key,
+            title=clean_title,
+            url=clean_url,
+            summary=(summary or "").strip()[:1200],
+            published_at=published_at,
+            created_by_user_id=user_id,
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return {"ok": True, "id": row.id, "duplicate": False}
+
+
+def staff_claim_queue(user_id: int) -> dict:
+    if not is_pitmark_staff_user(user_id):
+        raise PermissionError("Pitmark staff access is required.")
+    with SessionLocal() as db:
+        driver_rows = list(db.scalars(
+            select(RaceCenterDriverClaim)
+            .where(RaceCenterDriverClaim.status == "pending")
+            .order_by(RaceCenterDriverClaim.created_at.asc())
+        ).all())
+        entity_rows = list(db.scalars(
+            select(RaceCenterEntityClaim)
+            .where(RaceCenterEntityClaim.status == "pending")
+            .order_by(RaceCenterEntityClaim.created_at.asc())
+        ).all())
+        claimant_ids = {row.user_id for row in [*driver_rows, *entity_rows]}
+        users = {
+            user.id: user
+            for user in db.scalars(
+                select(RaceCenterUser).where(RaceCenterUser.id.in_(claimant_ids))
+            ).all()
+        } if claimant_ids else {}
+    return {
+        "driver_claims": [
+            {
+                "id": row.id,
+                "user_id": row.user_id,
+                "driver_key": row.driver_key,
+                "driver_name": row.driver_name,
+                "series_key": row.series_key,
+                "evidence_url": row.evidence_url,
+                "note": row.note,
+                "claimant_name": (users.get(row.user_id).display_name if users.get(row.user_id) else "") or "Race Center user",
+                "claimant_email": users.get(row.user_id).email if users.get(row.user_id) else "",
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+            for row in driver_rows
+        ],
+        "entity_claims": [
+            {
+                "id": row.id,
+                "user_id": row.user_id,
+                "entity_type": row.entity_type,
+                "entity_key": row.entity_key,
+                "entity_name": row.entity_name,
+                "evidence_url": row.evidence_url,
+                "note": row.note,
+                "claimant_name": (users.get(row.user_id).display_name if users.get(row.user_id) else "") or "Race Center user",
+                "claimant_email": users.get(row.user_id).email if users.get(row.user_id) else "",
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+            for row in entity_rows
+        ],
+    }
+
+
+def moderate_claim(
+    user_id: int,
+    *,
+    claim_kind: str,
+    claim_id: int,
+    status: str,
+) -> dict:
+    if not is_pitmark_staff_user(user_id):
+        raise PermissionError("Pitmark staff access is required.")
+    clean_kind = (claim_kind or "").strip().lower()
+    clean_status = (status or "").strip().lower()
+    if clean_kind not in {"driver", "entity"}:
+        raise ValueError("Claim kind must be driver or entity.")
+    if clean_status not in {"pending", "verified", "rejected"}:
+        raise ValueError("Claim status must be pending, verified, or rejected.")
+    with SessionLocal() as db:
+        model = RaceCenterDriverClaim if clean_kind == "driver" else RaceCenterEntityClaim
+        row = db.get(model, claim_id)
+        if row is None:
+            raise ValueError("Claim not found.")
+        row.status = clean_status
+        row.updated_at = utcnow()
+        db.commit()
+        return {
+            "ok": True,
+            "claim_kind": clean_kind,
+            "id": row.id,
+            "status": row.status,
+        }
+
+
 class RaceCenterIdentity(Base):
     """Optional public identity/verification metadata kept separate for safe schema evolution."""
     __tablename__ = "race_center_identities"
@@ -796,6 +1185,18 @@ def public_profile_by_handle(handle: str, viewer_user_id: int | None = None) -> 
             "drivers": [
                 {"key": x.follow_key, "label": x.label, "series_key": x.series_key}
                 for x in follows if x.kind == "driver"
+            ],
+            "tracks": [
+                {"key": x.follow_key, "label": x.label}
+                for x in follows if x.kind == "track"
+            ],
+            "teams": [
+                {"key": x.follow_key, "label": x.label}
+                for x in follows if x.kind == "team"
+            ],
+            "events": [
+                {"key": x.follow_key, "label": x.label, "series_key": x.series_key}
+                for x in follows if x.kind == "event"
             ],
         }
 

@@ -101,18 +101,57 @@
       });
     });
 
-    scheduleRows().forEach(item=>{
-      const event=item.event||{};
-      const hay=[item.series_name,item.group,event.name,event.venue,event.location,item.watch_name].filter(Boolean).join(' ').toLowerCase();
-      if(!hay.includes(q))return;
-      results.push({
-        kind:'Event',
-        title:event.name||item.series_name||'Race event',
-        meta:[item.series_name,event.start&&typeof eventTime==='function'?eventTime(event):''].filter(Boolean).join(' · '),
-        href:'/race-center/schedules?search='+encodeURIComponent(q),
-        priority:60
+    const platform=window.RaceCenterV7Platform||null;
+    if(platform){
+      (platform.tracks||[]).forEach(track=>{
+        const hay=[track.name,track.location,...(track.series_names||[])].filter(Boolean).join(' ').toLowerCase();
+        if(!hay.includes(q))return;
+        results.push({
+          kind:'Track',
+          title:track.name||'Race track',
+          meta:[track.location,(track.series_names||[]).slice(0,2).join(' / ')].filter(Boolean).join(' · '),
+          href:'/race-center/track/'+encodeURIComponent(String(track.key||'')),
+          priority:String(track.name||'').toLowerCase().startsWith(q)?104:72
+        });
       });
-    });
+
+      (platform.teams||[]).forEach(team=>{
+        const hay=[team.name,...(team.manufacturers||[]),...(team.series||[]).map(x=>x.name),...(team.drivers||[]).map(x=>x.name)].filter(Boolean).join(' ').toLowerCase();
+        if(!hay.includes(q))return;
+        results.push({
+          kind:'Team',
+          title:team.name||'Racing team',
+          meta:[(team.manufacturers||[]).join(' / '),team.driver_count?team.driver_count+' drivers':''].filter(Boolean).join(' · '),
+          href:'/race-center/team/'+encodeURIComponent(String(team.key||'')),
+          priority:String(team.name||'').toLowerCase().startsWith(q)?103:73
+        });
+      });
+
+      (platform.events||[]).forEach(event=>{
+        const hay=[event.name,event.series_name,event.group,event.venue,event.location,event.broadcast].filter(Boolean).join(' ').toLowerCase();
+        if(!hay.includes(q))return;
+        results.push({
+          kind:'Event',
+          title:event.name||event.series_name||'Race event',
+          meta:[event.series_name,event.venue,event.start?new Date(event.start).toLocaleDateString():null].filter(Boolean).join(' · '),
+          href:'/race-center/event/'+encodeURIComponent(String(event.key||'').replaceAll(':','~')),
+          priority:String(event.name||'').toLowerCase().includes(q)?80:68
+        });
+      });
+    }else{
+      scheduleRows().forEach(item=>{
+        const event=item.event||{};
+        const hay=[item.series_name,item.group,event.name,event.venue,event.location,item.watch_name].filter(Boolean).join(' ').toLowerCase();
+        if(!hay.includes(q))return;
+        results.push({
+          kind:'Event',
+          title:event.name||item.series_name||'Race event',
+          meta:[item.series_name,event.start&&typeof eventTime==='function'?eventTime(event):''].filter(Boolean).join(' · '),
+          href:'/race-center/schedules?search='+encodeURIComponent(q),
+          priority:60
+        });
+      });
+    }
 
     const seen=new Set();
     return results.sort((a,b)=>b.priority-a.priority||a.title.localeCompare(b.title)).filter(item=>{
@@ -140,7 +179,7 @@
         '<span class="race-search-copy"><strong>'+escV6(item.title)+'</strong><small>'+escV6(item.meta||'Open in Race Center')+'</small></span>'+
         '<b>→</b>'+
       '</a>'
-    ).join(''):'<div class="race-search-empty"><strong>No exact match yet.</strong><span>Try a driver surname, car number, series, team, or event.</span></div>';
+    ).join(''):'<div class="race-search-empty"><strong>No exact match yet.</strong><span>Try a driver surname, car number, team, track, series, or event.</span></div>';
     host.hidden=false;
   }
 

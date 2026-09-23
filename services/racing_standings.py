@@ -3035,16 +3035,30 @@ def _fallback(config: dict[str, Any], season: int, error: Exception) -> dict[str
 
 
 def _sanitize_identity_payload(item: dict[str, Any]) -> dict[str, Any]:
-    """Fail closed: identity fields are visible only with verified official provenance."""
+    """Fail closed per driver, while preserving explicitly sourced identity enrichment."""
     result = copy.deepcopy(item)
-    verified = bool(result.get("metadata_verified"))
-    result["metadata_verified"] = verified
-    if not verified:
+    series_verified = bool(result.get("metadata_verified"))
+    result["metadata_verified"] = series_verified
+    if not series_verified:
         result["metadata_source_url"] = None
-        for entry in result.get("entries") or []:
+    for entry in result.get("entries") or []:
+        resolved = bool(entry.get("identity_resolved"))
+        if not series_verified and not resolved:
             entry["number"] = None
             entry["team"] = None
             entry["manufacturer"] = None
+            entry["identity_quality"] = "unavailable"
+            entry["identity_provenance"] = None
+        elif series_verified and not resolved:
+            entry["identity_resolved"] = bool(
+                entry.get("number") or entry.get("team") or entry.get("manufacturer")
+            )
+            entry["identity_quality"] = (
+                "complete"
+                if entry.get("number") and entry.get("team") and entry.get("manufacturer")
+                else "partial"
+            )
+            entry["identity_provenance"] = "official_series"
     return result
 
 
@@ -3147,24 +3161,29 @@ def _hydrate_saved_identity(
         cache_row = cached.get(key)
         fallback = verified_fallback.get(key, {})
 
+        used_cache = False
+        used_fallback = False
         if not item.get("number"):
-            item["number"] = (
-                (cache_row.number if cache_row else None)
-                or fallback.get("number")
-                or None
-            )
+            if cache_row and cache_row.number:
+                item["number"] = cache_row.number
+                used_cache = True
+            elif fallback.get("number"):
+                item["number"] = fallback.get("number")
+                used_fallback = True
         if not item.get("team"):
-            item["team"] = (
-                (cache_row.team if cache_row else None)
-                or fallback.get("team")
-                or None
-            )
+            if cache_row and cache_row.team:
+                item["team"] = cache_row.team
+                used_cache = True
+            elif fallback.get("team"):
+                item["team"] = fallback.get("team")
+                used_fallback = True
         if not item.get("manufacturer"):
-            item["manufacturer"] = (
-                (cache_row.manufacturer if cache_row else None)
-                or fallback.get("manufacturer")
-                or None
-            )
+            if cache_row and cache_row.manufacturer:
+                item["manufacturer"] = cache_row.manufacturer
+                used_cache = True
+            elif fallback.get("manufacturer"):
+                item["manufacturer"] = fallback.get("manufacturer")
+                used_fallback = True
 
         if cache_row and cache_row.photo_use_allowed and cache_row.photo_url:
             item["photo_url"] = cache_row.photo_url
@@ -3172,6 +3191,24 @@ def _hydrate_saved_identity(
             item["photo_source_url"] = cache_row.photo_source_url or None
             item["photo_license"] = cache_row.photo_license or None
             item["photo_attribution"] = cache_row.photo_attribution or None
+
+        if used_cache or used_fallback:
+            item["identity_resolved"] = bool(
+                item.get("number") or item.get("team") or item.get("manufacturer")
+            )
+            item["identity_quality"] = (
+                "complete"
+                if item.get("number") and item.get("team") and item.get("manufacturer")
+                else "partial"
+            )
+            if used_cache and cache_row:
+                item["identity_provenance"] = cache_row.source_kind or "sourced_secondary"
+                item["identity_source_name"] = cache_row.source_name or None
+                item["identity_source_url"] = cache_row.source_url or None
+            elif used_fallback:
+                item["identity_provenance"] = "verified_fallback"
+                item["identity_source_name"] = "Verified racing identity"
+                item["identity_source_url"] = None
 
         hydrated.append(item)
     return hydrated

@@ -212,12 +212,26 @@ def _espn_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
         for raw in competition.get("broadcasts") or []:
             if isinstance(raw, dict):
                 broadcasts.extend(str(x) for x in (raw.get("names") or []) if x)
+        venue = competition.get("venue") or {}
+        address = venue.get("address") or {}
+        location = ", ".join(
+            str(value).strip()
+            for value in (
+                address.get("city"),
+                address.get("state"),
+                address.get("country"),
+            )
+            if str(value or "").strip()
+        )
         out.append({
+            "source_id": str(event.get("id") or competition.get("id") or "").strip() or None,
             "name": event.get("name") or event.get("shortName") or config["name"],
             "start": _iso(event.get("date") or competition.get("date")),
             "state": str(status_type.get("state") or "pre").lower(),
             "completed": bool(status_type.get("completed")),
             "broadcast": " / ".join(dict.fromkeys(broadcasts)) or None,
+            "venue": str(venue.get("fullName") or "").strip() or None,
+            "location": location or None,
             "source_url": config.get("schedule_url"),
         })
     return out
@@ -244,13 +258,26 @@ def _f1_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
                 state, completed = "post", True
             elif dt <= now < dt + timedelta(hours=4):
                 state = "in"
+        circuit = race.get("Circuit") or {}
+        circuit_location = circuit.get("Location") or {}
+        location = ", ".join(
+            str(value).strip()
+            for value in (
+                circuit_location.get("locality"),
+                circuit_location.get("country"),
+            )
+            if str(value or "").strip()
+        )
         out.append({
+            "source_id": str(race.get("round") or "").strip() or None,
             "name": race.get("raceName") or config["name"],
             "start": start,
             "state": state,
             "completed": completed,
             "broadcast": "F1 TV",
-            "source_url": config.get("schedule_url"),
+            "venue": str(circuit.get("circuitName") or "").strip() or None,
+            "location": location or None,
+            "source_url": str(circuit.get("url") or config.get("schedule_url") or ""),
         })
     return out
 
@@ -334,6 +361,61 @@ def _event_title(lines: list[str], index: int, match: re.Match[str], config: dic
     return "See official schedule"
 
 
+TRACK_VENUE_TOKENS = (
+    "speedway",
+    "raceway",
+    "motorsports park",
+    "motor speedway",
+    "motorsport park",
+    "dirt track",
+    "dragway",
+    "circuit",
+    "race park",
+    "speedplex",
+    "fairgrounds",
+    "race course",
+    "road course",
+)
+
+
+def _event_venue_from_context(
+    lines: list[str],
+    index: int,
+) -> tuple[str | None, str | None]:
+    candidates: list[tuple[str, str | None]] = []
+    date_pattern = re.compile(
+        r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*[-–]\s*\d{1,2}(?:st|nd|rd|th)?)?(?:,?\s*20\d{2})?\b",
+        re.IGNORECASE,
+    )
+    for pos in range(max(0, index - 2), min(len(lines), index + 3)):
+        value = _clean_schedule_text(lines[pos])
+        value = date_pattern.sub(" ", value)
+        value = re.sub(r"\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b,?", " ", value, flags=re.IGNORECASE)
+        value = re.sub(r"\s*[|·]\s*", " · ", value)
+        value = re.sub(r"\s+", " ", value).strip(" ·|-")
+        if not value:
+            continue
+        segments = [seg.strip() for seg in value.split(" · ") if seg.strip()]
+        for i, segment in enumerate(segments):
+            low = segment.casefold()
+            if not any(token in low for token in TRACK_VENUE_TOKENS):
+                continue
+            if len(segment) > 120:
+                continue
+            location = None
+            if i + 1 < len(segments):
+                nearby = segments[i + 1]
+                if "," in nearby or re.search(r"\b[A-Z]{2}\b", nearby):
+                    location = nearby[:120]
+            candidates.append((segment, location))
+    if not candidates:
+        return None, None
+    # Prefer the shortest explicit venue phrase. It is less likely to include
+    # ticket/marketing text while still retaining the actual track name.
+    candidates.sort(key=lambda item: len(item[0]))
+    return candidates[0]
+
+
 def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
     url = str(config.get("schedule_url") or "").strip()
     if not url:
@@ -371,6 +453,7 @@ def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
             if dt < now - timedelta(days=2) or dt > now + timedelta(days=370):
                 continue
             title = _event_title(lines, i, match, config)
+            venue, location = _event_venue_from_context(lines, i)
             key = (dt.date().isoformat(), title.casefold())
             if key in seen:
                 continue
@@ -383,6 +466,8 @@ def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
                 "state": "pre" if dt.date() >= now.date() else "post",
                 "completed": dt.date() < now.date(),
                 "broadcast": None,
+                "venue": venue,
+                "location": location,
                 "source_url": url,
             })
 
@@ -418,6 +503,7 @@ def _event_summary(events: list[dict[str, Any]], config: dict[str, Any]) -> dict
     return {
         "state": state,
         "event": chosen,
+        "events": events,
         "schedule_url": config.get("schedule_url"),
         "watch_name": (chosen or {}).get("broadcast") or config.get("watch_name"),
         "watch_url": config.get("watch_url"),
@@ -450,7 +536,7 @@ def _build_one(key: str, config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
 
 
 def _build_one_static(key: str, config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    return key, {"state":"schedule","event":None,"schedule_url":config.get("schedule_url"),"watch_name":config.get("watch_name"),"watch_url":config.get("watch_url"),"logo_url":config.get("logo_url"),"logo_source_url":config.get("logo_source_url"),"series_key":key,"series_name":config["name"],"group":config["group"]}
+    return key, {"state":"schedule","event":None,"events":[],"schedule_url":config.get("schedule_url"),"watch_name":config.get("watch_name"),"watch_url":config.get("watch_url"),"logo_url":config.get("logo_url"),"logo_source_url":config.get("logo_source_url"),"series_key":key,"series_name":config["name"],"group":config["group"]}
 
 
 def get_racing_event_hub(force: bool = False) -> dict[str, Any]:

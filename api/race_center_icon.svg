@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="92" fill="#090b0e"/>
+  <path d="M54 376h404v54H54z" fill="#fff"/>
+  <path d="M54 376h54v54H54zm108 0h54v54h-54zm108 0h54v54h-54zm108 0h54v54h-54z" fill="#111"/>
+  <path d="M54 322h54v54H54zm108 0h54v54h-54zm108 0h54v54h-54zm108 0h54v54h-54z" fill="#fff"/>
+  <text x="256" y="285" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="180" font-weight="900" font-style="italic" fill="#ff5500">RC</text>
+  <text x="256" y="108" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="34" font-weight="800" fill="#fff">PITMARK</text>
+</svg>
