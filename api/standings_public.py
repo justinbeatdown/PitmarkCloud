@@ -14,6 +14,7 @@ from PIL import Image, ImageOps
 
 from services.racing_standings import SERIES as STANDINGS_SERIES, get_driver_identity, get_series_logo_info, get_series_roster, get_standings_snapshot_hub
 from services.racing_events import get_racing_event_hub
+from services.race_center_platform import build_platform, build_my_racing_brief, standings_history
 from services import race_center_accounts
 from utils.config import settings
 from utils.security import enforce_rate_limit
@@ -106,6 +107,14 @@ class RaceDriverClaimCreate(BaseModel):
     note: str = Field(default="", max_length=1200)
 
 
+class RaceEntityClaimCreate(BaseModel):
+    entity_type: str = Field(min_length=4, max_length=30)
+    entity_key: str = Field(min_length=1, max_length=220)
+    entity_name: str = Field(min_length=1, max_length=180)
+    evidence_url: str = Field(default="", max_length=1200)
+    note: str = Field(default="", max_length=1200)
+
+
 def _race_account_or_401(request: Request) -> race_center_accounts.RaceCenterAccount:
     account = race_center_accounts.account_from_request(request)
     if not account:
@@ -125,6 +134,24 @@ def _race_session_response(payload: dict, account: race_center_accounts.RaceCent
         path="/",
     )
     return response
+
+
+@router.get("/api/public/race-center/platform", include_in_schema=False)
+def race_center_platform():
+    return build_platform()
+
+
+@router.get("/api/public/race-center/briefing", include_in_schema=False)
+def race_center_briefing(request: Request):
+    account = race_center_accounts.account_from_request(request)
+    return build_my_racing_brief(account.id if account else None)
+
+
+@router.get("/api/public/race-center/history/{series_key}", include_in_schema=False)
+def race_center_series_history(series_key: str, limit: int = 12):
+    if not any(item.get("key") == series_key for item in STANDINGS_SERIES):
+        raise HTTPException(status_code=404, detail="Race Center series not found.")
+    return {"series_key": series_key, "snapshots": standings_history(series_key, limit=limit)}
 
 
 @router.get("/api/public/race-center/account", include_in_schema=False)
@@ -246,6 +273,29 @@ def race_center_driver_claim_submit(request: Request, body: RaceDriverClaimCreat
 def race_center_driver_claims_me(request: Request):
     account = _race_account_or_401(request)
     return {"claims": race_center_accounts.driver_claims_for_user(account.id)}
+
+
+@router.post("/api/public/race-center/entity-claims", include_in_schema=False)
+def race_center_entity_claim_submit(request: Request, body: RaceEntityClaimCreate):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-entity-claim", 12, 3600)
+    try:
+        return race_center_accounts.submit_entity_claim(
+            account.id,
+            entity_type=body.entity_type,
+            entity_key=body.entity_key,
+            entity_name=body.entity_name,
+            evidence_url=body.evidence_url,
+            note=body.note,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/api/public/race-center/entity-claims/me", include_in_schema=False)
+def race_center_entity_claims_me(request: Request):
+    account = _race_account_or_401(request)
+    return {"claims": race_center_accounts.entity_claims_for_user(account.id)}
 
 
 @router.get("/api/public/race-center/driver-identity/{series_key}/{driver_name:path}", include_in_schema=False)
@@ -414,6 +464,13 @@ def race_center_people_unfollow(request: Request, body: RaceUserFollowChange):
 
 
 @router.get("/race-center", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/tracks", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/track/{track_key}", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/teams", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/team/{team_key}", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/events", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/event/{event_key:path}", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/archive", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/series", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/series/{series_key}", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/drivers", response_class=HTMLResponse, include_in_schema=False)
@@ -429,6 +486,13 @@ def public_standings_home(request: Request):
         "standings" if path == "/standings" or path.endswith("/standings")
         else "schedules" if path.endswith("/schedules")
         else "live" if path.endswith("/live")
+        else "trackprofile" if "/race-center/track/" in path
+        else "tracks" if path.endswith("/tracks")
+        else "teamprofile" if "/race-center/team/" in path
+        else "teams" if path.endswith("/teams")
+        else "eventprofile" if "/race-center/event/" in path
+        else "events" if path.endswith("/events")
+        else "archive" if path.endswith("/archive")
         else "driver" if "/race-center/driver/" in path
         else "drivers" if path.endswith("/drivers")
         else "seriesprofile" if "/race-center/series/" in path
