@@ -736,7 +736,7 @@ class ControlCenter2026Contract(unittest.TestCase):
 
         self.assertIn("officialIdentity?.status==='ready'", public_js)
         self.assertIn("officialIdentity.photo_use_allowed", public_js)
-        self.assertIn("Checking trusted sources…", public_js)
+        self.assertIn("Checking sources…", public_js)
         self.assertIn("ABOUT THE DRIVER", public_js)
         self.assertIn("Trusted secondary identity source", public_js)
         self.assertIn("Identity enriched from ", public_js)
