@@ -15,7 +15,7 @@ const pageView=routePath==='/standings'||routePath.endsWith('/standings')
               ?'series'
               :'hub';
 const PREF_KEY='pitmark-race-center-v5';
-const CACHE_KEY='pitmark-race-center-v5-feed';
+const CACHE_KEY='pitmark-race-center-v5-feed-20260923b';
 const readPrefs=()=>{
   try{
     const raw=JSON.parse(localStorage.getItem(PREF_KEY)||'{}');
@@ -329,6 +329,69 @@ function driverPortrait(driver,large=false){
   return '<span class="driver-photo driver-photo-fallback'+(large?' is-large':'')+'">'+esc(driverInitials(driver.name))+'</span>';
 }
 
+
+let driverDirectoryObserver=null;
+
+function applyDriverIdentityToCards(seriesKey,driverName,payload){
+  if(!payload||payload.status!=='ready')return;
+  $('[data-driver-enrich-series]').forEach(card=>{
+    if(String(card.dataset.driverEnrichSeries||'')!==String(seriesKey||''))return;
+    if(driverIdentityKey(card.dataset.driverEnrichName)!==driverIdentityKey(driverName))return;
+    const currentPhoto=card.querySelector('.driver-photo');
+    if(payload.photo_use_allowed&&payload.photo_url&&currentPhoto){
+      const img=document.createElement('img');
+      img.className='driver-photo';
+      img.src=String(payload.photo_url);
+      img.alt=String(driverName||'Driver');
+      img.loading='lazy';
+      img.decoding='async';
+      currentPhoto.replaceWith(img);
+    }
+    const identity=card.querySelector('.driver-directory-main small');
+    if(identity){
+      const values=[payload.team,payload.manufacturer].filter(Boolean);
+      if(values.length)identity.textContent=[...new Set(values.map(String))].join(' · ');
+    }
+    const number=card.querySelector('.driver-number');
+    if(number&&payload.number)number.textContent='#'+String(payload.number);
+    card.dataset.driverEnriched='1';
+  });
+}
+
+function hydrateDriverDirectoryCards(){
+  if(state.view!=='drivers')return;
+  if(driverDirectoryObserver&&driverDirectoryObserver.disconnect)driverDirectoryObserver.disconnect();
+  const cards=$('[data-driver-enrich-series]').filter(card=>card.dataset.driverEnriched!=='1');
+  if(!cards.length)return;
+
+  const hydrate=card=>{
+    const seriesKey=String(card.dataset.driverEnrichSeries||'');
+    const name=String(card.dataset.driverEnrichName||'');
+    if(!seriesKey||!name)return;
+    const cacheKey=seriesKey+':'+driverIdentityKey(name);
+    const cached=state.driverIdentity[cacheKey];
+    if(cached&&cached.status==='ready'){
+      applyDriverIdentityToCards(seriesKey,name,cached);
+      return;
+    }
+    loadDriverIdentity(seriesKey,name);
+  };
+
+  if(!('IntersectionObserver' in window)){
+    cards.slice(0,24).forEach(hydrate);
+    return;
+  }
+
+  driverDirectoryObserver=new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+      if(!entry.isIntersecting)return;
+      driverDirectoryObserver.unobserve(entry.target);
+      hydrate(entry.target);
+    });
+  },{rootMargin:'500px 0px'});
+  cards.forEach(card=>driverDirectoryObserver.observe(card));
+}
+
 function renderDrivers(){
   const grid=$('#driversGrid');
   if(!grid||!state.payload)return;
@@ -342,7 +405,7 @@ function renderDrivers(){
 
   grid.innerHTML=filtered.length?filtered.slice(0,600).map(driver=>{
     const followed=state.drivers.has(driver.key);
-    return '<article class="driver-directory-card">'+
+    return '<article class="driver-directory-card" data-driver-enrich-series="'+esc(driver.series_key)+'" data-driver-enrich-name="'+esc(driver.name)+'">'+
       '<a class="driver-directory-main" href="'+driverProfileHref(driver.series_key,driver.name)+'">'+
         driverPortrait(driver)+
         '<div><span class="driver-number">'+(driver.number?'#'+esc(driver.number):esc(driver.series_short))+'</span>'+
@@ -353,6 +416,7 @@ function renderDrivers(){
       '<button class="driver-directory-follow '+(followed?'is-following':'')+'" type="button" data-driver-follow="'+esc(driver.key)+'" data-driver-label="'+esc(driver.name)+'" data-driver-series="'+esc(driver.series_key)+'" aria-pressed="'+(followed?'true':'false')+'" aria-label="'+(followed?'Unfollow ':'Follow ')+esc(driver.name)+'">'+(followed?'★':'☆')+'</button>'+
     '</article>';
   }).join(''):'<div class="loading-card">No drivers match that search.</div>';
+  requestAnimationFrame(hydrateDriverDirectoryCards);
 }
 
 
@@ -566,6 +630,7 @@ function loadDriverIdentity(seriesKey,driverName){
   apiJson('/api/public/race-center/driver-identity/'+encodeURIComponent(seriesKey)+'/'+encodeURIComponent(driverName),{method:'GET'})
     .then(payload=>{
       state.driverIdentity[cacheKey]={status:'ready',...payload};
+      applyDriverIdentityToCards(seriesKey,driverName,state.driverIdentity[cacheKey]);
       renderDriverProfile();
     })
     .catch(error=>{
@@ -621,13 +686,16 @@ function renderDriverProfile(){
 
   const identityKey=String(primary.series_key||'')+':'+driverIdentityKey(primary.name);
   let officialIdentity=state.driverIdentity[identityKey];
-  if(!primary.team||!primary.manufacturer||!primary.number){
+  if(!primary.team||!primary.manufacturer||!primary.number||!primary.photo_url){
     officialIdentity=loadDriverIdentity(primary.series_key,primary.name);
   }
-  if(officialIdentity?.status==='ready'&&officialIdentity.resolved){
+  if(officialIdentity?.status==='ready'){
     if(!primary.number&&officialIdentity.number)primary.number=officialIdentity.number;
     if(!primary.team&&officialIdentity.team)primary.team=officialIdentity.team;
     if(!primary.manufacturer&&officialIdentity.manufacturer)primary.manufacturer=officialIdentity.manufacturer;
+    if(!primary.photo_url&&officialIdentity.photo_use_allowed&&officialIdentity.photo_url){
+      primary.photo_url=String(officialIdentity.photo_url);
+    }
   }
   const identityLoading=officialIdentity?.status==='loading';
   const identityFallback=identityLoading?'Checking trusted sources…':'Not found yet';
@@ -639,6 +707,15 @@ function renderDriverProfile(){
     :'';
   const identityBio=officialIdentity?.status==='ready'
     ?String(officialIdentity.bio||'').trim()
+    :'';
+  const photoSourceUrl=officialIdentity?.status==='ready'
+    ?String(officialIdentity.photo_source_url||'')
+    :'';
+  const photoLicense=officialIdentity?.status==='ready'
+    ?String(officialIdentity.photo_license||'')
+    :'';
+  const photoAttribution=officialIdentity?.status==='ready'
+    ?String(officialIdentity.photo_attribution||'')
     :'';
 
   const followed=state.drivers.has(primary.key);
@@ -672,7 +749,11 @@ function renderDriverProfile(){
 
   host.innerHTML=
     '<article class="driver-profile-hero driver-profile-hero-rich">'+
-      '<div class="driver-profile-photo">'+driverPortrait(primary,true)+'</div>'+
+      '<div class="driver-profile-photo">'+driverPortrait(primary,true)+
+        (primary.photo_url&&photoSourceUrl
+          ?'<a class="driver-photo-credit" href="'+esc(photoSourceUrl)+'" target="_blank" rel="noopener">'+esc([photoAttribution,photoLicense].filter(Boolean).join(' · ')||'Photo source')+' ↗</a>'
+          :'')+
+      '</div>'+
       '<div class="driver-profile-copy">'+
         '<span class="eyebrow">'+esc(primary.group)+' · '+esc(primary.series_short)+'</span>'+
         '<h2>'+esc(primary.name)+'</h2>'+
@@ -946,30 +1027,71 @@ function renderMySeries(){
   const strip=$('#mySeriesStrip');
   const hint=$('#mySeriesHint');
   if(!shell||!strip||!hint)return;
-  const series=(state.payload?.series||[]).filter(item=>state.favorites.has(String(item.series_key)));
-  $('#pulseFavorites').textContent=String(series.length);
-  $('#pulseFavoriteText').textContent=series.length
-    ?`${series.length} saved championship${series.length===1?'':'s'}`
+
+  const allSeries=seriesDirectoryRows();
+  const allDrivers=driverDirectoryRows();
+  const accountFollows=state.account?.authenticated?(state.account.follows||[]):[];
+  const seriesFollowMap=new Map(
+    accountFollows.filter(x=>x.kind==='series').map(x=>[String(x.key),x])
+  );
+  state.favorites.forEach(key=>{
+    const clean=String(key);
+    if(!seriesFollowMap.has(clean))seriesFollowMap.set(clean,{kind:'series',key:clean,label:''});
+  });
+  const driverFollowMap=new Map(
+    accountFollows.filter(x=>x.kind==='driver').map(x=>[String(x.key),x])
+  );
+  state.drivers.forEach(key=>{
+    const clean=String(key);
+    if(!driverFollowMap.has(clean))driverFollowMap.set(clean,{kind:'driver',key:clean,label:'',series_key:clean.split(':')[0]||''});
+  });
+  const seriesFollows=[...seriesFollowMap.values()];
+  const driverFollows=[...driverFollowMap.values()];
+
+  const seriesItems=seriesFollows.map(follow=>{
+    const item=allSeries.find(series=>String(series.series_key)===String(follow.key));
+    return item||{series_key:String(follow.key||''),series_name:String(follow.label||follow.key||'Saved series'),short_name:String(follow.label||follow.key||'Saved series'),group:'MY RACING',entries:[],current_event:null};
+  });
+  const driverItems=driverFollows.map(follow=>{
+    const found=allDrivers.find(driver=>String(driver.key)===String(follow.key));
+    if(found)return found;
+    const key=String(follow.key||'');
+    return {key,name:String(follow.label||key.split(':').slice(1).join(':')||'Saved driver'),series_key:String(follow.series_key||key.split(':')[0]||''),series_short:'Saved driver',number:'',team:'',manufacturer:'',photo_url:''};
+  });
+
+  $('#pulseFavorites').textContent=String(seriesItems.length);
+  $('#pulseFavoriteText').textContent=seriesItems.length
+    ?seriesItems.length+' saved championship'+(seriesItems.length===1?'':'s')
     :'Star a series to build your board';
-  if(!series.length){
-    strip.innerHTML='<button class="my-series-chip" id="emptyFavoriteCta" type="button"><span class="series-wordmark">START</span><span><strong>Build My Series</strong><small>Star the championships you care about.</small></span></button>';
-    hint.textContent='Your saved championships live here.';
+
+  const chips=[];
+  seriesItems.forEach(item=>{
+    const leader=item.entries?.[0];
+    const event=item.current_event;
+    const meta=event
+      ?(item.event_state==='live'?'LIVE · ':'')+String(event.name||eventWhen(event))
+      :leader?'Leader: '+String(leader.name||'—'):'Saved championship';
+    chips.push('<a class="my-series-chip my-racing-series-chip" href="'+seriesProfileHref(item.series_key)+'">'+logo(item)+'<span><strong>'+esc(item.short_name||item.series_name)+'</strong><small>'+esc(meta)+'</small></span></a>');
+  });
+  driverItems.forEach(driver=>{
+    const meta=[driver.number?'#'+driver.number:'',driver.team||driver.series_short].filter(Boolean).join(' · ')||'Saved driver';
+    chips.push('<a class="my-series-chip my-racing-driver-chip" href="'+driverProfileHref(driver.series_key,driver.name)+'">'+driverPortrait(driver)+'<span><strong>'+esc(driver.name)+'</strong><small>'+esc(meta)+'</small></span></a>');
+  });
+
+  if(!chips.length){
+    strip.innerHTML='<a class="my-series-chip" href="/race-center/series"><span class="series-wordmark">START</span><span><strong>Build My Racing</strong><small>Follow series and drivers you care about.</small></span></a>';
+    hint.textContent='Your saved series and drivers live here.';
     const controls=$('#mySeriesControls');
     if(controls)controls.hidden=true;
     return;
   }
-  hint.textContent=state.account?.authenticated?'Synced to your Race Center account.':'Saved on this device.';
-  strip.innerHTML=series.map(item=>{
-    const leader=item.entries?.[0];
-    const event=item.current_event;
-    const meta=event
-      ?`${item.event_state==='live'?'LIVE · ':''}${event.name||eventWhen(event)}`
-      :leader?`Leader: ${leader.name||'—'}`:'Open championship';
-    return `<button class="my-series-chip" type="button" data-key="${esc(item.series_key)}">${logo(item)}<span><strong>${esc(item.short_name||item.series_name)}</strong><small>${esc(meta)}</small></span></button>`;
-  }).join('');
+
+  strip.innerHTML=chips.join('');
+  hint.textContent=state.account?.authenticated
+    ?seriesItems.length+' series · '+driverItems.length+' drivers · synced to your Race Center account.'
+    :seriesItems.length+' series · '+driverItems.length+' drivers · saved on this device.';
   requestAnimationFrame(refreshMySeriesScrollCue);
 }
-
 function refreshMySeriesScrollCue(){
   const strip=$('#mySeriesStrip');
   const hint=$('#mySeriesHint');
@@ -983,12 +1105,16 @@ function refreshMySeriesScrollCue(){
   const max=Math.max(0,strip.scrollWidth-strip.clientWidth);
   if(prev)prev.disabled=strip.scrollLeft<=2;
   if(next)next.disabled=strip.scrollLeft>=max-2;
-  if(!state.favorites.size){
-    hint.textContent='Your saved championships live here.';
+  const followCount=state.account?.authenticated
+    ?(state.account.follows||[]).filter(x=>x.kind==='series'||x.kind==='driver').length
+    :state.favorites.size+state.drivers.size;
+  if(!followCount){
+    hint.textContent='Your saved series and drivers live here.';
     return;
   }
   const syncText=state.account?.authenticated?'Synced to your Race Center account.':'Saved on this device.';
-  hint.textContent=scrollable?'Drag or scroll to see all · '+syncText:syncText;
+  const current=String(hint.textContent||'').replace(/^Drag or scroll to see all · /,'');
+  hint.textContent=scrollable?'Drag or scroll to see all · '+(current||syncText):(current||syncText);
 }
 
 function bindMySeriesScroller(){
@@ -1375,8 +1501,8 @@ function setLoadError(message){
 async function load(){
   try{
     const controller=new AbortController();
-    const timeout=setTimeout(()=>controller.abort(),10000);
-    const response=await fetch('/api/public/standings?v=race-center-v5-20260922',{
+    const timeout=setTimeout(()=>controller.abort(),20000);
+    const response=await fetch('/api/public/standings?v=race-center-v5-20260923b',{
       headers:{Accept:'application/json'},
       cache:'no-store',
       signal:controller.signal
@@ -1473,6 +1599,7 @@ function bootRaceCenter(){
       savePrefs();
       if(state.lastSeries)openSeries(state.lastSeries);
       renderAccount();
+      render();
       return;
     }
     const claim=event.target.closest('[data-driver-claim]');

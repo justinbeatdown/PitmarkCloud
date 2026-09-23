@@ -733,7 +733,8 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, standings)
 
-        self.assertIn("officialIdentity.resolved", public_js)
+        self.assertIn("officialIdentity?.status==='ready'", public_js)
+        self.assertIn("officialIdentity.photo_use_allowed", public_js)
         self.assertIn("Checking trusted sources…", public_js)
         self.assertIn("ABOUT THE DRIVER", public_js)
         self.assertIn("Trusted secondary identity source", public_js)
@@ -797,6 +798,48 @@ class ControlCenter2026Contract(unittest.TestCase):
             "Shared header, staff identity + Series destination",
         ):
             self.assertIn(token, css)
+
+    def test_race_center_driver_identity_photos_and_account_racing_populate(self):
+        standings = self.read("services/racing_standings.py")
+        public_js = self.read("api/standings_public.js")
+        profile_js = self.read("api/race_center_profile.js")
+        css = self.read("api/standings_public.css")
+
+        for token in (
+            "wikipedia-driver-v2",
+            "def _wikipedia_series_clause(",
+            "def _wikipedia_identity_from_summary(",
+            "def _wikipedia_page_payload(",
+            "def _wikipedia_licensed_photo(",
+            '"photo_use_allowed": bool(secondary.get("photo_use_allowed"))',
+            '"photo_source_url": secondary.get("photo_source_url")',
+            '"photo_license": secondary.get("photo_license")',
+            '"Official racing source (partial)"',
+        ):
+            self.assertIn(token, standings)
+
+        for token in (
+            "function applyDriverIdentityToCards(",
+            "function hydrateDriverDirectoryCards(",
+            "data-driver-enrich-series",
+            "officialIdentity.photo_use_allowed",
+            "driver-photo-credit",
+            "const accountFollows=state.account?.authenticated",
+            "accountFollows.filter(x=>x.kind==='driver')",
+            "my-racing-driver-chip",
+            "Your saved series and drivers live here.",
+        ):
+            self.assertIn(token, public_js)
+
+        self.assertIn('href="/race-center/series/', profile_js)
+        self.assertIn('href="/race-center/driver/', profile_js)
+        self.assertIn("Race Center data/photo/personalization repair", css)
+        self.assertIn('body[data-view="standings"] .series-section', css)
+        self.assertIn('body[data-view="driver"] .hero-actions', css)
+        self.assertIn(".profile-followed-racing>a", css)
+        self.assertIn("pitmark-race-center-v5-feed-20260923b", public_js)
+        self.assertIn("controller.abort(),20000", public_js)
+        self.assertIn("Home is a racing home, not a sticky browse toolbar", css)
 
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
