@@ -45,8 +45,8 @@
           <span class="eyebrow">PITMARK RACE CENTER</span>
           <span class="version-pill">V6</span>
         </div>
-        <h1 id="heroTitle">All of racing.<br><em>One home base.</em></h1>
-        <p id="heroIntro">See what is live, what is next, who leads, and where the championships stand — without digging through a dozen different sites.</p>
+        <h1 id="heroTitle">Your racing.<br><em>One command center.</em></h1>
+        <p id="heroIntro">Live racing, next events, championship leaders, standings, drivers and the series you follow — organized around the racing, not a social-media timeline.</p>
         <div class="hero-actions" id="heroActions">
           <a class="button primary" href="/race-center/standings">Open standings</a>
           <a class="button secondary" href="/race-center/schedules">Find the next race</a>
@@ -100,103 +100,29 @@
       </div>
     </section>
 
-    <section class="race-social" id="v5Home" aria-label="Race Center social home">
-      <aside class="social-left">
-        <section class="social-profile-card">
-          <div class="social-profile-avatar" id="socialProfileAvatar">RC</div>
-          <div class="social-profile-copy">
-            <strong id="socialProfileName">My Race Center</strong>
-            <span id="socialProfileHandle">Sign in to personalize</span>
-            <em class="social-profile-role" id="socialProfileRole">Racing fan</em>
-          </div>
-          <button class="social-profile-edit" id="socialProfileOpen" type="button">View profile</button>
-          <div class="social-profile-stats">
-            <div><strong id="socialFollowingCount">0</strong><span>Following</span></div>
-            <div><strong id="socialFollowersCount">0</strong><span>Followers</span></div>
-            <div><strong id="socialRacingCount">0</strong><span>Racing follows</span></div>
-          </div>
-        </section>
-
-        <nav class="social-nav" aria-label="Race Center shortcuts">
-          <a class="active" href="/race-center"><span>⌂</span><strong>Home</strong></a>
-          <a href="/race-center/drivers"><span>◎</span><strong>Drivers</strong></a>
-          <a href="/race-center/series"><span>◇</span><strong>Series</strong></a>
-          <a href="/race-center/standings"><span>≡</span><strong>Standings</strong></a>
-          <button id="socialMyRacing" type="button"><span>★</span><strong>My Racing</strong></button>
-          <button id="socialFindPeople" type="button"><span>＋</span><strong>Find People</strong></button>
-        </nav>
-
-        <section class="social-left-card">
-          <div class="rail-heading"><span>MY RACING</span><button id="railManageRacing" type="button">Manage</button></div>
-          <div id="socialMyRacingList" class="rail-list"><p>Follow a series or driver and it will live here.</p></div>
-        </section>
-      </aside>
-
-      <section class="social-center">
-        <section class="social-composer-card">
-          <button class="composer-avatar" id="composerAvatar" type="button">RC</button>
-          <div class="social-composer-body">
-            <textarea id="pitWallInput" maxlength="600" placeholder="What’s happening in your racing world?"></textarea>
-            <div class="social-composer-tools">
-              <select id="pitWallSeries" aria-label="Attach a series"><option value="">General racing</option></select>
-              <span id="pitWallCount">0 / 600</span>
-              <button class="button primary" id="pitWallPost" type="button">Post</button>
-            </div>
-            <small id="pitWallComposerNote">Sign in to post. Everyone can read the public racing feed.</small>
-          </div>
-        </section>
-
-        <section class="social-feed-card unified-race-feed" id="raceFeed">
-          <div class="feed-heading">
-            <div><span class="eyebrow">FOR YOU</span><h2>Your racing feed</h2></div>
-            <p id="personalStatus">Follow drivers, series and people to build your feed.</p>
-          </div>
-          <div class="unified-feed" id="raceFeedList"><div class="loading-card">Building your racing feed…</div></div>
-        </section>
-      </section>
-
-      <aside class="social-right">
-        <section class="social-right-card people-discovery" id="peopleDiscovery">
-          <div class="right-card-head">
-            <div><span class="eyebrow">PEOPLE</span><h3>Who to follow</h3></div>
-            <button id="discoverRefresh" type="button">Refresh</button>
-          </div>
-          <div class="people-grid social-people-list" id="peopleGrid">
-            <div class="loading-card">Sign in and follow racing to discover people.</div>
-          </div>
-        </section>
-
-        <section class="social-right-card">
-          <div class="right-card-head"><div><span class="eyebrow">DISCOVER</span><h3>Explore racing</h3></div></div>
-          <div class="social-discover-links">
-            <a href="/race-center/drivers"><strong>Drivers</strong><span>Search every tracked driver →</span></a>
-            <a href="/race-center/series"><strong>Series</strong><span>Browse championships →</span></a>
-            <a href="/race-center/standings"><strong>Standings</strong><span>See the full racing board →</span></a>
-            <a href="/race-center/schedules"><strong>Race calendar</strong><span>Find what’s next →</span></a>
-            <a href="/race-center/live"><strong>Live + Next</strong><span>See what’s racing →</span></a>
-          </div>
-        </section>
-      </aside>
-    </section>
-
     <section class="hub-nav-grid" id="hubNavigation" aria-label="Race Center destinations">
-      <a class="hub-nav-card" href="/race-center/series">
+      <a class="hub-nav-card" href="/race-center/drivers">
         <span class="hub-nav-icon">01</span>
+        <div><span class="eyebrow">DRIVER INDEX</span><strong>Drivers</strong><p>Find every tracked driver and open their racing profile.</p></div>
+        <b>→</b>
+      </a>
+      <a class="hub-nav-card" href="/race-center/series">
+        <span class="hub-nav-icon">02</span>
         <div><span class="eyebrow">RACING SERIES</span><strong>Series</strong><p>Browse every championship Race Center tracks.</p></div>
         <b>→</b>
       </a>
       <a class="hub-nav-card" href="/race-center/standings">
-        <span class="hub-nav-icon">02</span>
+        <span class="hub-nav-icon">03</span>
         <div><span class="eyebrow">CHAMPIONSHIPS</span><strong>Standings</strong><p>Full standings, leaders and verified movement.</p></div>
         <b>→</b>
       </a>
       <a class="hub-nav-card" href="/race-center/schedules">
-        <span class="hub-nav-icon">03</span>
+        <span class="hub-nav-icon">04</span>
         <div><span class="eyebrow">RACE CALENDAR</span><strong>Schedules + Watch</strong><p>Official dates and viewing links across every tracked series.</p></div>
         <b>→</b>
       </a>
       <a class="hub-nav-card" href="/race-center/live">
-        <span class="hub-nav-icon">04</span>
+        <span class="hub-nav-icon">05</span>
         <div><span class="eyebrow">RACE WEEKEND</span><strong>Live + Next</strong><p>What is running now and what is coming up next.</p></div>
         <b>→</b>
       </a>
