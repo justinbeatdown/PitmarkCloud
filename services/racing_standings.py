@@ -3283,6 +3283,28 @@ def _wikipedia_pick_page(driver_name: str) -> tuple[str, str] | None:
     if not target:
         return None
 
+    # Most racing biographies use the driver's exact name as the article title.
+    # Resolve that first so enrichment does not depend on Wikipedia search ranking.
+    exact_params = {
+        "action": "query",
+        "titles": clean_name,
+        "redirects": "1",
+        "format": "json",
+        "formatversion": "2",
+    }
+    with httpx.Client(
+        timeout=12.0,
+        follow_redirects=True,
+        headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+    ) as client:
+        exact_response = client.get(WIKIPEDIA_API_URL, params=exact_params)
+        exact_response.raise_for_status()
+        exact_pages = ((exact_response.json() or {}).get("query") or {}).get("pages") or []
+    if exact_pages and not exact_pages[0].get("missing"):
+        exact_title = " ".join(str(exact_pages[0].get("title") or clean_name).split()).strip()
+        if exact_title and "disambiguation" not in exact_title.lower():
+            return exact_title, WIKIPEDIA_BASE_URL + quote(exact_title.replace(" ", "_"))
+
     params = {
         "action": "query",
         "list": "search",
@@ -3313,7 +3335,7 @@ def _wikipedia_pick_page(driver_name: str) -> tuple[str, str] | None:
         elif target and (target in title_key or title_key in target):
             score += 45
         snippet = BeautifulSoup(str(item.get("snippet") or ""), "html.parser").get_text(" ", strip=True).lower()
-        if "racing driver" in snippet or "race car driver" in snippet:
+        if "racing driver" in snippet or "race car driver" in snippet or "stock car" in snippet:
             score += 20
         if "disambiguation" in snippet or "disambiguation" in title.lower():
             score -= 80
