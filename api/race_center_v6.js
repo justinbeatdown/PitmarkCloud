@@ -145,6 +145,7 @@
   }
 
   function wireSearch(){
+    if(window.RACE_CENTER_V7)return;
     const input=$v6('#raceSearchInput');
     const host=$v6('#raceSearchResults');
     if(!input||input.dataset.v6Wired==='1')return;
