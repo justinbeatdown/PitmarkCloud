@@ -3864,3 +3864,58 @@ body[data-view="compare"] .v7-compare{
   .v7-install-actions{width:100%}
   .v7-install-actions .button{flex:1 1 auto}
 }
+
+
+/* Race Center Drivers V2 */
+.v7-driver-summary{
+  margin:14px 0;
+  padding:14px;
+  border:1px solid #2c3641;
+  border-radius:14px;
+  background:linear-gradient(145deg,#10161c,#0a0f14);
+}
+.v7-driver-summary-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:18px;
+  margin-bottom:10px;
+}
+.v7-driver-summary-head p{
+  margin:0;
+  color:#7e8b9c;
+  font-size:10px;
+}
+.v7-driver-summary-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+}
+.v7-driver-summary-grid>div{
+  min-width:0;
+  padding:12px;
+  border:1px solid #28323c;
+  border-radius:10px;
+  background:#090e13;
+}
+.v7-driver-summary-grid span{
+  display:block;
+  color:#738195;
+  font-size:8px;
+  font-weight:950;
+  letter-spacing:.08em;
+}
+.v7-driver-summary-grid strong{
+  display:block;
+  margin-top:4px;
+  color:#f2f5f8;
+  font-size:20px;
+}
+.v7-driver-history{
+  max-height:390px;
+  overflow:auto;
+}
+@media(max-width:680px){
+  .v7-driver-summary-head{align-items:flex-start;flex-direction:column;gap:4px}
+  .v7-driver-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
