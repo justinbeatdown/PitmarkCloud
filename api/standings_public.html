@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/race-center.webmanifest?v={{PITMARK_VERSION}}">
-  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-pwa-mobile-20260923">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-results-archive-20260923">
 </head>
 <body data-view="{{RACE_CENTER_VIEW}}">
   <a class="skip-link" href="#standingsStart">Skip to Race Center</a>
@@ -32,6 +32,7 @@
         <a href="/race-center/series" data-race-view="series">Series</a>
         <a href="/race-center/tracks" data-race-view="tracks">Tracks</a>
         <a href="/race-center/events" data-race-view="events">Events</a>
+        <a href="/race-center/results" data-race-view="results">Results</a>
         <a href="/race-center/standings" data-race-view="standings">Standings</a>
         <a href="/race-center/schedules" data-race-view="schedules">Schedules</a>
         <a href="/race-center/live" data-race-view="live">Live + Next</a>
@@ -260,6 +261,32 @@
       <div class="v7-my-racing-grid" id="v7MyRacingGrid"><div class="loading-card">Building your briefing…</div></div>
     </section>
 
+    <section class="v7-results content-section" id="v7ResultsArchive" aria-labelledby="v7ResultsTitle">
+      <div class="v7-page-head">
+        <div>
+          <span class="eyebrow">RESULTS ARCHIVE</span>
+          <h2 id="v7ResultsTitle">Race history that sticks around</h2>
+          <p>Source-backed finishing orders are preserved as Race Center sees them, so past winners and results do not disappear when the schedule moves on.</p>
+        </div>
+      </div>
+      <div class="v7-results-controls">
+        <label class="driver-search">
+          <span class="sr-only">Search archived results</span>
+          <span aria-hidden="true">⌕</span>
+          <input id="v7ResultsSearch" type="search" autocomplete="off" placeholder="Search driver, event, series, track…">
+        </label>
+        <label>Season
+          <select id="v7ResultsSeason"><option value="">All seasons</option></select>
+        </label>
+        <label>Series
+          <select id="v7ResultsSeries"><option value="">All series</option></select>
+        </label>
+      </div>
+      <div class="v7-results-summary" id="v7ResultsSummary"><div class="loading-card">Loading preserved race results…</div></div>
+      <div class="v7-results-winners" id="v7ResultsWinners"></div>
+      <div class="v7-results-grid" id="v7ResultsGrid"><div class="loading-card">Building results archive…</div></div>
+    </section>
+
     <section class="v7-health content-section" id="v7Health" aria-labelledby="v7HealthTitle">
       <div class="v7-page-head">
         <div>
@@ -388,6 +415,7 @@
     <a href="/race-center/my-racing"><span>★</span>My Racing</a>
     <a href="/race-center/live"><span>●</span>Live</a>
     <a href="/race-center/events"><span>⚑</span>Events</a>
+    <a href="/race-center/results"><span>▤</span>Results</a>
     <a href="/race-center/drivers"><span>◎</span>Drivers</a>
     <a href="/race-center/tracks"><span>⌖</span>Tracks</a>
     <a href="/race-center/standings"><span>≡</span>Standings</a>
@@ -500,6 +528,7 @@
         <a href="/race-center/tracks">Tracks</a>
         <a href="/race-center/teams">Teams</a>
         <a href="/race-center/events">Events</a>
+        <a href="/race-center/results">Results</a>
         <a href="/race-center/my-racing">My Racing</a>
         <a href="/race-center/standings">Standings</a>
         <a href="/race-center/schedules">Schedules</a>
@@ -513,6 +542,6 @@
   <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-v7-core-20260923" defer></script>
   <script src="/race-center-v5.js?v={{PITMARK_VERSION}}-v6-social-20260923" defer></script>
   <script src="/race-center-v6.js?v={{PITMARK_VERSION}}-finished-final-20260923" defer></script>
-  <script src="/race-center-v7.js?v={{PITMARK_VERSION}}-pwa-mobile-20260923" defer></script>
+  <script src="/race-center-v7.js?v={{PITMARK_VERSION}}-results-archive-20260923" defer></script>
 </body>
 </html>
