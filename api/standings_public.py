@@ -17,6 +17,7 @@ from services.racing_events import get_racing_event_hub, get_series_event_schedu
 from services import race_center_accounts
 from services.race_center_world import (
     build_world,
+    event_key as race_center_event_key,
     get_event_detail,
     get_track_detail,
     get_team_detail,
@@ -201,7 +202,14 @@ def race_center_world(request: Request):
 
 @router.get("/api/public/race-center/schedule/{series_key}", include_in_schema=False)
 def race_center_series_schedule(series_key: str):
-    return {"series_key": series_key, "events": get_series_event_schedule(series_key)}
+    events = get_series_event_schedule(series_key)
+    return {
+        "series_key": series_key,
+        "events": [
+            {**event, "key": race_center_event_key(series_key, event)}
+            for event in events
+        ],
+    }
 
 
 @router.get("/api/public/race-center/event/{series_key}/{event_key}", include_in_schema=False)
