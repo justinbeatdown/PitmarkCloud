@@ -3749,7 +3749,9 @@ def get_driver_identity(
             else "Wikipedia"
             if source_kind == "wikipedia"
             else "Official racing source"
-            if source_kind in {"official", "official_partial"}
+            if source_kind == "official"
+            else "Official racing source (partial)"
+            if source_kind == "official_partial"
             else None
         ),
         "source_url": official_source_url if source_kind == "official" else secondary.get("source_url"),
