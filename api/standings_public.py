@@ -395,6 +395,57 @@ def race_center_entity_search(q: str = "", limit: int = 24):
     return {"query": q, "results": race_center_entities.graph_search(q, limit=limit)}
 
 
+@router.get("/api/public/race-center/compare", include_in_schema=False)
+def race_center_driver_compare(a: str = "", b: str = ""):
+    graph = race_center_entities.build_entity_graph()
+    drivers = {str(item.get("key") or ""): item for item in graph.get("drivers") or []}
+    left = drivers.get(str(a or "").strip())
+    right = drivers.get(str(b or "").strip())
+    if not left or not right:
+        return {
+            "a": left,
+            "b": right,
+            "drivers": [
+                {
+                    "key": item.get("key"),
+                    "name": item.get("name"),
+                    "number": item.get("number"),
+                    "team": item.get("team"),
+                    "manufacturer": item.get("manufacturer"),
+                }
+                for item in graph.get("drivers") or []
+            ],
+        }
+
+    left_series = {str(item.get("series_key") or ""): item for item in left.get("series") or []}
+    right_series = {str(item.get("series_key") or ""): item for item in right.get("series") or []}
+    shared_keys = sorted(set(left_series) & set(right_series))
+    shared = [
+        {
+            "series_key": key,
+            "series_name": left_series[key].get("series_name") or right_series[key].get("series_name"),
+            "a": left_series[key],
+            "b": right_series[key],
+        }
+        for key in shared_keys
+    ]
+    return {
+        "a": left,
+        "b": right,
+        "shared_series": shared,
+        "drivers": [
+            {
+                "key": item.get("key"),
+                "name": item.get("name"),
+                "number": item.get("number"),
+                "team": item.get("team"),
+                "manufacturer": item.get("manufacturer"),
+            }
+            for item in graph.get("drivers") or []
+        ],
+    }
+
+
 @router.get("/api/public/race-center/entity/{entity_type}/{entity_key}", include_in_schema=False)
 def race_center_entity_detail(entity_type: str, entity_key: str):
     result = race_center_entities.entity_detail(entity_type, entity_key)
@@ -726,6 +777,7 @@ def race_center_people_unfollow(request: Request, body: RaceUserFollowChange):
 
 
 @router.get("/race-center", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/compare", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/tracks", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/track/{entity_key}", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/teams", response_class=HTMLResponse, include_in_schema=False)
@@ -760,6 +812,7 @@ def public_standings_home(request: Request):
         else "eventprofile" if "/race-center/event/" in path
         else "events" if path.endswith("/events")
         else "myracing" if path.endswith("/my-racing")
+        else "compare" if path.endswith("/compare")
         else "health" if path.endswith("/health")
         else "hub"
     )
