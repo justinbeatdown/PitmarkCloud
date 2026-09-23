@@ -166,11 +166,11 @@ function configurePage(){
 
   const config={
     hub:{
-      title:'Your racing.<br><em>One place.</em>',
-      intro:'Follow drivers and series, see what is live, search the racing world, and join the conversation — without bouncing between a dozen sites.',
+      title:'Your racing.<br><em>One command center.</em>',
+      intro:'Live racing, next events, championship leaders, standings, drivers and the series you follow — organized around the racing, not a social-media timeline.',
       primary:['Open standings','/race-center/standings'],
       secondary:['Find a driver','/race-center/drivers'],
-      pageTitle:'Pitmark Race Center — The Social Home for Racing'
+      pageTitle:'Pitmark Race Center — Your Racing Command Center'
     },
     drivers:{
       title:'Find a driver.<br><em>Know their racing.</em>',
