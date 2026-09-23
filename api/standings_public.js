@@ -454,6 +454,93 @@ function renderMySeries(){
       :leader?`Leader: ${leader.name||'—'}`:'Open championship';
     return `<button class="my-series-chip" type="button" data-key="${esc(item.series_key)}">${logo(item)}<span><strong>${esc(item.short_name||item.series_name)}</strong><small>${esc(meta)}</small></span></button>`;
   }).join('');
+  requestAnimationFrame(refreshMySeriesScrollCue);
+}
+
+function refreshMySeriesScrollCue(){
+  const strip=$('#mySeriesStrip');
+  const hint=$('#mySeriesHint');
+  if(!strip||!hint)return;
+  const scrollable=strip.scrollWidth>strip.clientWidth+4;
+  strip.classList.toggle('is-scrollable',scrollable);
+  if(!state.favorites.size){
+    hint.textContent='Your saved championships live here.';
+    return;
+  }
+  const syncText=state.account?.authenticated?'Synced to your Race Center account.':'Saved on this device.';
+  hint.textContent=scrollable?'Drag or scroll to see all · '+syncText:syncText;
+}
+
+function bindMySeriesScroller(){
+  const strip=$('#mySeriesStrip');
+  if(!strip||strip.dataset.dragScrollBound==='1')return;
+  strip.dataset.dragScrollBound='1';
+
+  let dragging=false;
+  let moved=false;
+  let startX=0;
+  let startScroll=0;
+  let suppressClick=false;
+
+  strip.addEventListener('pointerdown',event=>{
+    if(event.pointerType!=='mouse'||event.button!==0)return;
+    dragging=true;
+    moved=false;
+    startX=event.clientX;
+    startScroll=strip.scrollLeft;
+    strip.classList.add('is-dragging');
+    strip.setPointerCapture?.(event.pointerId);
+  });
+
+  strip.addEventListener('pointermove',event=>{
+    if(!dragging)return;
+    const delta=event.clientX-startX;
+    if(Math.abs(delta)>4)moved=true;
+    if(moved){
+      event.preventDefault();
+      strip.scrollLeft=startScroll-delta;
+    }
+  });
+
+  const finishDrag=event=>{
+    if(!dragging)return;
+    dragging=false;
+    strip.classList.remove('is-dragging');
+    try{strip.releasePointerCapture?.(event.pointerId);}catch(_error){}
+    if(moved){
+      suppressClick=true;
+      requestAnimationFrame(()=>{suppressClick=false;});
+    }
+  };
+  strip.addEventListener('pointerup',finishDrag);
+  strip.addEventListener('pointercancel',finishDrag);
+
+  strip.addEventListener('wheel',event=>{
+    if(strip.scrollWidth<=strip.clientWidth+4)return;
+    const delta=Math.abs(event.deltaX)>Math.abs(event.deltaY)?event.deltaX:event.deltaY;
+    if(!delta)return;
+    const max=Math.max(0,strip.scrollWidth-strip.clientWidth);
+    const canMove=(delta>0&&strip.scrollLeft<max-1)||(delta<0&&strip.scrollLeft>1);
+    if(!canMove)return;
+    event.preventDefault();
+    strip.scrollLeft+=delta;
+  },{passive:false});
+
+  strip.addEventListener('click',event=>{
+    const chip=event.target.closest('.my-series-chip[data-key]');
+    if(!chip)return;
+    if(suppressClick||moved){
+      event.preventDefault();
+      event.stopPropagation();
+      moved=false;
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    openSeries(chip.dataset.key);
+  });
+
+  window.addEventListener('resize',refreshMySeriesScrollCue,{passive:true});
 }
 
 function renderPulse(){
@@ -797,6 +884,7 @@ function bootRaceCenter(){
   }
   load();
   syncAccount();
+  bindMySeriesScroller();
   setInterval(()=>{if(state.payload)renderPulse();},30000);
 
   try{configurePage();}catch(error){
