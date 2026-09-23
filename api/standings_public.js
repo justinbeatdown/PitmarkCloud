@@ -151,7 +151,7 @@ const numericValue=value=>{
 
 function configurePage(){
   document.body.dataset.view=state.view;
-  $('[data-race-view]').forEach(link=>{
+  $$('[data-race-view]').forEach(link=>{
     const active=link.dataset.raceView===state.view||(state.view==='driver'&&link.dataset.raceView==='drivers');
     link.classList.toggle('active',active);
     if(active)link.setAttribute('aria-current','page');
