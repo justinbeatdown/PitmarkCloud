@@ -1,5 +1,6 @@
 (function(){
   'use strict';
+  window.RACE_CENTER_V7=true;
 
   const $=(selector,root=document)=>(root||document).querySelector(selector);
   const $$=(selector,root=document)=>Array.from((root||document).querySelectorAll(selector));
