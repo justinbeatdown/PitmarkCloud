@@ -9,7 +9,11 @@ const pageView=routePath==='/standings'||routePath.endsWith('/standings')
         ?'driver'
         :routePath.endsWith('/drivers')
           ?'drivers'
-          :'hub';
+          :routePath.includes('/race-center/series/')
+            ?'seriesprofile'
+            :routePath.endsWith('/series')
+              ?'series'
+              :'hub';
 const PREF_KEY='pitmark-race-center-v5';
 const CACHE_KEY='pitmark-race-center-v5-feed';
 const readPrefs=()=>{
@@ -27,7 +31,7 @@ const readPrefs=()=>{
 };
 const prefs=readPrefs();
 const state={
-  payload:null,group:'All',search:'',driverSearch:'',view:pageView,
+  payload:null,group:'All',search:'',driverSearch:'',seriesSearch:'',view:pageView,
   favorites:prefs.favorites,drivers:prefs.drivers,lastSeries:prefs.lastSeries,favoritesOnly:false,
   account:null,socialPosts:[],driverIdentity:{}
 };
@@ -152,7 +156,9 @@ const numericValue=value=>{
 function configurePage(){
   document.body.dataset.view=state.view;
   $$('[data-race-view]').forEach(link=>{
-    const active=link.dataset.raceView===state.view||(state.view==='driver'&&link.dataset.raceView==='drivers');
+    const active=link.dataset.raceView===state.view
+      ||(state.view==='driver'&&link.dataset.raceView==='drivers')
+      ||(state.view==='seriesprofile'&&link.dataset.raceView==='series');
     link.classList.toggle('active',active);
     if(active)link.setAttribute('aria-current','page');
     else link.removeAttribute('aria-current');
@@ -179,6 +185,20 @@ function configurePage(){
       primary:['All drivers','/race-center/drivers'],
       secondary:['Standings','/race-center/standings'],
       pageTitle:'Driver Profile — Pitmark Race Center'
+    },
+    series:{
+      title:'Racing series.<br><em>All in one place.</em>',
+      intro:'Browse the championships Race Center tracks, then jump straight into leaders, standings, drivers, schedules and official sources.',
+      primary:['Browse series','#seriesDirectory'],
+      secondary:['Open standings','/race-center/standings'],
+      pageTitle:'Series — Pitmark Race Center'
+    },
+    seriesprofile:{
+      title:'Series profile.<br><em>Everything connected.</em>',
+      intro:'One home for a championship’s standings, drivers, next race and official links.',
+      primary:['All series','/race-center/series'],
+      secondary:['Standings','/race-center/standings'],
+      pageTitle:'Series Profile — Pitmark Race Center'
     },
     standings:{
       title:'Championships,<br><em>at a glance.</em>',
@@ -334,6 +354,134 @@ function renderDrivers(){
     '</article>';
   }).join(''):'<div class="loading-card">No drivers match that search.</div>';
 }
+
+
+const seriesProfileHref=key=>'/race-center/series/'+encodeURIComponent(String(key||''));
+
+function seriesDirectoryRows(){
+  const byKey=new Map();
+  (state.payload?.events?.catalog||[]).forEach(item=>{
+    const key=String(item.series_key||'').trim();
+    if(!key)return;
+    byKey.set(key,{
+      series_key:key,
+      series_name:item.series_name||key,
+      short_name:item.short_name||item.series_name||key,
+      group:item.group||'RACING',
+      schedule_url:item.schedule_url||'',
+      watch_url:item.watch_url||'',
+      watch_name:item.watch_name||'',
+      current_event:item.event||null,
+      event_state:item.state||'',
+      entries:[],
+      roster:[],
+      has_standings:false
+    });
+  });
+  (state.payload?.series||[]).forEach(series=>{
+    const key=String(series.series_key||'').trim();
+    if(!key)return;
+    byKey.set(key,{...(byKey.get(key)||{}),...series,has_standings:true});
+  });
+  return [...byKey.values()].sort((a,b)=>{
+    const group=String(a.group||'').localeCompare(String(b.group||''));
+    return group||String(a.series_name||'').localeCompare(String(b.series_name||''));
+  });
+}
+
+function renderSeriesDirectory(){
+  const grid=$('#seriesDirectoryGrid');
+  if(!grid||!state.payload)return;
+  const q=normalizeSearch(state.seriesSearch);
+  const rows=seriesDirectoryRows();
+  const filtered=q?rows.filter(series=>[
+    series.series_name,series.short_name,series.group,series.source_name,
+    series.current_event?.name
+  ].filter(Boolean).join(' ').toLowerCase().includes(q)):rows;
+  const count=$('#seriesResultCount');
+  if(count)count.textContent=filtered.length+' tracked series';
+  grid.innerHTML=filtered.length?filtered.map(series=>{
+    const leader=series.entries?.[0];
+    const favorite=state.favorites.has(String(series.series_key));
+    const event=series.current_event;
+    return '<article class="series-directory-card">'+
+      '<a class="series-directory-main" href="'+seriesProfileHref(series.series_key)+'">'+
+        logo(series)+
+        '<div><span class="eyebrow">'+esc(series.group||'RACING')+'</span>'+
+        '<strong>'+esc(series.series_name||'Series')+'</strong>'+
+        '<small>'+(leader?'Leader: '+esc(leader.name||'—'):(series.has_standings?'Standings available':'Schedule tracked'))+'</small>'+
+        '<em>'+(event?(series.event_state==='live'?'LIVE · ':'Next · ')+esc(event.name||eventTime(event)):'Open series profile')+'</em></div>'+
+      '</a>'+
+      '<button class="series-directory-follow '+(favorite?'is-following':'')+'" type="button" data-favorite-key="'+esc(series.series_key)+'" aria-pressed="'+(favorite?'true':'false')+'" aria-label="'+(favorite?'Remove ':'Add ')+esc(series.series_name||'series')+(favorite?' from':' to')+' My Series">'+(favorite?'★':'☆')+'</button>'+
+    '</article>';
+  }).join(''):'<div class="loading-card">No series match that search.</div>';
+}
+
+function currentSeriesRoute(){
+  const marker='/race-center/series/';
+  const path=decodeURI(location.pathname);
+  const index=path.indexOf(marker);
+  if(index<0)return null;
+  return decodeURIComponent(path.slice(index+marker.length));
+}
+
+function renderSeriesProfile(){
+  const host=$('#seriesProfileContent');
+  if(!host||state.view!=='seriesprofile'||!state.payload)return;
+  const key=currentSeriesRoute();
+  const series=seriesDirectoryRows().find(item=>String(item.series_key)===String(key));
+  if(!series){
+    host.innerHTML='<div class="loading-card">That racing series is not currently tracked.</div>';
+    return;
+  }
+  const favorite=state.favorites.has(String(series.series_key));
+  const entries=series.entries||[];
+  const leader=entries[0];
+  const event=series.current_event||null;
+  const topDrivers=entries.slice(0,8).map(row=>
+    '<a class="series-profile-driver" href="'+driverProfileHref(series.series_key,row.name)+'">'+
+      '<span>'+(row.position?'P'+esc(row.position):'—')+'</span>'+
+      '<strong>'+esc(row.name||'Unknown')+'</strong>'+
+      '<em>'+points(row.points)+' pts</em>'+
+    '</a>'
+  ).join('');
+  const sourceLinks=[
+    series.official_url?'<a href="'+esc(series.official_url)+'" target="_blank" rel="noopener">Official standings ↗</a>':'',
+    series.schedule_url?'<a href="'+esc(series.schedule_url)+'" target="_blank" rel="noopener">Official schedule ↗</a>':'',
+    series.watch_url?'<a href="'+esc(series.watch_url)+'" target="_blank" rel="noopener">'+esc(series.watch_name||'Watch info')+' ↗</a>':'',
+    series.metadata_source_url?'<a href="'+esc(series.metadata_source_url)+'" target="_blank" rel="noopener">Identity source ↗</a>':''
+  ].filter(Boolean).join('');
+  host.innerHTML=
+    '<article class="series-profile-hero">'+
+      '<div class="series-profile-logo">'+logo(series)+'</div>'+
+      '<div class="series-profile-copy"><span class="eyebrow">'+esc(series.group||'RACING')+' · '+esc(series.season||'CURRENT')+'</span>'+
+        '<h2>'+esc(series.series_name||'Series')+'</h2>'+
+        '<p>'+esc(series.source_name||'Race Center tracked championship')+'</p>'+
+        '<div class="driver-profile-actions">'+
+          '<button class="button '+(favorite?'':'primary')+'" type="button" data-favorite-key="'+esc(series.series_key)+'">'+(favorite?'★ In My Series':'☆ Add to My Series')+'</button>'+
+          (series.official_url?'<a class="button" href="'+esc(series.official_url)+'" target="_blank" rel="noopener">Official site ↗</a>':'')+
+        '</div>'+
+      '</div>'+
+      '<div class="series-profile-stat-grid">'+
+        '<div><span>Leader</span><strong>'+esc(leader?.name||'—')+'</strong></div>'+
+        '<div><span>Field</span><strong>'+String(entries.length||'—')+'</strong></div>'+
+        '<div><span>Standings</span><strong>'+(series.has_standings?'Tracked':'Schedule only')+'</strong></div>'+
+      '</div>'+
+    '</article>'+
+    '<div class="series-profile-layout">'+
+      '<div class="series-profile-main">'+
+        '<section class="driver-detail-card"><span class="eyebrow">CHAMPIONSHIP</span><h3>Top of the standings</h3>'+
+          '<div class="series-profile-driver-list">'+(topDrivers||'<div class="loading-card">No current standings are available.</div>')+'</div>'+
+          (series.has_standings?'<button class="button" type="button" data-series-dialog="'+esc(series.series_key)+'">Open full standings</button>':'')+
+        '</section>'+
+        (event?'<section class="driver-detail-card"><span class="eyebrow">'+(series.event_state==='live'?'LIVE NOW':'NEXT RACE')+'</span><h3>'+esc(event.name||'Race event')+'</h3><p>'+esc([eventTime(event),event.venue,event.location].filter(Boolean).join(' · '))+'</p></section>':'')+
+      '</div>'+
+      '<aside class="driver-profile-aside">'+
+        '<section class="driver-detail-card"><span class="eyebrow">SERIES SOURCES</span><h3>Official links</h3><div class="series-profile-links">'+(sourceLinks||'<p>No source links are attached yet.</p>')+'</div></section>'+
+      '</aside>'+
+    '</div>';
+}
+
 
 function currentDriverRoute(){
   const marker='/race-center/driver/';
@@ -1084,6 +1232,8 @@ function render(){
   renderMovers();
   renderGroups();
   renderScheduleCatalog();
+  renderSeriesDirectory();
+  renderSeriesProfile();
   renderDrivers();
   renderDriverProfile();
   bindLogoErrors();
@@ -1092,6 +1242,12 @@ function render(){
   if(state.view==='schedules'){
     const count=(state.payload?.events?.catalog||[]).filter(scheduleVisible).length;
     $('#resultCount').textContent=`${count} schedules`;
+  }else if(state.view==='series'){
+    const q=normalizeSearch(state.seriesSearch);
+    const rows=seriesDirectoryRows().filter(series=>!q||[
+      series.series_name,series.short_name,series.group,series.source_name,series.current_event?.name
+    ].filter(Boolean).join(' ').toLowerCase().includes(q));
+    $('#resultCount').textContent=`${rows.length} series`;
   }else if(state.view==='drivers'){
     const q=normalizeSearch(state.driverSearch);
     const rows=driverDirectoryRows().filter(driver=>!q||[
@@ -1277,12 +1433,18 @@ function bootRaceCenter(){
   }
 
   document.addEventListener('click',event=>{
+    const seriesDialog=event.target.closest('[data-series-dialog]');
+    if(seriesDialog){
+      event.preventDefault();
+      openSeries(String(seriesDialog.dataset.seriesDialog||''));
+      return;
+    }
     const favorite=event.target.closest('[data-favorite-key]');
     if(favorite){
       event.preventDefault();
       event.stopPropagation();
       const key=String(favorite.dataset.favoriteKey||'');
-      const series=(state.payload?.series||[]).find(item=>String(item.series_key)===key);
+      const series=seriesDirectoryRows().find(item=>String(item.series_key)===key);
       if(state.favorites.has(key)){
         state.favorites.delete(key);
         cloudUnfollow('series',key,series?.series_name||'',key).catch(()=>{});
@@ -1360,6 +1522,10 @@ function bootRaceCenter(){
     if(event.target?.id==='driverSearch'){
       state.driverSearch=event.target.value||'';
       renderDrivers();
+    }
+    if(event.target?.id==='seriesSearch'){
+      state.seriesSearch=event.target.value||'';
+      renderSeriesDirectory();
     }
   });
   document.addEventListener('search',event=>{

@@ -414,6 +414,8 @@ def race_center_people_unfollow(request: Request, body: RaceUserFollowChange):
 
 
 @router.get("/race-center", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/series", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/series/{series_key}", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/drivers", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/driver/{series_key}/{driver_name:path}", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/standings", response_class=HTMLResponse, include_in_schema=False)
@@ -429,6 +431,8 @@ def public_standings_home(request: Request):
         else "live" if path.endswith("/live")
         else "driver" if "/race-center/driver/" in path
         else "drivers" if path.endswith("/drivers")
+        else "seriesprofile" if "/race-center/series/" in path
+        else "series" if path.endswith("/series")
         else "hub"
     )
     html = html.replace("{{PITMARK_VERSION}}", settings.app_version)

@@ -9,7 +9,7 @@
   <meta property="og:description" content="Live racing, schedules and championship standings in one simple home base.">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#090b0e">
-  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-wikidriver-20260923">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-seriesstaff-20260923">
 </head>
 <body data-view="{{RACE_CENTER_VIEW}}">
   <a class="skip-link" href="#standingsStart">Skip to Race Center</a>
@@ -25,6 +25,7 @@
         <a href="/prt">PRT</a>
         <a href="/race-center" data-race-view="hub">Race Center</a>
         <a href="/race-center/drivers" data-race-view="drivers">Drivers</a>
+        <a href="/race-center/series" data-race-view="series">Series</a>
         <a href="/race-center/standings" data-race-view="standings">Standings</a>
         <a href="/race-center/schedules" data-race-view="schedules">Schedules</a>
         <a href="/race-center/live" data-race-view="live">Live + Next</a>
@@ -91,21 +92,47 @@
     </section>
 
     <section class="hub-nav-grid" id="hubNavigation" aria-label="Race Center destinations">
-      <a class="hub-nav-card" href="/race-center/standings">
+      <a class="hub-nav-card" href="/race-center/series">
         <span class="hub-nav-icon">01</span>
+        <div><span class="eyebrow">RACING SERIES</span><strong>Series</strong><p>Browse every championship Race Center tracks.</p></div>
+        <b>→</b>
+      </a>
+      <a class="hub-nav-card" href="/race-center/standings">
+        <span class="hub-nav-icon">02</span>
         <div><span class="eyebrow">CHAMPIONSHIPS</span><strong>Standings</strong><p>Full standings, leaders and verified movement.</p></div>
         <b>→</b>
       </a>
       <a class="hub-nav-card" href="/race-center/schedules">
-        <span class="hub-nav-icon">02</span>
+        <span class="hub-nav-icon">03</span>
         <div><span class="eyebrow">RACE CALENDAR</span><strong>Schedules + Watch</strong><p>Official dates and viewing links across every tracked series.</p></div>
         <b>→</b>
       </a>
       <a class="hub-nav-card" href="/race-center/live">
-        <span class="hub-nav-icon">03</span>
+        <span class="hub-nav-icon">04</span>
         <div><span class="eyebrow">RACE WEEKEND</span><strong>Live + Next</strong><p>What is running now and what is coming up next.</p></div>
         <b>→</b>
       </a>
+    </section>
+
+    <section class="series-directory content-section" id="seriesDirectory" aria-labelledby="seriesDirectoryTitle">
+      <div class="drivers-head series-directory-head">
+        <div>
+          <span class="eyebrow">SERIES DIRECTORY</span>
+          <h2 id="seriesDirectoryTitle">Explore racing series</h2>
+          <p>Find a championship, see its leader, next race, standings status, and everything Race Center tracks.</p>
+        </div>
+        <label class="driver-search">
+          <span class="sr-only">Search racing series</span>
+          <span aria-hidden="true">⌕</span>
+          <input id="seriesSearch" type="search" autocomplete="off" placeholder="Search series or category…">
+        </label>
+      </div>
+      <div class="drivers-meta"><strong id="seriesResultCount">Loading series…</strong><span>Series pages connect standings, schedules, drivers and official source links in one place.</span></div>
+      <div class="series-directory-grid" id="seriesDirectoryGrid"><div class="loading-card">Building the series directory…</div></div>
+    </section>
+
+    <section class="series-profile-page content-section" id="seriesProfilePage" aria-label="Series profile">
+      <div id="seriesProfileContent"><div class="loading-card">Loading series profile…</div></div>
     </section>
 
     <section class="drivers-directory content-section" id="driversDirectory" aria-labelledby="driversTitle">
@@ -235,6 +262,7 @@
     <a href="/race-center/schedules"><span>◷</span>Next</a>
     <a href="/race-center/standings"><span>≡</span>Standings</a>
     <a href="/race-center/drivers"><span>◎</span>Drivers</a>
+    <a href="/race-center/series"><span>◇</span>Series</a>
     <button id="mobileFavorites" type="button"><span>☆</span>My Series</button>
   </nav>
   <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top" hidden>↑ Top</button>
@@ -339,6 +367,7 @@
         <a href="/prt">Pitmark Racing Tools</a>
         <a href="/race-center">Race Center</a>
         <a href="/race-center/drivers">Drivers</a>
+        <a href="/race-center/series">Series</a>
         <a href="/race-center/standings">Standings</a>
         <a href="/race-center/schedules">Schedules</a>
         <a href="/race-center/live">Live + Next</a>
@@ -348,7 +377,7 @@
     <small>Race Center prioritizes official and structured series sources. Pitmark hides unsupported identity fields instead of guessing. Use each linked official series source for final classifications, rules and race-control decisions.</small>
   </footer>
 
-  <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-wikidriver-20260923" defer></script>
+  <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-seriesstaff-20260923" defer></script>
   <script src="/race-center-v5.js?v={{PITMARK_VERSION}}-simple-20260922" defer></script>
 </body>
 </html>

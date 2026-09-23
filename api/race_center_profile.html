@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Race Center Profile — Pitmark Racing Co.</title>
   <meta name="theme-color" content="#090b0e">
-  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-profile-uploadfix-20260922">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-profile-seriesstaff-20260923">
 </head>
 <body data-view="profile" data-profile-handle="{{PROFILE_HANDLE}}">
   <header class="site-header">
@@ -17,14 +17,18 @@
       <nav aria-label="Pitmark navigation">
         <a href="https://pitmarkracing.com">Shop</a>
         <a href="/prt">PRT</a>
-        <a href="/race-center">Race Center</a>
+        <a href="/race-center" class="active" aria-current="page">Race Center</a>
         <a href="/race-center/drivers">Drivers</a>
+        <a href="/race-center/series">Series</a>
         <a href="/race-center/standings">Standings</a>
         <a href="/race-center/schedules">Schedules</a>
         <a href="/race-center/live">Live + Next</a>
         <a href="/racing-desk">Racing Desk</a>
       </nav>
-      <div class="account-zone"><a class="account-button" id="profileAccountButton" href="/race-center">My Race Center</a></div>
+      <div class="account-zone profile-account-zone">
+        <a class="account-button" id="profileAccountButton" href="/race-center">My Race Center</a>
+        <span class="header-health good profile-header-context"><i></i> Profile</span>
+      </div>
     </div>
   </header>
 
@@ -44,7 +48,10 @@
             <h1 id="publicProfileName">Loading profile…</h1>
             <p id="publicProfileHandle">@—</p>
           </div>
-          <span class="profile-verified" id="publicProfileVerified" hidden>✓ Verified</span>
+          <div class="profile-badge-stack">
+            <span class="pitmark-staff-badge" id="pitmarkStaffBadge" hidden><img src="/prt-logo.png" alt=""><span><b>Pitmark Staff</b><small>Official</small></span></span>
+            <span class="profile-verified" id="publicProfileVerified" hidden>✓ Verified</span>
+          </div>
         </div>
         <p class="public-profile-bio" id="publicProfileBio">Loading racing identity…</p>
         <div class="public-profile-meta" id="publicProfileMeta"></div>
@@ -86,11 +93,12 @@
       <div class="footer-links">
         <a href="/race-center">Race Center</a>
         <a href="/race-center/drivers">Drivers</a>
+        <a href="/race-center/series">Series</a>
         <a href="/race-center/standings">Standings</a>
         <a href="/race-center/schedules">Schedules</a>
       </div>
     </div>
   </footer>
-  <script src="/race-center-profile.js?v={{PITMARK_VERSION}}-profile-uploadfix-20260922" defer></script>
+  <script src="/race-center-profile.js?v={{PITMARK_VERSION}}-profile-seriesstaff-20260923" defer></script>
 </body>
 </html>
