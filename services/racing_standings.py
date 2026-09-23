@@ -11,7 +11,7 @@ import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import quote, urljoin, urlsplit
 
 import httpx
 from bs4 import BeautifulSoup
@@ -3197,6 +3197,265 @@ def get_series_roster(
     return roster
 
 
+
+WIKIPEDIA_API_URL = "https://en.wikipedia.org/w/api.php"
+WIKIPEDIA_BASE_URL = "https://en.wikipedia.org/wiki/"
+
+_WIKIPEDIA_TEAM_LABELS: dict[str, tuple[str, ...]] = {
+    "nascar-cup": ("cup car team", "cup team"),
+    "nascar-oreilly": (
+        "busch car team",
+        "xfinity car team",
+        "nationwide car team",
+        "oreilly car team",
+        "o'reilly car team",
+    ),
+    "nascar-truck": ("truck car team", "truck team"),
+    "arca-menards": ("arca car team", "arca team"),
+}
+_WIKIPEDIA_NUMBER_LABELS = (
+    "car number",
+    "car no.",
+    "car no",
+    "number",
+    "bike number",
+    "racing number",
+)
+_WIKIPEDIA_GENERIC_TEAM_LABELS = (
+    "current team",
+    "team",
+    "constructor",
+    "current series team",
+)
+_WIKIPEDIA_MANUFACTURER_LABELS = (
+    "manufacturer",
+    "make",
+    "marque",
+    "constructor",
+)
+_WIKIPEDIA_MANUFACTURERS = (
+    "Chevrolet",
+    "Ford",
+    "Toyota",
+    "Honda",
+    "Acura",
+    "Cadillac",
+    "Porsche",
+    "Ferrari",
+    "BMW",
+    "Mercedes",
+    "Mercedes-Benz",
+    "McLaren",
+    "Aston Martin",
+    "Lamborghini",
+    "Lexus",
+    "Nissan",
+    "Subaru",
+    "Mazda",
+    "Dodge",
+    "KTM",
+    "Ducati",
+    "Yamaha",
+    "Aprilia",
+)
+
+
+def _wikipedia_infobox(soup: BeautifulSoup) -> dict[str, str]:
+    values: dict[str, str] = {}
+    table = soup.find("table", class_=lambda value: value and "infobox" in str(value))
+    if not table:
+        return values
+    for row in table.find_all("tr"):
+        heading = row.find("th")
+        cell = row.find("td")
+        if not heading or not cell:
+            continue
+        key = _norm_header(" ".join(heading.get_text(" ", strip=True).split()))
+        value = " ".join(cell.get_text(" ", strip=True).split()).strip()
+        if key and value:
+            values[key] = value
+    return values
+
+
+def _wikipedia_pick_page(driver_name: str) -> tuple[str, str] | None:
+    clean_name = " ".join(str(driver_name or "").split()).strip()
+    target = _identity_key(clean_name)
+    if not target:
+        return None
+
+    params = {
+        "action": "query",
+        "list": "search",
+        "srsearch": f'"{clean_name}" racing driver',
+        "srnamespace": "0",
+        "srlimit": "8",
+        "format": "json",
+        "utf8": "1",
+    }
+    with httpx.Client(
+        timeout=12.0,
+        follow_redirects=True,
+        headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+    ) as client:
+        response = client.get(WIKIPEDIA_API_URL, params=params)
+        response.raise_for_status()
+        items = ((response.json() or {}).get("query") or {}).get("search") or []
+
+    best: tuple[int, str] | None = None
+    for item in items:
+        title = " ".join(str(item.get("title") or "").split()).strip()
+        if not title:
+            continue
+        title_key = _identity_key(title)
+        score = 0
+        if title_key == target:
+            score += 100
+        elif target and (target in title_key or title_key in target):
+            score += 45
+        snippet = BeautifulSoup(str(item.get("snippet") or ""), "html.parser").get_text(" ", strip=True).lower()
+        if "racing driver" in snippet or "race car driver" in snippet:
+            score += 20
+        if "disambiguation" in snippet or "disambiguation" in title.lower():
+            score -= 80
+        if best is None or score > best[0]:
+            best = (score, title)
+
+    if not best or best[0] < 20:
+        return None
+    title = best[1]
+    return title, WIKIPEDIA_BASE_URL + quote(title.replace(" ", "_"))
+
+
+def _wikipedia_team_and_number(
+    infobox: dict[str, str],
+    series_key: str,
+) -> tuple[str | None, str | None]:
+    labels = (
+        *_WIKIPEDIA_TEAM_LABELS.get(series_key, ()),
+        *_WIKIPEDIA_GENERIC_TEAM_LABELS,
+    )
+    number: str | None = None
+    team: str | None = None
+
+    for label in labels:
+        value = infobox.get(_norm_header(label))
+        if not value:
+            continue
+        match = re.search(
+            r"(?:No\.?\s*)?([A-Za-z0-9-]+)\s*\(([^()]+)\)",
+            value,
+            flags=re.IGNORECASE,
+        )
+        if match:
+            number = match.group(1).strip() or None
+            team = " ".join(match.group(2).split()).strip() or None
+            break
+        team = value.strip() or None
+        if team:
+            break
+
+    for label in _WIKIPEDIA_NUMBER_LABELS:
+        value = infobox.get(_norm_header(label))
+        if value and not number:
+            match = re.search(r"(?:No\.?\s*)?([A-Za-z0-9-]+)", value, flags=re.IGNORECASE)
+            if match:
+                number = match.group(1).strip() or None
+                break
+
+    return team, number
+
+
+def _wikipedia_manufacturer(
+    infobox: dict[str, str],
+    summary: str,
+    number: str | None,
+) -> str | None:
+    for label in _WIKIPEDIA_MANUFACTURER_LABELS:
+        value = infobox.get(_norm_header(label))
+        if not value:
+            continue
+        for manufacturer in _WIKIPEDIA_MANUFACTURERS:
+            if manufacturer.lower() in value.lower():
+                return manufacturer
+
+    search_text = summary or ""
+    if number:
+        number_match = re.search(
+            rf"\bNo\.?\s*{re.escape(str(number))}\b(.{{0,120}})",
+            search_text,
+            flags=re.IGNORECASE,
+        )
+        if number_match:
+            search_text = number_match.group(0)
+
+    for manufacturer in _WIKIPEDIA_MANUFACTURERS:
+        if re.search(rf"\b{re.escape(manufacturer)}\b", search_text, flags=re.IGNORECASE):
+            return manufacturer
+    return None
+
+
+def _wikipedia_driver_identity(
+    config: dict[str, Any],
+    driver_name: str,
+    season: int,
+) -> dict[str, Any]:
+    cache_key = f"wikipedia-driver:{config.get('key')}:{_identity_key(driver_name)}"
+    cached = _profile_metadata_cache_get(cache_key)
+    if cached:
+        data, source_url = cached
+        values = _identity_metadata_lookup(data, driver_name) or {}
+        return {**values, "source_url": source_url, "source_name": "Wikipedia"}
+
+    picked = _wikipedia_pick_page(driver_name)
+    if not picked:
+        return {}
+    title, page_url = picked
+
+    with httpx.Client(
+        timeout=14.0,
+        follow_redirects=True,
+        headers={
+            "User-Agent": USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml",
+            "Accept-Language": "en-US,en;q=0.9",
+        },
+    ) as client:
+        response = client.get(page_url)
+        response.raise_for_status()
+    soup = BeautifulSoup(response.text, "html.parser")
+    infobox = _wikipedia_infobox(soup)
+
+    summary = ""
+    content = soup.select_one("div.mw-parser-output")
+    if content:
+        for paragraph in content.find_all("p", recursive=False):
+            text = " ".join(paragraph.get_text(" ", strip=True).split()).strip()
+            if len(text) >= 80:
+                summary = re.sub(r"\[\d+\]", "", text).strip()
+                break
+
+    team, number = _wikipedia_team_and_number(infobox, str(config.get("key") or ""))
+    manufacturer = _wikipedia_manufacturer(infobox, summary, number)
+
+    # NASCAR driver pages encode series-specific team + number reliably in the
+    # infobox. The opening paragraph normally contains the make/model, which
+    # lets us fill the manufacturer without guessing from team affiliation.
+    result = {
+        "number": number,
+        "team": team,
+        "manufacturer": manufacturer,
+        "bio": summary[:900] if summary else None,
+        "wikipedia_title": title,
+    }
+
+    if not any(result.get(field) for field in ("number", "team", "manufacturer", "bio")):
+        return {}
+
+    data = {_identity_key(driver_name): result}
+    _profile_metadata_cache_set(cache_key, data, page_url)
+    return {**result, "source_url": page_url, "source_name": "Wikipedia"}
+
+
 def get_driver_identity(
     series_key: str,
     driver_name: str,
@@ -3233,16 +3492,89 @@ def get_driver_identity(
         )
         metadata, source_url = {}, None
 
-    values = _identity_metadata_lookup(metadata, clean_name) or {}
-    verified = any(values.get(field) for field in ("number", "team", "manufacturer"))
+    official_values = _identity_metadata_lookup(metadata, clean_name) or {}
+    official_source_url = source_url or (
+        str(config.get("metadata_url") or "").strip() or _series_url(config, season)
+    )
+    number = official_values.get("number")
+    team = official_values.get("team")
+    manufacturer = official_values.get("manufacturer")
+    field_sources = {
+        "number": "official" if number else None,
+        "team": "official" if team else None,
+        "manufacturer": "official" if manufacturer else None,
+    }
+
+    secondary: dict[str, Any] = {}
+    try:
+        # Every driver profile gets a trusted secondary lookup when the official
+        # source is incomplete. This is deliberately profile-on-demand so Race
+        # Center does not hammer Wikipedia for an entire field every refresh.
+        if not (number and team and manufacturer):
+            secondary = _wikipedia_driver_identity(config, clean_name, season)
+    except Exception as exc:
+        log.info(
+            "Wikipedia driver enrichment failed series=%s driver=%s error=%s",
+            series_key,
+            clean_name,
+            exc,
+        )
+
+    if not number and secondary.get("number"):
+        number = secondary.get("number")
+        field_sources["number"] = "wikipedia"
+    if not team and secondary.get("team"):
+        team = secondary.get("team")
+        field_sources["team"] = "wikipedia"
+    if not manufacturer and secondary.get("manufacturer"):
+        manufacturer = secondary.get("manufacturer")
+        field_sources["manufacturer"] = "wikipedia"
+
+    resolved = any((number, team, manufacturer))
+    fully_official = bool(
+        resolved
+        and all(
+            not value or field_sources.get(field) == "official"
+            for field, value in (
+                ("number", number),
+                ("team", team),
+                ("manufacturer", manufacturer),
+            )
+        )
+    )
+    source_kind = (
+        "official"
+        if fully_official
+        else "mixed"
+        if any(value == "official" for value in field_sources.values())
+        and any(value == "wikipedia" for value in field_sources.values())
+        else "wikipedia"
+        if any(value == "wikipedia" for value in field_sources.values())
+        else "unresolved"
+    )
     return {
-        "verified": bool(verified),
+        "verified": fully_official,
+        "resolved": bool(resolved),
         "series_key": series_key,
         "driver_name": clean_name,
-        "number": values.get("number"),
-        "team": values.get("team"),
-        "manufacturer": values.get("manufacturer"),
-        "source_url": source_url or (str(config.get("metadata_url") or "").strip() or _series_url(config, season)),
+        "number": number,
+        "team": team,
+        "manufacturer": manufacturer,
+        "bio": secondary.get("bio"),
+        "field_sources": field_sources,
+        "source_kind": source_kind,
+        "source_name": (
+            "Official + Wikipedia"
+            if source_kind == "mixed"
+            else "Wikipedia"
+            if source_kind == "wikipedia"
+            else "Official racing source"
+            if source_kind == "official"
+            else None
+        ),
+        "source_url": official_source_url if source_kind == "official" else secondary.get("source_url"),
+        "official_source_url": official_source_url,
+        "secondary_source_url": secondary.get("source_url"),
     }
 
 

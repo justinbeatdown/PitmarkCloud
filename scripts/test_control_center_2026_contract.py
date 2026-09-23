@@ -650,7 +650,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             "CHAMPIONSHIP SNAPSHOT",
             "RACING ACROSS RACE CENTER",
             "RACING IDENTITY",
-            "OFFICIAL SOURCES",
+            "SOURCES",
             "Gap to leader",
             "Series tracked",
         ):
@@ -678,7 +678,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("get_driver_identity(series_key, driver_name)", public_api)
         self.assertIn("function loadDriverIdentity(", public_js)
         self.assertIn("/api/public/race-center/driver-identity/", public_js)
-        self.assertIn("Checking official source…", public_js)
+        self.assertIn("Checking trusted sources…", public_js)
         self.assertNotIn("primary.team||'Not verified'", public_js)
         self.assertNotIn("primary.manufacturer||'Not verified'", public_js)
 
@@ -716,6 +716,30 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("if(!Number.isFinite(v)||v===0)return '';", public_js)
         self.assertIn("row.movement_verified===false", public_js)
         self.assertIn("if(!movement||!delta)return;", public_js)
+
+    def test_race_center_driver_identity_uses_trusted_secondary_fallback(self):
+        standings = self.read("services/racing_standings.py")
+        public_js = self.read("api/standings_public.js")
+        css = self.read("api/standings_public.css")
+
+        for token in (
+            "WIKIPEDIA_API_URL",
+            "def _wikipedia_pick_page(",
+            "def _wikipedia_infobox(",
+            "def _wikipedia_driver_identity(",
+            "field_sources",
+            '"source_kind": source_kind',
+            '"secondary_source_url": secondary.get("source_url")',
+        ):
+            self.assertIn(token, standings)
+
+        self.assertIn("officialIdentity.resolved", public_js)
+        self.assertIn("Checking trusted sources…", public_js)
+        self.assertIn("ABOUT THE DRIVER", public_js)
+        self.assertIn("Trusted secondary identity source", public_js)
+        self.assertIn("Identity enriched from ", public_js)
+        self.assertNotIn("Unavailable from official source", public_js)
+        self.assertIn("Driver secondary-source enrichment", css)
 
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
