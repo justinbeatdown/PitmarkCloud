@@ -1081,9 +1081,30 @@ body[data-view="hub"] .content-section:not(.social-feed-card){display:none!impor
 .social-for-you,.social-feed-card{padding:13px}
 .unified-race-feed{padding:15px}
 .unified-feed{display:grid;gap:11px;max-height:none;overflow:visible;margin-top:0}
-.unified-feed>.network-object,.unified-feed>.wall-post{box-shadow:0 9px 26px rgba(0,0,0,.14)}
+.unified-feed>.network-object,.unified-feed>.wall-post,.unified-feed>.race-moment-card{box-shadow:0 9px 26px rgba(0,0,0,.14)}
 .unified-feed>.network-object{border-color:#2a3540}
 .unified-feed>.wall-post{border-color:#252f39}
+.race-moment-card{
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;
+  padding:12px 13px;border:1px solid rgba(255,85,0,.34);border-radius:13px;
+  background:linear-gradient(135deg,rgba(255,85,0,.09),#0c1116 48%,#0b0f13)
+}
+.race-moment-card.is-live{border-color:rgba(255,85,0,.58);box-shadow:inset 3px 0 0 #ff5500,0 9px 26px rgba(0,0,0,.16)}
+.race-moment-logo{width:56px;display:grid;place-items:center}
+.race-moment-logo .series-logo{width:54px;height:34px}
+.race-moment-logo .series-wordmark{width:54px;min-height:34px;font-size:6px}
+.race-moment-mark{font-size:8px;font-weight:1000;letter-spacing:.08em;color:#ff8d58}
+.race-moment-copy{min-width:0}
+.race-moment-copy small{display:flex;align-items:center;gap:6px;color:#ff8d58;font-size:7px;font-weight:1000;letter-spacing:.09em;text-transform:uppercase}
+.race-moment-dot{width:6px;height:6px;border-radius:50%;background:#ff5500;box-shadow:0 0 0 3px rgba(255,85,0,.12)}
+.race-moment-copy strong{display:block;margin-top:4px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.race-moment-copy>span:last-child{display:block;margin-top:3px;color:#8391a4;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.race-moment-actions{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.race-moment-action{
+  min-height:31px;padding:0 9px;border:1px solid #303b46;border-radius:8px;background:#11171d;color:#c4ced9;
+  display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:950;cursor:pointer;text-decoration:none
+}
+.race-moment-action.primary{border-color:#ff5500;background:#ff5500;color:#fff}
 .feed-heading{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:10px}
 .feed-heading h2{margin:4px 0 0;font-size:23px;letter-spacing:-.04em}
 .feed-heading p{margin:0;color:#728094;font-size:9px}
@@ -1228,4 +1249,10 @@ body[data-view="hub"] .content-section:not(.social-feed-card){display:none!impor
   .unified-race-feed{padding:10px;border-radius:13px}
   .unified-feed{gap:9px}
   .unified-race-feed .feed-heading{align-items:flex-start;flex-direction:column}
+}
+
+@media(max-width:680px){
+  .race-moment-card{grid-template-columns:auto minmax(0,1fr);align-items:start}
+  .race-moment-actions{grid-column:1/-1;justify-content:flex-start}
+  .race-moment-action{flex:1}
 }
