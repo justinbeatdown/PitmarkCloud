@@ -1,10 +1,12 @@
-const CACHE='pitmark-race-center-v7-shell';
+const CACHE='pitmark-race-center-v7-shell-2';
 const SHELL=[
   '/race-center',
   '/race-center/drivers',
   '/race-center/series',
   '/race-center/tracks',
   '/race-center/events',
+  '/race-center/teams',
+  '/race-center/my-racing',
   '/race-center/standings',
   '/race-center/schedules',
   '/race-center/live',
@@ -12,7 +14,9 @@ const SHELL=[
   '/standings.js',
   '/race-center-v6.js',
   '/race-center-v7.js',
-  '/prt-logo.png'
+  '/prt-logo.png',
+  '/race-center-icon-192.png',
+  '/race-center-icon-512.png'
 ];
 
 self.addEventListener('install',event=>{
@@ -53,8 +57,8 @@ self.addEventListener('push',event=>{
   const title=data.title||'Pitmark Race Center';
   const options={
     body:data.body||'Something changed in the racing you follow.',
-    icon:'/prt-logo.png',
-    badge:'/prt-logo.png',
+    icon:'/race-center-icon-192.png',
+    badge:'/race-center-icon-192.png',
     tag:data.tag||'race-center',
     data:{url:data.url||'/race-center/my-racing'}
   };
