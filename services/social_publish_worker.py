@@ -12,6 +12,7 @@ from services.database import SessionLocal
 from services.meta_publish_service import facebook_configured, instagram_configured, publish_facebook_post, publish_instagram_post
 from services.x_publish_service import configured as x_configured, publish_x_post
 from services.social_asset_pool import choose_asset, mark_used, sync_shopify_images
+from services.social_quality_gate import assess_automatic_post_quality
 from utils.config import settings
 
 log = logging.getLogger(__name__)
@@ -76,6 +77,28 @@ def publish_due_posts() -> int:
                 continue
             due = _scheduled_time(post.scheduled_for)
             if due is None or due > now:
+                continue
+
+            quality = assess_automatic_post_quality(
+                platform=platform,
+                title=post.title,
+                body=post.body,
+                source=post.source,
+                media_url=post.media_url,
+            )
+            if not quality["ok"]:
+                post.status = "pending"
+                post.risk = "needs_review"
+                post.scheduled_for = None
+                post.updated_at = utcnow()
+                db.commit()
+                log.error(
+                    "QUALITY_GATE_BLOCKED social post %s source=%s platform=%s reasons=%s",
+                    post.id,
+                    post.source,
+                    platform,
+                    "; ".join(quality["reasons"]),
+                )
                 continue
 
             # Daily Campaign Instagram rows represent a six-slide carousel package.
