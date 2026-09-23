@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from io import BytesIO
+from datetime import datetime
 import base64
 import threading
 import time
@@ -113,6 +114,29 @@ class RaceEntityClaimCreate(BaseModel):
     entity_name: str = Field(min_length=1, max_length=180)
     evidence_url: str = Field(default="", max_length=1200)
     note: str = Field(default="", max_length=1200)
+
+
+class RaceEntityContentChange(BaseModel):
+    headline: str = Field(default="", max_length=180)
+    bio: str = Field(default="", max_length=4000)
+    website_url: str = Field(default="", max_length=1500)
+    merch_url: str = Field(default="", max_length=1500)
+    social_url: str = Field(default="", max_length=1500)
+    sponsors: str = Field(default="", max_length=2500)
+    contact_url: str = Field(default="", max_length=1500)
+
+
+class RaceCoverageLinkCreate(BaseModel):
+    entity_type: str = Field(min_length=4, max_length=30)
+    entity_key: str = Field(min_length=1, max_length=220)
+    title: str = Field(min_length=1, max_length=220)
+    url: str = Field(min_length=8, max_length=1500)
+    summary: str = Field(default="", max_length=1200)
+    published_at: str = Field(default="", max_length=80)
+
+
+class RaceClaimModeration(BaseModel):
+    status: str = Field(min_length=6, max_length=20)
 
 
 def _race_account_or_401(request: Request) -> race_center_accounts.RaceCenterAccount:
@@ -296,6 +320,99 @@ def race_center_entity_claim_submit(request: Request, body: RaceEntityClaimCreat
 def race_center_entity_claims_me(request: Request):
     account = _race_account_or_401(request)
     return {"claims": race_center_accounts.entity_claims_for_user(account.id)}
+
+
+@router.get("/api/public/race-center/entity-content/{entity_type}/{entity_key:path}", include_in_schema=False)
+def race_center_entity_content(request: Request, entity_type: str, entity_key: str):
+    viewer = race_center_accounts.account_from_request(request)
+    return race_center_accounts.entity_content(
+        entity_type,
+        entity_key,
+        viewer_user_id=viewer.id if viewer else None,
+    )
+
+
+@router.put("/api/public/race-center/entity-content/{entity_type}/{entity_key:path}", include_in_schema=False)
+def race_center_entity_content_update(
+    request: Request,
+    entity_type: str,
+    entity_key: str,
+    body: RaceEntityContentChange,
+):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-entity-content", 30, 300)
+    try:
+        return race_center_accounts.update_entity_content(
+            account.id,
+            entity_type=entity_type,
+            entity_key=entity_key,
+            headline=body.headline,
+            bio=body.bio,
+            website_url=body.website_url,
+            merch_url=body.merch_url,
+            social_url=body.social_url,
+            sponsors=body.sponsors,
+            contact_url=body.contact_url,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/api/public/race-center/coverage-links", include_in_schema=False)
+def race_center_coverage_link_create(request: Request, body: RaceCoverageLinkCreate):
+    account = _race_account_or_401(request)
+    published_at = None
+    if body.published_at.strip():
+        try:
+            published_at = datetime.fromisoformat(body.published_at.replace("Z", "+00:00"))
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail="published_at must be ISO-8601.") from exc
+    try:
+        return race_center_accounts.add_coverage_link(
+            account.id,
+            entity_type=body.entity_type,
+            entity_key=body.entity_key,
+            title=body.title,
+            url=body.url,
+            summary=body.summary,
+            published_at=published_at,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/api/public/race-center/staff/claims", include_in_schema=False)
+def race_center_staff_claims(request: Request):
+    account = _race_account_or_401(request)
+    try:
+        return race_center_accounts.staff_claim_queue(account.id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+
+
+@router.put("/api/public/race-center/staff/claims/{claim_kind}/{claim_id}", include_in_schema=False)
+def race_center_staff_claim_moderate(
+    request: Request,
+    claim_kind: str,
+    claim_id: int,
+    body: RaceClaimModeration,
+):
+    account = _race_account_or_401(request)
+    try:
+        return race_center_accounts.moderate_claim(
+            account.id,
+            claim_kind=claim_kind,
+            claim_id=claim_id,
+            status=body.status,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.get("/api/public/race-center/driver-identity/{series_key}/{driver_name:path}", include_in_schema=False)
