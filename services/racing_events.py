@@ -193,6 +193,79 @@ def _iso(value: Any) -> str | None:
         return None
 
 
+def _espn_race_field(competition: dict[str, Any], *, completed: bool = False) -> list[dict[str, Any]]:
+    """Normalize motorsport competitors without assuming one ESPN schema."""
+    rows: list[dict[str, Any]] = []
+    for index, raw in enumerate(competition.get("competitors") or [], start=1):
+        if not isinstance(raw, dict):
+            continue
+        athlete = raw.get("athlete") or {}
+        team = raw.get("team") or {}
+        vehicle = raw.get("vehicle") or {}
+        name = (
+            athlete.get("displayName")
+            or athlete.get("shortName")
+            or raw.get("displayName")
+            or raw.get("name")
+            or team.get("displayName")
+            or team.get("name")
+        )
+        if not name:
+            continue
+
+        number = (
+            athlete.get("jersey")
+            or raw.get("number")
+            or vehicle.get("number")
+            or team.get("abbreviation")
+        )
+        order = raw.get("order") or raw.get("place") or raw.get("position")
+        try:
+            position = int(order) if order not in (None, "") else None
+        except (TypeError, ValueError):
+            position = None
+
+        status_text = ""
+        status = raw.get("status")
+        if isinstance(status, dict):
+            status_text = str(
+                status.get("displayName")
+                or status.get("name")
+                or status.get("type")
+                or ""
+            ).strip()
+        elif status:
+            status_text = str(status).strip()
+
+        manufacturer = (
+            vehicle.get("manufacturer")
+            or vehicle.get("make")
+            or raw.get("manufacturer")
+        )
+        if isinstance(manufacturer, dict):
+            manufacturer = manufacturer.get("displayName") or manufacturer.get("name")
+
+        row = {
+            "name": str(name).strip(),
+            "number": str(number).strip() if number not in (None, "") else None,
+            "position": position,
+            "winner": bool(raw.get("winner")),
+            "manufacturer": str(manufacturer).strip() if manufacturer else None,
+            "status": status_text or None,
+        }
+        if completed and row["position"] is None:
+            row["position"] = index
+        rows.append(row)
+
+    if completed:
+        rows.sort(key=lambda item: (
+            item.get("position") is None,
+            int(item.get("position") or 9999),
+            str(item.get("name") or ""),
+        ))
+    return rows
+
+
 def _espn_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
     league = config["espn_league"]
     url = f"https://site.api.espn.com/apis/site/v2/sports/racing/{league}/scoreboard?dates={SEASON}"
@@ -228,17 +301,22 @@ def _espn_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
             ),
             None,
         )
+        completed = bool(status_type.get("completed"))
+        field = _espn_race_field(competition, completed=completed)
         out.append({
             "event_id": str(event.get("id") or competition.get("id") or "").strip() or None,
             "name": event.get("name") or event.get("shortName") or config["name"],
             "start": _iso(event.get("date") or competition.get("date")),
             "state": str(status_type.get("state") or "pre").lower(),
-            "completed": bool(status_type.get("completed")),
+            "completed": completed,
             "broadcast": " / ".join(dict.fromkeys(broadcasts)) or None,
             "venue": venue_data.get("fullName") or venue_data.get("name"),
             "location": location,
             "event_url": event_url,
             "source_url": config.get("schedule_url"),
+            "entries": field if not completed else [],
+            "results": field if completed else [],
+            "field_size": len(field),
         })
     return out
 
