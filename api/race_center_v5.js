@@ -194,7 +194,7 @@
       objects.push({
         kind:'racing',
         priority:movement?110:65,
-        html:'<article class="network-object driver-object" data-key="'+esc(series.series_key)+'" role="button" tabindex="0">'+
+        html:'<article class="network-object driver-object" data-key="'+esc(series.series_key)+'" data-driver-href="'+esc(driverProfileHref(series.series_key,row.name))+'" role="button" tabindex="0">'+
           '<header><div><span class="driver-network-avatar">'+esc(String(row.name||'?').split(/\s+/).map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase())+'</span><span><small>DRIVER YOU FOLLOW · '+esc(series.short_name||series.series_name)+'</small><strong>'+esc(row.name||'Unknown')+'</strong></span></div><span class="network-rank">P'+esc(row.position==null?'—':row.position)+'</span></header>'+
           '<div class="driver-network-stats"><div><span>Points</span><strong>'+points(row.points)+'</strong></div><div><span>Movement</span><strong>'+move(row.movement,row.comparison_ready!==false)+'</strong></div><div><span>Team</span><strong>'+esc(row.team||row.manufacturer||'—')+'</strong></div></div>'+
           '<footer><span>Following this driver</span><strong>Open championship →</strong></footer>'+
@@ -341,21 +341,33 @@
     if(peopleClose)peopleClose.addEventListener('click',function(){$('#peopleDialog')?.close();});
 
     const profileOpen=$('#socialProfileOpen');
-    if(profileOpen)profileOpen.addEventListener('click',function(){
-      if(state.account&&state.account.authenticated){
+    if(profileOpen&&!profileOpen.dataset.v6Wired){
+      profileOpen.dataset.v6Wired='1';
+      profileOpen.addEventListener('click',function(){
+        const profile=state.account&&state.account.profile||{};
+        if(state.account&&state.account.authenticated&&profile.handle){
+          location.href='/race-center/u/'+encodeURIComponent(String(profile.handle));
+          return;
+        }
         $('#accountDialog')?.showModal();
-      }else{
-        $('#accountDialog')?.showModal();
-      }
-    });
+      });
+    }
     const composerAvatar=$('#composerAvatar');
     if(composerAvatar)composerAvatar.addEventListener('click',function(){$('#accountDialog')?.showModal();});
     const findPeople=$('#socialFindPeople');
     if(findPeople)findPeople.addEventListener('click',function(){$('#peopleDiscovery')?.scrollIntoView({behavior:'smooth',block:'center'});});
     const myRacing=$('#socialMyRacing');
-    if(myRacing)myRacing.addEventListener('click',function(){$('#raceFeed')?.scrollIntoView({behavior:'smooth',block:'start'});});
+    if(myRacing&&!myRacing.dataset.v6Wired){
+      myRacing.dataset.v6Wired='1';
+      myRacing.addEventListener('click',function(){
+        ($('#mySeriesShell')||$('#raceFeed'))?.scrollIntoView({behavior:'smooth',block:'start'});
+      });
+    }
     const manageRacing=$('#railManageRacing');
-    if(manageRacing)manageRacing.addEventListener('click',function(){location.href='/race-center/standings';});
+    if(manageRacing&&!manageRacing.dataset.v6Wired){
+      manageRacing.dataset.v6Wired='1';
+      manageRacing.addEventListener('click',function(){location.href='/race-center/series';});
+    }
     const refreshPeople=$('#discoverRefresh');
     if(refreshPeople)refreshPeople.addEventListener('click',v5LoadPeople);
 
@@ -430,7 +442,13 @@
       const shared=Number(person.shared_count||0);
       const identity=v5IdentityBadge(person.identity);
       const role=v5AccountTypeLabel(person.identity&&person.identity.account_type);
-      return '<article class="people-card"><button class="people-main" type="button" data-v5-profile="'+esc(person.handle)+'"><span class="people-avatar">'+esc(initials)+'</span><span><strong>'+esc(person.display_name||person.handle)+identity+'</strong><small>@'+esc(person.handle)+' · '+esc(role)+'</small><em>'+esc(shared?shared+' shared follow'+(shared===1?'':'s'):'New to your graph')+'</em></span></button><button class="people-follow" type="button" data-v5-follow-user="'+String(person.id)+'">Follow</button></article>';
+      const avatar=person.photo_url
+        ?'<span class="people-avatar has-photo"><img src="'+esc(person.photo_url)+'" alt="" loading="lazy" onerror="this.parentElement.classList.remove(\'has-photo\');this.parentElement.textContent=\''+esc(initials)+'\'"></span>'
+        :'<span class="people-avatar">'+esc(initials)+'</span>';
+      const staff=person.staff&&person.staff.label
+        ?'<small class="people-staff">Pitmark · '+esc(person.staff.label)+'</small>'
+        :'';
+      return '<article class="people-card"><button class="people-main" type="button" data-v5-profile="'+esc(person.handle)+'">'+avatar+'<span><strong>'+esc(person.display_name||person.handle)+identity+'</strong><small>@'+esc(person.handle)+' · '+esc(role)+'</small>'+staff+'<em>'+esc(shared?shared+' shared follow'+(shared===1?'':'s'):'New to your graph')+'</em></span></button><button class="people-follow" type="button" data-v5-follow-user="'+String(person.id)+'">Follow</button></article>';
     }).join('');
   }
 
@@ -462,7 +480,14 @@
       const action=(state.account&&state.account.authenticated&&state.account.id!==profile.id)
         ?'<button class="button primary" type="button" data-v5-profile-follow="'+String(profile.id)+'" data-v5-profile-following="'+(profile.viewer_follows?'1':'0')+'">'+(profile.viewer_follows?'Following':'Follow')+'</button>'
         :'';
-      $('#peopleProfileContent').innerHTML='<div class="profile-hero"><span class="people-avatar large">'+esc(String(profile.display_name||profile.handle).slice(0,2).toUpperCase())+'</span><div><span class="eyebrow">RACE CENTER PROFILE</span><h2 id="peopleDialogTitle">'+esc(profile.display_name||profile.handle)+v5IdentityBadge(identity)+'</h2><p>@'+esc(profile.handle)+'</p>'+role+official+'</div></div><p class="profile-bio">'+esc(profile.bio||'No bio yet.')+'</p><div class="profile-stats"><div><strong>'+String(profile.followers||0)+'</strong><span>Followers</span></div><div><strong>'+String(profile.following||0)+'</strong><span>Following</span></div><div><strong>'+String((profile.series||[]).length+(profile.drivers||[]).length)+'</strong><span>Racing follows</span></div></div>'+(profile.favorite_track?'<p class="profile-track">Home track: <strong>'+esc(profile.favorite_track)+'</strong></p>':'')+'<div class="profile-action-row">'+action+(identity.external_url?'<a class="button" href="'+esc(identity.external_url)+'" target="_blank" rel="noopener">Official link ↗</a>':'')+'</div>'+(series?'<div class="profile-tags"><strong>Series</strong><div>'+series+'</div></div>':'')+(drivers?'<div class="profile-tags"><strong>Drivers</strong><div>'+drivers+'</div></div>':'');
+      const profileInitials=String(profile.display_name||profile.handle||'RC').split(/\s+/).map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
+      const profileAvatar=profile.photo_url
+        ?'<span class="people-avatar large has-photo"><img src="'+esc(profile.photo_url)+'" alt="" onerror="this.parentElement.classList.remove(\'has-photo\');this.parentElement.textContent=\''+esc(profileInitials)+'\'"></span>'
+        :'<span class="people-avatar large">'+esc(profileInitials)+'</span>';
+      const staffBadge=profile.staff&&profile.staff.label
+        ?'<span class="profile-official pitmark-person-badge"><img src="/prt-logo.png" alt="">'+esc(profile.staff.label)+'</span>'
+        :'';
+      $('#peopleProfileContent').innerHTML='<div class="profile-hero">'+profileAvatar+'<div><span class="eyebrow">RACE CENTER PROFILE</span><h2 id="peopleDialogTitle">'+esc(profile.display_name||profile.handle)+v5IdentityBadge(identity)+'</h2><p>@'+esc(profile.handle)+'</p>'+role+official+staffBadge+'</div></div><p class="profile-bio">'+esc(profile.bio||'No bio yet.')+'</p><div class="profile-stats"><div><strong>'+String(profile.followers||0)+'</strong><span>Followers</span></div><div><strong>'+String(profile.following||0)+'</strong><span>Following</span></div><div><strong>'+String((profile.series||[]).length+(profile.drivers||[]).length)+'</strong><span>Racing follows</span></div></div>'+(profile.favorite_track?'<p class="profile-track">Home track: <strong>'+esc(profile.favorite_track)+'</strong></p>':'')+'<div class="profile-action-row">'+action+(identity.external_url?'<a class="button" href="'+esc(identity.external_url)+'" target="_blank" rel="noopener">Official link ↗</a>':'')+'</div>'+(series?'<div class="profile-tags"><strong>Series</strong><div>'+series+'</div></div>':'')+(drivers?'<div class="profile-tags"><strong>Drivers</strong><div>'+drivers+'</div></div>':'');
       $('#peopleDialog')?.showModal();
     }catch(_error){}
   }
