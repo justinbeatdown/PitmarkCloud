@@ -42,13 +42,20 @@ function inlineLink(label,url){
   const safe=safeUrl(url);
   return safe?'<a class="inline-link" href="'+esc(safe)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+'</a>':'';
 }
-function sourceActions(value){
-  const actions=(value?.setup_urls||[]).map(item=>inlineLink(item?.label||'Open setup',item?.url)).filter(Boolean);
+function sourceActions(name,value){
+  const status=String(value?.status||'').toLowerCase();
+  const actions=[];
+  if(['api_disabled','not_configured'].includes(status)){
+    actions.push(...(value?.setup_urls||[]).map(item=>inlineLink(item?.label||'Open setup',item?.url)).filter(Boolean));
+  }
+  if(name==='youtube'&&!value?.live&&status!=='api_disabled'){
+    actions.push('<button type="button" class="inline-link inline-button" data-connect-youtube>Connect YouTube</button>');
+  }
   return actions.length?'<div class="source-actions">'+actions.join('')+'</div>':'';
 }
 function sourceHealthRow(name,value){
   const status=value?.live?'live':value?.status||'not_configured';
-  const detail=esc(value?.error||value?.note||'Direct Pitmark connector')+sourceActions(value);
+  const detail=esc(value?.error||value?.note||'Direct Pitmark connector')+sourceActions(name,value);
   return row(name.replaceAll('_',' '),detail,badge(status),true);
 }
 function pct(value){
@@ -63,8 +70,9 @@ function dateTime(value){
 
 function renderAnalytics(data){
   const e=data.executive||{}, commerce=data.commerce||{}, growth=data.growth||{}, sources=data.sources||{};
-  const social=data.social||{}, meta=social.meta||{}, google=social.google||{};
+  const social=data.social||{}, meta=social.meta||{}, google=social.google||{}, youtube=social.youtube||google.youtube||{};
   const facebook=meta.facebook||{}, instagram=meta.instagram||{}, ga4=google.ga4||{}, search=google.search_console||{};
+  const ytChannel=youtube.channel||{}, ytRecent=youtube.recent_summary||{};
   const fbPage=facebook.page||{}, igProfile=instagram.profile||{};
   const googleReady=['ga4','search_console'].some(key=>sources[key]?.live);
   const googleConnected=['ga4','search_console'].some(key=>!['not_configured','auth_required'].includes(String(sources[key]?.status||'')));
@@ -188,12 +196,29 @@ function renderAnalytics(data){
           row('Meta ad clicks',num(e.meta_clicks),money(e.meta_spend)+' spend')
         ])+
       '</section>'+
+      '<section class="card"><span class="section-label">YouTube</span><h2>'+esc(ytChannel.title||'Pitmark channel')+'</h2>'+
+        rows([
+          row('Subscribers',num(ytChannel.subscribers),badge(sources.youtube?.live?'live':sources.youtube?.status||'setup')),
+          row('Channel views',num(ytChannel.views),num(ytChannel.videos)+' videos'),
+          row('Recent video views',num(ytRecent.views),num(ytRecent.videos)+' in window'),
+          row('Recent engagement',num(ytRecent.likes)+' likes',badge(num(ytRecent.comments)+' comments'))
+        ],sources.youtube?.live?'No YouTube metrics returned.':'Connect YouTube to load channel performance.')+
+      '</section>'+
+    '</div>'+
+    '<div class="grid two" style="margin-top:12px">'+
       '<section class="card"><span class="section-label">Discovery</span><h2>Search + site traffic</h2>'+
         rows([
           row('Sessions',num(e.sessions),badge(num(e.users)+' users')),
           row('Page views',num(e.page_views),badge(num(e.search_queries_loaded)+' search queries')),
           row('Live data sources',num(e.live_sources)+' of '+num(e.source_count),'')
         ])+
+      '</section>'+
+      '<section class="card"><span class="section-label">YouTube content</span><h2>Recent videos</h2>'+
+        rows((youtube.recent_videos||[]).slice(0,8).map(video=>row(
+          clip(video.title||'YouTube video',84),
+          dateTime(video.published_at)+' · '+num(video.likes)+' likes · '+num(video.comments)+' comments',
+          badge(num(video.views)+' views')
+        )),'Recent YouTube videos will appear after the read-only connection is authorized.')+
       '</section>'+
     '</div>';
 }
@@ -315,7 +340,57 @@ async function connectGoogle(){
     toast(e.message||'Google connection failed.');
   }
 }
-document.addEventListener('click',event=>{if(event.target.closest('#connect-google'))connectGoogle();});
+
+function closeYouTubeConnectPanel(){
+  document.getElementById('youtube-connect-panel')?.remove();
+}
+function showYouTubeConnectPanel(){
+  closeYouTubeConnectPanel();
+  const panel=document.createElement('div');
+  panel.id='youtube-connect-panel';
+  panel.className='native-modal-backdrop';
+  panel.innerHTML='<div class="native-modal"><span class="section-label">YouTube · Read Only</span><h2>Connect the Pitmark YouTube channel</h2><p>Approve read-only YouTube access in Google. Google will finish on a localhost page that may say it cannot connect. Copy the <strong>entire URL</strong> from the address bar, return here, and paste it below.</p><label for="youtube-callback-url">YouTube callback URL</label><textarea id="youtube-callback-url" placeholder="http://127.0.0.1:8765/?state=...&code=..."></textarea><div class="native-modal-actions"><button type="button" id="youtube-cancel">Cancel</button><button type="button" class="native-action" id="youtube-complete">Complete connection</button></div><small id="youtube-connect-status"></small></div>';
+  document.body.appendChild(panel);
+  document.getElementById('youtube-cancel')?.addEventListener('click',closeYouTubeConnectPanel);
+  document.getElementById('youtube-complete')?.addEventListener('click',completeYouTubeConnect);
+}
+async function completeYouTubeConnect(){
+  const input=document.getElementById('youtube-callback-url');
+  const status=document.getElementById('youtube-connect-status');
+  const callback=input?.value?.trim()||'';
+  if(!callback){if(status)status.textContent='Paste the full localhost URL first.';return;}
+  if(!/^https?:\/\/127\.0\.0\.1:8765\/\?/i.test(callback)){
+    if(status)status.textContent='That does not look like the YouTube callback URL from 127.0.0.1:8765.';
+    return;
+  }
+  if(status)status.textContent='Connecting YouTube…';
+  try{
+    await request('/api/control/intelligence/youtube/oauth/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({callback_url:callback})});
+    await request('/api/control/native-ops/refresh',{method:'POST'});
+    closeYouTubeConnectPanel();
+    toast('YouTube connected.');
+    await load(true);
+  }catch(e){
+    if(status)status.textContent=e.message||'YouTube connection failed.';
+  }
+}
+async function connectYouTube(){
+  let popup=null;
+  try{
+    const start=await request('/api/control/intelligence/youtube/oauth/start',{method:'POST'});
+    showYouTubeConnectPanel();
+    popup=window.open(start.authorization_url,'pitmark-youtube-intelligence');
+    if(!popup)window.open(start.authorization_url,'_blank','noopener');
+  }catch(e){
+    try{popup?.close();}catch{}
+    closeYouTubeConnectPanel();
+    toast(e.message||'YouTube connection failed.');
+  }
+}
+document.addEventListener('click',event=>{
+  if(event.target.closest('#connect-google'))connectGoogle();
+  if(event.target.closest('[data-connect-youtube]'))connectYouTube();
+});
 
 $$('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>{
   tab=btn.dataset.tab;
