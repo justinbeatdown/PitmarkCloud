@@ -559,6 +559,52 @@ def my_racing_brief(follows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def race_day_brief(follows: list[dict[str, Any]]) -> dict[str, Any]:
+    brief = my_racing_brief(follows)
+    now = utcnow()
+    followed_series = {str(x.get("key") or "") for x in follows if x.get("kind") == "series"}
+    followed_tracks = {str(x.get("key") or "") for x in follows if x.get("kind") == "track"}
+
+    def start_dt(item: dict[str, Any]) -> datetime | None:
+        raw = str(item.get("start") or "").strip()
+        if not raw:
+            return None
+        try:
+            return datetime.fromisoformat(raw.replace("Z", "+00:00")).astimezone(timezone.utc)
+        except Exception:
+            return None
+
+    def relevance(item: dict[str, Any]) -> tuple[int, str]:
+        if str(item.get("track_key") or "") in followed_tracks:
+            return 40, "FOLLOWED TRACK"
+        if str(item.get("series_key") or "") in followed_series:
+            return 30, "FOLLOWED SERIES"
+        return 10, "YOUR RACING"
+
+    candidates = [*(brief.get("live") or []), *(brief.get("upcoming") or [])]
+    rows: list[dict[str, Any]] = []
+    for item in candidates:
+        when = start_dt(item)
+        if item.get("state") != "live":
+            if not when or when < now - timedelta(hours=2) or when > now + timedelta(hours=30):
+                continue
+        score, reason = relevance(item)
+        enriched = dict(item)
+        enriched["race_day_reason"] = reason
+        enriched["race_day_score"] = score + (100 if item.get("state") == "live" else 0)
+        rows.append(enriched)
+
+    rows.sort(key=lambda item: (-int(item.get("race_day_score") or 0), str(item.get("start") or "")))
+    return {
+        "generated_at": brief.get("generated_at"),
+        "live": [item for item in rows if item.get("state") == "live"][:6],
+        "upcoming": [item for item in rows if item.get("state") != "live"][:8],
+        "movement": brief.get("movement") or [],
+        "counts": brief.get("counts") or {},
+        "window_hours": 30,
+    }
+
+
 def notification_preferences(user_id: int) -> dict[str, Any]:
     with SessionLocal() as db:
         row = db.get(RaceCenterNotificationPreference, user_id)
