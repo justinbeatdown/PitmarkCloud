@@ -250,7 +250,7 @@ def race_center_driver_claims_me(request: Request):
 
 @router.get("/api/public/race-center/driver-identity/{series_key}/{driver_name:path}", include_in_schema=False)
 def race_center_driver_identity(request: Request, series_key: str, driver_name: str):
-    enforce_rate_limit(request, "race-center-driver-identity", 90, 300)
+    enforce_rate_limit(request, "race-center-driver-identity", 240, 300)
     if not any(item.get("key") == series_key for item in STANDINGS_SERIES):
         raise HTTPException(status_code=404, detail="Race Center series not found.")
     return get_driver_identity(series_key, driver_name)
