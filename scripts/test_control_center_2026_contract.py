@@ -394,7 +394,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("fetch('/api/public/standings", public_js)
         self.assertIn("AbortController", public_js)
         self.assertIn("bootRaceCenter", public_js)
-        self.assertIn("Race Center V5", public_html)
+        self.assertIn("<small>V6</small>", public_html)
         self.assertIn('class="race-pulse home-race-pulse"', public_html)
         self.assertIn('id="pulseLive"', public_html)
         self.assertIn('id="favoritesFilter"', public_html)
@@ -463,9 +463,9 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('id="profileAccountType"', public_html)
         self.assertIn("/race-center-v5.js", public_html)
         self.assertIn("v5LoadFeed", social_js)
-        self.assertNotIn('class="race-social"', public_html)
-        self.assertNotIn('id="raceFeed"', public_html)
-        self.assertNotIn('id="pitWallInput"', public_html)
+        self.assertIn('class="race-social"', public_html)
+        self.assertIn('id="raceFeed"', public_html)
+        self.assertIn('id="pitWallInput"', public_html)
         self.assertIn('"/standings", "/race-center"', security)
         self.assertIn("youtube-nocookie.com", security)
 
@@ -491,8 +491,8 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(route, public_api)
         self.assertIn('id="peopleDialog"', public_html)
-        self.assertNotIn('id="peopleDiscovery"', public_html)
-        self.assertNotIn('id="peopleGrid"', public_html)
+        self.assertIn('id="peopleDiscovery"', public_html)
+        self.assertIn('id="peopleGrid"', public_html)
         for token in (
             "v5BroadcastGraphic",
             "broadcast-photo-card",
@@ -526,7 +526,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             'id="seriesGroups"',
         ):
             self.assertIn(token, public_html)
-        self.assertIn("All of racing.<br><em>One home base.</em>", public_js)
+        self.assertIn("Your racing.<br><em>One place.</em>", public_js)
         self.assertIn("renderMySeries", public_js)
         self.assertIn("renderPulse", public_js)
         self.assertIn("bindMySeriesScroller", public_js)
@@ -539,10 +539,11 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn(".my-series-strip.is-dragging", css)
         self.assertIn("Race Center usability reset", css)
         self.assertIn('body[data-view="hub"] .home-race-pulse', css)
-        self.assertIn('body[data-view="hub"] .series-section', css)
-        self.assertNotIn('class="race-social"', public_html)
-        self.assertNotIn('id="raceFeed"', public_html)
-        self.assertNotIn('href="#pitWall"', public_html)
+        self.assertIn('body[data-view="hub"] .race-social{display:grid!important}', css)
+        self.assertIn('body[data-view="hub"] .series-section,', css)
+        self.assertIn('class="race-social"', public_html)
+        self.assertIn('id="raceFeed"', public_html)
+        self.assertIn('id="raceSearchInput"', public_html)
 
     def test_race_center_drivers_claims_and_public_profiles(self):
         accounts = self.read("services/race_center_accounts.py")
@@ -678,7 +679,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("get_driver_identity(series_key, driver_name)", public_api)
         self.assertIn("function loadDriverIdentity(", public_js)
         self.assertIn("/api/public/race-center/driver-identity/", public_js)
-        self.assertIn("Checking trusted sources…", public_js)
+        self.assertIn("Checking sources…", public_js)
         self.assertNotIn("primary.team||'Not verified'", public_js)
         self.assertNotIn("primary.manufacturer||'Not verified'", public_js)
 
