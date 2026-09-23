@@ -2835,16 +2835,6 @@ body[data-view="hub"] .social-feed-card{
 }
 
 
-/* Right Now header cleanup — no duplicate nav controls */
-body[data-view="hub"] .home-race-pulse .pulse-head{
-  display:block!important;
-  width:100%!important;
-  margin-bottom:12px!important;
-}
-body[data-view="hub"] .home-race-pulse .pulse-actions{
-  display:none!important;
-}
-
 
 /* Compact Right Now utility buttons — 2026-09-23 */
 body[data-view="hub"] .home-race-pulse .pulse-head{
