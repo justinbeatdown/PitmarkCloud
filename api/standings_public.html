@@ -3,13 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Pitmark Race Center — The Social Home for Racing</title>
-  <meta name="description" content="Pitmark Race Center connects drivers, series, standings, schedules, live racing and the racing community in one racing-first home.">
+  <title>Pitmark Race Center — Your Racing Command Center</title>
+  <meta name="description" content="Pitmark Race Center connects drivers, teams, tracks, series, events, standings, schedules and race-day intelligence in one racing-first command center.">
   <meta property="og:title" content="Pitmark Race Center">
   <meta property="og:description" content="Live racing, schedules and championship standings in one simple home base.">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#090b0e">
-  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-board-visible-20260923">
+  <meta name="application-name" content="Pitmark Race Center">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/race-center.webmanifest?v={{PITMARK_VERSION}}">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-v7-platform-20260923">
 </head>
 <body data-view="{{RACE_CENTER_VIEW}}">
   <a class="skip-link" href="#standingsStart">Skip to Race Center</a>
@@ -18,7 +22,7 @@
     <div class="header-inner">
       <a class="brand" href="/race-center" aria-label="Pitmark Race Center home">
         <img src="/prt-logo.png" alt="Pitmark Racing Co.">
-        <span class="brand-product"><strong>Race Center</strong><small>V6</small></span>
+        <span class="brand-product"><strong>Race Center</strong><small>V7</small></span>
       </a>
       <nav aria-label="Pitmark navigation">
         <a href="https://pitmarkracing.com">Shop</a>
@@ -26,8 +30,11 @@
         <a href="/race-center" data-race-view="hub">Race Center</a>
         <a href="/race-center/drivers" data-race-view="drivers">Drivers</a>
         <a href="/race-center/series" data-race-view="series">Series</a>
+        <a href="/race-center/tracks" data-race-view="tracks">Tracks</a>
+        <a href="/race-center/teams" data-race-view="teams">Teams</a>
         <a href="/race-center/standings" data-race-view="standings">Standings</a>
         <a href="/race-center/schedules" data-race-view="schedules">Schedules</a>
+        <a href="/race-center/events" data-race-view="events">Race Day</a>
         <a href="/race-center/live" data-race-view="live">Live + Next</a>
         <a href="/racing-desk">Racing Desk</a>
       </nav>
@@ -43,7 +50,7 @@
       <div class="hero-copy">
         <div class="version-line">
           <span class="eyebrow">PITMARK RACE CENTER</span>
-          <span class="version-pill">V6</span>
+          <span class="version-pill">V7</span>
         </div>
         <h1 id="heroTitle">Your racing.<br><em>One command center.</em></h1>
         <p id="heroIntro">Live racing, next events, championship leaders, standings, drivers and the series you follow — organized around the racing, not a social-media timeline.</p>
@@ -98,6 +105,17 @@
         </div>
         <div class="my-series-strip" id="mySeriesStrip"></div>
       </div>
+    </section>
+
+    <section class="v7-briefing v7-home-only" id="myRacingBriefing" aria-labelledby="myRacingBriefingTitle">
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">MY RACING BRIEFING</span>
+          <h2 id="myRacingBriefingTitle">What matters to you</h2>
+        </div>
+        <p id="briefingStatus">Building a briefing from the racing you follow…</p>
+      </div>
+      <div class="v7-briefing-grid" id="briefingGrid"><div class="loading-card">Checking followed drivers, series, tracks and teams…</div></div>
     </section>
 
     <section class="hub-nav-grid" id="hubNavigation" aria-label="Race Center destinations">
@@ -168,6 +186,47 @@
 
     <section class="driver-profile-page content-section" id="driverProfilePage" aria-label="Driver profile">
       <div id="driverProfileContent"><div class="loading-card">Loading driver profile…</div></div>
+    </section>
+
+    <section class="v7-platform-page" id="tracksDirectory" aria-labelledby="tracksTitle">
+      <div class="v7-directory-head">
+        <div><span class="eyebrow">TRACK DIRECTORY</span><h2 id="tracksTitle">Find a track</h2><p>Follow race venues, see the series that visit, and jump into upcoming events.</p></div>
+        <label class="driver-search"><span aria-hidden="true">⌕</span><input id="trackSearch" type="search" placeholder="Search track or location…"></label>
+      </div>
+      <div class="v7-directory-meta"><strong id="trackResultCount">Loading tracks…</strong><span>Track identity comes from source-backed event feeds.</span></div>
+      <div class="v7-entity-grid" id="tracksGrid"><div class="loading-card">Indexing race venues…</div></div>
+    </section>
+
+    <section class="v7-platform-page" id="trackProfilePage"><div id="trackProfileContent"><div class="loading-card">Loading track profile…</div></div></section>
+
+    <section class="v7-platform-page" id="teamsDirectory" aria-labelledby="teamsTitle">
+      <div class="v7-directory-head">
+        <div><span class="eyebrow">TEAM DIRECTORY</span><h2 id="teamsTitle">Find a team</h2><p>Connect drivers, manufacturers, series and current championship positions.</p></div>
+        <label class="driver-search"><span aria-hidden="true">⌕</span><input id="teamSearch" type="search" placeholder="Search team or manufacturer…"></label>
+      </div>
+      <div class="v7-directory-meta"><strong id="teamResultCount">Loading teams…</strong><span>Teams are built from verified driver identity already inside Race Center.</span></div>
+      <div class="v7-entity-grid" id="teamsGrid"><div class="loading-card">Building the team graph…</div></div>
+    </section>
+
+    <section class="v7-platform-page" id="teamProfilePage"><div id="teamProfileContent"><div class="loading-card">Loading team profile…</div></div></section>
+
+    <section class="v7-platform-page" id="eventsDirectory" aria-labelledby="eventsTitle">
+      <div class="v7-directory-head">
+        <div><span class="eyebrow">RACE DAY</span><h2 id="eventsTitle">Event hub</h2><p>Countdowns, series, venues, viewing information and source-backed event status in one place.</p></div>
+        <label class="driver-search"><span aria-hidden="true">⌕</span><input id="eventSearch" type="search" placeholder="Search race, track or series…"></label>
+      </div>
+      <div class="v7-race-day-hero" id="raceDayHero"><div class="loading-card">Checking what is racing now and next…</div></div>
+      <div class="v7-directory-meta"><strong id="eventResultCount">Loading events…</strong><span>Individual events stay connected to their series, venue and official sources.</span></div>
+      <div class="v7-event-list" id="eventsGrid"><div class="loading-card">Building the event index…</div></div>
+    </section>
+
+    <section class="v7-platform-page" id="eventProfilePage"><div id="eventProfileContent"><div class="loading-card">Loading event hub…</div></div></section>
+
+    <section class="v7-platform-page" id="archivePage" aria-labelledby="archiveTitle">
+      <div class="v7-directory-head">
+        <div><span class="eyebrow">RESULTS ARCHIVE</span><h2 id="archiveTitle">Race history</h2><p>Completed events and source-backed result links, with championship snapshot history where Race Center has it.</p></div>
+      </div>
+      <div class="v7-event-list" id="archiveGrid"><div class="loading-card">Loading the racing archive…</div></div>
     </section>
 
     <section class="toolbar" id="standingsStart" aria-label="Race Center controls">
@@ -277,7 +336,9 @@
     <a href="/race-center/standings"><span>≡</span>Standings</a>
     <a href="/race-center/drivers"><span>◎</span>Drivers</a>
     <a href="/race-center/series"><span>◇</span>Series</a>
-    <button id="mobileFavorites" type="button"><span>☆</span>My Series</button>
+    <a href="/race-center/tracks"><span>⌖</span>Tracks</a>
+    <a href="/race-center/events"><span>⚑</span>Race Day</a>
+    <button id="mobileFavorites" type="button"><span>☆</span>My Racing</button>
   </nav>
   <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top" hidden>↑ Top</button>
 
@@ -356,6 +417,24 @@
     </div>
   </dialog>
 
+  <dialog id="entityClaimDialog" class="account-dialog" aria-labelledby="entityClaimTitle">
+    <div class="account-shell claim-shell">
+      <button class="dialog-close" id="entityClaimClose" type="button" aria-label="Close entity claim">×</button>
+      <span class="eyebrow">VERIFY RACING IDENTITY</span>
+      <h2 id="entityClaimTitle">Claim this racing page</h2>
+      <p class="account-intro" id="entityClaimIntro">Pitmark keeps racing facts source-backed. Verified owners can control the profile content around those facts.</p>
+      <form id="entityClaimForm" class="account-form claim-form">
+        <input id="entityClaimType" type="hidden">
+        <input id="entityClaimKey" type="hidden">
+        <input id="entityClaimName" type="hidden">
+        <label>Proof link <input id="entityClaimEvidence" type="url" maxlength="1200" placeholder="Official website, organization page, social profile…"></label>
+        <label>Verification note <textarea id="entityClaimNote" maxlength="1200" placeholder="Tell Pitmark how this page belongs to you or your organization."></textarea></label>
+        <button class="button primary" type="submit">Submit verification claim</button>
+        <p class="account-message" id="entityClaimMessage"></p>
+      </form>
+    </div>
+  </dialog>
+
   <dialog id="peopleDialog" class="people-dialog" aria-labelledby="peopleDialogTitle">
     <div class="people-profile-shell">
       <button class="dialog-close" id="peopleDialogClose" type="button" aria-label="Close profile">×</button>
@@ -382,6 +461,10 @@
         <a href="/race-center">Race Center</a>
         <a href="/race-center/drivers">Drivers</a>
         <a href="/race-center/series">Series</a>
+        <a href="/race-center/tracks">Tracks</a>
+        <a href="/race-center/teams">Teams</a>
+        <a href="/race-center/events">Race Day</a>
+        <a href="/race-center/archive">Archive</a>
         <a href="/race-center/standings">Standings</a>
         <a href="/race-center/schedules">Schedules</a>
         <a href="/race-center/live">Live + Next</a>
@@ -394,5 +477,6 @@
   <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-v6-final-20260923" defer></script>
   <script src="/race-center-v5.js?v={{PITMARK_VERSION}}-v6-social-20260923" defer></script>
   <script src="/race-center-v6.js?v={{PITMARK_VERSION}}-finished-final-20260923" defer></script>
+  <script src="/race-center-v7.js?v={{PITMARK_VERSION}}-platform-20260923" defer></script>
 </body>
 </html>
