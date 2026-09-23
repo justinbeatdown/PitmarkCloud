@@ -1174,6 +1174,25 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Race Center V7 Driver Compare", css)
         self.assertIn('body[data-view="compare"] .v7-compare', css)
 
+    def test_race_center_v7_my_racing_is_a_personalized_briefing(self):
+        entities = self.read("services/race_center_entities.py")
+        v7_js = self.read("api/race_center_v7.js")
+
+        for token in (
+            '"recent_results": recent_results',
+            '"coverage": coverage[:12]',
+            "editorial_for_entity(entity_type, entity_key",
+        ):
+            self.assertIn(token, entities)
+
+        for token in (
+            "RECENT RESULTS",
+            "What just happened",
+            "PITMARK COVERAGE",
+            "Stories about your racing",
+        ):
+            self.assertIn(token, v7_js)
+
     def test_race_center_v7_relationship_graph_is_reusable(self):
         entities = self.read("services/race_center_entities.py")
         api = self.read("api/standings_public.py")

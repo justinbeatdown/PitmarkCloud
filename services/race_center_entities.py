@@ -806,6 +806,32 @@ def my_racing_brief(follows: list[dict[str, Any]]) -> dict[str, Any]:
                     "position": series.get("position"),
                 })
 
+    recent_results = [
+        item for item in reversed(events)
+        if item.get("state") == "recent" or (item.get("results") or [])
+    ][:12]
+
+    coverage = []
+    coverage_seen: set[str] = set()
+    coverage_entities = [
+        *[("series", key) for key in followed_series],
+        *[("driver", key) for key in followed_driver],
+        *[("track", key) for key in followed_track],
+        *[("team", key) for key in followed_team],
+    ]
+    for entity_type, entity_key in coverage_entities[:40]:
+        for article in editorial_for_entity(entity_type, entity_key, limit=4):
+            url = str(article.get("url") or "")
+            if not url or url in coverage_seen:
+                continue
+            coverage_seen.add(url)
+            coverage.append({
+                **article,
+                "entity_type": entity_type,
+                "entity_key": entity_key,
+            })
+    coverage.sort(key=lambda row: str(row.get("published_at") or ""), reverse=True)
+
     return {
         "generated_at": utcnow().isoformat(),
         "counts": {
@@ -820,7 +846,9 @@ def my_racing_brief(follows: list[dict[str, Any]]) -> dict[str, Any]:
         "teams": [by_team[key] for key in followed_team if key in by_team],
         "live": [x for x in events if x.get("state") == "live"],
         "upcoming": [x for x in events if x.get("state") in {"next", "schedule"}][:12],
+        "recent_results": recent_results,
         "movement": movers[:12],
+        "coverage": coverage[:12],
     }
 
 
