@@ -310,6 +310,18 @@ def race_center_data_health():
     return race_center_entities.data_health()
 
 
+@router.get("/api/public/race-center/archive/{series_key}", include_in_schema=False)
+def race_center_series_archive(series_key: str, season: int | None = None, limit: int = 24):
+    return race_center_entities.series_archive(series_key, season=season, limit=limit)
+
+
+@router.get("/api/public/race-center/alerts", include_in_schema=False)
+def race_center_alerts(request: Request):
+    account = race_center_accounts.account_from_request(request)
+    follows = race_center_accounts.list_follows(account.id) if account else []
+    return {"alerts": race_center_entities.alerts_for_user(follows)}
+
+
 @router.get("/api/public/race-center/notifications", include_in_schema=False)
 def race_center_notification_preferences(request: Request):
     account = _race_account_or_401(request)
