@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/race-center.webmanifest?v={{PITMARK_VERSION}}">
-  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-calendar-export-20260923">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-driver-compare-20260923">
 </head>
 <body data-view="{{RACE_CENTER_VIEW}}">
   <a class="skip-link" href="#standingsStart">Skip to Race Center</a>
@@ -199,12 +199,29 @@
           <input id="driverSearch" type="search" autocomplete="off" placeholder="Search name, #, team, series…">
         </label>
       </div>
-      <div class="drivers-meta"><strong id="driverResultCount">Loading drivers…</strong><span>Profiles use source-backed racing data. Photos appear only when Pitmark has a traceable permitted source or the driver uploads one after claiming.</span></div>
+      <div class="drivers-meta"><strong id="driverResultCount">Loading drivers…</strong><span>Profiles use source-backed racing data. Photos appear only when Pitmark has a traceable permitted source or the driver uploads one after claiming. <a href="/race-center/compare">Compare two drivers →</a></span></div>
       <div class="drivers-grid" id="driversGrid"><div class="loading-card">Building the driver directory…</div></div>
     </section>
 
     <section class="driver-profile-page content-section" id="driverProfilePage" aria-label="Driver profile">
       <div id="driverProfileContent"><div class="loading-card">Loading driver profile…</div></div>
+    </section>
+
+    <section class="v7-compare content-section" id="v7Compare" aria-labelledby="v7CompareTitle">
+      <div class="v7-page-head">
+        <div>
+          <span class="eyebrow">DRIVER COMPARE</span>
+          <h2 id="v7CompareTitle">Put two drivers side by side</h2>
+          <p>Current source-backed identity and championship context. Race Center only compares fields the connected sources actually publish.</p>
+        </div>
+      </div>
+      <div class="v7-compare-controls">
+        <label>Driver A<select id="v7CompareA"><option value="">Choose a driver…</option></select></label>
+        <span>VS</span>
+        <label>Driver B<select id="v7CompareB"><option value="">Choose a driver…</option></select></label>
+        <button class="button primary" id="v7CompareGo" type="button">Compare</button>
+      </div>
+      <div class="v7-compare-results" id="v7CompareResults"><div class="loading-card">Choose two drivers to compare.</div></div>
     </section>
 
     <section class="v7-entity-directory content-section" id="v7EntityDirectory" aria-labelledby="v7DirectoryTitle">
@@ -484,6 +501,6 @@
   <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-v7-core-20260923" defer></script>
   <script src="/race-center-v5.js?v={{PITMARK_VERSION}}-v6-social-20260923" defer></script>
   <script src="/race-center-v6.js?v={{PITMARK_VERSION}}-finished-final-20260923" defer></script>
-  <script src="/race-center-v7.js?v={{PITMARK_VERSION}}-calendar-export-20260923" defer></script>
+  <script src="/race-center-v7.js?v={{PITMARK_VERSION}}-driver-compare-20260923" defer></script>
 </body>
 </html>
