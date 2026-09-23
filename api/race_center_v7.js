@@ -250,6 +250,8 @@
       if(typeof state!=='undefined'&&state.account){
         state.account.follows=result.follows||state.account.follows||[];
         if(typeof renderMySeries==='function')renderMySeries();
+        enhanceAccountCounts();
+        setTimeout(augmentHomeMyRacing,30);
       }
     }catch(error){
       alert(error.message);
@@ -466,6 +468,46 @@
   }
 
 
+  function enhanceAccountCounts(){
+    try{
+      const follows=(typeof state!=='undefined'&&state.account&&state.account.follows)||[];
+      const counts={series:0,driver:0,track:0,team:0};
+      follows.forEach(item=>{if(counts[item.kind]!==undefined)counts[item.kind]++;});
+      const track=$('#accountTrackCount');
+      const team=$('#accountTeamCount');
+      if(track)track.textContent=String(counts.track);
+      if(team)team.textContent=String(counts.team);
+    }catch(_error){}
+  }
+
+  async function augmentHomeMyRacing(){
+    if(view!=='hub')return;
+    const strip=$('#mySeriesStrip');
+    if(!strip)return;
+    try{
+      const follows=(typeof state!=='undefined'&&state.account&&state.account.follows)||[];
+      const extra=follows.filter(item=>item.kind==='track'||item.kind==='team');
+      if(!extra.length)return;
+      const data=await graph();
+      const trackMap=new Map((data.tracks||[]).map(item=>[String(item.key),item]));
+      const teamMap=new Map((data.teams||[]).map(item=>[String(item.key),item]));
+      extra.forEach(follow=>{
+        const selector='[data-v7-follow-chip="'+CSS.escape(String(follow.kind)+':'+String(follow.key))+'"]';
+        if(strip.querySelector(selector))return;
+        const item=follow.kind==='track'?trackMap.get(String(follow.key)):teamMap.get(String(follow.key));
+        const label=item?.name||follow.label||follow.key;
+        const href=follow.kind==='track'?'/race-center/track/'+encodeURIComponent(follow.key):'/race-center/team/'+encodeURIComponent(follow.key);
+        const chip=document.createElement('a');
+        chip.className='my-series-chip v7-follow-chip';
+        chip.dataset.v7FollowChip=String(follow.kind)+':'+String(follow.key);
+        chip.href=href;
+        chip.innerHTML='<span class="v7-chip-icon">'+(follow.kind==='track'?'⌖':'T')+'</span><span><strong>'+esc(label)+'</strong><small>'+esc(follow.kind==='track'?'Followed track':'Followed team')+'</small></span>';
+        strip.appendChild(chip);
+      });
+      if(extra.length&&typeof refreshMySeriesScrollCue==='function')refreshMySeriesScrollCue();
+    }catch(_error){}
+  }
+
   function registerPwa(){
     if('serviceWorker' in navigator){
       navigator.serviceWorker.register('/race-center-sw.js?v=7',{scope:'/race-center/'}).catch(()=>{});
@@ -482,6 +524,8 @@
     wireUniversalSearch();
     augmentDriverPage();
     augmentSeriesProfile();
+    enhanceAccountCounts();
+    augmentHomeMyRacing();
     registerPwa();
 
     document.addEventListener('click',event=>{
