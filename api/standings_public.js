@@ -1444,7 +1444,7 @@ function bootRaceCenter(){
       event.preventDefault();
       event.stopPropagation();
       const key=String(favorite.dataset.favoriteKey||'');
-      const series=(state.payload?.series||[]).find(item=>String(item.series_key)===key);
+      const series=seriesDirectoryRows().find(item=>String(item.series_key)===key);
       if(state.favorites.has(key)){
         state.favorites.delete(key);
         cloudUnfollow('series',key,series?.series_name||'',key).catch(()=>{});
