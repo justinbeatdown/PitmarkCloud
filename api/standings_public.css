@@ -3864,3 +3864,33 @@ body[data-view="compare"] .v7-compare{
   .v7-install-actions{width:100%}
   .v7-install-actions .button{flex:1 1 auto}
 }
+
+
+/* Race Center V7 Driver intelligence */
+.v7-driver-stat-strip{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+  margin:14px 0 18px;
+}
+.v7-driver-stat-strip>div{
+  padding:12px 14px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;
+  background:rgba(255,255,255,.025);
+}
+.v7-driver-stat-strip span{
+  display:block;
+  color:var(--muted,#9097a0);
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.1em;
+}
+.v7-driver-stat-strip strong{
+  display:block;
+  margin-top:4px;
+  font-size:18px;
+}
+@media (max-width:760px){
+  .v7-driver-stat-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+}

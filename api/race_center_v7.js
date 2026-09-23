@@ -606,7 +606,30 @@
         const section=document.createElement('section');
         section.id='v7DriverConnections';
         section.className='v7-driver-connections';
-        section.innerHTML='<div class="section-head"><div><span class="eyebrow">CONNECTED RACING</span><h2>Across Race Center</h2></div><div class="v7-profile-actions"><a class="button" href="/race-center/compare?a='+encodeURIComponent(driver.key)+'">Compare driver ↔</a>'+shareButton(driver.name+' — Pitmark Race Center')+'</div></div><div class="v7-profile-layout"><section class="v7-profile-section"><h3>Team</h3><div class="v7-related-list">'+(teams.join('')||'<p>No team relationship is published yet.</p>')+'</div></section><section class="v7-profile-section"><h3>Current championships</h3><div class="v7-related-list">'+series+'</div></section></div>'+ownerContentBlock(entity||{})+editorialBlock(entity?.editorial||[]);
+        const stats=driver.stats||{};
+        const upcoming=(driver.upcoming_events||[]).slice(0,8);
+        const recent=(driver.recent_results||[]).slice(0,8);
+        const tracks=(driver.tracks_raced||[]).slice(0,12);
+        const sources=(driver.provenance&&driver.provenance.source_urls)||driver.source_urls||[];
+        const statTiles=[
+          ['STARTS',stats.starts],
+          ['WINS',stats.wins],
+          ['TOP 5s',stats.top5s],
+          ['TOP 10s',stats.top10s]
+        ].filter(row=>Number(row[1])>0);
+        section.innerHTML='<div class="section-head"><div><span class="eyebrow">CONNECTED RACING</span><h2>Across Race Center</h2></div><div class="v7-profile-actions"><a class="button" href="/race-center/compare?a='+encodeURIComponent(driver.key)+'">Compare driver ↔</a>'+shareButton(driver.name+' — Pitmark Race Center')+'</div></div>'+
+          (statTiles.length?'<div class="v7-driver-stat-strip">'+statTiles.map(row=>'<div><span>'+esc(row[0])+'</span><strong>'+esc(row[1])+'</strong></div>').join('')+'</div>':'')+
+          '<div class="v7-profile-layout"><section class="v7-profile-section"><h3>Team</h3><div class="v7-related-list">'+(teams.join('')||'<p>No team relationship is published yet.</p>')+'</div></section><section class="v7-profile-section"><h3>Current championships</h3><div class="v7-related-list">'+series+'</div></section></div>'+
+          '<div class="v7-profile-layout"><section class="v7-profile-section"><span class="eyebrow">UPCOMING RACES</span><h3>Where this driver goes next</h3><div class="v7-related-list">'+
+            (upcoming.length?upcoming.map(e=>'<a href="/race-center/event/'+encodeURIComponent(e.key)+'"><strong>'+esc(e.name||'Race event')+'</strong><span>'+esc([eventCountdown(e.start,e.state),e.series_name,e.venue].filter(Boolean).join(' · '))+'</span></a>').join(''):'<p>No upcoming event is attached to this driver’s tracked series yet.</p>')+
+          '</div></section><section class="v7-profile-section"><span class="eyebrow">RECENT RESULTS</span><h3>Verified finishes</h3><div class="v7-related-list">'+
+            (recent.length?recent.map(r=>'<a href="/race-center/event/'+encodeURIComponent(r.event_key)+'"><strong>'+esc((r.position?'P'+r.position+' · ':'')+(r.event_name||'Race result'))+'</strong><span>'+esc([r.series_name,r.venue,eventWhen(r.start)].filter(Boolean).join(' · '))+'</span></a>').join(''):'<p>Race Center will show results here only when a connected result source identifies this driver.</p>')+
+          '</div></section></div>'+
+          '<div class="v7-profile-layout"><section class="v7-profile-section"><span class="eyebrow">TRACKS RACED</span><h3>Result-backed venues</h3><div class="v7-chip-list">'+
+            (tracks.length?tracks.map(track=>'<a href="/race-center/track/'+encodeURIComponent(track.key)+'">'+esc(track.name||track.key)+'</a>').join(''):'<span>No result-backed track history yet.</span>')+
+          '</div></section><section class="v7-profile-section"><span class="eyebrow">DATA PROVENANCE</span><h3>Driver sources</h3><div class="v7-related-list">'+
+            (sources.length?sources.map((url,index)=>'<a href="'+esc(url)+'" target="_blank" rel="noopener"><strong>Source '+(index+1)+'</strong><span>'+esc(url)+'</span></a>').join(''):'<p>Source details are not yet attached to this driver entity.</p>')+
+          '</div></section></div>'+ownerContentBlock(entity||{})+editorialBlock(entity?.editorial||[]);
         content.appendChild(section);
       };
       add();
