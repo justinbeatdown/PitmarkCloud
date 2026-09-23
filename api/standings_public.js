@@ -621,13 +621,16 @@ function renderDriverProfile(){
 
   const identityKey=String(primary.series_key||'')+':'+driverIdentityKey(primary.name);
   let officialIdentity=state.driverIdentity[identityKey];
-  if(!primary.team||!primary.manufacturer||!primary.number){
+  if(!primary.team||!primary.manufacturer||!primary.number||!primary.photo_url){
     officialIdentity=loadDriverIdentity(primary.series_key,primary.name);
   }
-  if(officialIdentity?.status==='ready'&&officialIdentity.resolved){
+  if(officialIdentity?.status==='ready'){
     if(!primary.number&&officialIdentity.number)primary.number=officialIdentity.number;
     if(!primary.team&&officialIdentity.team)primary.team=officialIdentity.team;
     if(!primary.manufacturer&&officialIdentity.manufacturer)primary.manufacturer=officialIdentity.manufacturer;
+    if(!primary.photo_url&&officialIdentity.photo_use_allowed&&officialIdentity.photo_url){
+      primary.photo_url=String(officialIdentity.photo_url);
+    }
   }
   const identityLoading=officialIdentity?.status==='loading';
   const identityFallback=identityLoading?'Checking trusted sources…':'Not found yet';
@@ -639,6 +642,15 @@ function renderDriverProfile(){
     :'';
   const identityBio=officialIdentity?.status==='ready'
     ?String(officialIdentity.bio||'').trim()
+    :'';
+  const photoSourceUrl=officialIdentity?.status==='ready'
+    ?String(officialIdentity.photo_source_url||'')
+    :'';
+  const photoLicense=officialIdentity?.status==='ready'
+    ?String(officialIdentity.photo_license||'')
+    :'';
+  const photoAttribution=officialIdentity?.status==='ready'
+    ?String(officialIdentity.photo_attribution||'')
     :'';
 
   const followed=state.drivers.has(primary.key);
@@ -672,7 +684,11 @@ function renderDriverProfile(){
 
   host.innerHTML=
     '<article class="driver-profile-hero driver-profile-hero-rich">'+
-      '<div class="driver-profile-photo">'+driverPortrait(primary,true)+'</div>'+
+      '<div class="driver-profile-photo">'+driverPortrait(primary,true)+
+        (primary.photo_url&&photoSourceUrl
+          ?'<a class="driver-photo-credit" href="'+esc(photoSourceUrl)+'" target="_blank" rel="noopener">'+esc([photoAttribution,photoLicense].filter(Boolean).join(' · ')||'Photo source')+' ↗</a>'
+          :'')+
+      '</div>'+
       '<div class="driver-profile-copy">'+
         '<span class="eyebrow">'+esc(primary.group)+' · '+esc(primary.series_short)+'</span>'+
         '<h2>'+esc(primary.name)+'</h2>'+
