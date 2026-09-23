@@ -19,6 +19,7 @@ from services.meta_publish_service import (
 )
 from services.x_publish_service import XPublishError, connection_status as x_connection_status, publish_x_post
 from services.social_asset_pool import add_asset, choose_asset, get_asset, get_uploaded_image, list_assets, mark_used, public_asset_url, store_uploaded_image, sync_shopify_images
+from services.social_quality_gate import assess_automatic_post_quality
 from services.openai_image_service import PitmarkImageGenerationError, generate_image
 from utils.security import enforce_rate_limit
 
@@ -327,6 +328,19 @@ def publish_post(post_id: int, request: Request, x_pitmark_admin_key: str | None
             raise HTTPException(400, f"Live publishing is not connected for {platform or 'this platform'} yet.")
         if post.status not in {"approved", "scheduled"}:
             raise HTTPException(409, "Only approved or scheduled posts may be published.")
+
+        quality = assess_automatic_post_quality(
+            platform=platform,
+            title=post.title,
+            body=post.body,
+            source=post.source,
+            media_url=post.media_url,
+        )
+        if not quality["ok"]:
+            raise HTTPException(
+                409,
+                "Pitmark quality gate blocked this post: " + "; ".join(quality["reasons"]),
+            )
         try:
             if platform == "facebook":
                 result = publish_facebook_post(post.body)
