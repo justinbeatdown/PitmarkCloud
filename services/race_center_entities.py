@@ -200,7 +200,11 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
                 "points": entry.get("points"),
                 "starts": entry.get("starts"),
                 "wins": entry.get("wins"),
+                "top5s": entry.get("top5s") if entry.get("top5s") is not None else entry.get("top_5s"),
+                "top10s": entry.get("top10s") if entry.get("top10s") is not None else entry.get("top_10s"),
                 "movement": entry.get("movement"),
+                "official_url": series.get("official_url"),
+                "schedule_url": event_info.get("schedule_url"),
             })
 
             team_name = str(entry.get("team") or "").strip()
@@ -328,6 +332,79 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
                     "series_key": series_key,
                     "series_name": event_row["series_name"],
                 })
+
+    for driver in drivers.values():
+        driver_series = {str(row.get("series_key") or "") for row in driver.get("series") or []}
+        driver["stats"] = {
+            "starts": sum(int(row.get("starts") or 0) for row in driver.get("series") or []),
+            "wins": sum(int(row.get("wins") or 0) for row in driver.get("series") or []),
+            "top5s": sum(int(row.get("top5s") or 0) for row in driver.get("series") or []),
+            "top10s": sum(int(row.get("top10s") or 0) for row in driver.get("series") or []),
+        }
+        driver["upcoming_events"] = [
+            {
+                "key": event.get("key"),
+                "name": event.get("name"),
+                "start": event.get("start"),
+                "state": event.get("state"),
+                "series_key": event.get("series_key"),
+                "series_name": event.get("series_name"),
+                "venue": event.get("venue"),
+                "location": event.get("location"),
+                "track_key": event.get("track_key"),
+            }
+            for event in event_items
+            if str(event.get("series_key") or "") in driver_series
+            and event.get("state") in {"live", "next", "schedule"}
+        ][:16]
+
+        recent_results = []
+        raced_tracks: dict[str, dict[str, Any]] = {}
+        wanted = identity_key(str(driver.get("name") or ""))
+        for event in reversed(event_items):
+            matched = None
+            for result in event.get("results") or []:
+                if not isinstance(result, dict):
+                    continue
+                result_name = str(result.get("name") or result.get("driver") or "").strip()
+                if result_name and identity_key(result_name) == wanted:
+                    matched = result
+                    break
+            if not matched:
+                continue
+            recent_results.append({
+                "event_key": event.get("key"),
+                "event_name": event.get("name"),
+                "series_key": event.get("series_key"),
+                "series_name": event.get("series_name"),
+                "start": event.get("start"),
+                "track_key": event.get("track_key"),
+                "venue": event.get("venue"),
+                "position": matched.get("position"),
+                "status": matched.get("status"),
+            })
+            if event.get("track_key"):
+                raced_tracks[str(event["track_key"])] = {
+                    "key": event.get("track_key"),
+                    "name": event.get("venue"),
+                    "location": event.get("location"),
+                }
+            if len(recent_results) >= 12:
+                break
+        driver["recent_results"] = recent_results
+        driver["tracks_raced"] = sorted(raced_tracks.values(), key=lambda row: str(row.get("name") or ""))
+        source_urls = sorted({
+            str(value)
+            for series_row in driver.get("series") or []
+            for value in (series_row.get("official_url"), series_row.get("schedule_url"))
+            if value
+        })
+        driver["source_urls"] = source_urls
+        driver["provenance"] = {
+            "generated_at": now.isoformat(),
+            "confidence": "source-backed" if source_urls else "derived",
+            "identity_key": driver.get("key"),
+        }
 
     for team in teams.values():
         team["series"] = sorted(team["series"])
