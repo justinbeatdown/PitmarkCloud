@@ -68,6 +68,8 @@ SERIES_EVENT_CONFIG: dict[str, dict[str, Any]] = {
 
 _cache_lock = threading.Lock()
 _cache: dict[str, Any] = {"at": None, "value": None}
+_series_schedule_lock = threading.Lock()
+_series_schedule_cache: dict[str, tuple[datetime, list[dict[str, Any]]]] = {}
 _logo_lock = threading.Lock()
 _logo_cache: dict[str, tuple[datetime, str | None, str | None]] = {}
 _LOGO_RESTRICTED: set[str] = set()
@@ -212,12 +214,21 @@ def _espn_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
         for raw in competition.get("broadcasts") or []:
             if isinstance(raw, dict):
                 broadcasts.extend(str(x) for x in (raw.get("names") or []) if x)
+        venue = competition.get("venue") or {}
+        address = venue.get("address") or {}
+        location = ", ".join(
+            str(value).strip()
+            for value in (address.get("city"), address.get("state"), address.get("country"))
+            if str(value or "").strip()
+        )
         out.append({
             "name": event.get("name") or event.get("shortName") or config["name"],
             "start": _iso(event.get("date") or competition.get("date")),
             "state": str(status_type.get("state") or "pre").lower(),
             "completed": bool(status_type.get("completed")),
             "broadcast": " / ".join(dict.fromkeys(broadcasts)) or None,
+            "venue": venue.get("fullName") or venue.get("shortName") or None,
+            "location": location or None,
             "source_url": config.get("schedule_url"),
         })
     return out
@@ -244,12 +255,21 @@ def _f1_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
                 state, completed = "post", True
             elif dt <= now < dt + timedelta(hours=4):
                 state = "in"
+        circuit = race.get("Circuit") or {}
+        place = circuit.get("Location") or {}
+        location = ", ".join(
+            str(value).strip()
+            for value in (place.get("locality"), place.get("country"))
+            if str(value or "").strip()
+        )
         out.append({
             "name": race.get("raceName") or config["name"],
             "start": start,
             "state": state,
             "completed": completed,
             "broadcast": "F1 TV",
+            "venue": circuit.get("circuitName") or None,
+            "location": location or None,
             "source_url": config.get("schedule_url"),
         })
     return out
@@ -375,6 +395,13 @@ def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
             if key in seen:
                 continue
             seen.add(key)
+            venue = None
+            venue_match = re.search(
+                r"(?:at|@)\s+([A-Z][A-Za-z0-9&'’.\- ]{3,90}(?:Speedway|Raceway|Motorsports Park|Motor Speedway|Dirt Track|Circuit|Dragway|Park))",
+                title,
+            )
+            if venue_match:
+                venue = " ".join(venue_match.group(1).split()).strip()
             found.append({
                 "name": title,
                 "start": dt.isoformat(),
@@ -383,6 +410,8 @@ def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
                 "state": "pre" if dt.date() >= now.date() else "post",
                 "completed": dt.date() < now.date(),
                 "broadcast": None,
+                "venue": venue,
+                "location": None,
                 "source_url": url,
             })
 
@@ -423,6 +452,57 @@ def _event_summary(events: list[dict[str, Any]], config: dict[str, Any]) -> dict
         "watch_url": config.get("watch_url"),
         "logo_url": config.get("logo_url"),
         "logo_source_url": config.get("logo_source_url"),
+    }
+
+
+def get_series_event_schedule(
+    series_key: str,
+    *,
+    force: bool = False,
+) -> list[dict[str, Any]]:
+    """Return a bounded, source-backed schedule for one Race Center series."""
+    key = str(series_key or "").strip()
+    config = SERIES_EVENT_CONFIG.get(key)
+    if not config:
+        return []
+
+    now = datetime.now(timezone.utc)
+    with _series_schedule_lock:
+        cached = _series_schedule_cache.get(key)
+        if not force and cached and (now - cached[0]).total_seconds() < 6 * 3600:
+            return [dict(item) for item in cached[1]]
+
+    try:
+        if config.get("espn_league"):
+            events = _espn_schedule(config)
+        elif config.get("provider") == "f1":
+            events = _f1_schedule(config)
+        else:
+            events = _official_page_schedule(config)
+    except Exception:
+        events = _official_page_schedule(config)
+
+    decorated: list[dict[str, Any]] = []
+    for index, raw in enumerate(events[:40]):
+        item = dict(raw)
+        item["series_key"] = key
+        item["series_name"] = config.get("name")
+        item["group"] = config.get("group")
+        item["schedule_url"] = config.get("schedule_url")
+        item["watch_name"] = item.get("broadcast") or config.get("watch_name")
+        item["watch_url"] = config.get("watch_url")
+        item["event_index"] = index
+        decorated.append(item)
+
+    with _series_schedule_lock:
+        _series_schedule_cache[key] = (now, [dict(item) for item in decorated])
+    return decorated
+
+
+def get_all_event_schedules(*, force: bool = False) -> dict[str, list[dict[str, Any]]]:
+    return {
+        key: get_series_event_schedule(key, force=force)
+        for key in SERIES_EVENT_CONFIG
     }
 
 
