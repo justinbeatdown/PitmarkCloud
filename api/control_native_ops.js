@@ -27,7 +27,7 @@ function rows(items,emptyText='Nothing to show.'){
   if(!items?.length)return '<div class="empty">'+esc(emptyText)+'</div>';
   return '<div class="rows">'+items.join('')+'</div>';
 }
-function row(title,detail,right=''){return '<div class="row"><div><strong>'+esc(title)+'</strong><small>'+detail+'</small></div><div>'+right+'</div></div>'}
+function row(title,detail,right='',detailIsHtml=false){const safeDetail=detailIsHtml?String(detail||''):esc(detail);return '<div class="row"><div><strong>'+esc(title)+'</strong><small>'+safeDetail+'</small></div><div>'+right+'</div></div>'}
 function clip(value,length=92){
   const text=String(value||'').replace(/\s+/g,' ').trim();
   return text.length>length?text.slice(0,length-1)+'…':text;
@@ -49,7 +49,7 @@ function sourceActions(value){
 function sourceHealthRow(name,value){
   const status=value?.live?'live':value?.status||'not_configured';
   const detail=esc(value?.error||value?.note||'Direct Pitmark connector')+sourceActions(value);
-  return row(name.replaceAll('_',' '),detail,badge(status));
+  return row(name.replaceAll('_',' '),detail,badge(status),true);
 }
 function pct(value){
   const n=Number(value||0);
@@ -123,20 +123,21 @@ function renderAnalytics(data){
         rows(topSocial.map(p=>row(
           p.platform+' · '+clip(p.text,82),
           esc(dateTime(p.timestamp))+(p.url?' · '+inlineLink('Open post',p.url):''),
-          badge(num(p.engagement)+' actions')
+          badge(num(p.engagement)+' actions'),
+          true
         )),'Social post performance will appear as connector permissions allow.')+
       '</section>'+
       '<section class="card"><span class="section-label">Acquisition</span><h2>Website + Google Search</h2>'+
         '<span class="section-label sub-label">Top pages</span>'+
         rows((ga4.top_pages||[]).slice(0,6).map(p=>row(
           clip(p.path||'Page',78),
-          esc(num(p.sessions)+' sessions'),
+          num(p.sessions)+' sessions',
           badge(num(p.page_views)+' views')
         )),'GA4 top pages will appear once the Analytics APIs are enabled.')+
         '<span class="section-label sub-label">Top searches</span>'+
         rows((search.top_queries||[]).slice(0,6).map(q=>row(
           clip(q.query||'Search query',78),
-          esc(num(q.clicks)+' clicks · '+num(q.impressions)+' impressions · '+pct(q.ctr)),
+          num(q.clicks)+' clicks · '+num(q.impressions)+' impressions · '+pct(q.ctr),
           badge('pos '+Number(q.position||0).toFixed(1))
         )),'Search Console queries will appear once that API is enabled.')+
       '</section>'+
@@ -144,15 +145,15 @@ function renderAnalytics(data){
     '<div class="grid two section-gap">'+
       '<section class="card"><span class="section-label">Commerce</span><h2>Top products</h2>'+
         rows(top.slice(0,10).map(p=>row(
-          esc(p.title||'Product'),
-          esc(num(p.quantity)+' units · '+num(p.orders)+' order lines'),
+          p.title||'Product',
+          num(p.quantity)+' units · '+num(p.orders)+' order lines',
           '<strong>'+money(p.revenue)+'</strong>'
         )),'No qualifying product sales in this window.')+
       '</section>'+
       '<section class="card"><span class="section-label">Recent Orders</span><h2>Latest Shopify conversions</h2>'+
         rows(recentOrders.slice(0,8).map(order=>row(
-          esc(order.name||'Order'),
-          esc(dateTime(order.created_at)+' · '+String(order.financial_status||'').replaceAll('_',' ').toLowerCase()),
+          order.name||'Order',
+          dateTime(order.created_at)+' · '+String(order.financial_status||'').replaceAll('_',' ').toLowerCase(),
           '<strong>'+money(order.amount)+'</strong>'
         )),'No qualifying orders in this reporting window.')+
       '</section>'+
@@ -160,10 +161,10 @@ function renderAnalytics(data){
     '<div class="grid two section-gap">'+
       '<section class="card"><span class="section-label">Growth</span><h2>PRT + relationships</h2>'+
         rows([
-          row('PRT applications',esc(num(prt.applications_total)),badge(num(prt.applications_new)+' new')),
-          row('PRT tester activation',esc(num(prt.testers_redeemed)+' redeemed'),badge((prt.redemption_rate??0)+'%')),
-          row('Warm relationships',esc(num(rel.warm)),badge(num(rel.overdue_follow_up)+' overdue')),
-          row('Stale open relationships',esc(num(rel.stale_open)),'')
+          row('PRT applications',num(prt.applications_total),badge(num(prt.applications_new)+' new')),
+          row('PRT tester activation',num(prt.testers_redeemed)+' redeemed',badge((prt.redemption_rate??0)+'%')),
+          row('Warm relationships',num(rel.warm),badge(num(rel.overdue_follow_up)+' overdue')),
+          row('Stale open relationships',num(rel.stale_open),'')
         ])+
       '</section>'+
       '<section class="card"><span class="section-label">Replacement Coverage</span><h2>Metricool + Supermetrics exit readiness</h2>'+
