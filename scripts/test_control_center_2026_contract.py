@@ -705,6 +705,18 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("position:relative!important", css)
         self.assertIn("Standings integrity + layout cleanup", css)
 
+    def test_race_center_verified_movement_requires_points_change(self):
+        standings = self.read("services/racing_standings.py")
+        public_js = self.read("api/standings_public.js")
+
+        self.assertIn("movement_verified = bool(", standings)
+        self.assertIn("points_delta not in (None, 0)", standings)
+        self.assertIn('current["movement_verified"] = movement_verified', standings)
+        self.assertIn("if(!ready)return '';", public_js)
+        self.assertIn("if(!Number.isFinite(v)||v===0)return '';", public_js)
+        self.assertIn("row.movement_verified===false", public_js)
+        self.assertIn("if(!movement||!delta)return;", public_js)
+
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
         public_api = self.read("api/standings_public.py")

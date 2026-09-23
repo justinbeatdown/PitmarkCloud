@@ -2795,15 +2795,26 @@ def _movement(entries: list[dict[str, Any]], previous: dict[str, Any] | None) ->
 
         comparison_ready = prior_item is not None
         current["comparison_ready"] = comparison_ready
-        current["movement"] = movement if comparison_ready else None
 
         prior_points = _num(prior_item.get("points")) if prior_item else None
         current_points = _num(current.get("points"))
         if prior_points is not None and current_points is not None:
             delta = current_points - prior_points
-            current["points_delta"] = int(delta) if float(delta).is_integer() else round(delta, 2)
+            points_delta = int(delta) if float(delta).is_integer() else round(delta, 2)
         else:
-            current["points_delta"] = None
+            points_delta = None
+
+        # "Verified movement" must have corroborating championship change.
+        # A non-zero rank shift with identical/unknown points is too easy to
+        # manufacture through row insertion/removal or source parser drift.
+        movement_verified = bool(
+            comparison_ready
+            and movement not in (None, 0)
+            and points_delta not in (None, 0)
+        )
+        current["movement"] = movement if movement_verified else None
+        current["movement_verified"] = movement_verified
+        current["points_delta"] = points_delta
 
         out.append(current)
     return out
