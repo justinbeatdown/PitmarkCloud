@@ -3111,6 +3111,72 @@ def get_standings_hub(*, force: bool = False, season: int | None = None) -> dict
     return value
 
 
+def _hydrate_saved_identity(
+    series_key: str,
+    season: int,
+    entries: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Merge persisted/verified identity into saved standings rows without remote I/O."""
+    if not entries:
+        return []
+
+    cached: dict[str, RaceCenterDriverIdentityCache] = {}
+    try:
+        with SessionLocal() as db:
+            rows = list(db.scalars(
+                select(RaceCenterDriverIdentityCache).where(
+                    RaceCenterDriverIdentityCache.series_key == series_key,
+                    RaceCenterDriverIdentityCache.season == season,
+                    RaceCenterDriverIdentityCache.resolver_version == DRIVER_IDENTITY_RESOLVER_VERSION,
+                )
+            ).all())
+            cached = {row.driver_key: row for row in rows}
+    except Exception as exc:
+        log.info("Saved identity hydration cache read failed series=%s error=%s", series_key, exc)
+
+    verified_fallback = (
+        NASCAR_2026_IDENTITY_FALLBACK.get(series_key, {})
+        if season == 2026
+        else {}
+    )
+
+    hydrated: list[dict[str, Any]] = []
+    for raw in entries:
+        item = dict(raw)
+        key = _identity_key(item.get("name"))
+        cache_row = cached.get(key)
+        fallback = verified_fallback.get(key, {})
+
+        if not item.get("number"):
+            item["number"] = (
+                (cache_row.number if cache_row else None)
+                or fallback.get("number")
+                or None
+            )
+        if not item.get("team"):
+            item["team"] = (
+                (cache_row.team if cache_row else None)
+                or fallback.get("team")
+                or None
+            )
+        if not item.get("manufacturer"):
+            item["manufacturer"] = (
+                (cache_row.manufacturer if cache_row else None)
+                or fallback.get("manufacturer")
+                or None
+            )
+
+        if cache_row and cache_row.photo_use_allowed and cache_row.photo_url:
+            item["photo_url"] = cache_row.photo_url
+            item["photo_use_allowed"] = True
+            item["photo_source_url"] = cache_row.photo_source_url or None
+            item["photo_license"] = cache_row.photo_license or None
+            item["photo_attribution"] = cache_row.photo_attribution or None
+
+        hydrated.append(item)
+    return hydrated
+
+
 def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
     """Return the latest saved standings immediately without touching remote sources."""
     season = int(season or utcnow().year)
@@ -3140,7 +3206,11 @@ def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
                     "official_url": _series_url(config, season),
                     "source_name": snapshot.get("source_name") or latest_row.source_name,
                     "metadata_verified": bool(snapshot.get("metadata_verified")),
-                    "entries": _movement(entries, previous),
+                    "entries": _hydrate_saved_identity(
+                        config["key"],
+                        season,
+                        _movement(entries, previous),
+                    ),
                     "status": "live" if fresh else "stale",
                     "stale": not fresh,
                     "error": None,
