@@ -128,9 +128,10 @@ class NativeOpsContractTests(unittest.TestCase):
         auth = (ROOT / "services" / "youtube_intelligence_auth.py").read_text(encoding="utf-8")
         client = (ROOT / "api" / "control_native_ops.js").read_text(encoding="utf-8")
         self.assertIn('"prompt": "select_account consent"', auth)
-        self.assertIn('"hd": "pitmarkracing.com"', auth)
+        self.assertNotIn('"hd": "pitmarkracing.com"', auth)
         self.assertIn("403 org_internal", client)
-        self.assertIn("@pitmarkracing.com Google Workspace account", client)
+        self.assertIn("Open Google Auth Audience", client)
+        self.assertIn("542087459198", client)
 
     def test_youtube_has_dedicated_read_only_oauth(self):
         auth = (ROOT / "services" / "youtube_intelligence_auth.py").read_text(encoding="utf-8")
@@ -187,7 +188,7 @@ class NativeOpsContractTests(unittest.TestCase):
     def test_native_ops_assets_are_cache_busted(self):
         html = (ROOT / "api" / "control_native_ops.html").read_text(encoding="utf-8")
         self.assertIn("/control-native-ops.css?v=7", html)
-        self.assertIn("/control-native-ops.js?v=9", html)
+        self.assertIn("/control-native-ops.js?v=10", html)
 
 
     def test_meta_reporting_uses_published_posts_with_graceful_fallback(self):
@@ -226,7 +227,7 @@ class NativeOpsContractTests(unittest.TestCase):
     def test_native_ops_assets_are_cache_busted_for_v2(self):
         html = (ROOT / "api" / "control_native_ops.html").read_text(encoding="utf-8")
         self.assertIn("/control-native-ops.css?v=7", html)
-        self.assertIn("/control-native-ops.js?v=9", html)
+        self.assertIn("/control-native-ops.js?v=10", html)
 
 
     def test_x_publish_service_has_credit_circuit_breaker(self):
