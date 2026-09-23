@@ -226,6 +226,22 @@
     ).join('')+'</div></section>';
   }
 
+  function relationshipBlock(item){
+    const relationships=item&&item.relationships||{};
+    const labels={team:'Team',track:'Track',series:'Series',event:'Event',driver:'Driver'};
+    const order=['drivers','teams','series','events','tracks','team','track'];
+    const groups=order.filter(key=>Array.isArray(relationships[key])&&relationships[key].length);
+    if(!groups.length)return '';
+    return '<section class="v7-profile-section v7-relationship-graph"><span class="eyebrow">EXPLORE NEXT</span><h3>Connected racing</h3><div class="v7-relationship-groups">'+groups.map(group=>{
+      const rows=relationships[group]||[];
+      return '<div><strong>'+esc(group.toUpperCase())+'</strong><div class="v7-chip-list">'+rows.slice(0,12).map(row=>{
+        const href=hrefFor(row.type,row);
+        const name=(row.number?('#'+row.number+' · '):'')+(row.name||row.key||labels[row.type]||'Racing');
+        return '<a href="'+esc(href)+'">'+esc(name)+'</a>';
+      }).join('')+'</div></div>';
+    }).join('')+'</div></section>';
+  }
+
   function trackProfile(item){
     const events=(item.events||[]).slice(0,12);
     const drivers=(item.related_drivers||[]).slice(0,12);
@@ -327,6 +343,7 @@
     try{
       const item=await getJson('/api/public/race-center/entity/'+type+'/'+encodeURIComponent(key)+'?v=7');
       let html=type==='track'?trackProfile(item):type==='team'?teamProfile(item):eventProfile(item);
+      html+=relationshipBlock(item);
       html+=ownerContentBlock(item);
       html+=editorialBlock(item.editorial);
       content.innerHTML=html;
