@@ -15,7 +15,7 @@ const pageView=routePath==='/standings'||routePath.endsWith('/standings')
               ?'series'
               :'hub';
 const PREF_KEY='pitmark-race-center-v5';
-const CACHE_KEY='pitmark-race-center-v5-feed';
+const CACHE_KEY='pitmark-race-center-v5-feed-20260923b';
 const readPrefs=()=>{
   try{
     const raw=JSON.parse(localStorage.getItem(PREF_KEY)||'{}');
@@ -1491,8 +1491,8 @@ function setLoadError(message){
 async function load(){
   try{
     const controller=new AbortController();
-    const timeout=setTimeout(()=>controller.abort(),10000);
-    const response=await fetch('/api/public/standings?v=race-center-v5-20260922',{
+    const timeout=setTimeout(()=>controller.abort(),20000);
+    const response=await fetch('/api/public/standings?v=race-center-v5-20260923b',{
       headers:{Accept:'application/json'},
       cache:'no-store',
       signal:controller.signal
