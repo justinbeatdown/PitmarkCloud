@@ -23,7 +23,7 @@ const readPrefs=()=>{
 };
 const prefs=readPrefs();
 const state={
-  payload:null,group:'All',search:'',view:pageView,
+  payload:null,group:'All',search:'',driverSearch:'',view:pageView,
   favorites:prefs.favorites,drivers:prefs.drivers,lastSeries:prefs.lastSeries,favoritesOnly:prefs.favoritesOnly,
   account:null,socialPosts:[]
 };
@@ -88,6 +88,9 @@ function renderAccount(){
     $('#accountIdentity').textContent=state.account.email||'Your racing board is synced.';
     $('#accountSeriesCount').textContent=String(follows.filter(x=>x.kind==='series').length);
     $('#accountDriverCount').textContent=String(follows.filter(x=>x.kind==='driver').length);
+    const publicProfile=$('#viewPublicProfile');
+    const handle=state.account.profile&&state.account.profile.handle;
+    if(publicProfile&&handle)publicProfile.href='/race-center/u/'+encodeURIComponent(handle);
   }
 }
 
@@ -158,6 +161,20 @@ function configurePage(){
       primary:['Open standings','/race-center/standings'],
       secondary:['Find the next race','/race-center/schedules'],
       pageTitle:'Pitmark Race Center — Racing Standings, Schedules + Live'
+    },
+    drivers:{
+      title:'Find a driver.<br><em>Know their racing.</em>',
+      intro:'Search the drivers already inside Race Center by name, number, team, manufacturer, or series — then open a source-backed driver profile.',
+      primary:['Search drivers','#driversDirectory'],
+      secondary:['Open standings','/race-center/standings'],
+      pageTitle:'Drivers — Pitmark Race Center'
+    },
+    driver:{
+      title:'Driver profile.<br><em>Source backed.</em>',
+      intro:'Official racing data stays source-backed. Claimed drivers can own the personality, photo, links and story around it.',
+      primary:['All drivers','/race-center/drivers'],
+      secondary:['Standings','/race-center/standings'],
+      pageTitle:'Driver Profile — Pitmark Race Center'
     },
     standings:{
       title:'Championships,<br><em>at a glance.</em>',
@@ -237,6 +254,133 @@ const identityText=row=>{
   const values=[row?.team,row?.manufacturer].filter(Boolean).map(String);
   return [...new Set(values)].join(' · ');
 };
+
+const driverProfileHref=(seriesKey,name)=>'/race-center/driver/'+encodeURIComponent(String(seriesKey||''))+'/'+encodeURIComponent(String(name||''));
+
+function driverDirectoryRows(){
+  const rows=[];
+  (state.payload?.series||[]).forEach(series=>{
+    const seen=new Set();
+    const candidates=[...(series.entries||[]),...(series.roster||[])];
+    candidates.forEach(row=>{
+      const name=String(row?.name||'').trim();
+      if(!name)return;
+      const localKey=name.toLowerCase();
+      if(seen.has(localKey))return;
+      seen.add(localKey);
+      rows.push({
+        key:driverFollowKey(series,row),
+        name,
+        number:String(row.number||'').trim(),
+        team:String(row.team||'').trim(),
+        manufacturer:String(row.manufacturer||'').trim(),
+        position:row.position,
+        points:row.points,
+        series_key:String(series.series_key||''),
+        series_name:String(series.series_name||''),
+        series_short:String(series.short_name||series.series_name||''),
+        group:String(series.group||'RACING'),
+        photo_url:row.photo_use_allowed===true?String(row.photo_url||''):'',
+        photo_source_url:row.photo_use_allowed===true?String(row.photo_source_url||''):'',
+      });
+    });
+  });
+  return rows.sort((a,b)=>a.name.localeCompare(b.name)||a.series_short.localeCompare(b.series_short));
+}
+
+function driverInitials(name){
+  return String(name||'?').split(/\s+/).filter(Boolean).map(x=>x[0]||'').join('').slice(0,2).toUpperCase()||'?';
+}
+
+function driverPortrait(driver,large=false){
+  if(driver.photo_url){
+    return '<img class="driver-photo'+(large?' is-large':'')+'" src="'+esc(driver.photo_url)+'" alt="'+esc(driver.name)+'" loading="lazy" decoding="async">';
+  }
+  return '<span class="driver-photo driver-photo-fallback'+(large?' is-large':'')+'">'+esc(driverInitials(driver.name))+'</span>';
+}
+
+function renderDrivers(){
+  const grid=$('#driversGrid');
+  if(!grid||!state.payload)return;
+  const q=normalizeSearch(state.driverSearch);
+  const all=driverDirectoryRows();
+  const filtered=q?all.filter(driver=>[
+    driver.name,driver.number,driver.team,driver.manufacturer,driver.series_name,driver.series_short,driver.group
+  ].filter(Boolean).join(' ').toLowerCase().includes(q)):all;
+  const count=$('#driverResultCount');
+  if(count)count.textContent=filtered.length+' driver profile'+(filtered.length===1?'':'s');
+
+  grid.innerHTML=filtered.length?filtered.slice(0,600).map(driver=>{
+    const followed=state.drivers.has(driver.key);
+    return '<article class="driver-directory-card">'+
+      '<a class="driver-directory-main" href="'+driverProfileHref(driver.series_key,driver.name)+'">'+
+        driverPortrait(driver)+
+        '<div><span class="driver-number">'+(driver.number?'#'+esc(driver.number):esc(driver.series_short))+'</span>'+
+        '<strong>'+esc(driver.name)+'</strong>'+
+        '<small>'+esc([driver.team,driver.manufacturer].filter(Boolean).join(' · ')||driver.series_short)+'</small>'+
+        '<em>'+esc(driver.series_short)+(driver.position?' · P'+esc(driver.position):'')+'</em></div>'+
+      '</a>'+
+      '<button class="driver-directory-follow '+(followed?'is-following':'')+'" type="button" data-driver-follow="'+esc(driver.key)+'" data-driver-label="'+esc(driver.name)+'" data-driver-series="'+esc(driver.series_key)+'" aria-pressed="'+(followed?'true':'false')+'" aria-label="'+(followed?'Unfollow ':'Follow ')+esc(driver.name)+'">'+(followed?'★':'☆')+'</button>'+
+    '</article>';
+  }).join(''):'<div class="loading-card">No drivers match that search.</div>';
+}
+
+function currentDriverRoute(){
+  const marker='/race-center/driver/';
+  const path=decodeURI(location.pathname);
+  const index=path.indexOf(marker);
+  if(index<0)return null;
+  const rest=path.slice(index+marker.length);
+  const slash=rest.indexOf('/');
+  if(slash<0)return null;
+  return {
+    series_key:decodeURIComponent(rest.slice(0,slash)),
+    name:decodeURIComponent(rest.slice(slash+1))
+  };
+}
+
+function renderDriverProfile(){
+  const host=$('#driverProfileContent');
+  if(!host||state.view!=='driver'||!state.payload)return;
+  const route=currentDriverRoute();
+  if(!route){
+    host.innerHTML='<div class="loading-card">Driver profile not found.</div>';
+    return;
+  }
+  const series=(state.payload.series||[]).find(x=>String(x.series_key)===String(route.series_key));
+  if(!series){
+    host.innerHTML='<div class="loading-card">That series is not currently available.</div>';
+    return;
+  }
+  const row=[...(series.entries||[]),...(series.roster||[])].find(x=>String(x.name||'').toLowerCase()===String(route.name||'').toLowerCase());
+  if(!row){
+    host.innerHTML='<div class="loading-card">That driver is not in the current Race Center data.</div>';
+    return;
+  }
+  const driver={
+    key:driverFollowKey(series,row),name:row.name||route.name,number:row.number||'',team:row.team||'',manufacturer:row.manufacturer||'',
+    position:row.position,points:row.points,series_key:series.series_key,series_name:series.series_name,series_short:series.short_name||series.series_name,
+    group:series.group||'RACING',photo_url:row.photo_use_allowed===true?String(row.photo_url||''):''
+  };
+  const followed=state.drivers.has(driver.key);
+  host.innerHTML='<article class="driver-profile-hero">'+
+    '<div class="driver-profile-photo">'+driverPortrait(driver,true)+'</div>'+
+    '<div class="driver-profile-copy"><span class="eyebrow">'+esc(driver.group)+' · '+esc(driver.series_short)+'</span>'+
+      '<h2>'+esc(driver.name)+'</h2>'+
+      '<p>'+esc([driver.number?'#'+driver.number:'',driver.team,driver.manufacturer].filter(Boolean).join(' · ')||'Source-backed Race Center driver profile')+'</p>'+
+      '<div class="driver-profile-actions">'+
+        '<button class="button '+(followed?'':'primary')+'" type="button" data-driver-follow="'+esc(driver.key)+'" data-driver-label="'+esc(driver.name)+'" data-driver-series="'+esc(driver.series_key)+'">'+(followed?'★ Following':'☆ Follow driver')+'</button>'+
+        '<button class="button" type="button" data-driver-claim="'+esc(driver.key)+'" data-driver-name="'+esc(driver.name)+'" data-driver-series="'+esc(driver.series_key)+'">Claim this profile</button>'+
+      '</div>'+
+    '</div>'+
+    '<div class="driver-profile-stats">'+
+      '<div><span>Championship</span><strong>'+(driver.position?'P'+esc(driver.position):'—')+'</strong></div>'+
+      '<div><span>Points</span><strong>'+points(driver.points)+'</strong></div>'+
+      '<div><span>Series</span><strong>'+esc(driver.series_short)+'</strong></div>'+
+    '</div>'+
+  '</article>'+
+  '<section class="driver-profile-source"><span class="eyebrow">PROFILE POLICY</span><h3>Racing facts stay official.</h3><p>Standings, results and source-backed racing identity remain controlled by Pitmark’s racing data. After a claim is verified, the driver can own the profile photo, bio, links, sponsors and personal content around those facts.</p></section>';
+}
 
 const age=iso=>{
   if(!iso)return '—';
@@ -463,6 +607,13 @@ function refreshMySeriesScrollCue(){
   if(!strip||!hint)return;
   const scrollable=strip.scrollWidth>strip.clientWidth+4;
   strip.classList.toggle('is-scrollable',scrollable);
+  const controls=$('#mySeriesControls');
+  if(controls)controls.hidden=!scrollable;
+  const prev=$('#mySeriesPrev');
+  const next=$('#mySeriesNext');
+  const max=Math.max(0,strip.scrollWidth-strip.clientWidth);
+  if(prev)prev.disabled=strip.scrollLeft<=2;
+  if(next)next.disabled=strip.scrollLeft>=max-2;
   if(!state.favorites.size){
     hint.textContent='Your saved championships live here.';
     return;
@@ -515,6 +666,8 @@ function bindMySeriesScroller(){
   strip.addEventListener('pointerup',finishDrag);
   strip.addEventListener('pointercancel',finishDrag);
 
+  strip.addEventListener('scroll',refreshMySeriesScrollCue,{passive:true});
+
   strip.addEventListener('wheel',event=>{
     if(strip.scrollWidth<=strip.clientWidth+4)return;
     const delta=Math.abs(event.deltaX)>Math.abs(event.deltaY)?event.deltaX:event.deltaY;
@@ -540,6 +693,9 @@ function bindMySeriesScroller(){
     openSeries(chip.dataset.key);
   });
 
+  const nudge=direction=>strip.scrollBy({left:direction*Math.max(240,Math.floor(strip.clientWidth*.72)),behavior:'smooth'});
+  safeBind('#mySeriesPrev','click',()=>nudge(-1));
+  safeBind('#mySeriesNext','click',()=>nudge(1));
   window.addEventListener('resize',refreshMySeriesScrollCue,{passive:true});
 }
 
@@ -707,12 +863,20 @@ function render(){
   renderMovers();
   renderGroups();
   renderScheduleCatalog();
+  renderDrivers();
+  renderDriverProfile();
   bindLogoErrors();
   $('#clearSearch').hidden=!normalizeSearch(state.search);
 
   if(state.view==='schedules'){
     const count=(state.payload?.events?.catalog||[]).filter(scheduleVisible).length;
     $('#resultCount').textContent=`${count} schedules`;
+  }else if(state.view==='drivers'){
+    const q=normalizeSearch(state.driverSearch);
+    const rows=driverDirectoryRows().filter(driver=>!q||[
+      driver.name,driver.number,driver.team,driver.manufacturer,driver.series_name,driver.series_short,driver.group
+    ].filter(Boolean).join(' ').toLowerCase().includes(q));
+    $('#resultCount').textContent=`${rows.length} drivers`;
   }else if(state.view==='live'){
     const events=state.payload?.events||{};
     const matches=[...(events.live||[]),...(events.next||[])].filter(item=>{
@@ -928,6 +1092,23 @@ function bootRaceCenter(){
       renderAccount();
       return;
     }
+    const claim=event.target.closest('[data-driver-claim]');
+    if(claim){
+      event.preventDefault();
+      if(!state.account?.authenticated){
+        renderAccount();
+        $('#accountMessage').textContent='Sign in or create a Race Center account before claiming a driver profile.';
+        $('#accountDialog')?.showModal();
+        return;
+      }
+      $('#driverClaimKey').value=String(claim.dataset.driverClaim||'');
+      $('#driverClaimName').value=String(claim.dataset.driverName||'');
+      $('#driverClaimSeries').value=String(claim.dataset.driverSeries||'');
+      $('#driverClaimTitle').textContent='Claim '+String(claim.dataset.driverName||'driver profile');
+      $('#driverClaimMessage').textContent='';
+      $('#driverClaimDialog')?.showModal();
+      return;
+    }
     const filter=event.target.closest('[data-group]');
     if(filter){
       state.group=filter.dataset.group;
@@ -955,6 +1136,10 @@ function bootRaceCenter(){
 
   document.addEventListener('input',event=>{
     if(event.target?.id==='searchInput')applySearch(event.target.value);
+    if(event.target?.id==='driverSearch'){
+      state.driverSearch=event.target.value||'';
+      renderDrivers();
+    }
   });
   document.addEventListener('search',event=>{
     if(event.target?.id==='searchInput')applySearch(event.target.value);
@@ -1057,6 +1242,32 @@ function bootRaceCenter(){
     if(state.payload)render();
     if(input)input.focus();
   });
+
+  safeBind('#driverClaimClose','click',()=>$('#driverClaimDialog')?.close());
+  const driverClaimForm=$('#driverClaimForm');
+  if(driverClaimForm){
+    driverClaimForm.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const message=$('#driverClaimMessage');
+      message.textContent='Submitting claim…';
+      try{
+        const result=await apiJson('/api/public/race-center/driver-claims',{
+          method:'POST',
+          body:JSON.stringify({
+            driver_key:String($('#driverClaimKey').value||''),
+            driver_name:String($('#driverClaimName').value||''),
+            series_key:String($('#driverClaimSeries').value||''),
+            evidence_url:String($('#driverClaimEvidence').value||''),
+            note:String($('#driverClaimNote').value||'')
+          })
+        });
+        message.textContent=result.status==='pending'?'Claim submitted for review.':'Claim saved.';
+        setTimeout(()=>$('#driverClaimDialog')?.close(),900);
+      }catch(error){
+        message.textContent=error.message||'Could not submit claim.';
+      }
+    });
+  }
 
   safeBind('#dialogClose','click',()=>{
     const dialog=$('#standingsDialog');
