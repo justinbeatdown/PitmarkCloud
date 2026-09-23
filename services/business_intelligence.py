@@ -218,7 +218,11 @@ def _shopify_window(days: int = 30) -> dict[str, Any]:
 
 def _meta_snapshot(days: int = 30) -> dict[str, Any]:
     system_token = (settings.meta_system_user_access_token or "").strip()
-    page_token = (settings.meta_page_access_token or system_token).strip()
+    configured_page_token = (settings.meta_page_access_token or "").strip()
+    try:
+        page_token = meta_page_token() if system_token else configured_page_token
+    except Exception:
+        page_token = configured_page_token or system_token
     page_id = (settings.meta_page_id or "").strip()
     ig_id = (settings.meta_instagram_account_id or "").strip()
     if not page_token or not page_id:
