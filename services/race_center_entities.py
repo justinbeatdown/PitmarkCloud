@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import re
+import threading
 import unicodedata
 from typing import Any
 
@@ -73,6 +74,10 @@ class RaceCenterEditorialLink(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+_graph_lock = threading.Lock()
+_graph_cache: dict[str, Any] = {"at": None, "value": None}
+
+
 def _event_key(series_key: str, event: dict[str, Any]) -> str:
     date = str(event.get("start") or event.get("date") or "")[:10]
     name = str(event.get("name") or event.get("title") or "event")
@@ -99,9 +104,26 @@ def _entry_identity(entry: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_entity_graph() -> dict[str, Any]:
+def build_entity_graph(force: bool = False) -> dict[str, Any]:
+    now = utcnow()
+    with _graph_lock:
+        cached_at = _graph_cache.get("at")
+        cached_value = _graph_cache.get("value")
+        if (
+            not force
+            and cached_at
+            and cached_value
+            and (now - cached_at).total_seconds() < 300
+        ):
+            return cached_value
+
     standings = get_standings_snapshot_hub()
     events = get_racing_event_hub()
+    if events.get("warming") or not any((item.get("event") for item in (events.get("catalog") or []))):
+        try:
+            events = get_racing_event_hub(force=True)
+        except Exception:
+            pass
     event_series = events.get("series") or {}
 
     series_items: list[dict[str, Any]] = []
@@ -227,7 +249,7 @@ def build_entity_graph() -> dict[str, Any]:
     event_items.sort(key=lambda x: str(x.get("start") or ""))
     series_items.sort(key=lambda x: (str(x.get("group") or ""), str(x.get("name") or "")))
 
-    return {
+    value = {
         "generated_at": utcnow().isoformat(),
         "season": standings.get("season"),
         "series": series_items,
@@ -237,6 +259,10 @@ def build_entity_graph() -> dict[str, Any]:
         "events": event_items,
         "health": data_health(standings=standings),
     }
+    with _graph_lock:
+        _graph_cache["at"] = now
+        _graph_cache["value"] = value
+    return value
 
 
 def data_health(*, standings: dict[str, Any] | None = None) -> dict[str, Any]:
