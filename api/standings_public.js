@@ -19,7 +19,7 @@ const readPrefs=()=>{
       favorites:new Set(Array.isArray(raw.favorites)?raw.favorites.map(String):[]),
       drivers:new Set(Array.isArray(raw.drivers)?raw.drivers.map(String):[]),
       lastSeries:String(raw.lastSeries||''),
-      favoritesOnly:Boolean(raw.favoritesOnly)
+      favoritesOnly:false
     };
   }catch(_error){
     return {favorites:new Set(),drivers:new Set(),lastSeries:'',favoritesOnly:false};
@@ -28,9 +28,10 @@ const readPrefs=()=>{
 const prefs=readPrefs();
 const state={
   payload:null,group:'All',search:'',driverSearch:'',view:pageView,
-  favorites:prefs.favorites,drivers:prefs.drivers,lastSeries:prefs.lastSeries,favoritesOnly:prefs.favoritesOnly,
+  favorites:prefs.favorites,drivers:prefs.drivers,lastSeries:prefs.lastSeries,favoritesOnly:false,
   account:null,socialPosts:[],driverIdentity:{}
 };
+if(state.view==='standings')state.favoritesOnly=false;
 const readCachedPayload=()=>{
   try{
     const raw=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');
@@ -47,8 +48,7 @@ const savePrefs=()=>{
     localStorage.setItem(PREF_KEY,JSON.stringify({
       favorites:[...state.favorites],
       drivers:[...state.drivers],
-      lastSeries:state.lastSeries,
-      favoritesOnly:state.favoritesOnly
+      lastSeries:state.lastSeries
     }));
   }catch(_error){}
 };
@@ -151,7 +151,7 @@ const numericValue=value=>{
 
 function configurePage(){
   document.body.dataset.view=state.view;
-  $$('[data-race-view]').forEach(link=>{
+  $('[data-race-view]').forEach(link=>{
     const active=link.dataset.raceView===state.view||(state.view==='driver'&&link.dataset.raceView==='drivers');
     link.classList.toggle('active',active);
     if(active)link.setAttribute('aria-current','page');
