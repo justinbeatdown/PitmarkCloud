@@ -17,6 +17,7 @@ from services.prt_feedback import summary as feedback_summary
 from services.prt_licensing_store import list_early_access_invites
 from services.shopify_service import configured as shopify_configured, graphql
 from services.google_business_intelligence_auth import configured as google_bi_configured, authorization_headers
+from services.meta_publish_service import _page_token as meta_page_token
 from utils.config import settings
 
 
