@@ -682,6 +682,29 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertNotIn("primary.team||'Not verified'", public_js)
         self.assertNotIn("primary.manufacturer||'Not verified'", public_js)
 
+    def test_race_center_standings_fail_closed_and_show_all_by_default(self):
+        standings = self.read("services/racing_standings.py")
+        public_js = self.read("api/standings_public.js")
+        public_html = self.read("api/standings_public.html")
+        css = self.read("api/standings_public.css")
+
+        self.assertIn("def _looks_like_uniform_table_shift(", standings)
+        self.assertIn("dominant_count * 10 >= matched * 6", standings)
+        self.assertIn("zero_points * 10 >= dominant_count * 8", standings)
+        self.assertIn("if snapshot_valid and _looks_like_uniform_table_shift(entries, previous_entries):", standings)
+
+        self.assertIn("favoritesOnly:false", public_js)
+        self.assertNotIn("favoritesOnly:Boolean(raw.favoritesOnly)", public_js)
+        self.assertNotIn("favoritesOnly:state.favoritesOnly", public_js)
+        self.assertIn("const standingsOnly=state.view==='standings';", public_js)
+        self.assertIn("if(state.view==='standings')state.favoritesOnly=false;", public_js)
+
+        self.assertIn("Only changes that survive Pitmark’s snapshot-integrity checks appear here.", public_html)
+        self.assertIn('body:not([data-view="hub"]) .home-race-pulse', css)
+        self.assertIn('body[data-view="standings"] .toolbar', css)
+        self.assertIn("position:relative!important", css)
+        self.assertIn("Standings integrity + layout cleanup", css)
+
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
         public_api = self.read("api/standings_public.py")

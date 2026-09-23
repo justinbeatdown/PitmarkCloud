@@ -19,7 +19,7 @@ const readPrefs=()=>{
       favorites:new Set(Array.isArray(raw.favorites)?raw.favorites.map(String):[]),
       drivers:new Set(Array.isArray(raw.drivers)?raw.drivers.map(String):[]),
       lastSeries:String(raw.lastSeries||''),
-      favoritesOnly:Boolean(raw.favoritesOnly)
+      favoritesOnly:false
     };
   }catch(_error){
     return {favorites:new Set(),drivers:new Set(),lastSeries:'',favoritesOnly:false};
@@ -28,9 +28,10 @@ const readPrefs=()=>{
 const prefs=readPrefs();
 const state={
   payload:null,group:'All',search:'',driverSearch:'',view:pageView,
-  favorites:prefs.favorites,drivers:prefs.drivers,lastSeries:prefs.lastSeries,favoritesOnly:prefs.favoritesOnly,
+  favorites:prefs.favorites,drivers:prefs.drivers,lastSeries:prefs.lastSeries,favoritesOnly:false,
   account:null,socialPosts:[],driverIdentity:{}
 };
+if(state.view==='standings')state.favoritesOnly=false;
 const readCachedPayload=()=>{
   try{
     const raw=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');
@@ -47,8 +48,7 @@ const savePrefs=()=>{
     localStorage.setItem(PREF_KEY,JSON.stringify({
       favorites:[...state.favorites],
       drivers:[...state.drivers],
-      lastSeries:state.lastSeries,
-      favoritesOnly:state.favoritesOnly
+      lastSeries:state.lastSeries
     }));
   }catch(_error){}
 };
@@ -680,23 +680,32 @@ function card(series){
 }
 
 function allGroups(){
-  const groups=[
-    ...(state.payload?.series||[]).map(item=>item.group||'Other'),
-    ...(state.payload?.events?.catalog||[]).map(item=>item.group||'Other')
-  ];
+  const series=state.payload?.series||[];
+  const catalog=state.payload?.events?.catalog||[];
+  const groups=state.view==='standings'
+    ?series.map(item=>item.group||'Other')
+    :[
+      ...series.map(item=>item.group||'Other'),
+      ...catalog.map(item=>item.group||'Other')
+    ];
   return ['All',...[...new Set(groups)]];
 }
 
 function renderFilters(){
   const series=state.payload?.series||[];
   const catalog=state.payload?.events?.catalog||[];
+  const standingsOnly=state.view==='standings';
   $('#filters').innerHTML=allGroups().map(group=>{
     const count=group==='All'
-      ?new Set([...series.map(x=>x.series_key),...catalog.map(x=>x.series_key)]).size
-      :new Set([
-        ...series.filter(x=>(x.group||'Other')===group).map(x=>x.series_key),
-        ...catalog.filter(x=>(x.group||'Other')===group).map(x=>x.series_key)
-      ]).size;
+      ?(standingsOnly
+        ?new Set(series.map(x=>x.series_key)).size
+        :new Set([...series.map(x=>x.series_key),...catalog.map(x=>x.series_key)]).size)
+      :(standingsOnly
+        ?new Set(series.filter(x=>(x.group||'Other')===group).map(x=>x.series_key)).size
+        :new Set([
+          ...series.filter(x=>(x.group||'Other')===group).map(x=>x.series_key),
+          ...catalog.filter(x=>(x.group||'Other')===group).map(x=>x.series_key)
+        ]).size);
     return `<button class="filter ${state.group===group?'active':''}" type="button" data-group="${esc(group)}">${esc(group)}<span>${count}</span></button>`;
   }).join('');
 }

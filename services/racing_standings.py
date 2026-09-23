@@ -2682,9 +2682,66 @@ def _comparison_snapshot_plausible(previous_entries: list[dict[str, Any]]) -> bo
     return _standings_entries_plausible(previous_entries)
 
 
+def _looks_like_uniform_table_shift(
+    entries: list[dict[str, Any]],
+    previous_entries: list[dict[str, Any]],
+) -> bool:
+    """Reject movement when a scrape looks like the whole table shifted.
+
+    A common parser/source artifact drops or inserts one row while leaving
+    everybody else's points untouched. That makes many drivers appear to move
+    exactly one position even though the championship itself did not change.
+    """
+    old_by_name = {
+        _identity_key(item.get("name")): item
+        for item in previous_entries
+        if _identity_key(item.get("name"))
+    }
+    matched = 0
+    shifts: dict[int, dict[str, int]] = {}
+
+    for current in entries:
+        key = _identity_key(current.get("name"))
+        prior = old_by_name.get(key) if key else None
+        if not prior:
+            continue
+        try:
+            prior_pos = int(prior.get("position"))
+            now_pos = int(current.get("position"))
+        except (TypeError, ValueError):
+            continue
+
+        matched += 1
+        shift = prior_pos - now_pos
+        if shift == 0:
+            continue
+
+        bucket = shifts.setdefault(shift, {"count": 0, "zero_points": 0})
+        bucket["count"] += 1
+        prior_points = _num(prior.get("points"))
+        current_points = _num(current.get("points"))
+        if prior_points is not None and current_points is not None and current_points == prior_points:
+            bucket["zero_points"] += 1
+
+    if matched < 6 or not shifts:
+        return False
+
+    _, dominant = max(shifts.items(), key=lambda item: item[1]["count"])
+    dominant_count = dominant["count"]
+    zero_points = dominant["zero_points"]
+
+    return (
+        dominant_count >= 4
+        and dominant_count * 10 >= matched * 6
+        and zero_points * 10 >= dominant_count * 8
+    )
+
+
 def _movement(entries: list[dict[str, Any]], previous: dict[str, Any] | None) -> list[dict[str, Any]]:
     previous_entries = (previous or {}).get("entries", []) or []
     snapshot_valid = _comparison_snapshot_plausible(previous_entries)
+    if snapshot_valid and _looks_like_uniform_table_shift(entries, previous_entries):
+        snapshot_valid = False
 
     old_by_name: dict[str, dict[str, Any]] = {}
     old_by_number: dict[str, dict[str, Any]] = {}
