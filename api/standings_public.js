@@ -421,7 +421,7 @@ function loadDriverIdentity(seriesKey,driverName){
       renderDriverProfile();
     })
     .catch(error=>{
-      state.driverIdentity[cacheKey]={status:'failed',error:error.message||'Official identity lookup failed'};
+      state.driverIdentity[cacheKey]={status:'failed',error:error.message||'Driver identity lookup failed'};
       renderDriverProfile();
     });
   return state.driverIdentity[cacheKey];
@@ -476,13 +476,22 @@ function renderDriverProfile(){
   if(!primary.team||!primary.manufacturer||!primary.number){
     officialIdentity=loadDriverIdentity(primary.series_key,primary.name);
   }
-  if(officialIdentity?.status==='ready'&&officialIdentity.verified){
+  if(officialIdentity?.status==='ready'&&officialIdentity.resolved){
     if(!primary.number&&officialIdentity.number)primary.number=officialIdentity.number;
     if(!primary.team&&officialIdentity.team)primary.team=officialIdentity.team;
     if(!primary.manufacturer&&officialIdentity.manufacturer)primary.manufacturer=officialIdentity.manufacturer;
   }
   const identityLoading=officialIdentity?.status==='loading';
-  const identityFallback=identityLoading?'Checking official source…':'Unavailable from official source';
+  const identityFallback=identityLoading?'Checking trusted sources…':'Not found yet';
+  const identitySourceName=officialIdentity?.status==='ready'&&officialIdentity.source_name
+    ?String(officialIdentity.source_name)
+    :'';
+  const identitySourceUrl=officialIdentity?.status==='ready'
+    ?String(officialIdentity.secondary_source_url||officialIdentity.source_url||'')
+    :'';
+  const identityBio=officialIdentity?.status==='ready'
+    ?String(officialIdentity.bio||'').trim()
+    :'';
 
   const followed=state.drivers.has(primary.key);
   const identityLine=[primary.number?'#'+primary.number:'',primary.team,primary.manufacturer].filter(Boolean);
@@ -506,7 +515,10 @@ function renderDriverProfile(){
 
   const sourceLinks=[
     series.official_url?'<a href="'+esc(series.official_url)+'" target="_blank" rel="noopener"><span>Official series standings</span><strong>Open source ↗</strong></a>':'',
-    series.metadata_source_url?'<a href="'+esc(series.metadata_source_url)+'" target="_blank" rel="noopener"><span>Driver identity source</span><strong>Open source ↗</strong></a>':'',
+    series.metadata_source_url?'<a href="'+esc(series.metadata_source_url)+'" target="_blank" rel="noopener"><span>Official driver identity source</span><strong>Open source ↗</strong></a>':'',
+    identitySourceUrl&&officialIdentity?.source_kind!=='official'
+      ?'<a href="'+esc(identitySourceUrl)+'" target="_blank" rel="noopener"><span>'+esc(identitySourceName||'Trusted secondary identity source')+'</span><strong>Open source ↗</strong></a>'
+      :'',
     series.provider_url?'<a href="'+esc(series.provider_url)+'" target="_blank" rel="noopener"><span>'+esc(series.source_name||'Standings data source')+'</span><strong>Open source ↗</strong></a>':''
   ].filter(Boolean).join('');
 
@@ -539,6 +551,12 @@ function renderDriverProfile(){
           driverStandingContext(series,row)+
         '</section>'+
         driverNextRace(series)+
+        (identityBio?'<section class="driver-detail-card driver-about-card">'+
+          '<span class="eyebrow">ABOUT THE DRIVER</span>'+
+          '<h3>'+esc(primary.name)+'</h3>'+
+          '<p>'+esc(identityBio)+'</p>'+
+          (identitySourceUrl?'<a class="driver-about-source" href="'+esc(identitySourceUrl)+'" target="_blank" rel="noopener">Source: '+esc(identitySourceName||'trusted secondary source')+' ↗</a>':'')+
+        '</section>':'')+
         '<section class="driver-detail-card">'+
           '<span class="eyebrow">RACING ACROSS RACE CENTER</span>'+
           '<h3>'+esc(primary.name)+' in tracked series</h3>'+
@@ -550,6 +568,7 @@ function renderDriverProfile(){
         '<section class="driver-detail-card">'+
           '<span class="eyebrow">RACING IDENTITY</span>'+
           '<h3>What Race Center knows</h3>'+
+          (identitySourceName?'<p class="driver-identity-source">Identity enriched from '+esc(identitySourceName)+'.</p>':'')+
           '<dl class="driver-identity-list">'+
             '<div><dt>Car number</dt><dd>'+esc(primary.number||identityFallback)+'</dd></div>'+
             '<div><dt>Team</dt><dd>'+esc(primary.team||identityFallback)+'</dd></div>'+
@@ -559,7 +578,7 @@ function renderDriverProfile(){
           '</dl>'+
         '</section>'+
         '<section class="driver-detail-card">'+
-          '<span class="eyebrow">OFFICIAL SOURCES</span>'+
+          '<span class="eyebrow">SOURCES</span>'+
           '<h3>Where this data comes from</h3>'+
           '<div class="driver-source-list">'+(sourceLinks||'<p>No public source links are attached to this snapshot.</p>')+'</div>'+
         '</section>'+
