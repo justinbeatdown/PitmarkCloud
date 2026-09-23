@@ -1027,30 +1027,61 @@ function renderMySeries(){
   const strip=$('#mySeriesStrip');
   const hint=$('#mySeriesHint');
   if(!shell||!strip||!hint)return;
-  const series=(state.payload?.series||[]).filter(item=>state.favorites.has(String(item.series_key)));
-  $('#pulseFavorites').textContent=String(series.length);
-  $('#pulseFavoriteText').textContent=series.length
-    ?`${series.length} saved championship${series.length===1?'':'s'}`
+
+  const allSeries=seriesDirectoryRows();
+  const allDrivers=driverDirectoryRows();
+  const accountFollows=state.account?.authenticated?(state.account.follows||[]):[];
+  const seriesFollows=state.account?.authenticated
+    ?accountFollows.filter(x=>x.kind==='series')
+    :[...state.favorites].map(key=>({kind:'series',key,label:''}));
+  const driverFollows=state.account?.authenticated
+    ?accountFollows.filter(x=>x.kind==='driver')
+    :[...state.drivers].map(key=>({kind:'driver',key,label:'',series_key:String(key).split(':')[0]||''}));
+
+  const seriesItems=seriesFollows.map(follow=>{
+    const item=allSeries.find(series=>String(series.series_key)===String(follow.key));
+    return item||{series_key:String(follow.key||''),series_name:String(follow.label||follow.key||'Saved series'),short_name:String(follow.label||follow.key||'Saved series'),group:'MY RACING',entries:[],current_event:null};
+  });
+  const driverItems=driverFollows.map(follow=>{
+    const found=allDrivers.find(driver=>String(driver.key)===String(follow.key));
+    if(found)return found;
+    const key=String(follow.key||'');
+    return {key,name:String(follow.label||key.split(':').slice(1).join(':')||'Saved driver'),series_key:String(follow.series_key||key.split(':')[0]||''),series_short:'Saved driver',number:'',team:'',manufacturer:'',photo_url:''};
+  });
+
+  $('#pulseFavorites').textContent=String(seriesItems.length);
+  $('#pulseFavoriteText').textContent=seriesItems.length
+    ?seriesItems.length+' saved championship'+(seriesItems.length===1?'':'s')
     :'Star a series to build your board';
-  if(!series.length){
-    strip.innerHTML='<button class="my-series-chip" id="emptyFavoriteCta" type="button"><span class="series-wordmark">START</span><span><strong>Build My Series</strong><small>Star the championships you care about.</small></span></button>';
-    hint.textContent='Your saved championships live here.';
+
+  const chips=[];
+  seriesItems.forEach(item=>{
+    const leader=item.entries?.[0];
+    const event=item.current_event;
+    const meta=event
+      ?(item.event_state==='live'?'LIVE · ':'')+String(event.name||eventWhen(event))
+      :leader?'Leader: '+String(leader.name||'—'):'Saved championship';
+    chips.push('<a class="my-series-chip my-racing-series-chip" href="'+seriesProfileHref(item.series_key)+'">'+logo(item)+'<span><strong>'+esc(item.short_name||item.series_name)+'</strong><small>'+esc(meta)+'</small></span></a>');
+  });
+  driverItems.forEach(driver=>{
+    const meta=[driver.number?'#'+driver.number:'',driver.team||driver.series_short].filter(Boolean).join(' · ')||'Saved driver';
+    chips.push('<a class="my-series-chip my-racing-driver-chip" href="'+driverProfileHref(driver.series_key,driver.name)+'">'+driverPortrait(driver)+'<span><strong>'+esc(driver.name)+'</strong><small>'+esc(meta)+'</small></span></a>');
+  });
+
+  if(!chips.length){
+    strip.innerHTML='<a class="my-series-chip" href="/race-center/series"><span class="series-wordmark">START</span><span><strong>Build My Racing</strong><small>Follow series and drivers you care about.</small></span></a>';
+    hint.textContent='Your saved series and drivers live here.';
     const controls=$('#mySeriesControls');
     if(controls)controls.hidden=true;
     return;
   }
-  hint.textContent=state.account?.authenticated?'Synced to your Race Center account.':'Saved on this device.';
-  strip.innerHTML=series.map(item=>{
-    const leader=item.entries?.[0];
-    const event=item.current_event;
-    const meta=event
-      ?`${item.event_state==='live'?'LIVE · ':''}${event.name||eventWhen(event)}`
-      :leader?`Leader: ${leader.name||'—'}`:'Open championship';
-    return `<button class="my-series-chip" type="button" data-key="${esc(item.series_key)}">${logo(item)}<span><strong>${esc(item.short_name||item.series_name)}</strong><small>${esc(meta)}</small></span></button>`;
-  }).join('');
+
+  strip.innerHTML=chips.join('');
+  hint.textContent=state.account?.authenticated
+    ?seriesItems.length+' series · '+driverItems.length+' drivers · synced to your Race Center account.'
+    :seriesItems.length+' series · '+driverItems.length+' drivers · saved on this device.';
   requestAnimationFrame(refreshMySeriesScrollCue);
 }
-
 function refreshMySeriesScrollCue(){
   const strip=$('#mySeriesStrip');
   const hint=$('#mySeriesHint');
@@ -1064,12 +1095,16 @@ function refreshMySeriesScrollCue(){
   const max=Math.max(0,strip.scrollWidth-strip.clientWidth);
   if(prev)prev.disabled=strip.scrollLeft<=2;
   if(next)next.disabled=strip.scrollLeft>=max-2;
-  if(!state.favorites.size){
-    hint.textContent='Your saved championships live here.';
+  const followCount=state.account?.authenticated
+    ?(state.account.follows||[]).filter(x=>x.kind==='series'||x.kind==='driver').length
+    :state.favorites.size+state.drivers.size;
+  if(!followCount){
+    hint.textContent='Your saved series and drivers live here.';
     return;
   }
   const syncText=state.account?.authenticated?'Synced to your Race Center account.':'Saved on this device.';
-  hint.textContent=scrollable?'Drag or scroll to see all · '+syncText:syncText;
+  const current=String(hint.textContent||'').replace(/^Drag or scroll to see all · /,'');
+  hint.textContent=scrollable?'Drag or scroll to see all · '+(current||syncText):(current||syncText);
 }
 
 function bindMySeriesScroller(){
