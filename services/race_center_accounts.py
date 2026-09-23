@@ -188,8 +188,8 @@ def list_follows(user_id: int) -> list[dict]:
 def set_follow(user_id: int, *, kind: str, key: str, label: str = "", series_key: str = "") -> dict:
     clean_kind = (kind or "").strip().lower()
     clean_key = (key or "").strip()[:220]
-    if clean_kind not in {"series", "driver"}:
-        raise ValueError("Follow kind must be series or driver.")
+    if clean_kind not in {"series", "driver", "track", "team", "event"}:
+        raise ValueError("Follow kind must be series, driver, track, team, or event.")
     if not clean_key:
         raise ValueError("Follow key is required.")
     clean_label = (label or "").strip()[:160]
@@ -259,6 +259,30 @@ class RaceCenterDriverClaim(Base):
     driver_key: Mapped[str] = mapped_column(String(220), index=True)
     driver_name: Mapped[str] = mapped_column(String(160), default="")
     series_key: Mapped[str] = mapped_column(String(120), default="", index=True)
+    evidence_url: Mapped[str] = mapped_column(Text, default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RaceCenterEntityClaim(Base):
+    __tablename__ = "race_center_entity_claims"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "entity_type",
+            "entity_key",
+            "status",
+            name="uq_race_center_entity_claim_status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), index=True)
+    entity_type: Mapped[str] = mapped_column(String(30), index=True)
+    entity_key: Mapped[str] = mapped_column(String(220), index=True)
+    entity_name: Mapped[str] = mapped_column(String(180), default="")
     evidence_url: Mapped[str] = mapped_column(Text, default="")
     note: Mapped[str] = mapped_column(Text, default="")
     status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
@@ -664,6 +688,72 @@ def driver_claims_for_user(user_id: int) -> list[dict]:
     ]
 
 
+def submit_entity_claim(
+    user_id: int,
+    *,
+    entity_type: str,
+    entity_key: str,
+    entity_name: str,
+    evidence_url: str = "",
+    note: str = "",
+) -> dict:
+    clean_type = (entity_type or "").strip().lower()
+    if clean_type not in {"team", "track", "series", "event"}:
+        raise ValueError("Entity claim must be for a team, track, series, or event.")
+    clean_key = (entity_key or "").strip()[:220]
+    clean_name = (entity_name or "").strip()[:180]
+    clean_evidence = (evidence_url or "").strip()[:1200]
+    clean_note = (note or "").strip()[:1200]
+    if not clean_key or not clean_name:
+        raise ValueError("Entity identity is required.")
+    if not clean_evidence and not clean_note:
+        raise ValueError("Add a proof link or a short verification note.")
+    if clean_evidence and not clean_evidence.lower().startswith(("http://", "https://")):
+        raise ValueError("Proof link must start with http:// or https://.")
+    with SessionLocal() as db:
+        existing = db.scalar(select(RaceCenterEntityClaim).where(
+            RaceCenterEntityClaim.user_id == user_id,
+            RaceCenterEntityClaim.entity_type == clean_type,
+            RaceCenterEntityClaim.entity_key == clean_key,
+            RaceCenterEntityClaim.status == "pending",
+        ))
+        if existing:
+            return {"ok": True, "id": existing.id, "status": existing.status}
+        row = RaceCenterEntityClaim(
+            user_id=user_id,
+            entity_type=clean_type,
+            entity_key=clean_key,
+            entity_name=clean_name,
+            evidence_url=clean_evidence,
+            note=clean_note,
+            status="pending",
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return {"ok": True, "id": row.id, "status": row.status}
+
+
+def entity_claims_for_user(user_id: int) -> list[dict]:
+    with SessionLocal() as db:
+        rows = list(db.scalars(
+            select(RaceCenterEntityClaim)
+            .where(RaceCenterEntityClaim.user_id == user_id)
+            .order_by(RaceCenterEntityClaim.created_at.desc())
+        ).all())
+    return [
+        {
+            "id": row.id,
+            "entity_type": row.entity_type,
+            "entity_key": row.entity_key,
+            "entity_name": row.entity_name,
+            "status": row.status,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        }
+        for row in rows
+    ]
+
+
 class RaceCenterIdentity(Base):
     """Optional public identity/verification metadata kept separate for safe schema evolution."""
     __tablename__ = "race_center_identities"
@@ -796,6 +886,18 @@ def public_profile_by_handle(handle: str, viewer_user_id: int | None = None) -> 
             "drivers": [
                 {"key": x.follow_key, "label": x.label, "series_key": x.series_key}
                 for x in follows if x.kind == "driver"
+            ],
+            "tracks": [
+                {"key": x.follow_key, "label": x.label}
+                for x in follows if x.kind == "track"
+            ],
+            "teams": [
+                {"key": x.follow_key, "label": x.label}
+                for x in follows if x.kind == "team"
+            ],
+            "events": [
+                {"key": x.follow_key, "label": x.label, "series_key": x.series_key}
+                for x in follows if x.kind == "event"
             ],
         }
 
