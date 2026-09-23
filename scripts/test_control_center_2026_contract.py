@@ -1129,6 +1129,32 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("/race-center/teams", service_worker)
         self.assertIn("/race-center-icon-192.png", service_worker)
 
+    def test_race_center_v7_driver_profiles_have_racing_depth(self):
+        entities = self.read("services/race_center_entities.py")
+        v7_js = self.read("api/race_center_v7.js")
+        css = self.read("api/standings_public.css")
+
+        for token in (
+            "def _driver_profile_depth(",
+            '"tracked_summary": tracked_summary',
+            '"upcoming_events": upcoming[:10]',
+            '"championship_history": history',
+            "RacingStandingSnapshot.series_key.in_",
+        ):
+            self.assertIn(token, entities)
+
+        for token in (
+            "CURRENT TRACKED DATA",
+            "Where this driver races next",
+            "CHAMPIONSHIP HISTORY",
+            "v7-driver-summary-grid",
+        ):
+            self.assertIn(token, v7_js)
+
+        self.assertIn("Race Center Drivers V2", css)
+        self.assertIn(".v7-driver-summary-grid", css)
+        self.assertIn(".v7-driver-history", css)
+
     def test_race_center_v7_calendar_exports(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
