@@ -860,6 +860,75 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("width:112px!important", css)
         self.assertIn("race-center-complete-20260923", profile_html)
 
+    def test_race_center_v6_finished_vision_contract(self):
+        public_html = self.read("api/standings_public.html")
+        public_js = self.read("api/standings_public.js")
+        social_js = self.read("api/race_center_v5.js")
+        v6_js = self.read("api/race_center_v6.js")
+        public_api = self.read("api/standings_public.py")
+        standings = self.read("services/racing_standings.py")
+        accounts = self.read("services/race_center_accounts.py")
+        css = self.read("api/standings_public.css")
+
+        for token in (
+            'id="v5Home"',
+            'id="raceFeedList"',
+            'id="raceSearchInput"',
+            'id="raceSearchResults"',
+            '/race-center-v6.js',
+            '<small>V6</small>',
+        ):
+            self.assertIn(token, public_html)
+
+        for token in (
+            "Pitmark Race Center — The Social Home for Racing",
+            "cache:'no-store'",
+            "identity_quality",
+            "Not published by source",
+            "Complete identity",
+        ):
+            self.assertIn(token, public_js)
+
+        for token in (
+            "data-driver-href",
+            "profileOpen.dataset.v6Wired",
+            "people-avatar has-photo",
+            "pitmark-person-badge",
+        ):
+            self.assertIn(token, social_js)
+
+        for token in (
+            "function searchItems(",
+            "function renderAccountIdentity(",
+            "setInterval(enhance,10000)",
+            "driverHref=String(card.dataset.driverHref",
+        ):
+            self.assertIn(token, v6_js)
+
+        self.assertIn('@router.get("/race-center-v6.js"', public_api)
+
+        for token in (
+            "DRIVER_IDENTITY_RESOLVER_VERSION = 3",
+            "class RaceCenterDriverIdentityCache(Base):",
+            "def _driver_identity_cache_get(",
+            "def _driver_identity_cache_set(",
+            '"identity_quality":',
+        ):
+            self.assertIn(token, standings)
+
+        self.assertIn('"photo_url": f"/api/public/race-center/profile-photo/{profile.handle}"', accounts)
+        self.assertIn('"staff": _pitmark_staff_identity(user.email if user else "")', accounts)
+
+        for token in (
+            "RACE CENTER V6 — finished product shell",
+            "body[data-view=\"hub\"] .race-social{display:grid!important}",
+            ".race-search-results",
+            ".social-staff-badge",
+            ".driver-identity-status.complete",
+            ".people-avatar.has-photo",
+        ):
+            self.assertIn(token, css)
+
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
         public_api = self.read("api/standings_public.py")
