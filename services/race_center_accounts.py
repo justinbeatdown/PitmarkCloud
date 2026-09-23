@@ -188,8 +188,8 @@ def list_follows(user_id: int) -> list[dict]:
 def set_follow(user_id: int, *, kind: str, key: str, label: str = "", series_key: str = "") -> dict:
     clean_kind = (kind or "").strip().lower()
     clean_key = (key or "").strip()[:220]
-    if clean_kind not in {"series", "driver"}:
-        raise ValueError("Follow kind must be series or driver.")
+    if clean_kind not in {"series", "driver", "track", "team"}:
+        raise ValueError("Follow kind must be series, driver, track, or team.")
     if not clean_key:
         raise ValueError("Follow key is required.")
     clean_label = (label or "").strip()[:160]
@@ -796,6 +796,14 @@ def public_profile_by_handle(handle: str, viewer_user_id: int | None = None) -> 
             "drivers": [
                 {"key": x.follow_key, "label": x.label, "series_key": x.series_key}
                 for x in follows if x.kind == "driver"
+            ],
+            "tracks": [
+                {"key": x.follow_key, "label": x.label}
+                for x in follows if x.kind == "track"
+            ],
+            "teams": [
+                {"key": x.follow_key, "label": x.label}
+                for x in follows if x.kind == "team"
             ],
         }
 
