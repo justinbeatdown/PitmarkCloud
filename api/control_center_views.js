@@ -515,7 +515,50 @@ function openPost(row,ctx){
 }
 
 async function postDecision(id,action,ctx){try{await api.decidePost(id,action);clearCache('/api/control/autopilot/posts');if(action==='approve')ctx.state.contentTab='approved';ctx.toast(action==='approve'?'Post approved — ready to publish.':`Post ${action}d.`,'good');ctx.closeSheet();ctx.refresh();}catch(e){ctx.toast(e.message,'bad');}}
-async function publishPost(row,ctx){try{const result=await api.publishPost(row.id);clearCache('/api/control/autopilot/posts');ctx.state.contentTab='published';ctx.toast(result?.warning?`Published live. ${result.warning}`:`Published live to ${row.platform||'social'}.`,'good');ctx.closeSheet();ctx.refresh();}catch(e){ctx.toast(e.message,'bad');}}
+
+async function socialPublishHealth(){
+  try{return await api.socialPublishStatus();}catch{return null;}
+}
+
+function publishBlockReason(row,status){
+  if(!status)return '';
+  const platform=low(row?.platform||'');
+  const direct=String(status?.blocked_platforms?.[platform]||'').trim();
+  if(direct)return direct;
+  const channel=status?.[platform]||{};
+  if(channel.configured===false)return `${platform||'This platform'} publishing is not configured in Pitmark Cloud.`;
+  if(platform==='x'&&(channel.publishing_paused||channel.status==='credits_depleted')){
+    return 'X publishing is paused because X API credits are depleted. The post is still Approved & Ready.';
+  }
+  if(channel.connected===false)return String(channel.error||`${platform||'This platform'} publishing is not connected.`);
+  return '';
+}
+
+function publishFailureMessage(error,row){
+  const raw=String(error?.message||'Publishing failed.');
+  if(error?.status===402||/credits? (?:are )?depleted|payment required/i.test(raw)){
+    return 'X did not publish because its API credits are depleted. The post is still Approved & Ready — nothing was lost.';
+  }
+  return `${row?.platform||'Social'} publish failed: ${raw}`;
+}
+
+async function publishPost(row,ctx){
+  const health=await socialPublishHealth();
+  const blocked=publishBlockReason(row,health);
+  if(blocked){ctx.toast(blocked,'bad');return;}
+  try{
+    const result=await api.publishPost(row.id);
+    clearCache('/api/control/autopilot/posts');
+    clearCache('/api/control/social/status');
+    ctx.state.contentTab='published';
+    ctx.toast(result?.warning?`Published live. ${result.warning}`:`Published live to ${row.platform||'social'}.`,'good');
+    ctx.closeSheet();
+    ctx.refresh();
+  }catch(e){
+    clearCache('/api/control/social/status');
+    ctx.toast(publishFailureMessage(e,row),'bad');
+  }
+}
 
 function selectedRows(rows,ctx){
   const selected=selectedContentIds(ctx);
@@ -523,11 +566,11 @@ function selectedRows(rows,ctx){
 }
 
 async function runBulk(items,runner){
-  let ok=0;const errors=[];
+  let ok=0;const errors=[];const failedIds=[];
   for(const item of items){
-    try{await runner(item);ok+=1;}catch(error){errors.push(error?.message||'Unknown error');}
+    try{await runner(item);ok+=1;}catch(error){errors.push(error?.message||'Unknown error');failedIds.push(String(item.id));}
   }
-  return {ok,failed:errors.length,errors};
+  return {ok,failed:errors.length,errors,failedIds};
 }
 
 async function bulkContentAction(action,rows,ctx){
@@ -550,12 +593,36 @@ async function bulkContentAction(action,rows,ctx){
   if(action==='publish'){
     const eligible=selected.filter(row=>['approved','scheduled'].includes(low(row.status))&&['facebook','instagram','x'].includes(low(row.platform)));
     if(!eligible.length){ctx.toast('Select approved or scheduled Facebook, Instagram, or X posts to publish.','bad');return;}
-    if(!window.confirm(`Publish ${eligible.length} selected post${eligible.length===1?'':'s'} live now?`))return;
-    const result=await runBulk(eligible,row=>api.publishPost(row.id));
+
+    const health=await socialPublishHealth();
+    const blocked=eligible.map(row=>({row,reason:publishBlockReason(row,health)})).filter(item=>item.reason);
+    const blockedIds=new Set(blocked.map(item=>String(item.row.id)));
+    const publishable=eligible.filter(row=>!blockedIds.has(String(row.id)));
+
+    if(!publishable.length){
+      const reason=blocked[0]?.reason||'The selected posts cannot publish right now.';
+      ctx.toast(`${reason} Nothing was moved out of Approved & Ready.`,'bad');
+      return;
+    }
+
+    const blockedNote=blocked.length?` ${blocked.length} blocked post${blocked.length===1?'':'s'} will stay approved.`:'';
+    if(!window.confirm(`Publish ${publishable.length} selected post${publishable.length===1?'':'s'} live now?${blockedNote}`))return;
+
+    const result=await runBulk(publishable,row=>api.publishPost(row.id));
     clearCache('/api/control/autopilot/posts');
-    ctx.state.contentSelection=[];
-    ctx.state.contentTab='published';
-    ctx.toast(result.failed?`${result.ok} published; ${result.failed} failed. ${result.errors[0]||''}`:`${result.ok} post${result.ok===1?'':'s'} published live.`,result.failed?'bad':'good');
+    clearCache('/api/control/social/status');
+
+    const keepSelected=new Set([...blockedIds,...result.failedIds]);
+    ctx.state.contentSelection=[...keepSelected];
+
+    if(result.failed===0&&blocked.length===0){
+      ctx.state.contentTab='published';
+      ctx.toast(`${result.ok} post${result.ok===1?'':'s'} published live.`,'good');
+    }else{
+      const firstError=result.errors[0]||blocked[0]?.reason||'One or more posts could not publish.';
+      const summary=`${result.ok} published; ${result.failed+blocked.length} stayed Approved & Ready. ${firstError}`;
+      ctx.toast(summary,'bad');
+    }
     ctx.refresh();
     return;
   }
