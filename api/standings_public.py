@@ -465,14 +465,7 @@ def race_center_my_racing(request: Request):
 def race_center_race_day(request: Request):
     account = race_center_accounts.account_from_request(request)
     follows = race_center_accounts.list_follows(account.id) if account else []
-    brief = race_center_entities.my_racing_brief(follows)
-    return {
-        "generated_at": brief.get("generated_at"),
-        "live": brief.get("live") or [],
-        "upcoming": brief.get("upcoming") or [],
-        "movement": brief.get("movement") or [],
-        "counts": brief.get("counts") or {},
-    }
+    return race_center_entities.race_day_brief(follows)
 
 
 @router.get("/api/public/race-center/data-health", include_in_schema=False)
