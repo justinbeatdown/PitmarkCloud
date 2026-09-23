@@ -1,0 +1,82 @@
+{
+  "name": "Pitmark Race Center",
+  "short_name": "Race Center",
+  "description": "Your racing command center for drivers, series, tracks, teams, events, standings, schedules and My Racing.",
+  "id": "/race-center",
+  "start_url": "/race-center?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+  "background_color": "#080b0f",
+  "theme_color": "#0b0f14",
+  "orientation": "any",
+  "categories": [
+    "sports",
+    "news",
+    "social"
+  ],
+  "icons": [
+    {
+      "src": "/race-center-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/race-center-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My Racing",
+      "short_name": "My Racing",
+      "url": "/race-center/my-racing?source=pwa",
+      "icons": [
+        {
+          "src": "/race-center-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Live + Next",
+      "short_name": "Live",
+      "url": "/race-center/live?source=pwa",
+      "icons": [
+        {
+          "src": "/race-center-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Drivers",
+      "short_name": "Drivers",
+      "url": "/race-center/drivers?source=pwa",
+      "icons": [
+        {
+          "src": "/race-center-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "short_name": "Events",
+      "url": "/race-center/events?source=pwa",
+      "icons": [
+        {
+          "src": "/race-center-icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}
