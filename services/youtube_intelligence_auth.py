@@ -184,8 +184,9 @@ def begin_authorization(user_key: str) -> dict[str, str]:
         "response_type": "code",
         "scope": YOUTUBE_SCOPES,
         "access_type": "offline",
-        "prompt": "consent",
+        "prompt": "select_account consent",
         "include_granted_scopes": "true",
+        "hd": "pitmarkracing.com",
         "state": state,
     })
     return {"authorization_url": url, "redirect_uri": YOUTUBE_REDIRECT_URI, "state": state}
