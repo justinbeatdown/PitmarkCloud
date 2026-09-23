@@ -16,7 +16,7 @@ from urllib.parse import quote, urljoin, urlsplit
 import httpx
 from bs4 import BeautifulSoup
 from pypdf import PdfReader
-from sqlalchemy import DateTime, Integer, String, Text, UniqueConstraint, select
+from sqlalchemy import Boolean, DateTime, Integer, String, Text, UniqueConstraint, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from services.database import Base, SessionLocal
@@ -582,6 +582,44 @@ IMSA_2026_STANDINGS_FALLBACK: dict[str, list[tuple[int, str, int]]] = {
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+DRIVER_IDENTITY_RESOLVER_VERSION = 3
+
+
+class RaceCenterDriverIdentityCache(Base):
+    __tablename__ = "race_center_driver_identity_cache"
+    __table_args__ = (
+        UniqueConstraint(
+            "series_key",
+            "season",
+            "driver_key",
+            name="uq_race_center_driver_identity_cache",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    series_key: Mapped[str] = mapped_column(String(120), index=True)
+    season: Mapped[int] = mapped_column(Integer, index=True)
+    driver_key: Mapped[str] = mapped_column(String(180), index=True)
+    driver_name: Mapped[str] = mapped_column(String(180))
+    number: Mapped[str] = mapped_column(String(40), default="")
+    team: Mapped[str] = mapped_column(String(220), default="")
+    manufacturer: Mapped[str] = mapped_column(String(120), default="")
+    bio: Mapped[str] = mapped_column(Text, default="")
+    photo_url: Mapped[str] = mapped_column(Text, default="")
+    photo_use_allowed: Mapped[bool] = mapped_column(Boolean, default=False)
+    photo_source_url: Mapped[str] = mapped_column(Text, default="")
+    photo_license: Mapped[str] = mapped_column(String(160), default="")
+    photo_attribution: Mapped[str] = mapped_column(Text, default="")
+    source_kind: Mapped[str] = mapped_column(String(40), default="")
+    source_name: Mapped[str] = mapped_column(String(160), default="")
+    source_url: Mapped[str] = mapped_column(Text, default="")
+    official_source_url: Mapped[str] = mapped_column(Text, default="")
+    secondary_source_url: Mapped[str] = mapped_column(Text, default="")
+    field_sources_json: Mapped[str] = mapped_column(Text, default="{}")
+    resolver_version: Mapped[int] = mapped_column(Integer, default=DRIVER_IDENTITY_RESOLVER_VERSION)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
 
 
 class RacingStandingSnapshot(Base):
@@ -3698,6 +3736,108 @@ def _wikipedia_driver_identity(
     return {**result, "source_url": page_url, "source_name": "Wikipedia"}
 
 
+def _driver_identity_cache_get(
+    series_key: str,
+    driver_name: str,
+    season: int,
+) -> dict[str, Any] | None:
+    key = _identity_key(driver_name)
+    if not key:
+        return None
+    with SessionLocal() as db:
+        row = db.scalar(
+            select(RaceCenterDriverIdentityCache).where(
+                RaceCenterDriverIdentityCache.series_key == series_key,
+                RaceCenterDriverIdentityCache.season == season,
+                RaceCenterDriverIdentityCache.driver_key == key,
+                RaceCenterDriverIdentityCache.resolver_version == DRIVER_IDENTITY_RESOLVER_VERSION,
+            )
+        )
+        if row is None:
+            return None
+        updated = row.updated_at
+        if updated is None:
+            return None
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=timezone.utc)
+        age_seconds = (utcnow() - updated).total_seconds()
+        complete = bool(row.number and row.team and row.manufacturer)
+        ttl = 24 * 3600 if complete else 4 * 3600
+        if age_seconds > ttl:
+            return None
+        try:
+            field_sources = json.loads(row.field_sources_json or "{}")
+        except Exception:
+            field_sources = {}
+        return {
+            "verified": row.source_kind == "official" and complete,
+            "resolved": bool(row.number or row.team or row.manufacturer),
+            "series_key": row.series_key,
+            "driver_name": row.driver_name,
+            "number": row.number or None,
+            "team": row.team or None,
+            "manufacturer": row.manufacturer or None,
+            "bio": row.bio or None,
+            "photo_url": row.photo_url or None,
+            "photo_use_allowed": bool(row.photo_use_allowed and row.photo_url),
+            "photo_source_url": row.photo_source_url or None,
+            "photo_license": row.photo_license or None,
+            "photo_attribution": row.photo_attribution or None,
+            "field_sources": field_sources,
+            "source_kind": row.source_kind or "unresolved",
+            "source_name": row.source_name or None,
+            "source_url": row.source_url or None,
+            "official_source_url": row.official_source_url or None,
+            "secondary_source_url": row.secondary_source_url or None,
+            "identity_quality": "complete" if complete else "partial",
+            "cached": True,
+            "updated_at": updated.isoformat(),
+        }
+
+
+def _driver_identity_cache_set(payload: dict[str, Any], season: int) -> None:
+    series_key = str(payload.get("series_key") or "").strip()
+    driver_name = str(payload.get("driver_name") or "").strip()
+    key = _identity_key(driver_name)
+    if not series_key or not key:
+        return
+    with SessionLocal() as db:
+        row = db.scalar(
+            select(RaceCenterDriverIdentityCache).where(
+                RaceCenterDriverIdentityCache.series_key == series_key,
+                RaceCenterDriverIdentityCache.season == season,
+                RaceCenterDriverIdentityCache.driver_key == key,
+            )
+        )
+        if row is None:
+            row = RaceCenterDriverIdentityCache(
+                series_key=series_key,
+                season=season,
+                driver_key=key,
+                driver_name=driver_name,
+            )
+            db.add(row)
+        row.driver_name = driver_name
+        row.number = str(payload.get("number") or "")[:40]
+        row.team = str(payload.get("team") or "")[:220]
+        row.manufacturer = str(payload.get("manufacturer") or "")[:120]
+        row.bio = str(payload.get("bio") or "")[:4000]
+        row.photo_url = str(payload.get("photo_url") or "")[:4000]
+        row.photo_use_allowed = bool(payload.get("photo_use_allowed") and row.photo_url)
+        row.photo_source_url = str(payload.get("photo_source_url") or "")[:4000]
+        row.photo_license = str(payload.get("photo_license") or "")[:160]
+        row.photo_attribution = str(payload.get("photo_attribution") or "")[:1000]
+        row.source_kind = str(payload.get("source_kind") or "")[:40]
+        row.source_name = str(payload.get("source_name") or "")[:160]
+        row.source_url = str(payload.get("source_url") or "")[:4000]
+        row.official_source_url = str(payload.get("official_source_url") or "")[:4000]
+        row.secondary_source_url = str(payload.get("secondary_source_url") or "")[:4000]
+        row.field_sources_json = json.dumps(payload.get("field_sources") or {}, sort_keys=True)
+        row.resolver_version = DRIVER_IDENTITY_RESOLVER_VERSION
+        row.updated_at = utcnow()
+        db.commit()
+
+
 def get_driver_identity(
     series_key: str,
     driver_name: str,
@@ -3715,13 +3855,19 @@ def get_driver_identity(
     if not config or not clean_name:
         return {
             "verified": False,
+            "resolved": False,
             "series_key": series_key,
             "driver_name": clean_name,
             "number": None,
             "team": None,
             "manufacturer": None,
             "source_url": None,
+            "identity_quality": "unavailable",
         }
+
+    cached_identity = _driver_identity_cache_get(series_key, clean_name, season)
+    if cached_identity:
+        return cached_identity
 
     try:
         metadata, source_url = _official_metadata(config, season, [clean_name])
@@ -3820,7 +3966,7 @@ def get_driver_identity(
         source_kind,
         bool(secondary.get("photo_url")),
     )
-    return {
+    result = {
         "verified": fully_official,
         "resolved": bool(resolved),
         "series_key": series_key,
@@ -3850,7 +3996,26 @@ def get_driver_identity(
         "source_url": official_source_url if source_kind == "official" else secondary.get("source_url"),
         "official_source_url": official_source_url,
         "secondary_source_url": secondary.get("source_url"),
+        "identity_quality": (
+            "complete"
+            if number and team and manufacturer
+            else "partial"
+            if resolved
+            else "unavailable"
+        ),
+        "cached": False,
+        "updated_at": utcnow().isoformat(),
     }
+    try:
+        _driver_identity_cache_set(result, season)
+    except Exception as exc:
+        log.info(
+            "Driver identity cache write failed series=%s driver=%s error=%s",
+            series_key,
+            clean_name,
+            exc,
+        )
+    return result
 
 
 def clear_standings_cache() -> None:
