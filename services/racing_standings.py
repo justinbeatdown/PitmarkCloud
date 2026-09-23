@@ -3448,7 +3448,7 @@ def _wikipedia_identity_from_summary(
     # Stock-car biographies commonly use:
     # "driving the No. 5 Chevrolet ... for Hendrick Motorsports".
     team_match = re.search(
-        r"\bfor\s+([A-Z][A-Za-z0-9&'’.\- ]{2,80}?)(?=\s+and\s+(?:part-time|full-time)|,\s+(?:and|while)|[.;]|$)",
+        r"\bfor\s+([A-Z][A-Za-z0-9&'’.\- ]{2,80}?)(?=\s+and\s+(?:part-time|full-time)|,\s+(?:and\s+)?(?:part-time|full-time)|,\s+(?:and|while)|[.;]|$)",
         clause,
     )
     if team_match:
