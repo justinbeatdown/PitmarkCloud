@@ -54,7 +54,30 @@ def social_publish_status(request: Request, x_pitmark_admin_key: str | None = He
     if facebook.get("configured"): supported.append("facebook")
     if instagram.get("configured"): supported.append("instagram")
     if x.get("configured"): supported.append("x")
-    return {"facebook": facebook, "instagram": instagram, "x": x, "supported_platforms": supported}
+
+    publishable = []
+    blocked: dict[str, str] = {}
+    if facebook.get("configured") and facebook.get("connected", True):
+        publishable.append("facebook")
+    elif facebook.get("configured"):
+        blocked["facebook"] = str(facebook.get("error") or "Facebook publishing is not healthy.")
+    if instagram.get("configured") and instagram.get("connected", True):
+        publishable.append("instagram")
+    elif instagram.get("configured"):
+        blocked["instagram"] = str(instagram.get("error") or "Instagram publishing is not healthy.")
+    if x.get("configured") and not x.get("publishing_paused"):
+        publishable.append("x")
+    elif x.get("configured"):
+        blocked["x"] = "X publishing is paused because API credits are depleted."
+
+    return {
+        "facebook": facebook,
+        "instagram": instagram,
+        "x": x,
+        "supported_platforms": supported,
+        "publishable_platforms": publishable,
+        "blocked_platforms": blocked,
+    }
 
 
 @router.get("/assets")
@@ -333,7 +356,11 @@ def publish_post(post_id: int, request: Request, x_pitmark_admin_key: str | None
                 mark_used(media_url)
         except HTTPException:
             raise
-        except (MetaPublishError, XPublishError) as exc:
+        except XPublishError as exc:
+            detail = str(exc)
+            code = 402 if "credits are depleted" in detail.lower() else 502
+            raise HTTPException(code, detail)
+        except MetaPublishError as exc:
             raise HTTPException(502, str(exc))
         post.status = "published"
         post.updated_at = utcnow()
