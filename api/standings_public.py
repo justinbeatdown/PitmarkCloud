@@ -182,9 +182,9 @@ def race_center_logout():
 async def race_center_profile_photo_upload(request: Request, photo: UploadFile = File(...)):
     account = _race_account_or_401(request)
     enforce_rate_limit(request, "race-center-profile-photo", 10, 300)
-    raw = await photo.read(6 * 1024 * 1024 + 1)
-    if len(raw) > 6 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Profile photos must be 6 MB or smaller.")
+    raw = await photo.read(2 * 1024 * 1024 + 1)
+    if len(raw) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Prepared profile photos must be 2 MB or smaller.")
     try:
         image = Image.open(BytesIO(raw))
         image = ImageOps.exif_transpose(image).convert("RGB")
