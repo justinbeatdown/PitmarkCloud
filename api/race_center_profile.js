@@ -54,6 +54,17 @@ function renderProfile(){
   $('#publicProfileFollowers').textContent=String(profile.followers||0);
   $('#publicProfileFollowing').textContent=String(profile.following||0);
   $('#publicProfileSeries').textContent=String((profile.series||[]).length);
+  const staff=profile.staff||{};
+  const staffBadge=$('#pitmarkStaffBadge');
+  if(staffBadge){
+    staffBadge.hidden=!staff.label;
+    if(staff.label){
+      const title=staff.title||'Pitmark Racing Co.';
+      staffBadge.querySelector('b').textContent=staff.label;
+      staffBadge.querySelector('small').textContent=title;
+      staffBadge.classList.toggle('is-founder',staff.level==='founder');
+    }
+  }
   const verified=$('#publicProfileVerified');
   verified.hidden=identity.verification_status!=='verified';
   if(!verified.hidden)verified.textContent='✓ '+(identity.official_label||'Verified');
