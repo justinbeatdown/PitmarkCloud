@@ -2178,3 +2178,108 @@ body[data-view="series"] .series-directory{margin-top:24px}
   .mobile-dock::-webkit-scrollbar{display:none}
   .mobile-dock>a,.mobile-dock>button{min-width:74px;flex:1 0 74px}
 }
+
+
+/* Race Center data/photo/personalization repair — 2026-09-23 */
+body[data-view="driver"] .home-race-pulse,
+body[data-view="driver"] #hubNavigation,
+body[data-view="driver"] .toolbar,
+body[data-view="driver"] .hero-actions{
+  display:none!important;
+}
+body[data-view="driver"] .hero{
+  padding-bottom:14px!important;
+  margin-bottom:0;
+}
+body[data-view="driver"] .driver-profile-page{
+  display:block!important;
+  margin-top:18px!important;
+}
+
+body[data-view="standings"] .series-section,
+body[data-view="standings"] .leaders-section,
+body[data-view="standings"] .movers-section{
+  display:block!important;
+}
+body[data-view="standings"] .series-section{
+  min-height:320px;
+}
+
+.driver-profile-photo{
+  align-self:start;
+}
+.driver-photo-credit{
+  display:block;
+  max-width:170px;
+  margin-top:8px;
+  color:#77879a;
+  font-size:9px;
+  line-height:1.35;
+  text-align:center;
+}
+.driver-photo-credit:hover{color:#ff9565}
+
+.my-racing-driver-chip .driver-photo{
+  width:58px;
+  height:38px;
+  border-radius:8px;
+  object-fit:cover;
+  flex:0 0 auto;
+}
+.my-racing-driver-chip .driver-photo-fallback{
+  display:grid;
+  place-items:center;
+  background:#151b21;
+  border:1px solid #303b46;
+  color:#ff9361;
+  font-size:12px;
+  font-weight:950;
+}
+.my-racing-series-chip,
+.my-racing-driver-chip{
+  text-decoration:none;
+}
+
+.profile-followed-racing{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.profile-followed-racing>a{
+  min-height:48px;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  gap:9px;
+  align-items:center;
+  padding:10px 12px;
+  border:1px solid #2c3640;
+  border-radius:11px;
+  background:#0c1116;
+}
+.profile-followed-racing>a:hover{
+  border-color:rgba(255,85,0,.45);
+  background:#11171d;
+}
+.profile-followed-racing>a b{
+  color:#ff8e5a;
+  font-size:9px;
+  text-transform:uppercase;
+}
+.profile-followed-racing>a span{
+  min-width:0;
+  color:#d7dee7;
+  font-size:12px;
+  font-weight:800;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.profile-followed-racing>a em{
+  color:#7e8c9f;
+  font-style:normal;
+}
+
+@media(max-width:760px){
+  .profile-followed-racing{grid-template-columns:1fr}
+  .driver-photo-credit{text-align:left}
+}
