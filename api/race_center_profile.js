@@ -86,10 +86,15 @@ function renderProfile(){
     if(!account.authenticated)follow.textContent='Sign in to follow';
   }
 
-  const racing=[
-    ...(profile.series||[]).map(x=>'<span><b>Series</b>'+esc(x.label||x.key)+'</span>'),
-    ...(profile.drivers||[]).map(x=>'<span><b>Driver</b>'+esc(x.label||x.key)+'</span>')
-  ];
+  const seriesItems=(profile.series||[]).map(x=>
+    '<a href="/race-center/series/'+encodeURIComponent(String(x.key||''))+'"><b>Series</b><span>'+esc(x.label||x.key)+'</span><em>→</em></a>'
+  );
+  const driverItems=(profile.drivers||[]).map(x=>{
+    const key=String(x.key||'');
+    const fallbackName=key.split(':').slice(1).join(':')||key;
+    return '<a href="/race-center/driver/'+encodeURIComponent(String(x.series_key||key.split(':')[0]||''))+'/'+encodeURIComponent(String(x.label||fallbackName))+'"><b>Driver</b><span>'+esc(x.label||fallbackName)+'</span><em>→</em></a>';
+  });
+  const racing=[...seriesItems,...driverItems];
   $('#profileFollowedRacing').innerHTML=racing.length?racing.join(''):'<div class="loading-card">No racing follows yet.</div>';
   renderAvatar();
 }
