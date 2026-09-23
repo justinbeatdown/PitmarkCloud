@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from io import BytesIO
 from datetime import datetime, timedelta, timezone
+from html import escape as html_escape
 import base64
 import threading
 import time
@@ -821,6 +822,71 @@ def public_standings_home(request: Request):
     return HTMLResponse(
         html,
         headers={"Cache-Control": "no-cache, no-store"},
+    )
+
+
+@router.get("/race-center/embed/standings/{series_key}", response_class=HTMLResponse, include_in_schema=False)
+def public_race_center_standings_embed(series_key: str, limit: int = 12):
+    payload = get_standings_snapshot_hub()
+    series = next(
+        (item for item in payload.get("series") or [] if str(item.get("series_key") or "") == series_key),
+        None,
+    )
+    if not series:
+        raise HTTPException(status_code=404, detail="Race Center series not found.")
+
+    entries = list(series.get("entries") or [])[: max(3, min(int(limit or 12), 30))]
+    title = html_escape(str(series.get("series_name") or series.get("short_name") or series_key))
+    rows = []
+    for entry in entries:
+        position = html_escape(str(entry.get("position") or "—"))
+        name = html_escape(str(entry.get("name") or "Unknown driver"))
+        number = html_escape(str(entry.get("number") or ""))
+        points = html_escape(str(entry.get("points") if entry.get("points") is not None else "—"))
+        identity = " · ".join(
+            html_escape(str(value))
+            for value in (entry.get("team"), entry.get("manufacturer"))
+            if value
+        )
+        rows.append(
+            f'<div class="row"><b>P{position}</b><span class="driver"><strong>{name}</strong>'
+            + (f'<small>#{number} · {identity}</small>' if number and identity else f'<small>#{number}</small>' if number else f'<small>{identity}</small>' if identity else "")
+            + f'</span><em>{points} pts</em></div>'
+        )
+
+    html = f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{title} — Pitmark Race Center</title>
+<style>
+:root{{color-scheme:dark}}*{{box-sizing:border-box}}body{{margin:0;background:#090d11;color:#f2f5f7;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}}
+.widget{{min-height:100vh;border:1px solid #2a3540;border-radius:14px;overflow:hidden;background:linear-gradient(145deg,#11171d,#090d11)}}
+header{{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;border-bottom:1px solid #27313b;background:#0c1116}}
+header div{{min-width:0}}header span{{display:block;color:#ff8d55;font-size:9px;font-weight:900;letter-spacing:.09em;text-transform:uppercase}}
+header strong{{display:block;margin-top:3px;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+header a{{color:#ff9a69;font-size:9px;font-weight:900;text-decoration:none;white-space:nowrap}}
+.rows{{display:grid}}.row{{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:10px;align-items:center;min-height:48px;padding:8px 13px;border-top:1px solid #202932}}
+.row:first-child{{border-top:0}}.row>b{{color:#ff8d55;font-size:11px}}.driver{{min-width:0}}.driver strong{{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}.driver small{{display:block;margin-top:2px;color:#7f8c9d;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+.row>em{{color:#b6c0cc;font-size:10px;font-style:normal;font-weight:800;white-space:nowrap}}
+footer{{padding:9px 13px;border-top:1px solid #27313b;color:#6f7d8e;font-size:8px;text-align:right}}
+</style>
+</head>
+<body>
+<section class="widget">
+<header><div><span>LIVE STANDINGS</span><strong>{title}</strong></div><a href="/race-center/series/{html_escape(series_key)}" target="_blank" rel="noopener">Race Center ↗</a></header>
+<div class="rows">{''.join(rows) if rows else '<div class="row"><span class="driver"><strong>No standings available</strong></span></div>'}</div>
+<footer>Powered by Pitmark Race Center · Source-backed standings</footer>
+</section>
+</body>
+</html>"""
+    return HTMLResponse(
+        html,
+        headers={
+            "Cache-Control": "public, max-age=120",
+            "Content-Security-Policy": "frame-ancestors *",
+        },
     )
 
 
