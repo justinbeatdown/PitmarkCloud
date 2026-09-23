@@ -2,7 +2,7 @@
   const $7=(selector,root=document)=>(root||document).querySelector(selector);
   const $$7=(selector,root=document)=>[...(root||document).querySelectorAll(selector)];
   const e7=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const RC7={platform:null,briefing:null,loading:false};
+  const RC7={platform:null,briefing:null,loading:false,entityContent:{}};
 
   const currentView=()=>String(document.body.dataset.view||'hub');
   const followRows=()=>Array.isArray(state?.account?.follows)?state.account.follows:[];
@@ -81,6 +81,68 @@
         (event.watch_url?'<a class="v7-mini-action" href="'+e7(event.watch_url)+'" target="_blank" rel="noopener">Watch ↗</a>':'')+
       '</div>'+
     '</article>';
+  }
+
+  async function loadEntityContent(type,key,force=false){
+    const cacheKey=String(type||'')+':'+String(key||'');
+    if(!force&&RC7.entityContent[cacheKey])return RC7.entityContent[cacheKey];
+    try{
+      const payload=await apiJson('/api/public/race-center/entity-content/'+encodeURIComponent(type)+'/'+encodeURIComponent(key),{method:'GET',cache:'no-store'});
+      RC7.entityContent[cacheKey]=payload;
+      return payload;
+    }catch(_error){
+      const payload={entity_type:type,entity_key:key,content:{},coverage:[],can_manage:false};
+      RC7.entityContent[cacheKey]=payload;
+      return payload;
+    }
+  }
+
+  function ownerLinks(content){
+    return [
+      content.website_url?'<a href="'+e7(content.website_url)+'" target="_blank" rel="noopener">Official website ↗</a>':'',
+      content.merch_url?'<a href="'+e7(content.merch_url)+'" target="_blank" rel="noopener">Merch ↗</a>':'',
+      content.social_url?'<a href="'+e7(content.social_url)+'" target="_blank" rel="noopener">Social ↗</a>':'',
+      content.contact_url?'<a href="'+e7(content.contact_url)+'" target="_blank" rel="noopener">Contact ↗</a>':''
+    ].filter(Boolean).join('');
+  }
+
+  async function attachEntityContent(type,key,name,root){
+    if(!root||!type||!key)return;
+    const payload=await loadEntityContent(type,key);
+    if(!root.isConnected)return;
+    root.querySelectorAll('.v7-owner-layer').forEach(node=>node.remove());
+    const content=payload.content||{};
+    const coverage=payload.coverage||[];
+    const hasOwnerContent=Boolean(content.headline||content.bio||content.website_url||content.merch_url||content.social_url||content.contact_url||content.sponsors);
+    if(!hasOwnerContent&&!coverage.length&&!payload.can_manage)return;
+
+    const target=root.querySelector('.v7-profile-aside,.driver-profile-aside')||root;
+    const layer=document.createElement('div');
+    layer.className='v7-owner-layer';
+
+    if(hasOwnerContent||payload.can_manage){
+      const sponsors=String(content.sponsors||'').split(/[\n,]+/).map(x=>x.trim()).filter(Boolean).slice(0,24);
+      const links=ownerLinks(content);
+      layer.innerHTML+='<section class="v7-panel v7-owner-card">'+
+        '<span class="eyebrow">VERIFIED OWNER CONTENT</span>'+
+        '<h3>'+e7(content.headline||name||'Racing profile')+'</h3>'+
+        (content.bio?'<p>'+e7(content.bio).replace(/\n/g,'<br>')+'</p>':'')+
+        (sponsors.length?'<div class="v7-sponsor-list">'+sponsors.map(s=>'<span>'+e7(s)+'</span>').join('')+'</div>':'')+
+        (links?'<div class="v7-owner-links">'+links+'</div>':'')+
+        (payload.can_manage?'<button class="button v7-manage-button" type="button" data-v7-manage-type="'+e7(type)+'" data-v7-manage-key="'+e7(key)+'" data-v7-manage-name="'+e7(name||key)+'">Manage this page</button>':'')+
+      '</section>';
+    }
+
+    if(coverage.length){
+      layer.innerHTML+='<section class="v7-panel v7-coverage-card">'+
+        '<span class="eyebrow">PITMARK COVERAGE</span><h3>Stories connected to this page</h3>'+
+        '<div class="v7-coverage-list">'+coverage.map(item=>
+          '<a href="'+e7(item.url)+'" target="_blank" rel="noopener"><strong>'+e7(item.title)+'</strong>'+
+          (item.summary?'<small>'+e7(item.summary)+'</small>':'')+'<span>Read ↗</span></a>'
+        ).join('')+'</div>'+
+      '</section>';
+    }
+    target.appendChild(layer);
   }
 
   function trackCard(track){
@@ -171,6 +233,7 @@
         '<section class="v7-panel"><span class="eyebrow">UPCOMING / RECENT</span><h3>Events at '+e7(track.name)+'</h3><div class="v7-event-list">'+(events.length?events.map(event=>eventCard(event,true)).join(''):'<div class="loading-card">No dated events are indexed yet.</div>')+'</div></section>'+
       '</div><aside class="v7-profile-aside"><section class="v7-panel"><span class="eyebrow">CONNECTED SERIES</span><h3>Who races here</h3><div class="v7-related-list">'+(series||'<p>No series connections yet.</p>')+'</div></section>'+
       '<section class="v7-panel"><span class="eyebrow">PITMARK COVERAGE</span><h3>Add context around the racing</h3><p>Track submissions, releases and Pitmark coverage can connect back to this profile without altering official event facts.</p><a class="button" href="/submit-racing-news">Submit track news</a></section></aside></div>';
+    attachEntityContent('track',track.key,track.name,host);
   }
 
   function renderTeams(){
@@ -201,6 +264,7 @@
       '<div class="v7-profile-layout"><div class="v7-profile-main"><section class="v7-panel"><span class="eyebrow">ROSTER</span><h3>Current Race Center drivers</h3><div class="v7-driver-list">'+(drivers||'<div class="loading-card">No connected drivers yet.</div>')+'</div></section></div>'+
       '<aside class="v7-profile-aside"><section class="v7-panel"><span class="eyebrow">SERIES</span><h3>Where they race</h3><div class="v7-related-list">'+(series||'<p>No series connections yet.</p>')+'</div></section>'+
       '<section class="v7-panel"><span class="eyebrow">OWNER-CONTROLLED CONTENT</span><h3>Claim the team page</h3><p>Verified teams can own biography, links, sponsors and announcements around source-backed results and standings.</p>'+claimButton('team',team.key,team.name)+'</section></aside></div>';
+    attachEntityContent('team',team.key,team.name,host);
   }
 
   function renderEvents(){
@@ -247,6 +311,7 @@
         (event.schedule_url?'<a href="'+e7(event.schedule_url)+'" target="_blank" rel="noopener">Series schedule ↗</a>':'')+
         (event.watch_url?'<a href="'+e7(event.watch_url)+'" target="_blank" rel="noopener">Watch information ↗</a>':'')+
       '</div></section></aside></div>';
+    attachEntityContent('event',event.key,event.name,host);
   }
 
   function renderArchive(){
@@ -293,6 +358,8 @@
       (recent.length?'<div class="v7-recent-links"><strong>Recent event sources</strong>'+recent.map(event=>'<a href="'+eventHref(event)+'">'+e7(event.name)+' <span>'+e7(formatDate(event.start,event.date_only))+'</span></a>').join('')+'</div>':'');
     main.appendChild(graph);
 
+    const driverEntityKey=String(route.series_key)+':'+String(route.name||'').trim().toLowerCase();
+    attachEntityContent('driver',driverEntityKey,route.name,document.querySelector('#driverProfileContent'));
     if(team){
       const panel=document.createElement('section');
       panel.id='v7DriverTeamGraph';
@@ -327,6 +394,8 @@
         '<p>No venue connections are indexed yet.</p>'
       )+'</div></div></div>';
     host.appendChild(section);
+    const series=currentSeries(key);
+    attachEntityContent('series',key,series?.series_name||key,host);
   }
 
   function applyRaceDayMode(){
@@ -457,6 +526,56 @@
     }
   }
 
+  async function openManage(button){
+    if(!state?.account?.authenticated){$7('#accountDialog')?.showModal();return;}
+    const type=String(button.dataset.v7ManageType||'');
+    const key=String(button.dataset.v7ManageKey||'');
+    const name=String(button.dataset.v7ManageName||key);
+    const payload=await loadEntityContent(type,key,true);
+    if(!payload.can_manage){alert('Verified ownership or Pitmark staff access is required.');return;}
+    const content=payload.content||{};
+    $7('#entityManageType').value=type;
+    $7('#entityManageKey').value=key;
+    $7('#entityManageTitle').textContent='Manage '+name;
+    $7('#entityManageHeadline').value=content.headline||'';
+    $7('#entityManageBio').value=content.bio||'';
+    $7('#entityManageWebsite').value=content.website_url||'';
+    $7('#entityManageMerch').value=content.merch_url||'';
+    $7('#entityManageSocial').value=content.social_url||'';
+    $7('#entityManageContact').value=content.contact_url||'';
+    $7('#entityManageSponsors').value=content.sponsors||'';
+    $7('#entityManageMessage').textContent='';
+    $7('#entityManageDialog')?.showModal();
+  }
+
+  async function submitManage(event){
+    event.preventDefault();
+    const type=$7('#entityManageType').value;
+    const key=$7('#entityManageKey').value;
+    const message=$7('#entityManageMessage');
+    message.textContent='Saving verified page content…';
+    try{
+      const payload=await apiJson('/api/public/race-center/entity-content/'+encodeURIComponent(type)+'/'+encodeURIComponent(key),{
+        method:'PUT',
+        body:JSON.stringify({
+          headline:$7('#entityManageHeadline').value,
+          bio:$7('#entityManageBio').value,
+          website_url:$7('#entityManageWebsite').value,
+          merch_url:$7('#entityManageMerch').value,
+          social_url:$7('#entityManageSocial').value,
+          contact_url:$7('#entityManageContact').value,
+          sponsors:$7('#entityManageSponsors').value
+        })
+      });
+      RC7.entityContent[type+':'+key]=payload;
+      message.textContent='Page content saved.';
+      renderAll();
+      setTimeout(()=>$7('#entityManageDialog')?.close(),700);
+    }catch(error){
+      message.textContent=error.message||'Could not save page content.';
+    }
+  }
+
   function wire(){
     ['#trackSearch','#teamSearch','#eventSearch'].forEach(selector=>{
       const input=$7(selector);
@@ -469,11 +588,17 @@
       if(follow){event.preventDefault();toggleFollow(follow);return;}
       const claim=event.target.closest('[data-v7-claim-type]');
       if(claim){event.preventDefault();openClaim(claim);return;}
+      const manage=event.target.closest('[data-v7-manage-type]');
+      if(manage){event.preventDefault();openManage(manage);return;}
     });
     const form=$7('#entityClaimForm');
     if(form&&!form.dataset.v7Wired){form.dataset.v7Wired='1';form.addEventListener('submit',submitClaim);}
     const close=$7('#entityClaimClose');
     if(close&&!close.dataset.v7Wired){close.dataset.v7Wired='1';close.addEventListener('click',()=>$7('#entityClaimDialog')?.close());}
+    const manageForm=$7('#entityManageForm');
+    if(manageForm&&!manageForm.dataset.v7Wired){manageForm.dataset.v7Wired='1';manageForm.addEventListener('submit',submitManage);}
+    const manageClose=$7('#entityManageClose');
+    if(manageClose&&!manageClose.dataset.v7Wired){manageClose.dataset.v7Wired='1';manageClose.addEventListener('click',()=>$7('#entityManageDialog')?.close());}
   }
 
   function registerPwa(){
