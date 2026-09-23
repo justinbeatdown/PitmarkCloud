@@ -35,7 +35,8 @@ function renderAvatar(){
   if(!host||!profile)return;
   host.innerHTML='';
   const img=document.createElement('img');
-  img.src=(profile.photo_url||'/api/public/race-center/profile-photo/'+encodeURIComponent(profile.handle))+'?v='+Date.now();
+  const photoUrl=profile.photo_url||'/api/public/race-center/profile-photo/'+encodeURIComponent(profile.handle);
+  img.src=photoUrl+(photoUrl.includes('?')?'&':'?')+'v='+Date.now();
   img.alt=profile.display_name||profile.handle;
   img.onload=()=>{host.classList.add('has-photo');};
   img.onerror=()=>{host.classList.remove('has-photo');host.textContent=initials(profile.display_name||profile.handle);};
@@ -92,6 +93,69 @@ function renderWall(){
   '</article>').join(''):'<div class="loading-card">Nothing posted here yet.</div>';
 }
 
+async function prepareProfilePhoto(file){
+  if(!file||!String(file.type||'').startsWith('image/')){
+    throw new Error('Choose a JPG, PNG, WebP, or other browser-readable image.');
+  }
+
+  const decode=async()=>{
+    if('createImageBitmap' in window){
+      try{return await createImageBitmap(file,{imageOrientation:'from-image'});}catch(_error){}
+    }
+    return await new Promise((resolve,reject)=>{
+      const url=URL.createObjectURL(file);
+      const img=new Image();
+      img.onload=()=>{URL.revokeObjectURL(url);resolve(img);};
+      img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('That photo could not be opened by your browser.'));};
+      img.src=url;
+    });
+  };
+
+  const image=await decode();
+  const sourceWidth=Number(image.width||image.naturalWidth||0);
+  const sourceHeight=Number(image.height||image.naturalHeight||0);
+  if(!sourceWidth||!sourceHeight){
+    image.close?.();
+    throw new Error('That photo has invalid dimensions.');
+  }
+
+  const size=720;
+  const crop=Math.min(sourceWidth,sourceHeight);
+  const sx=Math.max(0,(sourceWidth-crop)/2);
+  const sy=Math.max(0,(sourceHeight-crop)/2);
+  const canvas=document.createElement('canvas');
+  canvas.width=size;
+  canvas.height=size;
+  const context=canvas.getContext('2d',{alpha:false});
+  if(!context){
+    image.close?.();
+    throw new Error('Your browser could not prepare this photo.');
+  }
+  context.drawImage(image,sx,sy,crop,crop,0,0,size,size);
+  image.close?.();
+
+  const makeBlob=(type,quality)=>new Promise(resolve=>canvas.toBlob(resolve,type,quality));
+  let blob=await makeBlob('image/webp',0.84);
+  let extension='webp';
+  if(!blob){
+    blob=await makeBlob('image/jpeg',0.86);
+    extension='jpg';
+  }
+  if(!blob)throw new Error('Your browser could not resize this photo.');
+
+  // Keep the multipart request comfortably under Race Center's upload cap.
+  if(blob.size>1400*1024){
+    blob=await makeBlob('image/jpeg',0.72);
+    extension='jpg';
+  }
+  if(!blob||blob.size>1800*1024){
+    throw new Error('That image could not be compressed enough. Try another photo.');
+  }
+
+  const base=String(file.name||'profile-photo').replace(/\.[^.]+$/,'').replace(/[^a-z0-9_-]+/gi,'-').slice(0,60)||'profile-photo';
+  return new File([blob],base+'.'+extension,{type:blob.type||'image/jpeg'});
+}
+
 async function load(){
   try{
     [account,profile]=await Promise.all([
@@ -116,17 +180,21 @@ $('#profilePhotoInput')?.addEventListener('change',async event=>{
   const file=event.target.files&&event.target.files[0];
   if(!file)return;
   const label=$('#profilePhotoUpload span');
-  label.textContent='Uploading…';
+  label.textContent='Preparing photo…';
   try{
+    const prepared=await prepareProfilePhoto(file);
+    label.textContent='Uploading…';
     const data=new FormData();
-    data.append('photo',file);
+    data.append('photo',prepared,prepared.name);
     const result=await apiJson('/api/public/race-center/profile/photo',{method:'PUT',body:data});
     if(result.photo_url)profile.photo_url=result.photo_url;
     renderAvatar();
     label.textContent='Change photo';
   }catch(error){
     label.textContent=error.message||'Upload failed';
-    setTimeout(()=>{label.textContent='Change photo';},2200);
+    setTimeout(()=>{label.textContent='Change photo';},3200);
+  }finally{
+    event.target.value='';
   }
 });
 
