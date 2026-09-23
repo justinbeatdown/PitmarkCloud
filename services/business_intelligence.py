@@ -17,6 +17,7 @@ from services.prt_feedback import summary as feedback_summary
 from services.prt_licensing_store import list_early_access_invites
 from services.shopify_service import configured as shopify_configured, graphql
 from services.google_business_intelligence_auth import configured as google_bi_configured, authorization_headers
+from services.youtube_intelligence_auth import configured as youtube_configured, authorization_headers as youtube_authorization_headers
 from services.meta_publish_service import _page_token as meta_page_token
 from utils.config import settings
 
@@ -646,6 +647,165 @@ def _google_snapshot(days: int = 30) -> dict[str, Any]:
     }
 
 
+def _youtube_snapshot(days: int = 30) -> dict[str, Any]:
+    setup_urls = _google_setup_urls("youtube.googleapis.com")
+    if not youtube_configured():
+        return {
+            "status": "auth_required",
+            "live": False,
+            "note": "YouTube Data API is enabled. Connect the Pitmark YouTube account with read-only access.",
+            "setup_urls": setup_urls,
+            "channel": None,
+            "recent_videos": [],
+            "error": None,
+        }
+
+    try:
+        headers = youtube_authorization_headers()
+    except Exception as exc:
+        return {
+            "status": "auth_required",
+            "live": False,
+            "note": "Reconnect the Pitmark YouTube account.",
+            "setup_urls": setup_urls,
+            "channel": None,
+            "recent_videos": [],
+            "error": str(exc)[:320],
+        }
+
+    try:
+        with httpx.Client(timeout=20.0, headers=headers) as client:
+            channels = client.get(
+                "https://www.googleapis.com/youtube/v3/channels",
+                params={
+                    "part": "snippet,statistics,contentDetails",
+                    "mine": "true",
+                    "maxResults": 10,
+                },
+            )
+            channels.raise_for_status()
+            items = list((channels.json() or {}).get("items") or [])
+            if not items:
+                return {
+                    "status": "no_channel",
+                    "live": False,
+                    "note": "The authorized Google account does not expose a YouTube channel.",
+                    "setup_urls": setup_urls,
+                    "channel": None,
+                    "recent_videos": [],
+                    "error": "No YouTube channel was returned for the authorized account.",
+                }
+
+            selected = next(
+                (
+                    row for row in items
+                    if "pitmark" in str(((row.get("snippet") or {}).get("title")) or "").lower()
+                ),
+                items[0],
+            )
+            snippet = selected.get("snippet") or {}
+            statistics = selected.get("statistics") or {}
+            related = ((selected.get("contentDetails") or {}).get("relatedPlaylists") or {})
+            channel = {
+                "id": selected.get("id"),
+                "title": snippet.get("title"),
+                "custom_url": snippet.get("customUrl"),
+                "subscribers": int(statistics.get("subscriberCount") or 0),
+                "views": int(statistics.get("viewCount") or 0),
+                "videos": int(statistics.get("videoCount") or 0),
+            }
+
+            uploads = str(related.get("uploads") or "").strip()
+            recent_videos: list[dict[str, Any]] = []
+            if uploads:
+                playlist = client.get(
+                    "https://www.googleapis.com/youtube/v3/playlistItems",
+                    params={
+                        "part": "snippet,contentDetails",
+                        "playlistId": uploads,
+                        "maxResults": 50,
+                    },
+                )
+                playlist.raise_for_status()
+                playlist_rows = list((playlist.json() or {}).get("items") or [])
+                cutoff = datetime.now(timezone.utc) - timedelta(days=max(1, days))
+                ids: list[str] = []
+                published_map: dict[str, str] = {}
+                for row in playlist_rows:
+                    video_id = str(((row.get("contentDetails") or {}).get("videoId")) or "").strip()
+                    published_at = str(((row.get("contentDetails") or {}).get("videoPublishedAt")) or ((row.get("snippet") or {}).get("publishedAt")) or "")
+                    published_dt = _parse_dt(published_at)
+                    if video_id and (not published_dt or published_dt >= cutoff):
+                        ids.append(video_id)
+                        published_map[video_id] = published_at
+
+                if ids:
+                    videos = client.get(
+                        "https://www.googleapis.com/youtube/v3/videos",
+                        params={
+                            "part": "snippet,statistics,contentDetails",
+                            "id": ",".join(ids[:50]),
+                            "maxResults": 50,
+                        },
+                    )
+                    videos.raise_for_status()
+                    for row in (videos.json() or {}).get("items") or []:
+                        vid = str(row.get("id") or "")
+                        vs = row.get("snippet") or {}
+                        stats = row.get("statistics") or {}
+                        recent_videos.append({
+                            "id": vid,
+                            "title": vs.get("title"),
+                            "published_at": published_map.get(vid) or vs.get("publishedAt"),
+                            "views": int(stats.get("viewCount") or 0),
+                            "likes": int(stats.get("likeCount") or 0),
+                            "comments": int(stats.get("commentCount") or 0),
+                        })
+
+            recent_videos.sort(
+                key=lambda row: (int(row.get("views") or 0), str(row.get("published_at") or "")),
+                reverse=True,
+            )
+            return {
+                "status": "live",
+                "live": True,
+                "note": "Read-only YouTube Data API",
+                "setup_urls": setup_urls,
+                "channel": channel,
+                "recent_videos": recent_videos[:20],
+                "recent_summary": {
+                    "videos": len(recent_videos),
+                    "views": sum(int(row.get("views") or 0) for row in recent_videos),
+                    "likes": sum(int(row.get("likes") or 0) for row in recent_videos),
+                    "comments": sum(int(row.get("comments") or 0) for row in recent_videos),
+                },
+                "error": None,
+            }
+    except httpx.HTTPStatusError as exc:
+        status_code, detail = _http_error_detail(exc)
+        status = "api_disabled" if status_code == 403 and ("disabled" in detail.lower() or "has not been used" in detail.lower()) else "error"
+        project_id = _google_project_id(detail)
+        return {
+            "status": status,
+            "live": False,
+            "note": "YouTube read-only connector",
+            "setup_urls": _google_setup_urls("youtube.googleapis.com", project=project_id) if project_id else setup_urls,
+            "channel": None,
+            "recent_videos": [],
+            "error": f"YouTube Data API {status_code}: {detail}" if detail else f"YouTube Data API {status_code}",
+        }
+    except Exception as exc:
+        return {
+            "status": "error",
+            "live": False,
+            "note": "YouTube read-only connector",
+            "setup_urls": setup_urls,
+            "channel": None,
+            "recent_videos": [],
+            "error": "YouTube Data API: %s" % str(exc)[:320],
+        }
+
+
 def _internal_growth() -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     applications = list_applications(limit=500)
@@ -843,12 +1003,13 @@ def _recommendations(shopify: dict[str, Any], growth: dict[str, Any], meta: dict
 
 def overview(days: int = 30) -> dict[str, Any]:
     safe_days = max(7, min(int(days), 90))
-    executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="pitmark-intelligence")
+    executor = ThreadPoolExecutor(max_workers=5, thread_name_prefix="pitmark-intelligence")
     futures = {
         "shopify": executor.submit(_shopify_window, safe_days),
         "growth": executor.submit(_internal_growth),
         "meta": executor.submit(_meta_snapshot, safe_days),
         "google": executor.submit(_google_snapshot, safe_days),
+        "youtube": executor.submit(_youtube_snapshot, safe_days),
     }
     done, pending = wait(list(futures.values()), timeout=12.0)
     executor.shutdown(wait=False, cancel_futures=True)
@@ -880,6 +1041,11 @@ def overview(days: int = 30) -> dict[str, Any]:
         "status": "timeout", "ga4": {}, "search_console": {}, "youtube": {},
         "error": "Google analytics sources did not respond within 12 seconds.",
     })
+    youtube = result("youtube", {
+        "status": "timeout", "live": False, "channel": None, "recent_videos": [],
+        "error": "YouTube did not respond within 12 seconds.",
+    })
+    google["youtube"] = youtube
     return {
         "version": "2.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -924,11 +1090,11 @@ def overview(days: int = 30) -> dict[str, Any]:
                 "setup_urls": (google.get("search_console") or {}).get("setup_urls") or [],
             },
             "youtube": {
-                "status": (google.get("youtube") or {}).get("status") or "separate_auth_required",
-                "live": (google.get("youtube") or {}).get("status") == "live",
-                "error": (google.get("youtube") or {}).get("error"),
-                "note": (google.get("youtube") or {}).get("note") or "Separate YouTube read authorization",
-                "setup_urls": (google.get("youtube") or {}).get("setup_urls") or [],
+                "status": youtube.get("status") or "auth_required",
+                "live": youtube.get("status") == "live",
+                "error": youtube.get("error"),
+                "note": youtube.get("note") or "Separate YouTube read authorization",
+                "setup_urls": youtube.get("setup_urls") or [],
             },
             "tiktok": {
                 "status": "auth_required" if (settings.tiktok_client_key and settings.tiktok_client_secret) else "not_configured",
@@ -944,7 +1110,7 @@ def overview(days: int = 30) -> dict[str, Any]:
             },
         },
         "commerce": shopify,
-        "social": {"meta": meta, "google": google},
+        "social": {"meta": meta, "google": google, "youtube": youtube},
         "growth": growth,
         "recommendations": _recommendations(shopify, growth, meta),
     }
