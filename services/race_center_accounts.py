@@ -596,6 +596,10 @@ def submit_driver_claim(
     clean_note = (note or "").strip()[:1200]
     if not clean_key or not clean_name:
         raise ValueError("Driver identity is required.")
+    if not clean_evidence and not clean_note:
+        raise ValueError("Add a proof link or a short verification note.")
+    if clean_evidence and not clean_evidence.lower().startswith(("http://", "https://")):
+        raise ValueError("Proof link must start with http:// or https://.")
     with SessionLocal() as db:
         existing = db.scalar(select(RaceCenterDriverClaim).where(
             RaceCenterDriverClaim.user_id == user_id,
