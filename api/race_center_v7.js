@@ -291,8 +291,15 @@
     const grid=$('#v7MyRacingGrid');
     host.style.display='block';
     try{
-      const data=await getJson('/api/public/race-center/my-racing?v=7');
+      const [data,alertData]=await Promise.all([
+        getJson('/api/public/race-center/my-racing?v=7'),
+        getJson('/api/public/race-center/alerts?v=7').catch(()=>({alerts:[]}))
+      ]);
       const blocks=[];
+      const alerts=alertData.alerts||[];
+      blocks.push('<section class="v7-brief-section v7-alert-stream"><span class="eyebrow">ATTENTION</span><h3>What needs your eyes</h3><div class="v7-brief-row">'+(
+        alerts.length?alerts.slice(0,8).map(a=>briefCard(String(a.type||'UPDATE').replaceAll('_',' '),a.title,a.body,a.url)).join(''):'<p>No urgent updates across your racing right now.</p>'
+      )+'</div></section>');
       blocks.push('<section class="v7-brief-section"><span class="eyebrow">RIGHT NOW</span><h3>Live</h3><div class="v7-brief-row">'+((data.live||[]).map(e=>briefCard('LIVE',e.name,e.series_name,'/race-center/event/'+encodeURIComponent(e.key))).join('')||'<p>Nothing you follow is live right now.</p>')+'</div></section>');
       blocks.push('<section class="v7-brief-section"><span class="eyebrow">COMING UP</span><h3>Next races</h3><div class="v7-brief-row">'+((data.upcoming||[]).map(e=>briefCard('NEXT',e.name,eventWhen(e.start),'/race-center/event/'+encodeURIComponent(e.key))).join('')||'<p>Follow series or tracks to build your upcoming-race list.</p>')+'</div></section>');
       blocks.push('<section class="v7-brief-section"><span class="eyebrow">CHAMPIONSHIP MOVEMENT</span><h3>What changed</h3><div class="v7-brief-row">'+((data.movement||[]).map(m=>briefCard('MOVE',m.driver,'P'+String(m.position||'—')+' · '+String(m.series_name||''),'/race-center/driver/'+encodeURIComponent(m.series_key||'')+'/'+encodeURIComponent(m.driver||''))).join('')||'<p>No verified moves among your followed drivers.</p>')+'</div></section>');
@@ -404,6 +411,35 @@
     }catch(_error){}
   }
 
+  async function augmentSeriesProfile(){
+    if(view!=='seriesprofile')return;
+    const content=$('#seriesProfileContent');
+    if(!content)return;
+    const key=entityRouteKey('series');
+    if(!key)return;
+    try{
+      const archive=await getJson('/api/public/race-center/archive/'+encodeURIComponent(key)+'?limit=12&v=7');
+      const add=()=>{
+        if($('#v7SeriesArchive',content))return;
+        const rows=archive.snapshots||[];
+        const section=document.createElement('section');
+        section.id='v7SeriesArchive';
+        section.className='v7-driver-connections';
+        section.innerHTML='<div class="section-head"><div><span class="eyebrow">RESULTS ARCHIVE</span><h2>Championship snapshots</h2></div><p>'+Number(archive.snapshot_count||0)+' saved snapshots for '+esc(String(archive.season||''))+'.</p></div>'+
+          '<div class="v7-archive-grid">'+(rows.length?rows.map(row=>{
+            const leader=row.leader||{};
+            return '<article class="v7-archive-card"><span>'+esc(eventWhen(row.fetched_at))+'</span><strong>'+esc(leader.name||'Snapshot saved')+'</strong><p>'+(leader.position?'P'+esc(leader.position)+' · ':'')+esc(leader.points??'—')+' pts · '+Number(row.field_size||0)+' drivers</p><small>'+esc(row.source_name||'Race Center source')+'</small></article>';
+          }).join(''):'<div class="loading-card">No saved archive snapshots yet.</div>')+'</div>';
+        content.appendChild(section);
+      };
+      add();
+      const observer=new MutationObserver(add);
+      observer.observe(content,{childList:true,subtree:false});
+      setTimeout(()=>observer.disconnect(),6000);
+    }catch(_error){}
+  }
+
+
   function registerPwa(){
     if('serviceWorker' in navigator){
       navigator.serviceWorker.register('/race-center-sw.js?v=7',{scope:'/race-center/'}).catch(()=>{});
@@ -419,6 +455,7 @@
     renderHealth();
     wireUniversalSearch();
     augmentDriverPage();
+    augmentSeriesProfile();
     registerPwa();
 
     document.addEventListener('click',event=>{
