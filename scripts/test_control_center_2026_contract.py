@@ -513,6 +513,8 @@ class ControlCenter2026Contract(unittest.TestCase):
             'id="racePulseTitle"',
             'id="mySeriesShell"',
             'id="mySeriesStrip"',
+            'id="mySeriesPrev"',
+            'id="mySeriesNext"',
             'id="pulseLive"',
             'id="pulseCountdown"',
             'id="pulseMoves"',
@@ -531,6 +533,8 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("refreshMySeriesScrollCue", public_js)
         self.assertIn("openSeries(chip.dataset.key)", public_js)
         self.assertIn("Drag or scroll to see all", public_js)
+        self.assertIn("mySeriesPrev", public_js)
+        self.assertIn("mySeriesNext", public_js)
         self.assertIn(".my-series-strip.is-scrollable", css)
         self.assertIn(".my-series-strip.is-dragging", css)
         self.assertIn("Race Center usability reset", css)
@@ -539,6 +543,78 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertNotIn('class="race-social"', public_html)
         self.assertNotIn('id="raceFeed"', public_html)
         self.assertNotIn('href="#pitWall"', public_html)
+
+    def test_race_center_drivers_claims_and_public_profiles(self):
+        accounts = self.read("services/race_center_accounts.py")
+        public_api = self.read("api/standings_public.py")
+        public_html = self.read("api/standings_public.html")
+        public_js = self.read("api/standings_public.js")
+        profile_html = self.read("api/race_center_profile.html")
+        profile_js = self.read("api/race_center_profile.js")
+        css = self.read("api/standings_public.css")
+
+        for token in (
+            "race_center_profile_photos",
+            "race_center_driver_claims",
+            "def set_profile_photo",
+            "def profile_photo_by_handle",
+            "def submit_driver_claim",
+            "author_user_id: int | None = None",
+        ):
+            self.assertIn(token, accounts)
+
+        for token in (
+            "/api/public/race-center/profile/photo",
+            "/api/public/race-center/profile-photo/{handle}",
+            "/api/public/race-center/profile-wall/{handle}",
+            "/api/public/race-center/driver-claims",
+            "/race-center/drivers",
+            "/race-center/driver/{series_key}/{driver_name:path}",
+            "/race-center/u/{handle}",
+            "/race-center-profile.js",
+        ):
+            self.assertIn(token, public_api)
+
+        for token in (
+            'href="/race-center/drivers"',
+            'id="driversDirectory"',
+            'id="driversGrid"',
+            'id="driverSearch"',
+            'id="driverProfilePage"',
+            'id="driverClaimDialog"',
+        ):
+            self.assertIn(token, public_html)
+
+        for token in (
+            "driverDirectoryRows",
+            "renderDrivers",
+            "renderDriverProfile",
+            "photo_use_allowed===true",
+            "data-driver-claim",
+        ):
+            self.assertIn(token, public_js)
+
+        for token in (
+            'data-profile-handle="{{PROFILE_HANDLE}}"',
+            'id="publicProfileAvatar"',
+            'id="profilePhotoInput"',
+            'id="profileWallComposer"',
+            'id="profileWallFeed"',
+        ):
+            self.assertIn(token, profile_html)
+
+        for token in (
+            "/api/public/race-center/profile/photo",
+            "/api/public/race-center/profile-wall/",
+            "/api/public/race-center/feed",
+            "profileFollowButton",
+        ):
+            self.assertIn(token, profile_js)
+
+        self.assertIn("Race Center readability + drivers/profile pass", css)
+        self.assertIn(".drivers-grid", css)
+        self.assertIn(".public-profile-hero", css)
+        self.assertIn('grid-template-columns:repeat(4,minmax(0,1fr))!important', css)
 
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
