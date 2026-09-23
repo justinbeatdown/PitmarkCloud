@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 from PIL import Image, ImageOps
 
-from services.racing_standings import SERIES as STANDINGS_SERIES, get_series_logo_info, get_series_roster, get_standings_snapshot_hub
+from services.racing_standings import SERIES as STANDINGS_SERIES, get_driver_identity, get_series_logo_info, get_series_roster, get_standings_snapshot_hub
 from services.racing_events import get_racing_event_hub
 from services import race_center_accounts
 from utils.config import settings
@@ -246,6 +246,14 @@ def race_center_driver_claim_submit(request: Request, body: RaceDriverClaimCreat
 def race_center_driver_claims_me(request: Request):
     account = _race_account_or_401(request)
     return {"claims": race_center_accounts.driver_claims_for_user(account.id)}
+
+
+@router.get("/api/public/race-center/driver-identity/{series_key}/{driver_name:path}", include_in_schema=False)
+def race_center_driver_identity(request: Request, series_key: str, driver_name: str):
+    enforce_rate_limit(request, "race-center-driver-identity", 90, 300)
+    if not any(item.get("key") == series_key for item in STANDINGS_SERIES):
+        raise HTTPException(status_code=404, detail="Race Center series not found.")
+    return get_driver_identity(series_key, driver_name)
 
 
 @router.put("/api/public/race-center/follows", include_in_schema=False)
