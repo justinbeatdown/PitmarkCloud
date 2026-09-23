@@ -143,11 +143,15 @@ def publish_due_posts() -> int:
                     mark_used(media_url)
             except Exception as exc:
                 if platform == "x" and ("credits depleted" in str(exc).lower() or "402" in str(exc)):
-                    post.status = "approved"
+                    # Keep the post scheduled. x_publish_service has its own one-hour
+                    # credit cooldown, so the worker will not hammer X or repeatedly
+                    # incur billable requests. Leaving the row scheduled makes the
+                    # queue self-healing: as soon as API credits are available again,
+                    # the next eligible worker pass publishes the overdue post.
                     post.updated_at = utcnow()
                     db.commit()
                     log.warning(
-                        "Paused X post %s because API credits are depleted; moved back to approved instead of retrying every minute",
+                        "Paused X post %s because API credits are depleted; keeping it scheduled for automatic recovery",
                         post.id,
                     )
                     continue
