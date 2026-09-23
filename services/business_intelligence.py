@@ -4,7 +4,8 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
+import re
 
 import httpx
 from sqlalchemy import select
@@ -65,17 +66,23 @@ def _http_error_detail(exc: httpx.HTTPStatusError) -> tuple[int, str]:
     return status, " ".join(detail.split())[:360]
 
 
-def _google_setup_urls(*services: str) -> list[dict[str, str]]:
+def _google_project_id(detail: str) -> str:
+    match = re.search(r"(?:projects?/|project(?:=|\\s+))([0-9]{6,})", str(detail or ""), flags=re.IGNORECASE)
+    return match.group(1) if match else ""
+
+
+def _google_setup_urls(*services: str, project: str = "") -> list[dict[str, str]]:
     labels = {
         "analyticsadmin.googleapis.com": "Enable Analytics Admin API",
         "analyticsdata.googleapis.com": "Enable Analytics Data API",
         "searchconsole.googleapis.com": "Enable Search Console API",
         "youtube.googleapis.com": "Enable YouTube Data API",
     }
+    suffix = ("?" + urlencode({"project": project})) if project else ""
     return [
         {
             "label": labels.get(service, "Open Google API"),
-            "url": "https://console.cloud.google.com/apis/library/" + service,
+            "url": "https://console.cloud.google.com/apis/library/" + service + suffix,
         }
         for service in services
     ]
@@ -501,6 +508,9 @@ def _google_snapshot(days: int = 30) -> dict[str, Any]:
             status_code, detail = _http_error_detail(exc)
             ga4["status"] = "api_disabled" if status_code == 403 and ("disabled" in detail.lower() or "has not been used" in detail.lower()) else "error"
             ga4["error"] = f"GA4 Admin API {status_code}: {detail}" if detail else f"GA4 Admin API {status_code}"
+            project_id = _google_project_id(detail)
+            if project_id:
+                ga4["setup_urls"] = _google_setup_urls("analyticsadmin.googleapis.com", "analyticsdata.googleapis.com", project=project_id)
             errors.append(ga4["error"])
         except Exception as exc:
             ga4["status"] = "error"
@@ -557,6 +567,9 @@ def _google_snapshot(days: int = 30) -> dict[str, Any]:
                 status_code, detail = _http_error_detail(exc)
                 ga4["status"] = "api_disabled" if status_code == 403 and ("disabled" in detail.lower() or "has not been used" in detail.lower()) else "error"
                 ga4["error"] = f"GA4 Data API {status_code}: {detail}" if detail else f"GA4 Data API {status_code}"
+                project_id = _google_project_id(detail)
+                if project_id:
+                    ga4["setup_urls"] = _google_setup_urls("analyticsadmin.googleapis.com", "analyticsdata.googleapis.com", project=project_id)
                 errors.append(ga4["error"])
             except Exception as exc:
                 ga4["status"] = "error"
@@ -605,6 +618,9 @@ def _google_snapshot(days: int = 30) -> dict[str, Any]:
             status_code, detail = _http_error_detail(exc)
             search_console["status"] = "api_disabled" if status_code == 403 and ("disabled" in detail.lower() or "has not been used" in detail.lower()) else "error"
             search_console["error"] = f"Search Console API {status_code}: {detail}" if detail else f"Search Console API {status_code}"
+            project_id = _google_project_id(detail)
+            if project_id:
+                search_console["setup_urls"] = _google_setup_urls("searchconsole.googleapis.com", project=project_id)
             errors.append(search_console["error"])
         except Exception as exc:
             search_console["status"] = "error"
