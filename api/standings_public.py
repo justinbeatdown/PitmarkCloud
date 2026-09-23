@@ -124,10 +124,39 @@ class RaceNotificationPreferences(BaseModel):
     editorial: bool | None = None
 
 
+class RaceEntityOwnerProfileChange(BaseModel):
+    bio: str = Field(default="", max_length=5000)
+    website_url: str = Field(default="", max_length=4000)
+    shop_url: str = Field(default="", max_length=4000)
+    contact_url: str = Field(default="", max_length=4000)
+    hero_url: str = Field(default="", max_length=4000)
+    sponsors: list[str] = Field(default_factory=list, max_length=30)
+
+
+class RaceEntityClaimReview(BaseModel):
+    status: str = Field(min_length=6, max_length=20)
+
+
+class RaceEditorialLinkCreate(BaseModel):
+    entity_type: str = Field(min_length=3, max_length=24)
+    entity_key: str = Field(min_length=1, max_length=220)
+    title: str = Field(min_length=2, max_length=240)
+    url: str = Field(min_length=5, max_length=4000)
+    summary: str = Field(default="", max_length=4000)
+
+
 def _race_account_or_401(request: Request) -> race_center_accounts.RaceCenterAccount:
     account = race_center_accounts.account_from_request(request)
     if not account:
         raise HTTPException(status_code=401, detail="Race Center account required.")
+    return account
+
+
+def _race_staff_or_403(request: Request) -> race_center_accounts.RaceCenterAccount:
+    account = _race_account_or_401(request)
+    profile = race_center_accounts.ensure_profile(account.id) or {}
+    if not (profile.get("staff") or {}).get("label"):
+        raise HTTPException(status_code=403, detail="Pitmark staff access required.")
     return account
 
 
@@ -356,6 +385,52 @@ def race_center_entity_claim_submit(request: Request, body: RaceEntityClaimCreat
 def race_center_entity_claims_me(request: Request):
     account = _race_account_or_401(request)
     return {"claims": race_center_entities.entity_claims_for_user(account.id)}
+
+
+@router.put("/api/public/race-center/entity-profile/{entity_type}/{entity_key}", include_in_schema=False)
+def race_center_entity_profile_update(
+    request: Request,
+    entity_type: str,
+    entity_key: str,
+    body: RaceEntityOwnerProfileChange,
+):
+    account = _race_account_or_401(request)
+    try:
+        profile = race_center_entities.update_entity_owner_content(
+            account.id,
+            entity_type=entity_type,
+            entity_key=entity_key,
+            bio=body.bio,
+            website_url=body.website_url,
+            shop_url=body.shop_url,
+            contact_url=body.contact_url,
+            hero_url=body.hero_url,
+            sponsors=body.sponsors,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    return {"ok": True, "profile": profile}
+
+
+@router.put("/api/public/race-center/entity-claims/{claim_id}/review", include_in_schema=False)
+def race_center_entity_claim_review(request: Request, claim_id: int, body: RaceEntityClaimReview):
+    _race_staff_or_403(request)
+    try:
+        return race_center_entities.review_entity_claim(claim_id, status=body.status)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/api/public/race-center/editorial-links", include_in_schema=False)
+def race_center_editorial_link_create(request: Request, body: RaceEditorialLinkCreate):
+    _race_staff_or_403(request)
+    return race_center_entities.attach_editorial(
+        entity_type=body.entity_type,
+        entity_key=body.entity_key,
+        title=body.title,
+        url=body.url,
+        summary=body.summary,
+    )
 
 
 @router.get("/api/public/race-center/driver-identity/{series_key}/{driver_name:path}", include_in_schema=False)
