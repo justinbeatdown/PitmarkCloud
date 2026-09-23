@@ -114,6 +114,42 @@
       });
     });
 
+    const world=window.RaceCenterWorld||{};
+    (world.teams||[]).forEach(team=>{
+      const hay=[team.name,...(team.manufacturers||[]),...(team.drivers||[]).map(x=>x.name)].filter(Boolean).join(' ').toLowerCase();
+      if(!hay.includes(q))return;
+      results.push({
+        kind:'Team',
+        title:team.name||'Racing team',
+        meta:[(team.manufacturers||[]).join(' / '),String((team.drivers||[]).length)+' drivers'].filter(Boolean).join(' · '),
+        href:'/race-center/team/'+encodeURIComponent(String(team.key||'')),
+        priority:String(team.name||'').toLowerCase().startsWith(q)?98:68
+      });
+    });
+    (world.tracks||[]).forEach(track=>{
+      const hay=[track.name,track.location,...(track.series||[])].filter(Boolean).join(' ').toLowerCase();
+      if(!hay.includes(q))return;
+      const hint=(track.series||[])[0]||'';
+      results.push({
+        kind:'Track',
+        title:track.name||'Race track',
+        meta:[track.location,String((track.series||[]).length)+' series'].filter(Boolean).join(' · '),
+        href:'/race-center/track/'+encodeURIComponent(String(track.key||''))+(hint?'?series_key='+encodeURIComponent(hint):''),
+        priority:String(track.name||'').toLowerCase().startsWith(q)?96:66
+      });
+    });
+    (world.events||[]).forEach(event=>{
+      const hay=[event.name,event.series_name,event.venue,event.location,event.group].filter(Boolean).join(' ').toLowerCase();
+      if(!hay.includes(q))return;
+      results.push({
+        kind:'Event',
+        title:event.name||'Race event',
+        meta:[event.series_name,event.venue,event.start?new Date(event.start).toLocaleDateString():''].filter(Boolean).join(' · '),
+        href:'/race-center/event/'+encodeURIComponent(String(event.series_key||''))+'/'+encodeURIComponent(String(event.key||'')),
+        priority:event.state==='live'?115:72
+      });
+    });
+
     const seen=new Set();
     return results.sort((a,b)=>b.priority-a.priority||a.title.localeCompare(b.title)).filter(item=>{
       const key=item.kind+'|'+item.href+'|'+item.title;
@@ -140,7 +176,7 @@
         '<span class="race-search-copy"><strong>'+escV6(item.title)+'</strong><small>'+escV6(item.meta||'Open in Race Center')+'</small></span>'+
         '<b>→</b>'+
       '</a>'
-    ).join(''):'<div class="race-search-empty"><strong>No exact match yet.</strong><span>Try a driver surname, car number, series, team, or event.</span></div>';
+    ).join(''):'<div class="race-search-empty"><strong>No exact match yet.</strong><span>Try a driver, car number, team, track, series, or event.</span></div>';
     host.hidden=false;
   }
 
@@ -177,6 +213,9 @@
     });
     document.addEventListener('click',event=>{
       if(host&&!host.hidden&&!event.target.closest('#raceSearchDock'))host.hidden=true;
+    });
+    window.addEventListener('racecenterworldready',()=>{
+      if(document.activeElement===input&&input.value.trim().length>=2)renderSearch();
     });
   }
 
