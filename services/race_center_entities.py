@@ -648,6 +648,85 @@ def graph_search(query: str, limit: int = 24) -> list[dict[str, Any]]:
     return [item for _, item in results[:max(1, min(limit, 60))]]
 
 
+def _relationship_node(entity_type: str, item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": entity_type,
+        "key": item.get("key"),
+        "name": item.get("name") or item.get("series_name"),
+        "number": item.get("number"),
+        "location": item.get("location"),
+        "start": item.get("start"),
+    }
+
+
+def entity_relationships(
+    graph: dict[str, Any],
+    entity_type: str,
+    entity_key: str,
+    entity: dict[str, Any] | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    kind = str(entity_type or "").strip().lower()
+    key = str(entity_key or "").strip()
+    item = entity or {}
+    relationships: dict[str, list[dict[str, Any]]] = {}
+
+    def set_group(name: str, entity_kind: str, rows: list[dict[str, Any]]) -> None:
+        seen: set[str] = set()
+        nodes = []
+        for row in rows:
+            row_key = str(row.get("key") or "")
+            token = f"{entity_kind}:{row_key}"
+            if not row_key or token in seen:
+                continue
+            seen.add(token)
+            nodes.append(_relationship_node(entity_kind, row))
+        if nodes:
+            relationships[name] = nodes[:48]
+
+    if kind == "driver":
+        driver_series = {str(row.get("series_key") or "") for row in item.get("series") or []}
+        team_key = slugify(str(item.get("team") or "")) if item.get("team") else ""
+        set_group("team", "team", [row for row in graph.get("teams") or [] if str(row.get("key") or "") == team_key])
+        set_group("series", "series", [row for row in graph.get("series") or [] if str(row.get("key") or "") in driver_series])
+        set_group("events", "event", [row for row in graph.get("events") or [] if str(row.get("series_key") or "") in driver_series])
+        track_keys = {str(row.get("key") or "") for row in item.get("tracks_raced") or []}
+        set_group("tracks", "track", [row for row in graph.get("tracks") or [] if str(row.get("key") or "") in track_keys])
+
+    elif kind == "team":
+        team_series = {str(value) for value in item.get("series") or []}
+        driver_keys = {str(row.get("driver_key") or "") for row in item.get("drivers") or []}
+        set_group("drivers", "driver", [row for row in graph.get("drivers") or [] if str(row.get("key") or "") in driver_keys])
+        set_group("series", "series", [row for row in graph.get("series") or [] if str(row.get("key") or "") in team_series])
+        set_group("events", "event", [row for row in graph.get("events") or [] if str(row.get("series_key") or "") in team_series])
+
+    elif kind == "track":
+        track_series = {str(value) for value in item.get("series") or []}
+        set_group("events", "event", [row for row in graph.get("events") or [] if str(row.get("track_key") or "") == key])
+        set_group("series", "series", [row for row in graph.get("series") or [] if str(row.get("key") or "") in track_series])
+        driver_keys = {str(row.get("key") or "") for row in item.get("related_drivers") or []}
+        set_group("drivers", "driver", [row for row in graph.get("drivers") or [] if str(row.get("key") or "") in driver_keys])
+
+    elif kind == "series":
+        set_group("drivers", "driver", [
+            row for row in graph.get("drivers") or []
+            if any(str(series.get("series_key") or "") == key for series in row.get("series") or [])
+        ])
+        set_group("teams", "team", [row for row in graph.get("teams") or [] if key in {str(v) for v in row.get("series") or []}])
+        set_group("events", "event", [row for row in graph.get("events") or [] if str(row.get("series_key") or "") == key])
+        track_keys = {str(row.get("track_key") or "") for row in graph.get("events") or [] if str(row.get("series_key") or "") == key}
+        set_group("tracks", "track", [row for row in graph.get("tracks") or [] if str(row.get("key") or "") in track_keys])
+
+    elif kind == "event":
+        series_key = str(item.get("series_key") or "")
+        track_key = str(item.get("track_key") or "")
+        set_group("series", "series", [row for row in graph.get("series") or [] if str(row.get("key") or "") == series_key])
+        set_group("track", "track", [row for row in graph.get("tracks") or [] if str(row.get("key") or "") == track_key])
+        driver_keys = {identity_key(str(row.get("name") or "")) for row in item.get("related_drivers") or [] if row.get("name")}
+        set_group("drivers", "driver", [row for row in graph.get("drivers") or [] if str(row.get("key") or "") in driver_keys])
+
+    return relationships
+
+
 def entity_detail(entity_type: str, entity_key: str) -> dict[str, Any] | None:
     graph = build_entity_graph()
     key = str(entity_key or "").strip()
@@ -667,6 +746,7 @@ def entity_detail(entity_type: str, entity_key: str) -> dict[str, Any] | None:
             result["editorial"] = editorial_for_entity(entity_type, key)
             result["owner_content"] = entity_owner_content(entity_type, key)
             result["verification"] = entity_verification(entity_type, key)
+            result["relationships"] = entity_relationships(graph, entity_type, key, item)
             return result
     return None
 

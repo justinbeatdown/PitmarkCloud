@@ -455,6 +455,21 @@ def race_center_entity_detail(entity_type: str, entity_key: str):
     return result
 
 
+@router.get("/api/public/race-center/relationships/{entity_type}/{entity_key}", include_in_schema=False)
+def race_center_entity_relationships(entity_type: str, entity_key: str):
+    result = race_center_entities.entity_detail(entity_type, entity_key)
+    if not result:
+        raise HTTPException(status_code=404, detail="Race Center entity not found.")
+    return {
+        "entity": {
+            "type": result.get("type"),
+            "key": result.get("key"),
+            "name": result.get("name") or result.get("series_name"),
+        },
+        "relationships": result.get("relationships") or {},
+    }
+
+
 @router.get("/api/public/race-center/my-racing", include_in_schema=False)
 def race_center_my_racing(request: Request):
     account = race_center_accounts.account_from_request(request)
