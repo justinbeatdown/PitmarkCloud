@@ -641,10 +641,13 @@ def public_standings_data():
         safe_entries = []
         for raw_entry in series.get("entries") or []:
             entry = dict(raw_entry)
-            if not identity_verified:
+            entry_resolved = bool(entry.get("identity_resolved"))
+            if not identity_verified and not entry_resolved:
                 entry["number"] = None
                 entry["team"] = None
                 entry["manufacturer"] = None
+                entry["identity_quality"] = "unavailable"
+                entry["identity_provenance"] = None
             safe_entries.append(entry)
         series_key = str(series.get("series_key") or "")
         logo_info = get_series_logo_info(series_key)
