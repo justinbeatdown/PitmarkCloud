@@ -1088,6 +1088,47 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("self.addEventListener('push'", service_worker)
         self.assertIn("notificationclick", service_worker)
 
+    def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
+        public_api = self.read("api/standings_public.py")
+        public_html = self.read("api/standings_public.html")
+        v7_js = self.read("api/race_center_v7.js")
+        css = self.read("api/standings_public.css")
+        manifest = self.read("api/race-center.webmanifest")
+        service_worker = self.read("api/race_center_sw.js")
+
+        for token in (
+            '@router.get("/race-center-icon-192.png"',
+            '@router.get("/race-center-icon-512.png"',
+            "def _race_center_icon(size: int)",
+            '"Cache-Control": "public, max-age=31536000, immutable"',
+        ):
+            self.assertIn(token, public_api)
+
+        for token in (
+            'id="v7InstallPrompt"',
+            'id="v7InstallApp"',
+            'id="v7InstallDismiss"',
+        ):
+            self.assertIn(token, public_html)
+
+        for token in (
+            "beforeinstallprompt",
+            "appinstalled",
+            "navigator.serviceWorker.register",
+            "Add Race Center to your Home Screen",
+            "pitmark-race-center-install-dismissed",
+        ):
+            self.assertIn(token, v7_js)
+
+        self.assertIn("Race Center V7 PWA install surface", css)
+        self.assertIn('"scope": "/race-center/"', manifest)
+        self.assertIn('"src": "/race-center-icon-192.png"', manifest)
+        self.assertIn('"src": "/race-center-icon-512.png"', manifest)
+        self.assertIn("pitmark-race-center-v7-shell-2", service_worker)
+        self.assertIn("/race-center/my-racing", service_worker)
+        self.assertIn("/race-center/teams", service_worker)
+        self.assertIn("/race-center-icon-192.png", service_worker)
+
     def test_race_center_v7_calendar_exports(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
