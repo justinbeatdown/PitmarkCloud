@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Race Center Profile — Pitmark Racing Co.</title>
+  <meta name="theme-color" content="#090b0e">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-profile-20260922">
+</head>
+<body data-view="profile" data-profile-handle="{{PROFILE_HANDLE}}">
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="/race-center" aria-label="Pitmark Race Center home">
+        <img src="/prt-logo.png" alt="Pitmark Racing Co.">
+        <span class="brand-product"><strong>Race Center</strong><small>Profile</small></span>
+      </a>
+      <nav aria-label="Pitmark navigation">
+        <a href="https://pitmarkracing.com">Shop</a>
+        <a href="/prt">PRT</a>
+        <a href="/race-center">Race Center</a>
+        <a href="/race-center/drivers">Drivers</a>
+        <a href="/race-center/standings">Standings</a>
+        <a href="/race-center/schedules">Schedules</a>
+        <a href="/race-center/live">Live + Next</a>
+        <a href="/racing-desk">Racing Desk</a>
+      </nav>
+      <div class="account-zone"><a class="account-button" id="profileAccountButton" href="/race-center">My Race Center</a></div>
+    </div>
+  </header>
+
+  <main class="public-profile-main">
+    <section class="public-profile-hero" id="publicProfileHero">
+      <div class="profile-avatar-wrap">
+        <div class="public-profile-avatar" id="publicProfileAvatar">RC</div>
+        <label class="profile-photo-upload" id="profilePhotoUpload" hidden>
+          <input id="profilePhotoInput" type="file" accept="image/jpeg,image/png,image/webp">
+          <span>Change photo</span>
+        </label>
+      </div>
+      <div class="public-profile-copy">
+        <div class="profile-title-line">
+          <div>
+            <span class="eyebrow" id="publicProfileRole">RACE CENTER PROFILE</span>
+            <h1 id="publicProfileName">Loading profile…</h1>
+            <p id="publicProfileHandle">@—</p>
+          </div>
+          <span class="profile-verified" id="publicProfileVerified" hidden>✓ Verified</span>
+        </div>
+        <p class="public-profile-bio" id="publicProfileBio">Loading racing identity…</p>
+        <div class="public-profile-meta" id="publicProfileMeta"></div>
+        <div class="public-profile-actions">
+          <button class="button primary" id="profileFollowButton" type="button" hidden>Follow</button>
+          <a class="button" id="profileEditButton" href="/race-center" hidden>Edit profile</a>
+        </div>
+      </div>
+      <div class="public-profile-stats">
+        <div><strong id="publicProfileFollowers">0</strong><span>Followers</span></div>
+        <div><strong id="publicProfileFollowing">0</strong><span>Following</span></div>
+        <div><strong id="publicProfileSeries">0</strong><span>Series</span></div>
+      </div>
+    </section>
+
+    <section class="profile-racing-card">
+      <div class="section-head">
+        <div><span class="eyebrow">MY RACING</span><h2>What they follow</h2></div>
+      </div>
+      <div class="profile-followed-racing" id="profileFollowedRacing"><div class="loading-card">Loading racing follows…</div></div>
+    </section>
+
+    <section class="profile-wall">
+      <div class="section-head">
+        <div><span class="eyebrow">WALL</span><h2 id="profileWallTitle">Latest posts</h2></div>
+        <p>Public Race Center posts from this profile.</p>
+      </div>
+      <div class="profile-wall-composer" id="profileWallComposer" hidden>
+        <textarea id="profilePostInput" maxlength="600" placeholder="What’s happening in your racing world?"></textarea>
+        <div><span id="profilePostCount">0 / 600</span><button class="button primary" id="profilePostButton" type="button">Post</button></div>
+      </div>
+      <div class="profile-wall-feed" id="profileWallFeed"><div class="loading-card">Loading wall…</div></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-main">
+      <div class="footer-brand"><img src="/prt-logo.png" alt="Pitmark Racing Co."><p>All of racing. One home base.</p></div>
+      <div class="footer-links">
+        <a href="/race-center">Race Center</a>
+        <a href="/race-center/drivers">Drivers</a>
+        <a href="/race-center/standings">Standings</a>
+        <a href="/race-center/schedules">Schedules</a>
+      </div>
+    </div>
+  </footer>
+  <script src="/race-center-profile.js?v={{PITMARK_VERSION}}-profile-20260922" defer></script>
+</body>
+</html>

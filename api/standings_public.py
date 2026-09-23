@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from pathlib import Path
+from io import BytesIO
 import base64
 import threading
 import time
 
 import httpx
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
+from PIL import Image, ImageOps
 
 from services.racing_standings import SERIES as STANDINGS_SERIES, get_series_logo_info, get_series_roster, get_standings_snapshot_hub
 from services.racing_events import get_racing_event_hub
@@ -96,6 +98,14 @@ class RaceUserFollowChange(BaseModel):
     user_id: int = Field(gt=0)
 
 
+class RaceDriverClaimCreate(BaseModel):
+    driver_key: str = Field(min_length=3, max_length=220)
+    driver_name: str = Field(min_length=1, max_length=160)
+    series_key: str = Field(default="", max_length=120)
+    evidence_url: str = Field(default="", max_length=1200)
+    note: str = Field(default="", max_length=1200)
+
+
 def _race_account_or_401(request: Request) -> race_center_accounts.RaceCenterAccount:
     account = race_center_accounts.account_from_request(request)
     if not account:
@@ -166,6 +176,76 @@ def race_center_logout():
     response = JSONResponse({"ok": True})
     response.delete_cookie(race_center_accounts.SESSION_COOKIE, path="/")
     return response
+
+
+@router.put("/api/public/race-center/profile/photo", include_in_schema=False)
+async def race_center_profile_photo_upload(request: Request, photo: UploadFile = File(...)):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-profile-photo", 10, 300)
+    raw = await photo.read(6 * 1024 * 1024 + 1)
+    if len(raw) > 6 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Profile photos must be 6 MB or smaller.")
+    try:
+        image = Image.open(BytesIO(raw))
+        image = ImageOps.exif_transpose(image).convert("RGB")
+        image = ImageOps.fit(image, (640, 640), method=Image.Resampling.LANCZOS)
+        output = BytesIO()
+        image.save(output, format="WEBP", quality=88, method=6)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Upload a valid JPG, PNG, or WebP image.") from exc
+    race_center_accounts.set_profile_photo(account.id, output.getvalue(), "image/webp")
+    profile = race_center_accounts.ensure_profile(account.id)
+    return {"ok": True, "photo_url": f"/api/public/race-center/profile-photo/{profile['handle']}?v={int(time.time())}"}
+
+
+@router.get("/api/public/race-center/profile-photo/{handle}", include_in_schema=False)
+def race_center_profile_photo(handle: str):
+    result = race_center_accounts.profile_photo_by_handle(handle)
+    if not result:
+        raise HTTPException(status_code=404, detail="Profile photo not found.")
+    image_data, content_type = result
+    return Response(image_data, media_type=content_type, headers={"Cache-Control": "public, max-age=300"})
+
+
+@router.get("/api/public/race-center/profile-wall/{handle}", include_in_schema=False)
+def race_center_profile_wall(request: Request, handle: str, limit: int = 40):
+    viewer = race_center_accounts.account_from_request(request)
+    profile = race_center_accounts.public_profile_by_handle(
+        handle,
+        viewer_user_id=viewer.id if viewer else None,
+    )
+    if not profile:
+        raise HTTPException(status_code=404, detail="Race Center profile not found.")
+    return {
+        "posts": race_center_accounts.list_posts(
+            viewer_user_id=viewer.id if viewer else None,
+            author_user_id=int(profile["id"]),
+            limit=limit,
+        )
+    }
+
+
+@router.post("/api/public/race-center/driver-claims", include_in_schema=False)
+def race_center_driver_claim_submit(request: Request, body: RaceDriverClaimCreate):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-driver-claim", 8, 3600)
+    try:
+        return race_center_accounts.submit_driver_claim(
+            account.id,
+            driver_key=body.driver_key,
+            driver_name=body.driver_name,
+            series_key=body.series_key,
+            evidence_url=body.evidence_url,
+            note=body.note,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/api/public/race-center/driver-claims/me", include_in_schema=False)
+def race_center_driver_claims_me(request: Request):
+    account = _race_account_or_401(request)
+    return {"claims": race_center_accounts.driver_claims_for_user(account.id)}
 
 
 @router.put("/api/public/race-center/follows", include_in_schema=False)
@@ -326,6 +406,8 @@ def race_center_people_unfollow(request: Request, body: RaceUserFollowChange):
 
 
 @router.get("/race-center", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/drivers", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/driver/{series_key}/{driver_name:path}", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/standings", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/schedules", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/live", response_class=HTMLResponse, include_in_schema=False)
@@ -337,6 +419,8 @@ def public_standings_home(request: Request):
         "standings" if path == "/standings" or path.endswith("/standings")
         else "schedules" if path.endswith("/schedules")
         else "live" if path.endswith("/live")
+        else "driver" if "/race-center/driver/" in path
+        else "drivers" if path.endswith("/drivers")
         else "hub"
     )
     html = html.replace("{{PITMARK_VERSION}}", settings.app_version)
@@ -345,6 +429,19 @@ def public_standings_home(request: Request):
         html,
         headers={"Cache-Control": "no-cache, no-store"},
     )
+
+
+@router.get("/race-center/u/{handle}", response_class=HTMLResponse, include_in_schema=False)
+def public_race_center_user_profile(handle: str):
+    html = (ASSET_DIR / "race_center_profile.html").read_text(encoding="utf-8")
+    html = html.replace("{{PITMARK_VERSION}}", settings.app_version)
+    html = html.replace("{{PROFILE_HANDLE}}", handle)
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache, no-store"})
+
+
+@router.get("/race-center-profile.js", include_in_schema=False)
+def public_race_center_profile_js():
+    return _asset("race_center_profile.js", "application/javascript")
 
 
 @router.get("/standings.css", include_in_schema=False)
