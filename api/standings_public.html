@@ -9,7 +9,11 @@
   <meta property="og:description" content="Live racing, schedules and championship standings in one simple home base.">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#090b0e">
-  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-board-visible-20260923">
+  <meta name="application-name" content="Pitmark Race Center">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Race Center">
+  <link rel="manifest" href="/race-center-manifest.json">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-world-v1-20260923">
 </head>
 <body data-view="{{RACE_CENTER_VIEW}}">
   <a class="skip-link" href="#standingsStart">Skip to Race Center</a>
@@ -26,6 +30,7 @@
         <a href="/race-center" data-race-view="hub">Race Center</a>
         <a href="/race-center/drivers" data-race-view="drivers">Drivers</a>
         <a href="/race-center/series" data-race-view="series">Series</a>
+        <a href="/race-center/tracks" data-race-view="tracks">Tracks</a>
         <a href="/race-center/standings" data-race-view="standings">Standings</a>
         <a href="/race-center/schedules" data-race-view="schedules">Schedules</a>
         <a href="/race-center/live" data-race-view="live">Live + Next</a>
@@ -126,6 +131,31 @@
         <div><span class="eyebrow">RACE WEEKEND</span><strong>Live + Next</strong><p>What is running now and what is coming up next.</p></div>
         <b>→</b>
       </a>
+      <a class="hub-nav-card" href="/race-center/tracks">
+        <span class="hub-nav-icon">06</span>
+        <div><span class="eyebrow">VENUES</span><strong>Tracks</strong><p>Track profiles, upcoming races, visiting series and recent events.</p></div>
+        <b>→</b>
+      </a>
+      <a class="hub-nav-card" href="/race-center/teams">
+        <span class="hub-nav-icon">07</span>
+        <div><span class="eyebrow">RACING ORGANIZATIONS</span><strong>Teams</strong><p>Drivers, manufacturers, championships and connected profiles.</p></div>
+        <b>→</b>
+      </a>
+      <a class="hub-nav-card" href="/race-center/events">
+        <span class="hub-nav-icon">08</span>
+        <div><span class="eyebrow">EVENT HUBS</span><strong>Race Day</strong><p>Countdowns, watch links, venues, standings context and results status.</p></div>
+        <b>→</b>
+      </a>
+      <a class="hub-nav-card" href="/race-center/my-racing">
+        <span class="hub-nav-icon">09</span>
+        <div><span class="eyebrow">PERSONAL BRIEFING</span><strong>My Racing</strong><p>The races, drivers and championship changes that matter to you.</p></div>
+        <b>→</b>
+      </a>
+      <a class="hub-nav-card" href="/race-center/results">
+        <span class="hub-nav-icon">10</span>
+        <div><span class="eyebrow">ARCHIVE</span><strong>Results + History</strong><p>Recent completed events and championship snapshot history.</p></div>
+        <b>→</b>
+      </a>
     </section>
 
     <section class="series-directory content-section" id="seriesDirectory" aria-labelledby="seriesDirectoryTitle">
@@ -168,6 +198,18 @@
 
     <section class="driver-profile-page content-section" id="driverProfilePage" aria-label="Driver profile">
       <div id="driverProfileContent"><div class="loading-card">Loading driver profile…</div></div>
+    </section>
+
+    <section class="world-page content-section" id="worldPage" aria-label="Race Center World">
+      <nav class="world-subnav" aria-label="Race Center World navigation">
+        <a href="/race-center/tracks" data-world-view="tracks">Tracks</a>
+        <a href="/race-center/teams" data-world-view="teams">Teams</a>
+        <a href="/race-center/events" data-world-view="events">Events</a>
+        <a href="/race-center/results" data-world-view="results">Results</a>
+        <a href="/race-center/my-racing" data-world-view="myracing">My Racing</a>
+        <a href="/race-center/data-health" data-world-view="health">Data Health</a>
+      </nav>
+      <div id="worldPageContent"><div class="loading-card">Building Race Center World…</div></div>
     </section>
 
     <section class="toolbar" id="standingsStart" aria-label="Race Center controls">
@@ -277,6 +319,7 @@
     <a href="/race-center/standings"><span>≡</span>Standings</a>
     <a href="/race-center/drivers"><span>◎</span>Drivers</a>
     <a href="/race-center/series"><span>◇</span>Series</a>
+    <a href="/race-center/tracks"><span>⌖</span>Tracks</a>
     <button id="mobileFavorites" type="button"><span>☆</span>My Series</button>
   </nav>
   <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top" hidden>↑ Top</button>
@@ -394,5 +437,6 @@
   <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-v6-final-20260923" defer></script>
   <script src="/race-center-v5.js?v={{PITMARK_VERSION}}-v6-social-20260923" defer></script>
   <script src="/race-center-v6.js?v={{PITMARK_VERSION}}-finished-final-20260923" defer></script>
+  <script src="/race-center-world.js?v={{PITMARK_VERSION}}-world-v1-20260923" defer></script>
 </body>
 </html>
