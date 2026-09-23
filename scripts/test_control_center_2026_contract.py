@@ -1108,9 +1108,9 @@ class ControlCenter2026Contract(unittest.TestCase):
         public_api = self.read("api/standings_public.py")
         for token in (
             "Fail closed per driver",
-            'entry["identity_provenance"] = "verified_fallback"',
-            'entry["identity_source_name"] = "Verified racing identity"',
-            'entry["identity_resolved"]',
+            'item["identity_provenance"] = "verified_fallback"',
+            'item["identity_source_name"] = "Verified racing identity"',
+            'item["identity_resolved"]',
         ):
             self.assertIn(token, standings)
         self.assertIn("entry_resolved = bool(entry.get(\"identity_resolved\"))", public_api)
