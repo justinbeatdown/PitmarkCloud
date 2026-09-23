@@ -281,6 +281,7 @@ class RaceCenterComment(Base):
 
 HANDLE_RE = re.compile(r"^[a-z0-9_]{3,40}$")
 ALLOWED_REACTIONS = {"checkered", "fire", "eyes"}
+ALLOWED_ACCOUNT_TYPES = {"fan", "driver", "team", "series", "track", "media"}
 
 
 def _base_handle(account: RaceCenterAccount) -> str:
@@ -309,19 +310,31 @@ def ensure_profile(user_id: int) -> dict:
             db.add(profile)
             db.commit()
             db.refresh(profile)
+        identity = identity_for_user(user_id)
         return {
             "handle": profile.handle,
             "bio": profile.bio,
             "favorite_track": profile.favorite_track,
+            "account_type": identity["account_type"],
         }
 
 
-def update_profile(user_id: int, *, handle: str, bio: str = "", favorite_track: str = "") -> dict:
+def update_profile(
+    user_id: int,
+    *,
+    handle: str,
+    bio: str = "",
+    favorite_track: str = "",
+    account_type: str = "fan",
+) -> dict:
     clean_handle = (handle or "").strip().lower()
     if not HANDLE_RE.fullmatch(clean_handle):
         raise ValueError("Handle must be 3–40 characters using letters, numbers, or underscores.")
     clean_bio = (bio or "").strip()[:280]
     clean_track = (favorite_track or "").strip()[:120]
+    clean_account_type = (account_type or "fan").strip().lower()
+    if clean_account_type not in ALLOWED_ACCOUNT_TYPES:
+        raise ValueError("Choose a valid Race Center identity type.")
     with SessionLocal() as db:
         existing = db.scalar(select(RaceCenterProfile.user_id).where(
             RaceCenterProfile.handle == clean_handle,
@@ -337,6 +350,14 @@ def update_profile(user_id: int, *, handle: str, bio: str = "", favorite_track: 
         profile.bio = clean_bio
         profile.favorite_track = clean_track
         profile.updated_at = utcnow()
+
+        identity = db.get(RaceCenterIdentity, user_id)
+        if identity is None:
+            identity = RaceCenterIdentity(user_id=user_id, account_type=clean_account_type)
+            db.add(identity)
+        else:
+            identity.account_type = clean_account_type
+            identity.updated_at = utcnow()
         db.commit()
     return ensure_profile(user_id)
 
