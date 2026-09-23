@@ -680,23 +680,32 @@ function card(series){
 }
 
 function allGroups(){
-  const groups=[
-    ...(state.payload?.series||[]).map(item=>item.group||'Other'),
-    ...(state.payload?.events?.catalog||[]).map(item=>item.group||'Other')
-  ];
+  const series=state.payload?.series||[];
+  const catalog=state.payload?.events?.catalog||[];
+  const groups=state.view==='standings'
+    ?series.map(item=>item.group||'Other')
+    :[
+      ...series.map(item=>item.group||'Other'),
+      ...catalog.map(item=>item.group||'Other')
+    ];
   return ['All',...[...new Set(groups)]];
 }
 
 function renderFilters(){
   const series=state.payload?.series||[];
   const catalog=state.payload?.events?.catalog||[];
+  const standingsOnly=state.view==='standings';
   $('#filters').innerHTML=allGroups().map(group=>{
     const count=group==='All'
-      ?new Set([...series.map(x=>x.series_key),...catalog.map(x=>x.series_key)]).size
-      :new Set([
-        ...series.filter(x=>(x.group||'Other')===group).map(x=>x.series_key),
-        ...catalog.filter(x=>(x.group||'Other')===group).map(x=>x.series_key)
-      ]).size;
+      ?(standingsOnly
+        ?new Set(series.map(x=>x.series_key)).size
+        :new Set([...series.map(x=>x.series_key),...catalog.map(x=>x.series_key)]).size)
+      :(standingsOnly
+        ?new Set(series.filter(x=>(x.group||'Other')===group).map(x=>x.series_key)).size
+        :new Set([
+          ...series.filter(x=>(x.group||'Other')===group).map(x=>x.series_key),
+          ...catalog.filter(x=>(x.group||'Other')===group).map(x=>x.series_key)
+        ]).size);
     return `<button class="filter ${state.group===group?'active':''}" type="button" data-group="${esc(group)}">${esc(group)}<span>${count}</span></button>`;
   }).join('');
 }
