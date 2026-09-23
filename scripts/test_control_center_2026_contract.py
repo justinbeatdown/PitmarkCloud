@@ -930,6 +930,17 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, css)
 
+    def test_race_center_v6_saved_snapshot_hydrates_persistent_driver_identity(self):
+        standings = self.read("services/racing_standings.py")
+        for token in (
+            "def _hydrate_saved_identity(",
+            "RaceCenterDriverIdentityCache.series_key == series_key",
+            "NASCAR_2026_IDENTITY_FALLBACK.get(series_key",
+            "cache_row.photo_use_allowed",
+            '"entries": _hydrate_saved_identity(',
+        ):
+            self.assertIn(token, standings)
+
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
         public_api = self.read("api/standings_public.py")
