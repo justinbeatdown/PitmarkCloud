@@ -349,6 +349,67 @@ function currentDriverRoute(){
   };
 }
 
+function driverIdentityKey(value){
+  return String(value||'').toLowerCase().replace(/[^a-z0-9]+/g,'').trim();
+}
+
+function driverAppearances(name){
+  const wanted=driverIdentityKey(name);
+  if(!wanted)return [];
+  const out=[];
+  (state.payload?.series||[]).forEach(series=>{
+    const rows=[...(series.entries||[]),...(series.roster||[])];
+    const row=rows.find(item=>driverIdentityKey(item?.name)===wanted);
+    if(!row)return;
+    out.push({series,row});
+  });
+  return out;
+}
+
+function driverStatTile(label,value,detail=''){
+  if(value===null||value===undefined||String(value).trim()==='')return '';
+  return '<div class="driver-stat-tile"><span>'+esc(label)+'</span><strong>'+esc(value)+'</strong>'+(detail?'<small>'+detail+'</small>':'')+'</div>';
+}
+
+function driverGapText(value){
+  if(!hasValue(value))return '—';
+  const numeric=numericValue(value);
+  if(numeric===null)return String(value);
+  if(numeric===0)return 'Leader';
+  return (numeric<0?'−':'')+fmt.format(Math.abs(numeric))+' pts';
+}
+
+function driverStandingContext(series,row){
+  const entries=series.entries||[];
+  const index=entries.findIndex(item=>driverIdentityKey(item?.name)===driverIdentityKey(row?.name));
+  if(index<0)return '';
+  const slice=entries.slice(Math.max(0,index-1),Math.min(entries.length,index+2));
+  return '<div class="driver-neighbor-list">'+slice.map(item=>{
+    const active=driverIdentityKey(item.name)===driverIdentityKey(row.name);
+    return '<div class="driver-neighbor-row '+(active?'is-driver':'')+'">'+
+      '<span>P'+esc(item.position??'—')+'</span>'+
+      '<strong>'+esc(item.name||'Unknown')+'</strong>'+
+      '<em>'+points(item.points)+' pts</em>'+
+    '</div>';
+  }).join('')+'</div>';
+}
+
+function driverNextRace(series){
+  const event=series.current_event||null;
+  if(!event)return '';
+  const label=series.event_state==='live'?'LIVE NOW':'NEXT RACE';
+  const when=eventTime(event);
+  return '<section class="driver-detail-card driver-next-card">'+
+    '<span class="eyebrow">'+label+'</span>'+
+    '<h3>'+esc(event.name||series.series_name||'Race event')+'</h3>'+
+    '<p>'+esc([when,event.venue,event.location].filter(Boolean).join(' · ')||'Official event timing is available through the series source.')+'</p>'+
+    '<div class="driver-detail-actions">'+
+      (series.watch_url?'<a class="button primary" href="'+esc(series.watch_url)+'" target="_blank" rel="noopener">Official watch info ↗</a>':'')+
+      '<a class="button" href="/race-center/schedules">Full schedule</a>'+
+    '</div>'+
+  '</section>';
+}
+
 function renderDriverProfile(){
   const host=$('#driverProfileContent');
   if(!host||state.view!=='driver'||!state.payload)return;
@@ -357,39 +418,129 @@ function renderDriverProfile(){
     host.innerHTML='<div class="loading-card">Driver profile not found.</div>';
     return;
   }
+
   const series=(state.payload.series||[]).find(x=>String(x.series_key)===String(route.series_key));
   if(!series){
     host.innerHTML='<div class="loading-card">That series is not currently available.</div>';
     return;
   }
-  const row=[...(series.entries||[]),...(series.roster||[])].find(x=>String(x.name||'').toLowerCase()===String(route.name||'').toLowerCase());
+
+  const rows=[...(series.entries||[]),...(series.roster||[])];
+  const row=rows.find(x=>driverIdentityKey(x.name)===driverIdentityKey(route.name));
   if(!row){
     host.innerHTML='<div class="loading-card">That driver is not in the current Race Center data.</div>';
     return;
   }
-  const driver={
-    key:driverFollowKey(series,row),name:row.name||route.name,number:row.number||'',team:row.team||'',manufacturer:row.manufacturer||'',
-    position:row.position,points:row.points,series_key:series.series_key,series_name:series.series_name,series_short:series.short_name||series.series_name,
-    group:series.group||'RACING',photo_url:row.photo_use_allowed===true?String(row.photo_url||''):''
+
+  const appearances=driverAppearances(row.name||route.name);
+  const primary={
+    key:driverFollowKey(series,row),
+    name:row.name||route.name,
+    number:row.number||'',
+    team:row.team||'',
+    manufacturer:row.manufacturer||'',
+    position:row.position,
+    points:row.points,
+    behind:row.behind,
+    wins:row.wins,
+    starts:row.starts,
+    movement:row.movement,
+    points_delta:row.points_delta,
+    comparison_ready:row.comparison_ready!==false,
+    series_key:series.series_key,
+    series_name:series.series_name,
+    series_short:series.short_name||series.series_name,
+    group:series.group||'RACING',
+    photo_url:row.photo_use_allowed===true?String(row.photo_url||''):''
   };
-  const followed=state.drivers.has(driver.key);
-  host.innerHTML='<article class="driver-profile-hero">'+
-    '<div class="driver-profile-photo">'+driverPortrait(driver,true)+'</div>'+
-    '<div class="driver-profile-copy"><span class="eyebrow">'+esc(driver.group)+' · '+esc(driver.series_short)+'</span>'+
-      '<h2>'+esc(driver.name)+'</h2>'+
-      '<p>'+esc([driver.number?'#'+driver.number:'',driver.team,driver.manufacturer].filter(Boolean).join(' · ')||'Source-backed Race Center driver profile')+'</p>'+
-      '<div class="driver-profile-actions">'+
-        '<button class="button '+(followed?'':'primary')+'" type="button" data-driver-follow="'+esc(driver.key)+'" data-driver-label="'+esc(driver.name)+'" data-driver-series="'+esc(driver.series_key)+'">'+(followed?'★ Following':'☆ Follow driver')+'</button>'+
-        '<button class="button" type="button" data-driver-claim="'+esc(driver.key)+'" data-driver-name="'+esc(driver.name)+'" data-driver-series="'+esc(driver.series_key)+'">Claim this profile</button>'+
+
+  const followed=state.drivers.has(primary.key);
+  const identityLine=[primary.number?'#'+primary.number:'',primary.team,primary.manufacturer].filter(Boolean);
+  const stats=[
+    driverStatTile('Championship',primary.position?'P'+primary.position:'—',move(primary.movement,primary.comparison_ready)),
+    driverStatTile('Points',hasValue(primary.points)?points(primary.points):'—',pointsDelta(primary.points_delta,primary.comparison_ready)),
+    driverStatTile('Gap to leader',driverGapText(primary.behind)),
+    driverStatTile('Wins',hasValue(primary.wins)?points(primary.wins):null),
+    driverStatTile('Starts',hasValue(primary.starts)?points(primary.starts):null),
+    driverStatTile('Series tracked',appearances.length||1)
+  ].filter(Boolean).join('');
+
+  const appearancesHtml=appearances.map(item=>{
+    const itemRow=item.row;
+    const itemSeries=item.series;
+    return '<a class="driver-series-row" href="'+driverProfileHref(itemSeries.series_key,itemRow.name)+'">'+
+      '<div>'+logo(itemSeries)+'<span><strong>'+esc(itemSeries.series_name)+'</strong><small>'+esc(itemSeries.group||'RACING')+' · '+esc(itemSeries.season||'')+'</small></span></div>'+
+      '<div class="driver-series-values"><span>'+(itemRow.position?'P'+esc(itemRow.position):'—')+'</span><strong>'+points(itemRow.points)+' pts</strong>'+move(itemRow.movement,itemRow.comparison_ready!==false)+'</div>'+
+    '</a>';
+  }).join('');
+
+  const sourceLinks=[
+    series.official_url?'<a href="'+esc(series.official_url)+'" target="_blank" rel="noopener"><span>Official series standings</span><strong>Open source ↗</strong></a>':'',
+    series.metadata_source_url?'<a href="'+esc(series.metadata_source_url)+'" target="_blank" rel="noopener"><span>Driver identity source</span><strong>Open source ↗</strong></a>':'',
+    series.provider_url?'<a href="'+esc(series.provider_url)+'" target="_blank" rel="noopener"><span>'+esc(series.source_name||'Standings data source')+'</span><strong>Open source ↗</strong></a>':''
+  ].filter(Boolean).join('');
+
+  host.innerHTML=
+    '<article class="driver-profile-hero driver-profile-hero-rich">'+
+      '<div class="driver-profile-photo">'+driverPortrait(primary,true)+'</div>'+
+      '<div class="driver-profile-copy">'+
+        '<span class="eyebrow">'+esc(primary.group)+' · '+esc(primary.series_short)+'</span>'+
+        '<h2>'+esc(primary.name)+'</h2>'+
+        '<p>'+esc(identityLine.join(' · ')||'Source-backed Race Center driver profile')+'</p>'+
+        '<div class="driver-profile-actions">'+
+          '<button class="button '+(followed?'':'primary')+'" type="button" data-driver-follow="'+esc(primary.key)+'" data-driver-label="'+esc(primary.name)+'" data-driver-series="'+esc(primary.series_key)+'">'+(followed?'★ Following':'☆ Follow driver')+'</button>'+
+          '<button class="button" type="button" data-driver-claim="'+esc(primary.key)+'" data-driver-name="'+esc(primary.name)+'" data-driver-series="'+esc(primary.series_key)+'">Claim this profile</button>'+
+          '<a class="button" href="'+esc(series.official_url||'/race-center/standings')+'" '+(series.official_url?'target="_blank" rel="noopener"':'')+'>Official standings'+(series.official_url?' ↗':'')+'</a>'+
+        '</div>'+
       '</div>'+
-    '</div>'+
-    '<div class="driver-profile-stats">'+
-      '<div><span>Championship</span><strong>'+(driver.position?'P'+esc(driver.position):'—')+'</strong></div>'+
-      '<div><span>Points</span><strong>'+points(driver.points)+'</strong></div>'+
-      '<div><span>Series</span><strong>'+esc(driver.series_short)+'</strong></div>'+
-    '</div>'+
-  '</article>'+
-  '<section class="driver-profile-source"><span class="eyebrow">PROFILE POLICY</span><h3>Racing facts stay official.</h3><p>Standings, results and source-backed racing identity remain controlled by Pitmark’s racing data. After a claim is verified, the driver can own the profile photo, bio, links, sponsors and personal content around those facts.</p></section>';
+      '<div class="driver-profile-stat-grid">'+stats+'</div>'+
+    '</article>'+
+
+    '<div class="driver-profile-layout">'+
+      '<div class="driver-profile-main">'+
+        '<section class="driver-detail-card">'+
+          '<div class="driver-detail-head"><div><span class="eyebrow">CHAMPIONSHIP SNAPSHOT</span><h3>'+esc(primary.series_short)+'</h3></div><span class="driver-source-age">Updated '+esc(age(series.fetched_at))+' ago</span></div>'+
+          '<div class="driver-snapshot-grid">'+
+            '<div><span>Current position</span><strong>'+(primary.position?'P'+esc(primary.position):'—')+'</strong></div>'+
+            '<div><span>Points</span><strong>'+points(primary.points)+'</strong></div>'+
+            '<div><span>Gap</span><strong>'+esc(driverGapText(primary.behind))+'</strong></div>'+
+            '<div><span>Field</span><strong>'+String((series.entries||[]).length||'—')+'</strong></div>'+
+          '</div>'+
+          driverStandingContext(series,row)+
+        '</section>'+
+        driverNextRace(series)+
+        '<section class="driver-detail-card">'+
+          '<span class="eyebrow">RACING ACROSS RACE CENTER</span>'+
+          '<h3>'+esc(primary.name)+' in tracked series</h3>'+
+          '<p class="driver-detail-intro">Every current championship where Race Center finds this driver by verified name identity.</p>'+
+          '<div class="driver-series-list">'+(appearancesHtml||'<div class="loading-card">Only this championship is currently tracked for this driver.</div>')+'</div>'+
+        '</section>'+
+      '</div>'+
+      '<aside class="driver-profile-aside">'+
+        '<section class="driver-detail-card">'+
+          '<span class="eyebrow">RACING IDENTITY</span>'+
+          '<h3>What Race Center knows</h3>'+
+          '<dl class="driver-identity-list">'+
+            '<div><dt>Car number</dt><dd>'+esc(primary.number||'Not verified')+'</dd></div>'+
+            '<div><dt>Team</dt><dd>'+esc(primary.team||'Not verified')+'</dd></div>'+
+            '<div><dt>Manufacturer</dt><dd>'+esc(primary.manufacturer||'Not verified')+'</dd></div>'+
+            '<div><dt>Series</dt><dd>'+esc(primary.series_name)+'</dd></div>'+
+            '<div><dt>Season</dt><dd>'+esc(series.season||'Current')+'</dd></div>'+
+          '</dl>'+
+        '</section>'+
+        '<section class="driver-detail-card">'+
+          '<span class="eyebrow">OFFICIAL SOURCES</span>'+
+          '<h3>Where this data comes from</h3>'+
+          '<div class="driver-source-list">'+(sourceLinks||'<p>No public source links are attached to this snapshot.</p>')+'</div>'+
+        '</section>'+
+        '<section class="driver-detail-card driver-claim-card">'+
+          '<span class="eyebrow">DRIVER OWNERSHIP</span>'+
+          '<h3>Is this your profile?</h3>'+
+          '<p>Claim it to add your own photo, bio, sponsors, links and posts while Race Center keeps standings and results source-backed.</p>'+
+          '<button class="button primary" type="button" data-driver-claim="'+esc(primary.key)+'" data-driver-name="'+esc(primary.name)+'" data-driver-series="'+esc(primary.series_key)+'">Claim this profile</button>'+
+        '</section>'+
+      '</aside>'+
+    '</div>';
 }
 
 const age=iso=>{

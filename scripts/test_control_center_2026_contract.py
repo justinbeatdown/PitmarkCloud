@@ -639,6 +639,33 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('body[data-view="drivers"] .drivers-directory', css)
         self.assertIn("Drivers route identity fix", css)
 
+    def test_race_center_driver_profiles_have_real_racing_depth(self):
+        public_js = self.read("api/standings_public.js")
+        css = self.read("api/standings_public.css")
+
+        for token in (
+            "driverAppearances",
+            "driverStandingContext",
+            "driverNextRace",
+            "CHAMPIONSHIP SNAPSHOT",
+            "RACING ACROSS RACE CENTER",
+            "RACING IDENTITY",
+            "OFFICIAL SOURCES",
+            "Gap to leader",
+            "Series tracked",
+        ):
+            self.assertIn(token, public_js)
+
+        for token in (
+            ".driver-profile-stat-grid",
+            ".driver-profile-layout",
+            ".driver-neighbor-list",
+            ".driver-series-row",
+            ".driver-identity-list",
+            "Driver profile depth pass",
+        ):
+            self.assertIn(token, css)
+
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
         public_api = self.read("api/standings_public.py")
