@@ -75,6 +75,7 @@ class RaceProfileChange(BaseModel):
     handle: str = Field(min_length=3, max_length=40)
     bio: str = Field(default="", max_length=280)
     favorite_track: str = Field(default="", max_length=120)
+    account_type: str = Field(default="fan", min_length=3, max_length=30)
 
 
 class RacePostCreate(BaseModel):
@@ -202,6 +203,7 @@ def race_center_profile_update(request: Request, body: RaceProfileChange):
             handle=body.handle,
             bio=body.bio,
             favorite_track=body.favorite_track,
+            account_type=body.account_type,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
