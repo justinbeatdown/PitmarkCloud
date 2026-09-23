@@ -257,6 +257,37 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
                 "watch_url": event_info.get("watch_url"),
                 "schedule_url": event_info.get("schedule_url"),
                 "track_key": track_key or None,
+                "classes": list(event_row_source.get("classes") or event_row_source.get("divisions") or []),
+                "entry_list": list(event_row_source.get("entry_list") or event_row_source.get("entries") or []),
+                "qualifying": list(event_row_source.get("qualifying") or []),
+                "heats": list(event_row_source.get("heats") or []),
+                "features": list(event_row_source.get("features") or event_row_source.get("feature") or []),
+                "starting_lineup": list(event_row_source.get("starting_lineup") or event_row_source.get("lineup") or []),
+                "results": list(event_row_source.get("results") or []),
+                "related_drivers": [_entry_identity(entry) for entry in entries[:48]],
+                "championship_context": {
+                    "leader": _entry_identity(entries[0]) if entries else None,
+                    "field_size": len(entries),
+                    "season": series.get("season"),
+                },
+                "source_urls": sorted({
+                    str(value)
+                    for value in (
+                        event_row_source.get("source_url"),
+                        event_row_source.get("event_url"),
+                        event_info.get("schedule_url"),
+                        event_info.get("watch_url"),
+                    )
+                    if value
+                }),
+                "provenance": {
+                    "generated_at": now.isoformat(),
+                    "confidence": "source-backed" if (
+                        event_row_source.get("source_url")
+                        or event_row_source.get("event_url")
+                        or event_info.get("schedule_url")
+                    ) else "derived",
+                },
             }
             event_items.append(event_row)
             if track_key:

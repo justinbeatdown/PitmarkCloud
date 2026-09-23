@@ -3779,3 +3779,49 @@ body[data-view="compare"] .v7-compare{
 @media (max-width:760px){
   .v7-track-facts{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+
+/* Race Center V7 Event intelligence */
+.v7-event-countdown{
+  display:inline-flex;
+  margin:10px 0 2px;
+  padding:7px 10px;
+  border:1px solid rgba(255,141,85,.35);
+  border-radius:999px;
+  background:rgba(255,102,31,.08);
+  color:#ff9b68;
+  font-size:10px;
+  font-weight:950;
+  letter-spacing:.08em;
+}
+.v7-chip-strip{margin:14px 0 18px}
+.v7-event-data-list{display:grid;gap:8px}
+.v7-event-data-list>div{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 0;
+  border-bottom:1px solid rgba(255,255,255,.07);
+}
+.v7-event-data-list>div:last-child{border-bottom:0}
+.v7-event-data-list strong{font-size:12px}
+.v7-event-data-list span{font-size:10px;color:var(--muted,#9097a0);text-align:right}
+.v7-event-leader{
+  padding:12px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;
+  background:rgba(255,255,255,.025);
+}
+.v7-event-leader span{
+  display:block;
+  color:#ff9b68;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.1em;
+}
+.v7-event-leader strong{display:block;margin-top:4px;font-size:16px}
+.v7-event-leader p{margin:4px 0 0}
+@media (max-width:760px){
+  .v7-event-data-list>div{display:block}
+  .v7-event-data-list span{display:block;margin-top:3px;text-align:left}
+}

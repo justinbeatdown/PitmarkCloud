@@ -72,6 +72,34 @@
     return new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(date);
   }
 
+  function eventCountdown(start,state){
+    if(state==='live')return 'LIVE NOW';
+    if(state==='recent')return 'COMPLETE';
+    const date=new Date(start||'');
+    if(Number.isNaN(date.getTime()))return 'TIME TBA';
+    const diff=date.getTime()-Date.now();
+    if(diff<=0)return 'STARTING / STATUS PENDING';
+    const minutes=Math.floor(diff/60000);
+    const days=Math.floor(minutes/1440);
+    const hours=Math.floor((minutes%1440)/60);
+    const mins=minutes%60;
+    if(days>0)return 'GREEN IN '+days+'D '+hours+'H';
+    if(hours>0)return 'GREEN IN '+hours+'H '+mins+'M';
+    return 'GREEN IN '+Math.max(1,mins)+'M';
+  }
+
+  function eventRows(items,empty){
+    const rows=Array.isArray(items)?items:[];
+    if(!rows.length)return '<p>'+esc(empty||'Not yet published by the connected source.')+'</p>';
+    return '<div class="v7-event-data-list">'+rows.slice(0,40).map((row,index)=>{
+      if(row===null||row===undefined)return '';
+      if(typeof row!=='object')return '<div><strong>'+esc(String(row))+'</strong></div>';
+      const title=row.name||row.driver||row.title||row.label||row.class||row.session||('Entry '+(index+1));
+      const detail=[row.number?('#'+row.number):'',row.team,row.position?('P'+row.position):'',row.time,row.status].filter(Boolean).join(' · ');
+      return '<div><strong>'+esc(title)+'</strong><span>'+esc(detail)+'</span></div>';
+    }).join('')+'</div>';
+  }
+
   function directoryConfig(){
     if(view==='tracks')return {
       type:'track',collection:'tracks',eyebrow:'TRACK DIRECTORY',title:'Every track in the graph',
@@ -240,19 +268,34 @@
   }
 
   function eventProfile(item){
+    const classes=Array.isArray(item.classes)?item.classes:[];
+    const entries=Array.isArray(item.entry_list)&&item.entry_list.length?item.entry_list:(item.related_drivers||[]);
+    const sources=(item.source_urls||[]);
+    const context=item.championship_context||{};
+    const leader=context.leader||null;
     return '<article class="v7-profile-hero v7-event-profile"><div><span class="eyebrow">'+esc(String(item.state||'EVENT').toUpperCase())+'</span><h2>'+esc(item.name)+'</h2><p>'+esc([item.series_name,item.venue,item.location].filter(Boolean).join(' · '))+'</p>'+
+      '<div class="v7-event-countdown">'+esc(eventCountdown(item.start,item.state))+'</div>'+
       '<div class="v7-event-time">'+esc(eventWhen(item.start))+'</div><div class="v7-profile-actions">'+
       (item.watch_url?'<a class="button primary" href="'+esc(item.watch_url)+'" target="_blank" rel="noopener">Watch info ↗</a>':'')+
       (item.schedule_url?'<a class="button" href="'+esc(item.schedule_url)+'" target="_blank" rel="noopener">Official schedule ↗</a>':'')+
+      (item.event_url?'<a class="button" href="'+esc(item.event_url)+'" target="_blank" rel="noopener">Event source ↗</a>':'')+
       '<a class="button" href="/api/public/race-center/calendar/event/'+encodeURIComponent(item.key)+'.ics">Add to calendar ↓</a>'+
       shareButton(item.name+' — Pitmark Race Center')+
       '</div></div><div class="v7-profile-stats"><div><span>STATUS</span><strong>'+esc(String(item.state||'schedule').toUpperCase())+'</strong></div><div><span>SERIES</span><strong>'+esc(item.series_name||'—')+'</strong></div></div></article>'+
+      (classes.length?'<section class="v7-chip-strip"><span class="eyebrow">CLASSES / DIVISIONS</span><div class="v7-chip-list">'+classes.map(x=>'<span>'+esc(typeof x==='object'?(x.name||x.label||JSON.stringify(x)):x)+'</span>').join('')+'</div></section>':'')+
       '<div class="v7-profile-layout"><section class="v7-profile-section"><span class="eyebrow">EVENT HUB</span><h3>Race-day connections</h3><div class="v7-related-list">'+
       '<a href="/race-center/series/'+encodeURIComponent(item.series_key||'')+'"><strong>'+esc(item.series_name||'Series')+'</strong><span>Championship profile + standings</span></a>'+
       (item.track_key?'<a href="/race-center/track/'+encodeURIComponent(item.track_key)+'"><strong>'+esc(item.venue||'Track')+'</strong><span>'+esc(item.location||'Track profile')+'</span></a>':'')+
-      '</div></section><section class="v7-profile-section"><span class="eyebrow">RESULTS</span><h3>Event results</h3><p>'+(
-        item.state==='recent'?'Race Center will attach official results here when the connected source exposes them.':'Results appear here after the event when a verified source is available.'
-      )+'</p></section></div>';
+      '</div></section><section class="v7-profile-section"><span class="eyebrow">CHAMPIONSHIP CONTEXT</span><h3>What this race means</h3>'+
+      (leader?'<div class="v7-event-leader"><span>POINTS LEADER</span><strong>'+esc((leader.number?('#'+leader.number+' · '):'')+(leader.name||'Leader'))+'</strong><p>'+esc([leader.team,leader.points!==undefined&&leader.points!==null?(leader.points+' pts'):''].filter(Boolean).join(' · '))+'</p></div>':'<p>Championship context will appear when current standings are available.</p>')+
+      '</section></div>'+
+      '<div class="v7-profile-layout"><section class="v7-profile-section"><span class="eyebrow">ENTRY LIST</span><h3>Who is in</h3>'+eventRows(entries,'Entry list has not been published by the connected source yet.')+'</section>'+
+      '<section class="v7-profile-section"><span class="eyebrow">STARTING LINEUP</span><h3>Grid / lineup</h3>'+eventRows(item.starting_lineup,'Starting lineup has not been published yet.')+'</section></div>'+
+      '<div class="v7-profile-layout"><section class="v7-profile-section"><span class="eyebrow">QUALIFYING + HEATS</span><h3>Race program</h3>'+eventRows([...(item.qualifying||[]),...(item.heats||[]),...(item.features||[])],'Session structure has not been published by the connected source yet.')+'</section>'+
+      '<section class="v7-profile-section"><span class="eyebrow">RESULTS</span><h3>Official results</h3>'+eventRows(item.results,item.state==='recent'?'Official results are not yet available from the connected source.':'Results appear here after the event when a verified source publishes them.')+'</section></div>'+
+      '<section class="v7-profile-section"><span class="eyebrow">SOURCES</span><h3>Event provenance</h3><div class="v7-related-list">'+
+      (sources.length?sources.map((url,index)=>'<a href="'+esc(url)+'" target="_blank" rel="noopener"><strong>Source '+(index+1)+'</strong><span>'+esc(url)+'</span></a>').join(''):'<p>This event is derived from the connected series schedule.</p>')+
+      '</div></section>';
   }
 
   async function renderEntityProfile(){
