@@ -516,6 +516,24 @@ def race_center_series_archive(series_key: str, season: int | None = None, limit
     return race_center_entities.series_archive(series_key, season=season, limit=limit)
 
 
+@router.get("/api/public/race-center/results", include_in_schema=False)
+def race_center_results_archive(
+    scope_type: str = "",
+    scope_key: str = "",
+    season: int | None = None,
+    limit: int = 120,
+):
+    try:
+        return race_center_entities.results_archive(
+            scope_type=scope_type,
+            scope_key=scope_key,
+            season=season,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @router.get("/api/public/race-center/alerts", include_in_schema=False)
 def race_center_alerts(request: Request):
     account = race_center_accounts.account_from_request(request)
@@ -789,6 +807,7 @@ def race_center_people_unfollow(request: Request, body: RaceUserFollowChange):
 @router.get("/race-center/team/{entity_key}", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/events", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/event/{entity_key}", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/results", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/my-racing", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/health", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/series", response_class=HTMLResponse, include_in_schema=False)
@@ -816,6 +835,7 @@ def public_standings_home(request: Request):
         else "teams" if path.endswith("/teams")
         else "eventprofile" if "/race-center/event/" in path
         else "events" if path.endswith("/events")
+        else "results" if path.endswith("/results")
         else "myracing" if path.endswith("/my-racing")
         else "compare" if path.endswith("/compare")
         else "health" if path.endswith("/health")
