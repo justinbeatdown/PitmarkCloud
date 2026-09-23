@@ -200,15 +200,33 @@
 
   function trackProfile(item){
     const events=(item.events||[]).slice(0,12);
+    const drivers=(item.related_drivers||[]).slice(0,12);
+    const facts=[
+      ['TYPE',item.track_type],
+      ['SURFACE',item.surface],
+      ['LENGTH',item.length],
+      ['CONFIG',item.configuration]
+    ].filter(row=>row[1]);
+    const sources=(item.provenance&&item.provenance.source_urls)||item.source_urls||[];
+    const socials=(item.social_links||[]).filter(Boolean);
     return '<article class="v7-profile-hero"><div><span class="eyebrow">TRACK</span><h2>'+esc(item.name)+'</h2><p>'+esc(item.location||'Location sourced from connected events')+'</p>'+
       '<div class="v7-profile-actions">'+followButton('track',item)+claimButton('track',item)+
       '<a class="button" href="/api/public/race-center/calendar/track/'+encodeURIComponent(item.key)+'.ics">Calendar ↓</a>'+
       '<a class="button" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent([item.name,item.location].filter(Boolean).join(', '))+'" target="_blank" rel="noopener">Map ↗</a>'+
+      (item.official_url?'<a class="button" href="'+esc(item.official_url)+'" target="_blank" rel="noopener">Official site ↗</a>':'')+
       shareButton(item.name+' — Pitmark Race Center')+'</div></div>'+
       '<div class="v7-profile-stats"><div><span>SERIES</span><strong>'+Number((item.series||[]).length)+'</strong></div><div><span>EVENTS</span><strong>'+Number(events.length)+'</strong></div></div></article>'+
+      (facts.length?'<section class="v7-track-facts">'+facts.map(row=>'<div><span>'+esc(row[0])+'</span><strong>'+esc(row[1])+'</strong></div>').join('')+'</section>':'')+
       '<div class="v7-profile-layout"><section class="v7-profile-section"><span class="eyebrow">UPCOMING / RECENT</span><h3>Events at '+esc(item.name)+'</h3><div class="v7-related-list">'+
       (events.length?events.map(e=>'<a href="/race-center/event/'+encodeURIComponent(e.key)+'"><strong>'+esc(e.name)+'</strong><span>'+esc([e.series_name,eventWhen(e.start)].filter(Boolean).join(' · '))+'</span></a>').join(''):'<p>No connected events are available yet.</p>')+
-      '</div></section><section class="v7-profile-section"><span class="eyebrow">SERIES</span><h3>Who races here</h3><div class="v7-chip-list">'+(item.series||[]).map(key=>'<a href="/race-center/series/'+encodeURIComponent(key)+'">'+esc(key)+'</a>').join('')+'</div></section></div>';
+      '</div></section><section class="v7-profile-section"><span class="eyebrow">SERIES</span><h3>Who races here</h3><div class="v7-chip-list">'+(item.series||[]).map(key=>'<a href="/race-center/series/'+encodeURIComponent(key)+'">'+esc(key)+'</a>').join('')+'</div></section></div>'+
+      '<div class="v7-profile-layout"><section class="v7-profile-section"><span class="eyebrow">DRIVERS</span><h3>Related drivers</h3><div class="v7-related-list">'+
+      (drivers.length?drivers.map(d=>'<a href="/race-center/driver/'+encodeURIComponent((d.series&&d.series[0]&&d.series[0].series_key)||'')+'/'+encodeURIComponent(d.name||'')+'"><strong>'+esc((d.number?'#'+d.number+' · ':'')+(d.name||'Driver'))+'</strong><span>'+esc(d.team||((d.series||[]).map(x=>x.series_name).filter(Boolean).join(' · ')))+'</span></a>').join(''):'<p>Related drivers will appear as connected results data becomes available.</p>')+
+      '</div></section><section class="v7-profile-section"><span class="eyebrow">SOURCES</span><h3>Track information provenance</h3><div class="v7-related-list">'+
+      (sources.length?sources.map((url,index)=>'<a href="'+esc(url)+'" target="_blank" rel="noopener"><strong>Source '+(index+1)+'</strong><span>'+esc(url)+'</span></a>').join(''):'<p>This track is currently derived from connected race schedules.</p>')+
+      (socials.length?socials.map(url=>'<a href="'+esc(url)+'" target="_blank" rel="noopener"><strong>Official social</strong><span>'+esc(url)+'</span></a>').join(''):'')+
+      '</div></section></div>'+
+      (item.photo_url?'<section class="v7-profile-section v7-track-media"><span class="eyebrow">TRACK MEDIA</span><img src="'+esc(item.photo_url)+'" alt="'+esc(item.name)+'"><p>'+esc([item.photo_attribution,item.photo_license].filter(Boolean).join(' · '))+'</p></section>':'');
   }
 
   function teamProfile(item){
