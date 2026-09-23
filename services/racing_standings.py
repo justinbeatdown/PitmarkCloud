@@ -3810,6 +3810,16 @@ def get_driver_identity(
         if any(value == "official" for value in field_sources.values())
         else "unresolved"
     )
+    log.info(
+        "Driver identity resolved series=%s driver=%s number=%s team=%s manufacturer=%s source=%s photo=%s",
+        series_key,
+        clean_name,
+        number,
+        team,
+        manufacturer,
+        source_kind,
+        bool(secondary.get("photo_url")),
+    )
     return {
         "verified": fully_official,
         "resolved": bool(resolved),
