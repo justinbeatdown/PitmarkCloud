@@ -377,8 +377,8 @@
     try{
       const data=await getJson('/api/public/race-center/race-day?v=7');
       const rows=[];
-      (data.live||[]).slice(0,3).forEach(e=>rows.push(briefCard('LIVE NOW',e.name,e.series_name,'/race-center/event/'+encodeURIComponent(e.key))));
-      (data.upcoming||[]).slice(0,3).forEach(e=>rows.push(briefCard('UP NEXT',e.name,eventWhen(e.start),'/race-center/event/'+encodeURIComponent(e.key))));
+      (data.live||[]).slice(0,4).forEach(e=>rows.push(briefCard(e.race_day_reason||'LIVE NOW',e.name,[e.series_name,e.venue,'LIVE NOW'].filter(Boolean).join(' · '),'/race-center/event/'+encodeURIComponent(e.key))));
+      (data.upcoming||[]).slice(0,4).forEach(e=>rows.push(briefCard(e.race_day_reason||'UP NEXT',e.name,[eventCountdown(e.start,e.state),e.venue,e.series_name].filter(Boolean).join(' · '),'/race-center/event/'+encodeURIComponent(e.key))));
       (data.movement||[]).slice(0,2).forEach(m=>rows.push(briefCard('POINTS MOVE',m.driver,'P'+String(m.position||'—')+' · '+String(m.series_name||''),'/race-center/driver/'+encodeURIComponent(m.series_key||'')+'/'+encodeURIComponent(m.driver||''))));
       if(rows.length){
         host.style.display='block';
