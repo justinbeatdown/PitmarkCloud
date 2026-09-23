@@ -1133,6 +1133,37 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Race Center V7 Driver Compare", css)
         self.assertIn('body[data-view="compare"] .v7-compare', css)
 
+    def test_race_center_v7_event_pages_are_race_weekend_hubs(self):
+        entities = self.read("services/race_center_entities.py")
+        v7_js = self.read("api/race_center_v7.js")
+        css = self.read("api/standings_public.css")
+
+        for token in (
+            '"classes": list(event_row_source.get("classes")',
+            '"entry_list": list(event_row_source.get("entry_list")',
+            '"starting_lineup"',
+            '"results"',
+            '"related_drivers"',
+            '"championship_context"',
+            '"source_urls"',
+        ):
+            self.assertIn(token, entities)
+
+        for token in (
+            "function eventCountdown(",
+            "function eventRows(",
+            "CHAMPIONSHIP CONTEXT",
+            "ENTRY LIST",
+            "STARTING LINEUP",
+            "QUALIFYING + HEATS",
+            "Official results",
+            "Event provenance",
+        ):
+            self.assertIn(token, v7_js)
+
+        self.assertIn("Race Center V7 Event intelligence", css)
+        self.assertIn(".v7-event-countdown", css)
+
     def test_race_center_v7_tracks_are_first_class_profiles(self):
         entities = self.read("services/race_center_entities.py")
         v7_js = self.read("api/race_center_v7.js")
