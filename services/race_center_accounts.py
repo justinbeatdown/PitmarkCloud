@@ -967,6 +967,81 @@ def add_coverage_link(
         return {"ok": True, "id": row.id, "duplicate": False}
 
 
+def staff_claim_queue(user_id: int) -> dict:
+    if not is_pitmark_staff_user(user_id):
+        raise PermissionError("Pitmark staff access is required.")
+    with SessionLocal() as db:
+        driver_rows = list(db.scalars(
+            select(RaceCenterDriverClaim)
+            .where(RaceCenterDriverClaim.status == "pending")
+            .order_by(RaceCenterDriverClaim.created_at.asc())
+        ).all())
+        entity_rows = list(db.scalars(
+            select(RaceCenterEntityClaim)
+            .where(RaceCenterEntityClaim.status == "pending")
+            .order_by(RaceCenterEntityClaim.created_at.asc())
+        ).all())
+    return {
+        "driver_claims": [
+            {
+                "id": row.id,
+                "user_id": row.user_id,
+                "driver_key": row.driver_key,
+                "driver_name": row.driver_name,
+                "series_key": row.series_key,
+                "evidence_url": row.evidence_url,
+                "note": row.note,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+            for row in driver_rows
+        ],
+        "entity_claims": [
+            {
+                "id": row.id,
+                "user_id": row.user_id,
+                "entity_type": row.entity_type,
+                "entity_key": row.entity_key,
+                "entity_name": row.entity_name,
+                "evidence_url": row.evidence_url,
+                "note": row.note,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+            for row in entity_rows
+        ],
+    }
+
+
+def moderate_claim(
+    user_id: int,
+    *,
+    claim_kind: str,
+    claim_id: int,
+    status: str,
+) -> dict:
+    if not is_pitmark_staff_user(user_id):
+        raise PermissionError("Pitmark staff access is required.")
+    clean_kind = (claim_kind or "").strip().lower()
+    clean_status = (status or "").strip().lower()
+    if clean_kind not in {"driver", "entity"}:
+        raise ValueError("Claim kind must be driver or entity.")
+    if clean_status not in {"pending", "verified", "rejected"}:
+        raise ValueError("Claim status must be pending, verified, or rejected.")
+    with SessionLocal() as db:
+        model = RaceCenterDriverClaim if clean_kind == "driver" else RaceCenterEntityClaim
+        row = db.get(model, claim_id)
+        if row is None:
+            raise ValueError("Claim not found.")
+        row.status = clean_status
+        row.updated_at = utcnow()
+        db.commit()
+        return {
+            "ok": True,
+            "claim_kind": clean_kind,
+            "id": row.id,
+            "status": row.status,
+        }
+
+
 class RaceCenterIdentity(Base):
     """Optional public identity/verification metadata kept separate for safe schema evolution."""
     __tablename__ = "race_center_identities"
