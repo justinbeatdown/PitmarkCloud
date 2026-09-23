@@ -188,8 +188,8 @@ def list_follows(user_id: int) -> list[dict]:
 def set_follow(user_id: int, *, kind: str, key: str, label: str = "", series_key: str = "") -> dict:
     clean_kind = (kind or "").strip().lower()
     clean_key = (key or "").strip()[:220]
-    if clean_kind not in {"series", "driver"}:
-        raise ValueError("Follow kind must be series or driver.")
+    if clean_kind not in {"series", "driver", "track", "team"}:
+        raise ValueError("Follow kind must be series, driver, track, or team.")
     if not clean_key:
         raise ValueError("Follow key is required.")
     clean_label = (label or "").strip()[:160]
@@ -248,6 +248,42 @@ class RaceCenterProfilePhoto(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), primary_key=True)
     image_data: Mapped[bytes] = mapped_column(LargeBinary)
     content_type: Mapped[str] = mapped_column(String(80), default="image/webp")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RaceCenterEntityClaim(Base):
+    __tablename__ = "race_center_entity_claims"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "entity_type",
+            "entity_key",
+            "status",
+            name="uq_race_center_entity_claim_status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), index=True)
+    entity_type: Mapped[str] = mapped_column(String(30), index=True)
+    entity_key: Mapped[str] = mapped_column(String(220), index=True)
+    entity_name: Mapped[str] = mapped_column(String(220), default="")
+    evidence_url: Mapped[str] = mapped_column(Text, default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RaceCenterAlertPreference(Base):
+    __tablename__ = "race_center_alert_preferences"
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), primary_key=True)
+    race_start: Mapped[bool] = mapped_column(Boolean, default=True)
+    results: Mapped[bool] = mapped_column(Boolean, default=True)
+    standings: Mapped[bool] = mapped_column(Boolean, default=True)
+    schedule_changes: Mapped[bool] = mapped_column(Boolean, default=True)
+    editorial: Mapped[bool] = mapped_column(Boolean, default=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -642,6 +678,96 @@ def submit_driver_claim(
         db.commit()
         db.refresh(row)
         return {"ok": True, "id": row.id, "status": row.status}
+
+
+def create_entity_claim(
+    user_id: int,
+    *,
+    entity_type: str,
+    entity_key: str,
+    entity_name: str = "",
+    evidence_url: str = "",
+    note: str = "",
+) -> dict:
+    clean_type = str(entity_type or "").strip().lower()
+    if clean_type not in {"driver", "team", "track", "series"}:
+        raise ValueError("Claim type must be driver, team, track, or series.")
+    clean_key = str(entity_key or "").strip()[:220]
+    if not clean_key:
+        raise ValueError("Claim key is required.")
+    with SessionLocal() as db:
+        existing = db.scalar(select(RaceCenterEntityClaim).where(
+            RaceCenterEntityClaim.user_id == user_id,
+            RaceCenterEntityClaim.entity_type == clean_type,
+            RaceCenterEntityClaim.entity_key == clean_key,
+            RaceCenterEntityClaim.status == "pending",
+        ))
+        if existing:
+            return {"ok": True, "id": existing.id, "status": existing.status}
+        row = RaceCenterEntityClaim(
+            user_id=user_id,
+            entity_type=clean_type,
+            entity_key=clean_key,
+            entity_name=str(entity_name or "").strip()[:220],
+            evidence_url=str(evidence_url or "").strip()[:1200],
+            note=str(note or "").strip()[:1200],
+            status="pending",
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return {"ok": True, "id": row.id, "status": row.status}
+
+
+def entity_claims_for_user(user_id: int) -> list[dict]:
+    with SessionLocal() as db:
+        rows = list(db.scalars(
+            select(RaceCenterEntityClaim)
+            .where(RaceCenterEntityClaim.user_id == user_id)
+            .order_by(RaceCenterEntityClaim.created_at.desc())
+        ).all())
+    return [
+        {
+            "id": row.id,
+            "entity_type": row.entity_type,
+            "entity_key": row.entity_key,
+            "entity_name": row.entity_name,
+            "status": row.status,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        }
+        for row in rows
+    ]
+
+
+def alert_preferences(user_id: int) -> dict:
+    with SessionLocal() as db:
+        row = db.get(RaceCenterAlertPreference, user_id)
+        if row is None:
+            row = RaceCenterAlertPreference(user_id=user_id)
+            db.add(row)
+            db.commit()
+            db.refresh(row)
+        return {
+            "race_start": bool(row.race_start),
+            "results": bool(row.results),
+            "standings": bool(row.standings),
+            "schedule_changes": bool(row.schedule_changes),
+            "editorial": bool(row.editorial),
+        }
+
+
+def set_alert_preferences(user_id: int, values: dict) -> dict:
+    with SessionLocal() as db:
+        row = db.get(RaceCenterAlertPreference, user_id)
+        if row is None:
+            row = RaceCenterAlertPreference(user_id=user_id)
+            db.add(row)
+        for field in ("race_start", "results", "standings", "schedule_changes", "editorial"):
+            if field in values:
+                setattr(row, field, bool(values[field]))
+        row.updated_at = utcnow()
+        db.commit()
+    return alert_preferences(user_id)
 
 
 def driver_claims_for_user(user_id: int) -> list[dict]:
