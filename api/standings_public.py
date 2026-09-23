@@ -15,6 +15,12 @@ from PIL import Image, ImageOps
 from services.racing_standings import SERIES as STANDINGS_SERIES, get_driver_identity, get_series_logo_info, get_series_roster, get_standings_snapshot_hub
 from services.racing_events import get_racing_event_hub
 from services import race_center_accounts
+from services.race_center_world import (
+    build_world,
+    get_event_detail,
+    get_track_detail,
+    get_team_detail,
+)
 from utils.config import settings
 from utils.security import enforce_rate_limit
 
@@ -106,6 +112,22 @@ class RaceDriverClaimCreate(BaseModel):
     note: str = Field(default="", max_length=1200)
 
 
+class RaceEntityClaimCreate(BaseModel):
+    entity_type: str = Field(min_length=3, max_length=30)
+    entity_key: str = Field(min_length=1, max_length=220)
+    entity_name: str = Field(default="", max_length=220)
+    evidence_url: str = Field(default="", max_length=1200)
+    note: str = Field(default="", max_length=1200)
+
+
+class RaceAlertPreferences(BaseModel):
+    race_start: bool = True
+    results: bool = True
+    standings: bool = True
+    schedule_changes: bool = True
+    editorial: bool = True
+
+
 def _race_account_or_401(request: Request) -> race_center_accounts.RaceCenterAccount:
     account = race_center_accounts.account_from_request(request)
     if not account:
@@ -169,6 +191,77 @@ def race_center_login(request: Request, body: RaceAccountCredentials):
         },
         account,
     )
+
+
+@router.get("/api/public/race-center/world", include_in_schema=False)
+def race_center_world(request: Request):
+    account = race_center_accounts.account_from_request(request)
+    return build_world(account_id=account.id if account else None)
+
+
+@router.get("/api/public/race-center/event/{series_key}/{event_key}", include_in_schema=False)
+def race_center_event_detail(series_key: str, event_key: str):
+    event = get_event_detail(series_key, event_key)
+    if not event:
+        raise HTTPException(status_code=404, detail="Race Center event not found.")
+    return event
+
+
+@router.get("/api/public/race-center/track/{track_key}", include_in_schema=False)
+def race_center_track_detail(track_key: str, series_key: str = ""):
+    track = get_track_detail(track_key, series_hint=series_key)
+    if not track:
+        raise HTTPException(status_code=404, detail="Race Center track not found.")
+    return track
+
+
+@router.get("/api/public/race-center/team/{team_key}", include_in_schema=False)
+def race_center_team_detail(team_key: str):
+    team = get_team_detail(team_key)
+    if not team:
+        raise HTTPException(status_code=404, detail="Race Center team not found.")
+    return team
+
+
+@router.get("/api/public/race-center/alerts", include_in_schema=False)
+def race_center_alert_preferences(request: Request):
+    account = _race_account_or_401(request)
+    return {
+        "preferences": race_center_accounts.alert_preferences(account.id),
+        "world": build_world(account_id=account.id).get("briefing") or {},
+    }
+
+
+@router.put("/api/public/race-center/alerts", include_in_schema=False)
+def race_center_alert_preferences_update(request: Request, body: RaceAlertPreferences):
+    account = _race_account_or_401(request)
+    return {
+        "ok": True,
+        "preferences": race_center_accounts.set_alert_preferences(account.id, body.model_dump()),
+    }
+
+
+@router.post("/api/public/race-center/entity-claim", include_in_schema=False)
+def race_center_entity_claim(request: Request, body: RaceEntityClaimCreate):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-entity-claim", 20, 3600)
+    try:
+        return race_center_accounts.create_entity_claim(
+            account.id,
+            entity_type=body.entity_type,
+            entity_key=body.entity_key,
+            entity_name=body.entity_name,
+            evidence_url=body.evidence_url,
+            note=body.note,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/api/public/race-center/entity-claims", include_in_schema=False)
+def race_center_entity_claims(request: Request):
+    account = _race_account_or_401(request)
+    return {"claims": race_center_accounts.entity_claims_for_user(account.id)}
 
 
 @router.post("/api/public/race-center/account/logout", include_in_schema=False)
@@ -418,6 +511,15 @@ def race_center_people_unfollow(request: Request, body: RaceUserFollowChange):
 @router.get("/race-center/series/{series_key}", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/drivers", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/driver/{series_key}/{driver_name:path}", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/tracks", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/track/{track_key}", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/teams", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/team/{team_key}", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/events", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/event/{series_key}/{event_key}", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/results", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/my-racing", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/data-health", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/standings", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/schedules", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/live", response_class=HTMLResponse, include_in_schema=False)
@@ -433,6 +535,15 @@ def public_standings_home(request: Request):
         else "drivers" if path.endswith("/drivers")
         else "seriesprofile" if "/race-center/series/" in path
         else "series" if path.endswith("/series")
+        else "trackprofile" if "/race-center/track/" in path
+        else "tracks" if path.endswith("/tracks")
+        else "teamprofile" if "/race-center/team/" in path
+        else "teams" if path.endswith("/teams")
+        else "event" if "/race-center/event/" in path
+        else "events" if path.endswith("/events")
+        else "results" if path.endswith("/results")
+        else "myracing" if path.endswith("/my-racing")
+        else "health" if path.endswith("/data-health")
         else "hub"
     )
     html = html.replace("{{PITMARK_VERSION}}", settings.app_version)
