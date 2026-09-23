@@ -3414,12 +3414,13 @@ def _wikipedia_series_clause(summary: str, series_key: str) -> str:
     text = " ".join(str(summary or "").split()).strip()
     if not text:
         return ""
-    hints = _WIKIPEDIA_SERIES_HINTS.get(series_key, ())
-    sentences = re.split(r"(?<=[.!?])\s+", text)
-    for sentence in sentences:
-        lower = sentence.lower()
-        if any(hint in lower for hint in hints):
-            return sentence
+    lower = text.lower()
+    for hint in _WIKIPEDIA_SERIES_HINTS.get(series_key, ()):
+        index = lower.find(hint)
+        if index >= 0:
+            # Keep the requested series clause intact. Splitting on periods
+            # breaks stock-car biographies at abbreviations such as "No. 5".
+            return text[max(0, index - 20): index + 280]
     return text
 
 
@@ -3447,7 +3448,7 @@ def _wikipedia_identity_from_summary(
     # Stock-car biographies commonly use:
     # "driving the No. 5 Chevrolet ... for Hendrick Motorsports".
     team_match = re.search(
-        r"\bfor\s+([A-Z][A-Za-z0-9&'’.\- ]{2,80}?)(?=,\s+(?:and|while|part|full)|[.;]|$)",
+        r"\bfor\s+([A-Z][A-Za-z0-9&'’.\- ]{2,80}?)(?=\s+and\s+(?:part-time|full-time)|,\s+(?:and|while)|[.;]|$)",
         clause,
     )
     if team_match:
