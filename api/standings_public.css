@@ -2333,3 +2333,378 @@ body[data-view="hub"] .toolbar{
     flex-basis:104px!important;
   }
 }
+
+
+/* ============================================================
+   RACE CENTER V6 — finished product shell
+   Racing-first clarity + social home + readable data surfaces.
+   ============================================================ */
+
+body[data-view="hub"] .hero{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) 410px!important;
+  gap:28px!important;
+  min-height:0!important;
+  padding:34px 0 22px!important;
+}
+body[data-view="hub"] .hero::before{inset:10px -18px 0!important}
+body[data-view="hub"] .hero-copy{max-width:860px}
+body[data-view="hub"] .hero h1{
+  margin:8px 0 12px!important;
+  font-size:clamp(48px,5.4vw,76px)!important;
+  line-height:.92!important;
+}
+body[data-view="hub"] .hero-copy>p{
+  max-width:760px!important;
+  font-size:16px!important;
+  line-height:1.55!important;
+}
+body[data-view="hub"] .hero-actions{margin-top:17px!important}
+body[data-view="hub"] .hero-board{
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  align-self:end;
+  width:100%!important;
+  max-width:none!important;
+  border-radius:16px!important;
+}
+body[data-view="hub"] .hero-board>div{
+  min-height:86px!important;
+  padding:14px 15px!important;
+}
+body[data-view="hub"] .hero-board span{font-size:9px!important}
+body[data-view="hub"] .hero-board strong{font-size:30px!important}
+body[data-view="hub"] .hero-board small{font-size:9px!important;line-height:1.35}
+
+.race-search-dock{
+  position:relative;
+  z-index:32;
+  width:min(100%,760px);
+  margin-top:18px;
+}
+body:not([data-view="hub"]) .race-search-dock{display:none}
+.race-search-dock>label span{
+  display:block;
+  margin-bottom:6px;
+  color:#ff8f58;
+  font-size:10px;
+  font-weight:1000;
+  letter-spacing:.11em;
+}
+.race-search-box{
+  height:50px;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+  padding:0 13px;
+  border:1px solid #35414d;
+  border-radius:13px;
+  background:#0a0f14;
+  box-shadow:0 15px 35px rgba(0,0,0,.18);
+}
+.race-search-box>span{color:#ff8d56;font-size:20px}
+.race-search-box input{
+  width:100%;
+  min-width:0;
+  border:0;
+  outline:0;
+  background:transparent;
+  color:#f7f9fb;
+  font:800 14px/1.2 inherit;
+}
+.race-search-box input::placeholder{color:#6f7d8e}
+.race-search-box kbd{
+  min-width:25px;
+  padding:4px 7px;
+  border:1px solid #35414c;
+  border-bottom-width:2px;
+  border-radius:7px;
+  background:#111820;
+  color:#8290a1;
+  font:900 10px/1 inherit;
+  text-align:center;
+}
+.race-search-results{
+  position:absolute;
+  left:0;
+  right:0;
+  top:calc(100% + 7px);
+  max-height:440px;
+  overflow:auto;
+  padding:7px;
+  border:1px solid #35414d;
+  border-radius:13px;
+  background:rgba(8,12,16,.98);
+  box-shadow:0 28px 70px rgba(0,0,0,.52);
+}
+.race-search-results[hidden]{display:none!important}
+.race-search-result{
+  display:grid;
+  grid-template-columns:64px minmax(0,1fr) auto;
+  gap:10px;
+  align-items:center;
+  min-height:56px;
+  padding:8px 10px;
+  border-radius:9px;
+}
+.race-search-result:hover{background:#151c23}
+.race-search-kind{
+  color:#ff8d56;
+  font-size:9px;
+  font-weight:1000;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+}
+.race-search-copy{min-width:0}
+.race-search-copy strong{
+  display:block;
+  color:#f4f7fa;
+  font-size:13px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.race-search-copy small{
+  display:block;
+  margin-top:3px;
+  color:#7c899a;
+  font-size:10px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.race-search-result>b{color:#8190a2;font-size:15px}
+.race-search-empty{display:grid;gap:4px;padding:18px}
+.race-search-empty strong{font-size:13px}
+.race-search-empty span{color:#788699;font-size:11px}
+
+body[data-view="hub"] .home-race-pulse{
+  display:block!important;
+  margin:0 0 18px!important;
+  padding:16px!important;
+}
+body[data-view="hub"] .home-race-pulse .pulse-head h2{font-size:27px!important}
+body[data-view="hub"] .home-race-pulse .pulse-card>span{font-size:10px!important}
+body[data-view="hub"] .home-race-pulse .pulse-card>small{font-size:11px!important}
+body[data-view="hub"] .home-race-pulse .pulse-card>strong{font-size:30px!important}
+
+/* Home has one purpose: My Racing + the racing feed. Dedicated pages own the rest. */
+body[data-view="hub"] .race-social{display:grid!important}
+body[data-view="hub"] #hubNavigation,
+body[data-view="hub"] .toolbar,
+body[data-view="hub"] .live-section,
+body[data-view="hub"] .leaders-section,
+body[data-view="hub"] .movers-section,
+body[data-view="hub"] .series-section,
+body[data-view="hub"] .schedule-section,
+body[data-view="hub"] .race-center-grid,
+body[data-view="hub"] .drivers-directory,
+body[data-view="hub"] .driver-profile-page,
+body[data-view="hub"] .series-directory,
+body[data-view="hub"] .series-profile-page{
+  display:none!important;
+}
+
+.race-social{
+  grid-template-columns:250px minmax(0,760px) 300px!important;
+  gap:14px!important;
+  max-width:none!important;
+  margin:0 0 34px!important;
+}
+.social-left,.social-right{top:calc(var(--header-h) + 14px)}
+.social-profile-card,.social-left-card,.social-right-card,.social-composer-card,.social-feed-card,.social-for-you{
+  border-radius:15px!important;
+}
+.social-profile-card{padding:16px!important}
+.social-profile-avatar,.composer-avatar{
+  overflow:hidden;
+}
+.social-profile-avatar.has-profile-photo,
+.composer-avatar.has-profile-photo{
+  background:#0d1217!important;
+  border:1px solid #303b46!important;
+}
+.social-profile-avatar img,.composer-avatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.social-profile-copy strong{font-size:15px!important}
+.social-profile-copy span{font-size:11px!important}
+.social-profile-role{font-size:9px!important;padding:5px 8px!important}
+.social-profile-edit{height:38px!important;font-size:11px!important}
+.social-profile-stats strong{font-size:16px!important}
+.social-profile-stats span{font-size:8px!important}
+.social-nav a,.social-nav button{min-height:43px!important}
+.social-nav strong{font-size:11px!important}
+.social-left-card,.social-right-card{padding:13px!important}
+.rail-heading span,.right-card-head .eyebrow{font-size:9px!important}
+.rail-heading button,.right-card-head button{font-size:10px!important}
+.rail-item{min-height:46px!important;padding:8px!important}
+.rail-item strong{font-size:11px!important}
+.rail-item small{font-size:9px!important}
+.social-composer-card{padding:14px!important}
+.social-composer-body textarea{min-height:70px!important;font-size:14px!important}
+.social-composer-tools select{height:38px!important;font-size:11px!important}
+.social-composer-tools>span{font-size:10px!important}
+.social-composer-body>small{font-size:10px!important}
+.feed-heading h2{font-size:26px!important}
+.feed-heading p{font-size:11px!important;line-height:1.4}
+.unified-race-feed{padding:15px!important}
+.unified-feed{gap:12px!important}
+.network-object header small{font-size:9px!important}
+.network-object header strong{font-size:13px!important}
+.network-event-line b{font-size:9px!important}
+.network-event-line span{font-size:11px!important}
+.network-object-label{font-size:9px!important}
+.network-standing-row strong{font-size:12px!important}
+.network-standing-row>span:nth-child(3){font-size:11px!important}
+.network-object footer span,.network-object footer strong{font-size:10px!important}
+.driver-network-stats span{font-size:9px!important}
+.driver-network-stats strong{font-size:13px!important}
+.wall-author strong{font-size:12px!important}
+.wall-author small,.wall-post-time{font-size:10px!important}
+.social-post-feed .wall-body,.wall-body{font-size:13px!important;line-height:1.55!important}
+.wall-context{font-size:10px!important}
+.wall-action{font-size:10px!important;min-height:32px!important}
+.wall-comment{font-size:11px!important}
+.wall-comment-form input{font-size:11px!important}
+.social-right-card h3{font-size:18px!important}
+.social-people-list .people-main strong{font-size:11px!important}
+.social-discover-links strong{font-size:11px!important}
+.social-discover-links span{font-size:10px!important;line-height:1.4}
+
+.social-staff-badge{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  width:100%;
+  margin-top:9px;
+  padding:6px 7px;
+  border:1px solid rgba(255,85,0,.34);
+  border-radius:10px;
+  background:rgba(255,85,0,.07);
+}
+.social-staff-badge[hidden]{display:none!important}
+.social-staff-badge img{
+  width:72px;
+  height:32px;
+  object-fit:contain;
+  flex:0 0 72px;
+}
+.social-staff-badge>span{min-width:0}
+.social-staff-badge b{
+  display:block;
+  color:#fff;
+  font-size:9px;
+  line-height:1.1;
+  text-transform:uppercase;
+}
+.social-staff-badge small{
+  display:block;
+  margin-top:2px;
+  color:#ff9a69;
+  font-size:8px;
+  line-height:1.2;
+}
+
+.driver-identity-status{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  margin:8px 0 4px;
+  padding:6px 8px;
+  border:1px solid #303b46;
+  border-radius:999px;
+  color:#9aa8b8;
+  background:#0b1015;
+  font-size:9px;
+  font-weight:950;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+.driver-identity-status>span{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:#768597;
+}
+.driver-identity-status.complete{
+  color:#7ee5b5;
+  border-color:rgba(57,217,138,.32);
+  background:rgba(57,217,138,.06);
+}
+.driver-identity-status.complete>span{background:#39d98a;box-shadow:0 0 10px rgba(57,217,138,.45)}
+.driver-identity-status.loading>span{background:#ffd56a;animation:race-center-pulse 1.2s infinite}
+.driver-identity-status.unavailable{color:#c7a3a3;border-color:rgba(220,110,110,.28)}
+.driver-identity-status.unavailable>span{background:#cc7777}
+@keyframes race-center-pulse{50%{opacity:.35}}
+
+body[data-view="drivers"] .hero,
+body[data-view="driver"] .hero,
+body[data-view="series"] .hero,
+body[data-view="seriesprofile"] .hero{
+  display:none!important;
+}
+body[data-view="drivers"] .drivers-directory,
+body[data-view="series"] .series-directory{
+  margin-top:34px!important;
+}
+body[data-view="driver"] .driver-profile-page,
+body[data-view="seriesprofile"] .series-profile-page{
+  margin-top:28px!important;
+}
+
+/* Make dedicated racing pages feel complete rather than like a generic dashboard. */
+body[data-view="standings"] .hero,
+body[data-view="schedules"] .hero,
+body[data-view="live"] .hero{
+  min-height:0!important;
+  grid-template-columns:1fr!important;
+  padding:30px 0 18px!important;
+}
+body[data-view="standings"] .hero-board,
+body[data-view="schedules"] .hero-board,
+body[data-view="live"] .hero-board{display:none!important}
+body[data-view="standings"] .hero h1,
+body[data-view="schedules"] .hero h1,
+body[data-view="live"] .hero h1{
+  max-width:850px;
+  margin:8px 0 10px;
+  font-size:clamp(42px,5vw,66px)!important;
+}
+body[data-view="standings"] .hero-copy>p,
+body[data-view="schedules"] .hero-copy>p,
+body[data-view="live"] .hero-copy>p{font-size:14px!important;max-width:800px}
+
+@media(max-width:1180px){
+  body[data-view="hub"] .hero{grid-template-columns:1fr!important}
+  body[data-view="hub"] .hero-board{max-width:760px!important}
+  .race-social{grid-template-columns:220px minmax(0,1fr)!important}
+  .social-right{display:none!important}
+}
+@media(max-width:860px){
+  .race-social{display:block!important}
+  .social-left{position:static!important;display:block!important;margin-bottom:10px}
+  .social-profile-card,.social-left-card{display:none!important}
+  .social-nav{
+    display:grid!important;
+    grid-template-columns:repeat(6,minmax(76px,1fr))!important;
+    overflow-x:auto!important;
+  }
+  .social-center{display:grid!important}
+}
+@media(max-width:680px){
+  body[data-view="hub"] .hero{padding:22px 0 15px!important}
+  body[data-view="hub"] .hero h1{font-size:44px!important}
+  body[data-view="hub"] .hero-board{grid-template-columns:1fr 1fr!important}
+  .race-search-box{height:48px}
+  .race-search-box input{font-size:13px}
+  .race-search-results{position:fixed;left:10px;right:10px;top:calc(var(--header-h) + 72px);max-height:60vh}
+  .social-composer-card{grid-template-columns:36px minmax(0,1fr)!important;padding:11px!important}
+  .composer-avatar{width:36px!important;height:36px!important}
+  .social-composer-tools{grid-template-columns:1fr auto!important}
+  .social-composer-tools .button{grid-column:1/-1;width:100%}
+  .feed-heading{align-items:flex-start!important;flex-direction:column!important}
+}
