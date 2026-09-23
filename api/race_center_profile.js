@@ -94,7 +94,16 @@ function renderProfile(){
     const fallbackName=key.split(':').slice(1).join(':')||key;
     return '<a href="/race-center/driver/'+encodeURIComponent(String(x.series_key||key.split(':')[0]||''))+'/'+encodeURIComponent(String(x.label||fallbackName))+'"><b>Driver</b><span>'+esc(x.label||fallbackName)+'</span><em>→</em></a>';
   });
-  const racing=[...seriesItems,...driverItems];
+  const trackItems=(profile.tracks||[]).map(x=>
+    '<a href="/race-center/track/'+encodeURIComponent(String(x.key||''))+'"><b>Track</b><span>'+esc(x.label||x.key)+'</span><em>→</em></a>'
+  );
+  const teamItems=(profile.teams||[]).map(x=>
+    '<a href="/race-center/team/'+encodeURIComponent(String(x.key||''))+'"><b>Team</b><span>'+esc(x.label||x.key)+'</span><em>→</em></a>'
+  );
+  const eventItems=(profile.events||[]).map(x=>
+    '<a href="/race-center/event/'+encodeURIComponent(String(x.key||'').replaceAll(':','~'))+'"><b>Event</b><span>'+esc(x.label||x.key)+'</span><em>→</em></a>'
+  );
+  const racing=[...seriesItems,...driverItems,...trackItems,...teamItems,...eventItems];
   $('#profileFollowedRacing').innerHTML=racing.length?racing.join(''):'<div class="loading-card">No racing follows yet.</div>';
   renderAvatar();
 }
