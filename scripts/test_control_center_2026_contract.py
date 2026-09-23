@@ -434,7 +434,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("data-driver-follow", public_js)
         self.assertIn("credentials:'same-origin'", public_js)
 
-    def test_race_center_v5_social_network_and_feed_native_race_moments(self):
+    def test_race_center_v5_social_infrastructure_stays_available_without_driving_home(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
         social_js = self.read("api/race_center_v5.js")
@@ -459,25 +459,13 @@ class ControlCenter2026Contract(unittest.TestCase):
             "/race-center-v5.js",
         ):
             self.assertIn(route, public_api)
-        for token in (
-            'id="raceFeed"',
-            'id="raceFeedList"',
-            'class="social-composer-card"',
-            'id="pitWallInput"',
-            'id="profileForm"',
-            'id="profileAccountType"',
-            "/race-center-v5.js",
-        ):
-            self.assertIn(token, public_html)
-        for token in (
-            "v5RenderUnifiedFeed",
-            "v5BuildRacingObjects",
-            "v5RaceMomentObject",
-            "race-moment-card",
-            "v5LoadFeed",
-            "Official watch info",
-        ):
-            self.assertIn(token, social_js)
+        self.assertIn('id="profileForm"', public_html)
+        self.assertIn('id="profileAccountType"', public_html)
+        self.assertIn("/race-center-v5.js", public_html)
+        self.assertIn("v5LoadFeed", social_js)
+        self.assertNotIn('class="race-social"', public_html)
+        self.assertNotIn('id="raceFeed"', public_html)
+        self.assertNotIn('id="pitWallInput"', public_html)
         self.assertIn('"/standings", "/race-center"', security)
         self.assertIn("youtube-nocookie.com", security)
 
@@ -502,12 +490,9 @@ class ControlCenter2026Contract(unittest.TestCase):
             "/api/public/race-center/people/follow",
         ):
             self.assertIn(route, public_api)
-        for token in (
-            'id="peopleDiscovery"',
-            'id="peopleGrid"',
-            'id="peopleDialog"',
-        ):
-            self.assertIn(token, public_html)
+        self.assertIn('id="peopleDialog"', public_html)
+        self.assertNotIn('id="peopleDiscovery"', public_html)
+        self.assertNotIn('id="peopleGrid"', public_html)
         for token in (
             "v5BroadcastGraphic",
             "broadcast-photo-card",
@@ -519,47 +504,35 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, social_js + css)
 
-    def test_race_center_v5_social_home_keeps_racing_data_central(self):
+    def test_race_center_home_restores_v1_clarity_with_v5_personalization(self):
         public_html = self.read("api/standings_public.html")
         public_js = self.read("api/standings_public.js")
-        social_js = self.read("api/race_center_v5.js")
         css = self.read("api/standings_public.css")
         for token in (
-            'class="race-social"',
-            'class="social-left"',
-            'class="social-center"',
-            'class="social-right"',
-            'id="socialMyRacingList"',
-            'id="raceFeed"',
-            'id="raceFeedList"',
-            'id="peopleGrid"',
+            'id="heroTitle"',
+            'id="racePulseTitle"',
+            'id="mySeriesShell"',
+            'id="mySeriesStrip"',
             'id="pulseLive"',
+            'id="pulseCountdown"',
+            'id="pulseMoves"',
+            'id="pulseFavorites"',
+            'id="standingsStart"',
+            'id="raceWeekend"',
+            'id="leaderStrip"',
+            'id="standingsBoard"',
+            'id="seriesGroups"',
         ):
             self.assertIn(token, public_html)
-        for token in (
-            "network-standing-row",
-            "CHAMPIONSHIP",
-            "DRIVER YOU FOLLOW",
-            "v5RenderUnifiedFeed",
-            "v5RenderSocialShell",
-            "socialMyRacingList",
-        ):
-            self.assertIn(token, social_js)
-        for token in (
-            ".race-social",
-            ".network-object",
-            ".network-standings",
-            ".social-nav",
-            ".social-post-feed",
-            ".unified-race-feed",
-            ".unified-feed",
-        ):
-            self.assertIn(token, css)
-        self.assertIn("pulseFavorites", public_js)
-        self.assertNotIn('id="personalFeed"', public_html)
-        self.assertNotIn('id="pitWallFeed"', public_html)
-        self.assertNotIn('id="liveStage"', public_html)
-        self.assertIn(".race-moment-card", css)
+        self.assertIn("All of racing.<br><em>One home base.</em>", public_js)
+        self.assertIn("renderMySeries", public_js)
+        self.assertIn("renderPulse", public_js)
+        self.assertIn("Race Center usability reset", css)
+        self.assertIn('body[data-view="hub"] .home-race-pulse', css)
+        self.assertIn('body[data-view="hub"] .series-section', css)
+        self.assertNotIn('class="race-social"', public_html)
+        self.assertNotIn('id="raceFeed"', public_html)
+        self.assertNotIn('href="#pitWall"', public_html)
 
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
