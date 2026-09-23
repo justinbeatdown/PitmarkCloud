@@ -174,5 +174,13 @@ class NativeOpsContractTests(unittest.TestCase):
         self.assertIn("/control-native-ops.js?v=7", html)
 
 
+    def test_x_publish_service_has_credit_circuit_breaker(self):
+        service = (ROOT / "services" / "x_publish_service.py").read_text(encoding="utf-8")
+        self.assertIn("_X_CREDIT_COOLDOWN_SECONDS", service)
+        self.assertIn("_credits_depleted_until", service)
+        self.assertIn("if r.status_code == 402", service)
+        self.assertIn("instead of repeatedly billing the API", service)
+
+
 if __name__ == "__main__":
     unittest.main()
