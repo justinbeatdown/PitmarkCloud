@@ -257,6 +257,9 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
                 "watch_url": event_info.get("watch_url"),
                 "schedule_url": event_info.get("schedule_url"),
                 "track_key": track_key or None,
+                "entries": list(event_row_source.get("entries") or []),
+                "results": list(event_row_source.get("results") or []),
+                "field_size": int(event_row_source.get("field_size") or 0),
             }
             event_items.append(event_row)
             if track_key:
