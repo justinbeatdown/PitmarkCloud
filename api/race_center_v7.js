@@ -421,10 +421,6 @@
         section.id='v7DriverConnections';
         section.className='v7-driver-connections';
         section.innerHTML='<div class="section-head"><div><span class="eyebrow">CONNECTED RACING</span><h2>Across Race Center</h2></div><p>Team and championship relationships tied to this driver.</p></div><div class="v7-profile-layout"><section class="v7-profile-section"><h3>Team</h3><div class="v7-related-list">'+(teams.join('')||'<p>No team relationship is published yet.</p>')+'</div></section><section class="v7-profile-section"><h3>Current championships</h3><div class="v7-related-list">'+series+'</div></section></div>'+ownerContentBlock(entity||{})+editorialBlock(entity?.editorial||[]);
-        if(entity){
-          section.innerHTML+=ownerContentBlock(entity)+editorialBlock(entity.editorial||[])+
-            '<div class="v7-profile-actions">'+claimButton('series',entity)+'</div>';
-        }
         content.appendChild(section);
       };
       add();
@@ -456,6 +452,10 @@
             const leader=row.leader||{};
             return '<article class="v7-archive-card"><span>'+esc(eventWhen(row.fetched_at))+'</span><strong>'+esc(leader.name||'Snapshot saved')+'</strong><p>'+(leader.position?'P'+esc(leader.position)+' · ':'')+esc(leader.points??'—')+' pts · '+Number(row.field_size||0)+' drivers</p><small>'+esc(row.source_name||'Race Center source')+'</small></article>';
           }).join(''):'<div class="loading-card">No saved archive snapshots yet.</div>')+'</div>';
+        if(entity){
+          section.innerHTML+=ownerContentBlock(entity)+editorialBlock(entity.editorial||[])+
+            '<div class="v7-profile-actions">'+claimButton('series',entity)+'</div>';
+        }
         content.appendChild(section);
       };
       add();
