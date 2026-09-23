@@ -463,6 +463,106 @@ def graph_search(query: str, limit: int = 24) -> list[dict[str, Any]]:
     return [item for _, item in results[:max(1, min(limit, 60))]]
 
 
+def _driver_profile_depth(driver: dict[str, Any], graph: dict[str, Any]) -> dict[str, Any]:
+    driver_key = str(driver.get("key") or "").strip()
+    current_series = list(driver.get("series") or [])
+    series_keys = {
+        str(item.get("series_key") or "").strip()
+        for item in current_series
+        if str(item.get("series_key") or "").strip()
+    }
+
+    starts = sum(int(item.get("starts") or 0) for item in current_series if str(item.get("starts") or "").strip())
+    wins = sum(int(item.get("wins") or 0) for item in current_series if str(item.get("wins") or "").strip())
+    ranked = [
+        int(item.get("position"))
+        for item in current_series
+        if str(item.get("position") or "").isdigit()
+    ]
+    tracked_summary = {
+        "series_count": len(series_keys),
+        "starts": starts,
+        "wins": wins,
+        "best_position": min(ranked) if ranked else None,
+        "scope": "Current data available in Race Center",
+    }
+
+    upcoming = [
+        dict(item)
+        for item in (graph.get("events") or [])
+        if str(item.get("series_key") or "") in series_keys
+        and str(item.get("state") or "") in {"live", "next", "schedule"}
+    ]
+    upcoming.sort(key=lambda item: (
+        0 if item.get("state") == "live" else 1,
+        str(item.get("start") or ""),
+    ))
+
+    history: list[dict[str, Any]] = []
+    if series_keys and driver_key:
+        try:
+            with SessionLocal() as db:
+                rows = list(db.scalars(
+                    select(RacingStandingSnapshot)
+                    .where(RacingStandingSnapshot.series_key.in_(sorted(series_keys)))
+                    .order_by(RacingStandingSnapshot.fetched_at.desc())
+                    .limit(120)
+                ).all())
+            per_series: dict[str, int] = {}
+            for row in rows:
+                key = str(row.series_key or "")
+                if per_series.get(key, 0) >= 10:
+                    continue
+                try:
+                    payload = json.loads(row.payload_json or "{}")
+                except Exception:
+                    continue
+                matched = next(
+                    (
+                        item for item in (payload.get("entries") or [])
+                        if identity_key(item.get("name")) == driver_key
+                    ),
+                    None,
+                )
+                if not matched:
+                    continue
+                history.append({
+                    "series_key": key,
+                    "series_name": payload.get("series_name") or key,
+                    "fetched_at": row.fetched_at.isoformat() if row.fetched_at else None,
+                    "position": matched.get("position"),
+                    "points": matched.get("points"),
+                    "wins": matched.get("wins"),
+                    "starts": matched.get("starts"),
+                    "source_name": row.source_name,
+                    "source_url": row.source_url,
+                })
+                per_series[key] = per_series.get(key, 0) + 1
+        except Exception:
+            history = []
+
+    teams = []
+    team_name = str(driver.get("team") or "").strip()
+    if team_name:
+        team_key = slugify(team_name)
+        team = next(
+            (item for item in (graph.get("teams") or []) if str(item.get("key") or "") == team_key),
+            None,
+        )
+        teams.append({
+            "key": team_key,
+            "name": team_name,
+            "manufacturer": driver.get("manufacturer") or (team or {}).get("manufacturer"),
+        })
+
+    return {
+        "tracked_summary": tracked_summary,
+        "upcoming_events": upcoming[:10],
+        "championship_history": history,
+        "teams": teams,
+    }
+
+
 def entity_detail(entity_type: str, entity_key: str) -> dict[str, Any] | None:
     graph = build_entity_graph()
     key = str(entity_key or "").strip()
@@ -482,6 +582,8 @@ def entity_detail(entity_type: str, entity_key: str) -> dict[str, Any] | None:
             result["editorial"] = editorial_for_entity(entity_type, key)
             result["owner_content"] = entity_owner_content(entity_type, key)
             result["verification"] = entity_verification(entity_type, key)
+            if str(entity_type or "").strip().lower() == "driver":
+                result.update(_driver_profile_depth(result, graph))
             return result
     return None
 
