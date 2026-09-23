@@ -1174,6 +1174,34 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Race Center V7 Driver Compare", css)
         self.assertIn('body[data-view="compare"] .v7-compare', css)
 
+    def test_race_center_v7_driver_profiles_are_persistent_racing_destinations(self):
+        entities = self.read("services/race_center_entities.py")
+        v7_js = self.read("api/race_center_v7.js")
+        css = self.read("api/standings_public.css")
+
+        for token in (
+            '"top5s"',
+            '"top10s"',
+            '"upcoming_events"',
+            '"recent_results"',
+            '"tracks_raced"',
+            '"source_urls"',
+            '"provenance"',
+        ):
+            self.assertIn(token, entities)
+
+        for token in (
+            "UPCOMING RACES",
+            "RECENT RESULTS",
+            "TRACKS RACED",
+            "DATA PROVENANCE",
+            "v7-driver-stat-strip",
+        ):
+            self.assertIn(token, v7_js)
+
+        self.assertIn("Race Center V7 Driver intelligence", css)
+        self.assertIn(".v7-driver-stat-strip", css)
+
     def test_race_center_v7_race_day_prioritizes_relevant_near_term_racing(self):
         entities = self.read("services/race_center_entities.py")
         api = self.read("api/standings_public.py")
