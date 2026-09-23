@@ -3668,3 +3668,82 @@ body.race-live-active[data-view="hub"] #racePulseTitle::after{
 @media(max-width:880px){
   .v7-series-graph-grid{grid-template-columns:1fr}
 }
+
+
+/* V7 verified-owner content + editorial attachments */
+.v7-owner-layer{display:grid;gap:12px}
+.v7-owner-card{
+  border-color:rgba(255,85,0,.27);
+  background:linear-gradient(150deg,rgba(255,85,0,.045),#0d1318 42%);
+}
+.v7-owner-card>p{
+  color:#a6b0bb;
+  font-size:12px;
+  line-height:1.65;
+}
+.v7-owner-links{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  margin-top:12px;
+}
+.v7-owner-links a{
+  display:inline-flex;
+  align-items:center;
+  min-height:31px;
+  padding:0 9px;
+  border:1px solid #33404b;
+  border-radius:8px;
+  background:#090e13;
+  color:#e2e6ea;
+  font-size:9px;
+  font-weight:900;
+}
+.v7-owner-links a:hover{border-color:#556574}
+.v7-sponsor-list{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  margin-top:11px;
+}
+.v7-sponsor-list span{
+  padding:5px 8px;
+  border:1px solid #303c47;
+  border-radius:999px;
+  color:#aeb7c2;
+  background:#090e13;
+  font-size:9px;
+  font-weight:800;
+}
+.v7-manage-button{margin-top:12px}
+.v7-coverage-list{display:grid;gap:7px;margin-top:10px}
+.v7-coverage-list>a{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:4px 10px;
+  padding:10px;
+  border:1px solid #2c3742;
+  border-radius:9px;
+  background:#090e13;
+}
+.v7-coverage-list>a:hover{border-color:rgba(255,85,0,.4)}
+.v7-coverage-list strong{
+  color:#e9edf0;
+  font-size:11px;
+}
+.v7-coverage-list small{
+  grid-column:1/-1;
+  color:#778596;
+  font-size:9px;
+  line-height:1.45;
+}
+.v7-coverage-list span{
+  color:#ff9362;
+  font-size:9px;
+  font-weight:950;
+}
+.v7-manage-shell{max-width:860px}
+.v7-manage-shell .account-form{grid-template-columns:1fr 1fr}
+@media(max-width:680px){
+  .v7-manage-shell .account-form{grid-template-columns:1fr}
+}
