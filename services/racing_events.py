@@ -212,12 +212,26 @@ def _espn_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
         for raw in competition.get("broadcasts") or []:
             if isinstance(raw, dict):
                 broadcasts.extend(str(x) for x in (raw.get("names") or []) if x)
+        venue = competition.get("venue") or {}
+        address = venue.get("address") or {}
+        location = ", ".join(
+            str(value).strip()
+            for value in (
+                address.get("city"),
+                address.get("state"),
+                address.get("country"),
+            )
+            if str(value or "").strip()
+        )
         out.append({
+            "source_id": str(event.get("id") or competition.get("id") or "").strip() or None,
             "name": event.get("name") or event.get("shortName") or config["name"],
             "start": _iso(event.get("date") or competition.get("date")),
             "state": str(status_type.get("state") or "pre").lower(),
             "completed": bool(status_type.get("completed")),
             "broadcast": " / ".join(dict.fromkeys(broadcasts)) or None,
+            "venue": str(venue.get("fullName") or "").strip() or None,
+            "location": location or None,
             "source_url": config.get("schedule_url"),
         })
     return out
@@ -244,13 +258,26 @@ def _f1_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
                 state, completed = "post", True
             elif dt <= now < dt + timedelta(hours=4):
                 state = "in"
+        circuit = race.get("Circuit") or {}
+        circuit_location = circuit.get("Location") or {}
+        location = ", ".join(
+            str(value).strip()
+            for value in (
+                circuit_location.get("locality"),
+                circuit_location.get("country"),
+            )
+            if str(value or "").strip()
+        )
         out.append({
+            "source_id": str(race.get("round") or "").strip() or None,
             "name": race.get("raceName") or config["name"],
             "start": start,
             "state": state,
             "completed": completed,
             "broadcast": "F1 TV",
-            "source_url": config.get("schedule_url"),
+            "venue": str(circuit.get("circuitName") or "").strip() or None,
+            "location": location or None,
+            "source_url": str(circuit.get("url") or config.get("schedule_url") or ""),
         })
     return out
 
@@ -383,6 +410,8 @@ def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
                 "state": "pre" if dt.date() >= now.date() else "post",
                 "completed": dt.date() < now.date(),
                 "broadcast": None,
+                "venue": None,
+                "location": None,
                 "source_url": url,
             })
 
@@ -418,6 +447,7 @@ def _event_summary(events: list[dict[str, Any]], config: dict[str, Any]) -> dict
     return {
         "state": state,
         "event": chosen,
+        "events": events,
         "schedule_url": config.get("schedule_url"),
         "watch_name": (chosen or {}).get("broadcast") or config.get("watch_name"),
         "watch_url": config.get("watch_url"),
@@ -450,7 +480,7 @@ def _build_one(key: str, config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
 
 
 def _build_one_static(key: str, config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    return key, {"state":"schedule","event":None,"schedule_url":config.get("schedule_url"),"watch_name":config.get("watch_name"),"watch_url":config.get("watch_url"),"logo_url":config.get("logo_url"),"logo_source_url":config.get("logo_source_url"),"series_key":key,"series_name":config["name"],"group":config["group"]}
+    return key, {"state":"schedule","event":None,"events":[],"schedule_url":config.get("schedule_url"),"watch_name":config.get("watch_name"),"watch_url":config.get("watch_url"),"logo_url":config.get("logo_url"),"logo_source_url":config.get("logo_source_url"),"series_key":key,"series_name":config["name"],"group":config["group"]}
 
 
 def get_racing_event_hub(force: bool = False) -> dict[str, Any]:
