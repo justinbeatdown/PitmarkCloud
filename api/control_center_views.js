@@ -1,4 +1,4 @@
-import { api, clearCache } from './control-center-api.js?v=20260920results2';
+import { api, clearCache } from './control-center-api.js?v=20260922publishfix1';
 
 export const DOMAIN_META = Object.freeze({
   hq: { title: 'HQ', kicker: 'Corporate Operations', context: 'What matters, what moved, and what needs you.' },
@@ -302,6 +302,19 @@ function syncContentSelection(root, rows, ctx){
   root.querySelectorAll('[data-bulk-action]').forEach(button => { button.disabled = selectedVisible === 0; });
 }
 
+function contentPublishHealth(status,rows){
+  if(!status)return '';
+  const approvedX=(rows||[]).filter(row=>['approved','scheduled'].includes(low(row.status))&&low(row.platform)==='x').length;
+  if(approvedX&&status?.x?.publishing_paused){
+    return `<div class="pm-callout is-warn pm-content-publish-health"><span class="icon">!</span><div><strong>X publishing is paused</strong><p>X API credits are depleted. ${n(approvedX)} X post${approvedX===1?'':'s'} will stay Approved & Ready until credits are restored. Facebook and Instagram publishing are unaffected.</p></div></div>`;
+  }
+  const blocked=Object.entries(status?.blocked_platforms||{}).filter(([platform])=>(rows||[]).some(row=>['approved','scheduled'].includes(low(row.status))&&low(row.platform)===platform));
+  if(blocked.length){
+    return `<div class="pm-callout is-warn pm-content-publish-health"><span class="icon">!</span><div><strong>Publishing attention needed</strong><p>${esc(blocked.map(([platform,reason])=>`${platform}: ${reason}`).join(' · '))}</p></div></div>`;
+  }
+  return '';
+}
+
 function contentBulkBar(rows, selected){
   if(!rows.length) return '';
   const allSelected = rows.every(row => selected.has(String(row.id)));
@@ -322,13 +335,14 @@ function contentBulkBar(rows, selected){
 
 async function renderContent(root,ctx){
   const tab=ctx.state.contentTab||'generated';
-  let rows=[];let editorial=[];
+  let rows=[];let editorial=[];let publishHealth=null;
   try{
     if(tab==='editorial'){editorial=await api.blogDrafts();}
     else if(tab==='generated'){rows=await api.posts();}
     else if(tab==='approval'){rows=await api.posts('pending');}
     else if(tab==='archived'){const [a,b]=await Promise.all([api.posts('archived'),api.posts('rejected')]);rows=[...a,...b];}
     else{rows=await api.posts(tab);}
+    if(tab!=='editorial')publishHealth=await api.socialPublishStatus().catch(()=>null);
   }catch(e){root.innerHTML=moduleError('Content',e.message,'content');return;}
 
   const visibleIds=new Set(rows.map(row=>String(row.id)));
@@ -340,7 +354,7 @@ async function renderContent(root,ctx){
   const labels={generated:'Pipeline',approval:'Needs Approval',approved:'Approved',scheduled:'Scheduled',published:'Published',archived:'Archived',editorial:'Editorial'};
   const countFor=(key)=>key==='generated'?rows.length:key==='approval'?(counts.pending||0):(counts[key]||0);
   const tabs=`<div class="pm-tabs pm-content-tabs">${CONTENT_TABS.map(key=>`<button class="pm-tab ${tab===key?'is-active':''}" type="button" data-content-tab="${key}"><span>${labels[key]||key}</span>${key!=='editorial'? `<b>${n(countFor(key))}</b>` : ''}</button>`).join('')}</div>`;
-  root.innerHTML=`${viewHeader('Social Manager','Content Pipeline','See exactly what needs approval, what is ready, what Astra scheduled, and what already published.',`<a class="pm-button pm-button-ghost" href="/control/native-ops?tab=social">Social Desk</a><button class="pm-button pm-button-primary" type="button" data-compose>New post</button>`)}${tabs}${tab==='editorial'?renderEditorial(editorial):(tab==='generated'?renderContentPipeline(rows,selected):renderPosts(rows,tab,selected))}`;
+  root.innerHTML=`${viewHeader('Social Manager','Content Pipeline','See exactly what needs approval, what is ready, what Astra scheduled, and what already published.',`<a class="pm-button pm-button-ghost" href="/control/native-ops?tab=social">Social Desk</a><button class="pm-button pm-button-primary" type="button" data-compose>New post</button>`)}${tab==='editorial'?'':contentPublishHealth(publishHealth,rows)}${tabs}${tab==='editorial'?renderEditorial(editorial):(tab==='generated'?renderContentPipeline(rows,selected):renderPosts(rows,tab,selected))}`;
 
   root.onclick=(event)=>{
     const t=event.target.closest('[data-content-tab]');
@@ -515,7 +529,50 @@ function openPost(row,ctx){
 }
 
 async function postDecision(id,action,ctx){try{await api.decidePost(id,action);clearCache('/api/control/autopilot/posts');if(action==='approve')ctx.state.contentTab='approved';ctx.toast(action==='approve'?'Post approved — ready to publish.':`Post ${action}d.`,'good');ctx.closeSheet();ctx.refresh();}catch(e){ctx.toast(e.message,'bad');}}
-async function publishPost(row,ctx){try{const result=await api.publishPost(row.id);clearCache('/api/control/autopilot/posts');ctx.state.contentTab='published';ctx.toast(result?.warning?`Published live. ${result.warning}`:`Published live to ${row.platform||'social'}.`,'good');ctx.closeSheet();ctx.refresh();}catch(e){ctx.toast(e.message,'bad');}}
+
+async function socialPublishHealth(){
+  try{return await api.socialPublishStatus();}catch{return null;}
+}
+
+function publishBlockReason(row,status){
+  if(!status)return '';
+  const platform=low(row?.platform||'');
+  const direct=String(status?.blocked_platforms?.[platform]||'').trim();
+  if(direct)return direct;
+  const channel=status?.[platform]||{};
+  if(channel.configured===false)return `${platform||'This platform'} publishing is not configured in Pitmark Cloud.`;
+  if(platform==='x'&&(channel.publishing_paused||channel.status==='credits_depleted')){
+    return 'X publishing is paused because X API credits are depleted. The post is still Approved & Ready.';
+  }
+  if(channel.connected===false)return String(channel.error||`${platform||'This platform'} publishing is not connected.`);
+  return '';
+}
+
+function publishFailureMessage(error,row){
+  const raw=String(error?.message||'Publishing failed.');
+  if(error?.status===402||/credits? (?:are )?depleted|payment required/i.test(raw)){
+    return 'X did not publish because its API credits are depleted. The post is still Approved & Ready — nothing was lost.';
+  }
+  return `${row?.platform||'Social'} publish failed: ${raw}`;
+}
+
+async function publishPost(row,ctx){
+  const health=await socialPublishHealth();
+  const blocked=publishBlockReason(row,health);
+  if(blocked){ctx.toast(blocked,'bad');return;}
+  try{
+    const result=await api.publishPost(row.id);
+    clearCache('/api/control/autopilot/posts');
+    clearCache('/api/control/social/status');
+    ctx.state.contentTab='published';
+    ctx.toast(result?.warning?`Published live. ${result.warning}`:`Published live to ${row.platform||'social'}.`,'good');
+    ctx.closeSheet();
+    ctx.refresh();
+  }catch(e){
+    clearCache('/api/control/social/status');
+    ctx.toast(publishFailureMessage(e,row),'bad');
+  }
+}
 
 function selectedRows(rows,ctx){
   const selected=selectedContentIds(ctx);
@@ -523,11 +580,11 @@ function selectedRows(rows,ctx){
 }
 
 async function runBulk(items,runner){
-  let ok=0;const errors=[];
+  let ok=0;const errors=[];const failedIds=[];
   for(const item of items){
-    try{await runner(item);ok+=1;}catch(error){errors.push(error?.message||'Unknown error');}
+    try{await runner(item);ok+=1;}catch(error){errors.push(error?.message||'Unknown error');failedIds.push(String(item.id));}
   }
-  return {ok,failed:errors.length,errors};
+  return {ok,failed:errors.length,errors,failedIds};
 }
 
 async function bulkContentAction(action,rows,ctx){
@@ -550,12 +607,36 @@ async function bulkContentAction(action,rows,ctx){
   if(action==='publish'){
     const eligible=selected.filter(row=>['approved','scheduled'].includes(low(row.status))&&['facebook','instagram','x'].includes(low(row.platform)));
     if(!eligible.length){ctx.toast('Select approved or scheduled Facebook, Instagram, or X posts to publish.','bad');return;}
-    if(!window.confirm(`Publish ${eligible.length} selected post${eligible.length===1?'':'s'} live now?`))return;
-    const result=await runBulk(eligible,row=>api.publishPost(row.id));
+
+    const health=await socialPublishHealth();
+    const blocked=eligible.map(row=>({row,reason:publishBlockReason(row,health)})).filter(item=>item.reason);
+    const blockedIds=new Set(blocked.map(item=>String(item.row.id)));
+    const publishable=eligible.filter(row=>!blockedIds.has(String(row.id)));
+
+    if(!publishable.length){
+      const reason=blocked[0]?.reason||'The selected posts cannot publish right now.';
+      ctx.toast(`${reason} Nothing was moved out of Approved & Ready.`,'bad');
+      return;
+    }
+
+    const blockedNote=blocked.length?` ${blocked.length} blocked post${blocked.length===1?'':'s'} will stay approved.`:'';
+    if(!window.confirm(`Publish ${publishable.length} selected post${publishable.length===1?'':'s'} live now?${blockedNote}`))return;
+
+    const result=await runBulk(publishable,row=>api.publishPost(row.id));
     clearCache('/api/control/autopilot/posts');
-    ctx.state.contentSelection=[];
-    ctx.state.contentTab='published';
-    ctx.toast(result.failed?`${result.ok} published; ${result.failed} failed. ${result.errors[0]||''}`:`${result.ok} post${result.ok===1?'':'s'} published live.`,result.failed?'bad':'good');
+    clearCache('/api/control/social/status');
+
+    const keepSelected=new Set([...blockedIds,...result.failedIds]);
+    ctx.state.contentSelection=[...keepSelected];
+
+    if(result.failed===0&&blocked.length===0){
+      ctx.state.contentTab='published';
+      ctx.toast(`${result.ok} post${result.ok===1?'':'s'} published live.`,'good');
+    }else{
+      const firstError=result.errors[0]||blocked[0]?.reason||'One or more posts could not publish.';
+      const summary=`${result.ok} published; ${result.failed+blocked.length} stayed Approved & Ready. ${firstError}`;
+      ctx.toast(summary,'bad');
+    }
     ctx.refresh();
     return;
   }
