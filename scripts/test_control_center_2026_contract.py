@@ -1088,6 +1088,30 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("self.addEventListener('push'", service_worker)
         self.assertIn("notificationclick", service_worker)
 
+    def test_race_center_v7_calendar_exports(self):
+        public_api = self.read("api/standings_public.py")
+        public_html = self.read("api/standings_public.html")
+        v7_js = self.read("api/race_center_v7.js")
+        css = self.read("api/standings_public.css")
+
+        for token in (
+            "def _race_center_calendar(",
+            '@router.get("/api/public/race-center/calendar/event/{entity_key}.ics"',
+            '@router.get("/api/public/race-center/calendar/series/{series_key}.ics"',
+            '@router.get("/api/public/race-center/calendar/track/{track_key}.ics"',
+            '@router.get("/api/public/race-center/calendar/my-racing.ics"',
+            '"BEGIN:VCALENDAR"',
+            '"BEGIN:VEVENT"',
+        ):
+            self.assertIn(token, public_api)
+
+        self.assertIn("/api/public/race-center/calendar/my-racing.ics", public_html)
+        self.assertIn("v7-page-actions", public_html)
+        self.assertIn("/api/public/race-center/calendar/event/", v7_js)
+        self.assertIn("/api/public/race-center/calendar/track/", v7_js)
+        self.assertIn("/api/public/race-center/calendar/series/", v7_js)
+        self.assertIn("Race Center V7 calendar export", css)
+
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
         public_api = self.read("api/standings_public.py")
