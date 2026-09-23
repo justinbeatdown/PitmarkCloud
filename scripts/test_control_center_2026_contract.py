@@ -1152,6 +1152,20 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn(".v7-copy-toast", css)
         self.assertIn(".v7-compare-share", css)
 
+    def test_race_center_v7_embeddable_standings(self):
+        public_api = self.read("api/standings_public.py")
+        v7_js = self.read("api/race_center_v7.js")
+        css = self.read("api/standings_public.css")
+
+        self.assertIn('@router.get("/race-center/embed/standings/{series_key}"', public_api)
+        self.assertIn("frame-ancestors *", public_api)
+        self.assertIn("Powered by Pitmark Race Center", public_api)
+        self.assertIn("function openStandingsEmbed(", v7_js)
+        self.assertIn("v7-embed-standings", v7_js)
+        self.assertIn("Copy embed code", v7_js)
+        self.assertIn("Race Center V7 embeddable standings", css)
+        self.assertIn(".v7-embed-preview", css)
+
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
         public_api = self.read("api/standings_public.py")
