@@ -3462,3 +3462,65 @@ body[data-view="health"] .v7-health{
   .v7-health-stats{grid-template-columns:1fr 1fr}
   .v7-directory-meta{align-items:flex-start;flex-direction:column;gap:4px}
 }
+
+
+/* V7 verified owner content */
+.v7-owner-content{
+  margin-top:14px;
+  border-color:rgba(255,85,0,.28);
+  background:linear-gradient(145deg,rgba(255,85,0,.045),#0d1217 45%);
+}
+.v7-owner-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.v7-verified-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:5px 8px;
+  border:1px solid rgba(57,217,138,.3);
+  border-radius:999px;
+  background:rgba(57,217,138,.06);
+  color:#6fe7ae;
+  font-size:8px;
+  font-weight:1000;
+  letter-spacing:.08em;
+}
+.v7-owner-content>p{
+  margin:0 0 12px;
+  color:#a6b2c0;
+  font-size:12px;
+  line-height:1.65;
+}
+.v7-sponsor-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin:10px 0;
+}
+.v7-sponsor-list span{
+  padding:6px 8px;
+  border:1px solid #2d3944;
+  border-radius:8px;
+  background:#090e12;
+  color:#c9d1db;
+  font-size:9px;
+  font-weight:850;
+}
+.v7-owner-links{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  margin-top:12px;
+}
+.v7-owner-links a{
+  padding:7px 9px;
+  border:1px solid #2e3a45;
+  border-radius:8px;
+  color:#ff996a;
+  font-size:9px;
+  font-weight:900;
+}
