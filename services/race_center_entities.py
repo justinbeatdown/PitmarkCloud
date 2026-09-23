@@ -118,6 +118,8 @@ def _entry_identity(entry: dict[str, Any]) -> dict[str, Any]:
         "photo_url": entry.get("photo_url"),
         "position": entry.get("position"),
         "points": entry.get("points"),
+        "starts": entry.get("starts"),
+        "wins": entry.get("wins"),
         "movement": entry.get("movement"),
         "points_change": entry.get("points_change"),
     }
@@ -198,6 +200,8 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
                 "series_name": series.get("series_name"),
                 "position": entry.get("position"),
                 "points": entry.get("points"),
+                "starts": entry.get("starts"),
+                "wins": entry.get("wins"),
                 "movement": entry.get("movement"),
             })
 
