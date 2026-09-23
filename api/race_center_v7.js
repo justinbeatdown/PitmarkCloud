@@ -169,6 +169,30 @@
     }catch(_error){}
   }
 
+  function openStandingsEmbed(seriesKey,title){
+    const src=location.origin+'/race-center/embed/standings/'+encodeURIComponent(seriesKey)+'?limit=12';
+    const snippet='<iframe src="'+src+'" title="'+String(title||'Race Center standings').replace(/"/g,'&quot;')+'" width="100%" height="720" style="border:0;border-radius:14px" loading="lazy"></iframe>';
+    const modal=document.createElement('dialog');
+    modal.className='v7-embed-dialog';
+    modal.innerHTML='<div class="v7-embed-shell"><div class="dialog-head"><div><span class="eyebrow">EMBED STANDINGS</span><h2>'+esc(title||'Race Center standings')+'</h2><p>Copy this iframe into a track, series, league, or media website.</p></div><button class="dialog-close" type="button" data-v7-embed-close>×</button></div>'+
+      '<textarea class="v7-embed-code" readonly>'+esc(snippet)+'</textarea>'+
+      '<div class="v7-profile-actions"><button class="button primary" type="button" data-v7-copy-embed>Copy embed code</button><a class="button" href="'+esc(src)+'" target="_blank" rel="noopener">Preview ↗</a></div>'+
+      '<iframe class="v7-embed-preview" src="'+esc(src)+'" title="'+esc(title||'Race Center standings')+' preview" loading="lazy"></iframe></div>';
+    document.body.appendChild(modal);
+    const close=()=>{if(modal.open)modal.close();};
+    modal.querySelector('[data-v7-embed-close]').addEventListener('click',close);
+    modal.querySelector('[data-v7-copy-embed]').addEventListener('click',async event=>{
+      try{
+        await navigator.clipboard.writeText(snippet);
+        event.currentTarget.textContent='Copied ✓';
+      }catch(_error){
+        modal.querySelector('.v7-embed-code').select();
+      }
+    });
+    modal.addEventListener('close',()=>modal.remove(),{once:true});
+    modal.showModal();
+  }
+
   function claimButton(type,item){
     if(!['track','team','series','driver'].includes(type))return '';
     return '<button class="button v7-claim-entity" type="button" data-kind="'+esc(type)+'" data-key="'+esc(item.key)+'" data-label="'+esc(item.name||item.series_name||'Racing entity')+'">Claim this '+esc(type)+'</button>';
@@ -580,7 +604,9 @@
         if(entity){
           section.innerHTML+=ownerContentBlock(entity)+editorialBlock(entity.editorial||[])+
             '<div class="v7-profile-actions">'+claimButton('series',entity)+
-            '<a class="button" href="/api/public/race-center/calendar/series/'+encodeURIComponent(key)+'.ics">Series calendar ↓</a>'+shareButton((entity.name||entity.series_name||'Series')+' — Pitmark Race Center')+'</div>';
+            '<a class="button" href="/api/public/race-center/calendar/series/'+encodeURIComponent(key)+'.ics">Series calendar ↓</a>'+
+            '<button class="button v7-embed-standings" type="button" data-series-key="'+esc(key)+'" data-series-title="'+esc(entity.name||entity.series_name||'Series')+'">Embed standings &lt;/&gt;</button>'+
+            shareButton((entity.name||entity.series_name||'Series')+' — Pitmark Race Center')+'</div>';
         }
         content.appendChild(section);
       };
@@ -660,6 +686,8 @@
       if(claim){event.preventDefault();claimEntity(claim);return;}
       const share=event.target.closest('.v7-share-page');
       if(share){event.preventDefault();shareCurrentPage(share.dataset.shareTitle||document.title);return;}
+      const embed=event.target.closest('.v7-embed-standings');
+      if(embed){event.preventDefault();openStandingsEmbed(embed.dataset.seriesKey||'',embed.dataset.seriesTitle||'Race Center standings');return;}
     });
 
     const alerts=$('#v7AlertsButton');
