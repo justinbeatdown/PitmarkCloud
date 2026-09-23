@@ -5,7 +5,11 @@ const pageView=routePath==='/standings'||routePath.endsWith('/standings')
     ?'schedules'
     :routePath.endsWith('/live')
       ?'live'
-      :'hub';
+      :routePath.includes('/race-center/driver/')
+        ?'driver'
+        :routePath.endsWith('/drivers')
+          ?'drivers'
+          :'hub';
 const PREF_KEY='pitmark-race-center-v5';
 const CACHE_KEY='pitmark-race-center-v5-feed';
 const readPrefs=()=>{
@@ -147,7 +151,7 @@ const numericValue=value=>{
 
 function configurePage(){
   document.body.dataset.view=state.view;
-  $('[data-race-view]').forEach(link=>{
+  $$('[data-race-view]').forEach(link=>{
     const active=link.dataset.raceView===state.view||(state.view==='driver'&&link.dataset.raceView==='drivers');
     link.classList.toggle('active',active);
     if(active)link.setAttribute('aria-current','page');
@@ -197,7 +201,13 @@ function configurePage(){
       secondary:['Full schedules','/race-center/schedules'],
       pageTitle:'Live + Next — Pitmark Race Center V5'
     }
-  }[state.view];
+  }[state.view]||{
+    title:'All of racing.<br><em>One home base.</em>',
+    intro:'Race Center keeps racing information organized in one place.',
+    primary:['Race Center','/race-center'],
+    secondary:['Standings','/race-center/standings'],
+    pageTitle:'Pitmark Race Center'
+  };
 
   $('#heroTitle').innerHTML=config.title;
   $('#heroIntro').textContent=config.intro;

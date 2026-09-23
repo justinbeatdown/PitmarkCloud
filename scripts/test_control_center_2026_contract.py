@@ -616,6 +616,20 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn(".public-profile-hero", css)
         self.assertIn('grid-template-columns:repeat(4,minmax(0,1fr))!important', css)
 
+    def test_race_center_drivers_route_is_distinct_from_home(self):
+        public_js = self.read("api/standings_public.js")
+        public_html = self.read("api/standings_public.html")
+        css = self.read("api/standings_public.css")
+
+        self.assertIn("routePath.endsWith('/drivers')", public_js)
+        self.assertIn("routePath.includes('/race-center/driver/')", public_js)
+        self.assertIn("$('[data-race-view]').forEach", public_js)
+        self.assertNotIn("  $('[data-race-view]').forEach", public_js)
+        self.assertIn("Find a driver.<br><em>Know their racing.</em>", public_js)
+        self.assertIn('data-race-view="drivers"', public_html)
+        self.assertIn('body[data-view="drivers"] .drivers-directory', css)
+        self.assertIn("Drivers route identity fix", css)
+
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
         public_api = self.read("api/standings_public.py")
