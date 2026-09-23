@@ -102,6 +102,8 @@ function renderAnalytics(data){
       metric('Meta spend',money(e.meta_spend),num(e.meta_clicks)+' clicks')+
       metric('PRT demand',num(e.prt_applications),'applications')+
       metric('Relationships',num(e.relationships),num(rel.overdue_follow_up)+' overdue')+
+      metric('Data coverage',num(e.live_sources)+' / '+num(e.source_count),'live connectors')+
+      metric('Social queue',num(e.social_scheduled),num(e.social_published)+' published')+
     '</div>'+
     '<div class="grid two section-gap">'+
       '<section class="card"><span class="section-label">Decision Engine</span><h2>What deserves attention</h2>'+
@@ -175,6 +177,22 @@ function renderAnalytics(data){
           row('Social reporting','Meta reads are first-party; TikTok/YouTube remain staged.',badge(sources.meta?.status||'checking')),
           row('Web + SEO','GA4 + Search Console feed the acquisition view.',badge(googleReady?'ready':'setup')),
           row('PRT + outreach','Native Pitmark data is already unified here.',badge('ready'))
+        ])+
+      '</section>'+
+    '</div>'+
+    '<div class="grid two" style="margin-top:12px">'+
+      '<section class="card"><span class="section-label">Platform pulse</span><h2>Meta performance</h2>'+
+        rows([
+          row('Facebook posts',num(data.social?.meta?.facebook?.posts_count||0),badge(num(data.social?.meta?.facebook?.engagement_actions||0)+' actions')),
+          row('Instagram posts',num(data.social?.meta?.instagram?.posts_count||0),badge(num(data.social?.meta?.instagram?.engagement_actions||0)+' actions')),
+          row('Meta ad clicks',num(e.meta_clicks),money(e.meta_spend)+' spend')
+        ])+
+      '</section>'+
+      '<section class="card"><span class="section-label">Discovery</span><h2>Search + site traffic</h2>'+
+        rows([
+          row('Sessions',num(e.sessions),badge(num(e.users)+' users')),
+          row('Page views',num(e.page_views),badge(num(e.search_queries_loaded)+' search queries')),
+          row('Live data sources',num(e.live_sources)+' of '+num(e.source_count),'')
         ])+
       '</section>'+
     '</div>';
