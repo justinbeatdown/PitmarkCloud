@@ -307,6 +307,25 @@ HANDLE_RE = re.compile(r"^[a-z0-9_]{3,40}$")
 ALLOWED_REACTIONS = {"checkered", "fire", "eyes"}
 ALLOWED_ACCOUNT_TYPES = {"fan", "driver", "team", "series", "track", "media"}
 
+# Server-owned staff identity. These badges are never derived from editable
+# profile fields, so Race Center users cannot award themselves Pitmark status.
+PITMARK_STAFF_ACCOUNTS = {
+    "justin@pitmarkracing.com": {
+        "label": "Pitmark Founder",
+        "title": "Founder · Pitmark Racing Co.",
+        "level": "founder",
+    },
+    "pitmarkracingco@gmail.com": {
+        "label": "Pitmark Staff",
+        "title": "Pitmark Racing Co.",
+        "level": "staff",
+    },
+}
+
+
+def _pitmark_staff_identity(email: str) -> dict:
+    return dict(PITMARK_STAFF_ACCOUNTS.get((email or "").strip().lower()) or {})
+
 
 def _base_handle(account: RaceCenterAccount) -> str:
     source = (account.display_name or account.email.split("@", 1)[0] or "racer").lower()
@@ -763,6 +782,7 @@ def public_profile_by_handle(handle: str, viewer_user_id: int | None = None) -> 
                 "official_label": identity.official_label if identity else "",
                 "external_url": identity.external_url if identity else "",
             },
+            "staff": _pitmark_staff_identity(user.email),
             "followers": int(follower_count),
             "following": int(following_count),
             "viewer_follows": viewer_follows,
