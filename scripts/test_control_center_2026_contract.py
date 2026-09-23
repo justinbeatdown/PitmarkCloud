@@ -1174,6 +1174,24 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Race Center V7 Driver Compare", css)
         self.assertIn('body[data-view="compare"] .v7-compare', css)
 
+    def test_race_center_v7_search_is_entity_aware_and_number_aware(self):
+        entities = self.read("services/race_center_entities.py")
+        v7_js = self.read("api/race_center_v7.js")
+        css = self.read("api/standings_public.css")
+
+        for token in (
+            'q_plain = re.sub(r"^#+"',
+            'field_score(driver.get("number")',
+            'field_score(team.get("manufacturer")',
+            'field_score(track.get("location")',
+            'field_score(event.get("name")',
+        ):
+            self.assertIn(token, entities)
+
+        self.assertIn("race-search-group", v7_js)
+        self.assertIn("#car", v7_js)
+        self.assertIn("Race Center V7 Search groups", css)
+
     def test_race_center_v7_results_archive_includes_race_history(self):
         entities = self.read("services/race_center_entities.py")
         v7_js = self.read("api/race_center_v7.js")
