@@ -950,6 +950,17 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, standings)
 
+    def test_race_center_home_board_is_not_hidden_by_legacy_social_css(self):
+        css = self.read("api/standings_public.css")
+        self.assertNotIn(
+            'body[data-view="hub"] .content-section:not(.social-feed-card){display:none!important}',
+            css,
+        )
+        self.assertIn('body[data-view="hub"] .live-section,', css)
+        self.assertIn('body[data-view="hub"] .leaders-section,', css)
+        self.assertIn('body[data-view="hub"] .series-section{', css)
+        self.assertIn('display:block!important', css)
+
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
         public_api = self.read("api/standings_public.py")

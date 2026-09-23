@@ -990,14 +990,7 @@ body:not([data-view="hub"]) .v5-home{display:none}
 }
 
 
-/* Race Center V5 social network home — racing data is the content */
-body[data-view="hub"] .hero,
-body[data-view="hub"] #hubNavigation,
-body[data-view="hub"] .race-center-grid,
-body[data-view="hub"] .leaders-section,
-body[data-view="hub"] .movers-section,
-body[data-view="hub"] .content-section:not(.social-feed-card){display:none!important}
-
+/* Legacy V5 social shell styles retained for non-home/profile surfaces. */
 .race-social{
   display:grid;
   grid-template-columns:240px minmax(0,760px) 300px;
