@@ -1806,22 +1806,56 @@ def _profile_metadata_cache_set(
             _profile_metadata_cache.pop(oldest, None)
 
 
-def _nascar_profile_identity(url: str) -> tuple[str | None, str | None]:
+def _nascar_profile_identity(
+    url: str,
+) -> tuple[str | None, str | None, str | None]:
     try:
         markdown = _reader_markdown(url)
     except Exception:
-        return None, None
+        return None, None, None
 
+    number = None
     team = None
     manufacturer = None
+
     team_match = re.search(r"###\s*TEAM\s*\n+([^\n#]+)", markdown, flags=re.IGNORECASE)
     if team_match:
         team = " ".join(team_match.group(1).split()).strip() or None
 
+    number_match = re.search(r"\bNo\.?\s*([A-Za-z0-9-]+)\b", markdown, flags=re.IGNORECASE)
+    if number_match:
+        number = number_match.group(1).strip() or None
+
     make_match = re.search(r"\b(Chevrolet|Ford|Toyota)\b", markdown, flags=re.IGNORECASE)
     if make_match:
         manufacturer = make_match.group(1).title()
-    return team, manufacturer
+
+    # NASCAR profile bios commonly say:
+    # "drives the No. 5 Hendrick Motorsports Chevrolet full-time ..."
+    if not team and number and manufacturer:
+        pattern = (
+            rf"\bNo\.?\s*{re.escape(number)}\s+"
+            rf"(.{{2,90}}?)\s+{re.escape(manufacturer)}\b"
+        )
+        bio_team = re.search(pattern, markdown, flags=re.IGNORECASE)
+        if bio_team:
+            candidate = " ".join(bio_team.group(1).split()).strip(" ,.;:-")
+            if candidate and len(candidate) <= 80:
+                team = candidate
+
+    return number, team, manufacturer
+
+
+def _nascar_profile_url(driver_name: str) -> str:
+    text = unicodedata.normalize("NFKD", str(driver_name or ""))
+    text = "".join(ch for ch in text if not unicodedata.combining(ch)).lower()
+    text = re.sub(r"[^a-z0-9]+", " ", text).strip()
+    tokens = text.split()
+    # NASCAR collapses common initial pairs such as A.J. into "aj".
+    if len(tokens) >= 2 and len(tokens[0]) == 1 and len(tokens[1]) == 1:
+        tokens = [tokens[0] + tokens[1], *tokens[2:]]
+    slug = "-".join(tokens)
+    return f"https://www.nascar.com/drivers/{slug}" if slug else ""
 
 
 def _official_metadata_nascar_driver_directory(
@@ -1949,12 +1983,17 @@ def _official_metadata_nascar_driver_directory(
             if not current.get(field) and values.get(field):
                 current[field] = values[field]
 
-    def fetch_one(item: tuple[str, str]) -> tuple[str, str | None, str | None]:
+    def fetch_one(item: tuple[str, str]) -> tuple[str, str | None, str | None, str | None]:
         key, profile_url = item
-        team, manufacturer = _nascar_profile_identity(profile_url)
-        return key, team, manufacturer
+        number, team, manufacturer = _nascar_profile_identity(profile_url)
+        return key, number, team, manufacturer
 
     links: list[tuple[str, str]] = []
+    wanted_name_by_key = {
+        _identity_key(name): str(name or "").strip()
+        for name in (wanted_names or [])
+        if _identity_key(name)
+    }
     for key in out:
         if wanted_keys and not any(key == wanted or key.endswith(wanted) or wanted.endswith(key) for wanted in wanted_keys):
             continue
@@ -1966,6 +2005,8 @@ def _official_metadata_nascar_driver_directory(
             ]
             if len(matches) == 1:
                 href = matches[0]
+        if not href and key in wanted_name_by_key:
+            href = _nascar_profile_url(wanted_name_by_key[key])
         if href:
             links.append((key, href))
     if links:
@@ -1973,12 +2014,16 @@ def _official_metadata_nascar_driver_directory(
             futures = [pool.submit(fetch_one, item) for item in links]
             for future in as_completed(futures):
                 try:
-                    key, team, manufacturer = future.result()
+                    key, number, team, manufacturer = future.result()
                 except Exception:
                     continue
                 if key in out:
-                    out[key]["team"] = team
-                    out[key]["manufacturer"] = manufacturer
+                    if number and not out[key].get("number"):
+                        out[key]["number"] = number
+                    if team:
+                        out[key]["team"] = team
+                    if manufacturer:
+                        out[key]["manufacturer"] = manufacturer
 
     source = url if out else None
     log.info(
@@ -3696,6 +3741,21 @@ def get_driver_identity(
     number = official_values.get("number")
     team = official_values.get("team")
     manufacturer = official_values.get("manufacturer")
+
+    # Hard completeness floor for current NASCAR profiles. These values are
+    # verified from NASCAR-owned 2026 driver pages and exist specifically so a
+    # temporary directory/profile-reader failure can never reduce a known driver
+    # to only a car number.
+    if season == 2026:
+        verified_fallback = (
+            NASCAR_2026_IDENTITY_FALLBACK
+            .get(series_key, {})
+            .get(_identity_key(clean_name), {})
+        )
+        number = number or verified_fallback.get("number")
+        team = team or verified_fallback.get("team")
+        manufacturer = manufacturer or verified_fallback.get("manufacturer")
+
     field_sources = {
         "number": "official" if number else None,
         "team": "official" if team else None,
@@ -3707,8 +3767,9 @@ def get_driver_identity(
         # Every driver profile gets a trusted secondary lookup when the official
         # source is incomplete. This is deliberately profile-on-demand so Race
         # Center does not hammer Wikipedia for an entire field every refresh.
-        if not (number and team and manufacturer):
-            secondary = _wikipedia_driver_identity(config, clean_name, season)
+        # Secondary enrichment also supplies biography and reusable photo
+        # metadata, so run it even when official identity is already complete.
+        secondary = _wikipedia_driver_identity(config, clean_name, season)
     except Exception as exc:
         log.info(
             "Wikipedia driver enrichment failed series=%s driver=%s error=%s",
