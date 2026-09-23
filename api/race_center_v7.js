@@ -458,6 +458,10 @@
       window.RaceCenterV7Platform=platform;
       window.RaceCenterV7Briefing=briefing;
       renderAll();
+      if(platform?.health?.schedules?.warming){
+        clearTimeout(RC7.warmRetry);
+        RC7.warmRetry=setTimeout(()=>loadPlatform(),5000);
+      }
     }catch(error){
       ['#tracksGrid','#teamsGrid','#eventsGrid','#archiveGrid'].forEach(selector=>{
         const node=$7(selector);
