@@ -333,6 +333,102 @@
     }
   }
 
+  function compareIdentity(driver){
+    const identity=[driver.number?'#'+driver.number:'',driver.team,driver.manufacturer].filter(Boolean);
+    return identity.length?identity.join(' · '):'Identity fields not published by the connected source.';
+  }
+
+  function compareDriverCard(driver,label){
+    const championships=driver.series||[];
+    const wins=championships.reduce((total,row)=>total+(Number(row.wins)||0),0);
+    const starts=championships.reduce((total,row)=>total+(Number(row.starts)||0),0);
+    const best=championships
+      .filter(row=>Number.isFinite(Number(row.position)))
+      .sort((a,b)=>Number(a.position)-Number(b.position))[0];
+    return '<article class="v7-compare-driver">'+
+      '<span class="v7-card-kicker">'+esc(label)+'</span>'+
+      '<h3>'+esc(driver.name||'Driver')+'</h3>'+
+      '<p>'+esc(compareIdentity(driver))+'</p>'+
+      '<div class="v7-compare-stat-grid">'+
+        '<div><span>Championships</span><strong>'+championships.length+'</strong></div>'+
+        '<div><span>Best position</span><strong>'+(best?'P'+esc(best.position):'—')+'</strong></div>'+
+        '<div><span>Starts</span><strong>'+starts+'</strong></div>'+
+        '<div><span>Wins</span><strong>'+wins+'</strong></div>'+
+      '</div>'+
+      '<a class="button" href="/race-center/driver/'+encodeURIComponent(championships[0]?.series_key||'')+'/'+encodeURIComponent(driver.name||'')+'">Open profile →</a>'+
+    '</article>';
+  }
+
+  async function renderCompare(){
+    if(view!=='compare')return;
+    const host=$('#v7Compare');
+    const results=$('#v7CompareResults');
+    const left=$('#v7CompareA');
+    const right=$('#v7CompareB');
+    const go=$('#v7CompareGo');
+    if(!host||!results||!left||!right||!go)return;
+    host.style.display='block';
+
+    const params=new URLSearchParams(location.search);
+    const firstKey=String(params.get('a')||'');
+    const secondKey=String(params.get('b')||'');
+    let catalog=[];
+
+    const load=async(a,b)=>{
+      const data=await getJson('/api/public/race-center/compare?a='+encodeURIComponent(a||'')+'&b='+encodeURIComponent(b||'')+'&v=7');
+      catalog=data.drivers||catalog;
+      if(!left.dataset.loaded){
+        const options=catalog.map(driver=>'<option value="'+esc(driver.key)+'">'+esc((driver.number?'#'+driver.number+' · ':'')+driver.name)+'</option>').join('');
+        left.insertAdjacentHTML('beforeend',options);
+        right.insertAdjacentHTML('beforeend',options);
+        left.dataset.loaded='1';
+        right.dataset.loaded='1';
+      }
+      if(a)left.value=a;
+      if(b)right.value=b;
+      if(!data.a||!data.b){
+        results.innerHTML='<div class="loading-card">Choose two drivers to compare.</div>';
+        return;
+      }
+
+      const shared=data.shared_series||[];
+      results.innerHTML=
+        '<div class="v7-compare-pair">'+
+          compareDriverCard(data.a,'DRIVER A')+
+          '<div class="v7-compare-vs">VS</div>'+
+          compareDriverCard(data.b,'DRIVER B')+
+        '</div>'+
+        '<section class="v7-profile-section v7-compare-series"><span class="eyebrow">HEAD TO HEAD</span><h3>Shared championships</h3>'+
+          (shared.length
+            ?'<div class="v7-compare-table"><div class="v7-compare-row header"><span>Series</span><span>'+esc(data.a.name)+'</span><span>'+esc(data.b.name)+'</span></div>'+
+              shared.map(row=>'<div class="v7-compare-row"><strong>'+esc(row.series_name||row.series_key)+'</strong>'+
+                '<span>'+esc(['P'+(row.a.position??'—'),(row.a.points??'—')+' pts',row.a.wins!==undefined&&row.a.wins!==null?row.a.wins+' wins':''].filter(Boolean).join(' · '))+'</span>'+
+                '<span>'+esc(['P'+(row.b.position??'—'),(row.b.points??'—')+' pts',row.b.wins!==undefined&&row.b.wins!==null?row.b.wins+' wins':''].filter(Boolean).join(' · '))+'</span></div>').join('')+
+              '</div>'
+            :'<p>These drivers do not currently share a tracked championship. Their individual racing profiles are still shown above.</p>')+
+        '</section>';
+    };
+
+    try{
+      await load(firstKey,secondKey);
+      go.addEventListener('click',()=>{
+        const a=left.value;
+        const b=right.value;
+        if(!a||!b||a===b){
+          results.innerHTML='<div class="loading-card">Choose two different drivers.</div>';
+          return;
+        }
+        const url=new URL(location.href);
+        url.searchParams.set('a',a);
+        url.searchParams.set('b',b);
+        history.replaceState(null,'',url);
+        load(a,b).catch(error=>results.innerHTML='<div class="loading-card">'+esc(error.message)+'</div>');
+      });
+    }catch(error){
+      results.innerHTML='<div class="loading-card">'+esc(error.message)+'</div>';
+    }
+  }
+
   async function renderHealth(){
     if(view!=='health')return;
     const host=$('#v7Health');
@@ -425,7 +521,7 @@
         const section=document.createElement('section');
         section.id='v7DriverConnections';
         section.className='v7-driver-connections';
-        section.innerHTML='<div class="section-head"><div><span class="eyebrow">CONNECTED RACING</span><h2>Across Race Center</h2></div><p>Team and championship relationships tied to this driver.</p></div><div class="v7-profile-layout"><section class="v7-profile-section"><h3>Team</h3><div class="v7-related-list">'+(teams.join('')||'<p>No team relationship is published yet.</p>')+'</div></section><section class="v7-profile-section"><h3>Current championships</h3><div class="v7-related-list">'+series+'</div></section></div>'+ownerContentBlock(entity||{})+editorialBlock(entity?.editorial||[]);
+        section.innerHTML='<div class="section-head"><div><span class="eyebrow">CONNECTED RACING</span><h2>Across Race Center</h2></div><div class="v7-profile-actions"><a class="button" href="/race-center/compare?a='+encodeURIComponent(driver.key)+'">Compare driver ↔</a></div></div><div class="v7-profile-layout"><section class="v7-profile-section"><h3>Team</h3><div class="v7-related-list">'+(teams.join('')||'<p>No team relationship is published yet.</p>')+'</div></section><section class="v7-profile-section"><h3>Current championships</h3><div class="v7-related-list">'+series+'</div></section></div>'+ownerContentBlock(entity||{})+editorialBlock(entity?.editorial||[]);
         content.appendChild(section);
       };
       add();
@@ -524,6 +620,7 @@
     renderEntityProfile();
     renderRaceDay();
     renderMyRacing();
+    renderCompare();
     renderHealth();
     wireUniversalSearch();
     augmentDriverPage();
