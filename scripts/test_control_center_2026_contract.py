@@ -1133,6 +1133,35 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Race Center V7 Driver Compare", css)
         self.assertIn('body[data-view="compare"] .v7-compare', css)
 
+    def test_race_center_v7_tracks_are_first_class_profiles(self):
+        entities = self.read("services/race_center_entities.py")
+        v7_js = self.read("api/race_center_v7.js")
+        css = self.read("api/standings_public.css")
+
+        for token in (
+            '"track_type": event_row_source.get("track_type")',
+            '"surface": event_row_source.get("surface")',
+            '"length": event_row_source.get("length")',
+            '"configuration": event_row_source.get("configuration")',
+            '"official_url": event_row_source.get("track_url")',
+            '"related_drivers"',
+            '"provenance"',
+            '"source_urls"',
+        ):
+            self.assertIn(token, entities)
+
+        for token in (
+            "Related drivers",
+            "Track information provenance",
+            "Official site ↗",
+            "TRACK MEDIA",
+            "v7-track-facts",
+        ):
+            self.assertIn(token, v7_js)
+
+        self.assertIn("Race Center V7 Tracks intelligence", css)
+        self.assertIn(".v7-track-facts", css)
+
     def test_race_center_v7_share_and_track_map_actions(self):
         v7_js = self.read("api/race_center_v7.js")
         css = self.read("api/standings_public.css")
