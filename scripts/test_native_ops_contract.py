@@ -206,5 +206,9 @@ class NativeOpsContractTests(unittest.TestCase):
         self.assertIn("_X_CREDIT_COOLDOWN_SECONDS", service)
         self.assertIn("_credits_depleted_until", service)
         self.assertIn("if r.status_code == 402", service)
-        self.assertIn("instead of repeatedly billing the API", service)\n        compile(service, "services/x_publish_service.py", "exec")\n\n\nif __name__ == "__main__":
+        self.assertIn("instead of repeatedly billing the API", service)
+        compile(service, "services/x_publish_service.py", "exec")
+
+
+if __name__ == "__main__":
     unittest.main()
