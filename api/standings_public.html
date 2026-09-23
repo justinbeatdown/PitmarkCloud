@@ -9,7 +9,7 @@
   <meta property="og:description" content="Live racing, schedules and championship standings in one simple home base.">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#090b0e">
-  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-pulse-clean-20260923">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-pulse-compact-20260923">
 </head>
 <body data-view="{{RACE_CENTER_VIEW}}">
   <a class="skip-link" href="#standingsStart">Skip to Race Center</a>
@@ -76,7 +76,10 @@
         <div>
           <span class="eyebrow">RIGHT NOW</span>
           <h2 id="racePulseTitle">Your racing board</h2>
-        </div>
+        <div class="pulse-actions">
+          <a class="pulse-action" href="/race-center/live">Live + Next →</a>
+          <a class="pulse-action" href="/race-center/schedules">Full schedule →</a>
+        </div></div>
       </div>
       <div class="pulse-grid">
         <article class="pulse-card pulse-live"><span>LIVE NOW</span><strong id="pulseLive">—</strong><small id="pulseLiveText">Checking official schedules…</small></article>
