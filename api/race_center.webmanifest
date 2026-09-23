@@ -1,0 +1,26 @@
+{
+  "name": "Pitmark Race Center",
+  "short_name": "Race Center",
+  "description": "Your racing command center for drivers, teams, tracks, series, events, standings and race-day intelligence.",
+  "start_url": "/race-center",
+  "scope": "/race-center",
+  "display": "standalone",
+  "background_color": "#090b0e",
+  "theme_color": "#090b0e",
+  "orientation": "any",
+  "categories": ["sports", "news"],
+  "icons": [
+    {
+      "src": "/race-center-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {"name":"Race Day","short_name":"Race Day","url":"/race-center/events"},
+    {"name":"My Standings","short_name":"Standings","url":"/race-center/standings"},
+    {"name":"Drivers","short_name":"Drivers","url":"/race-center/drivers"},
+    {"name":"Tracks","short_name":"Tracks","url":"/race-center/tracks"}
+  ]
+}
