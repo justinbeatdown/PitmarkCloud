@@ -2896,3 +2896,691 @@ body[data-view="hub"] .home-race-pulse .pulse-actions{
     font-size:9px!important;
   }
 }
+
+
+/* ============================================================
+   RACE CENTER V7 — racing platform layer
+   Tracks · Teams · Events · Race Day · Archive · My Racing Brief
+   ============================================================ */
+
+.v7-platform-page{display:none}
+.v7-home-only{display:none}
+body[data-view="hub"] .v7-home-only{display:block}
+
+body[data-view="tracks"] #tracksDirectory,
+body[data-view="trackprofile"] #trackProfilePage,
+body[data-view="teams"] #teamsDirectory,
+body[data-view="teamprofile"] #teamProfilePage,
+body[data-view="events"] #eventsDirectory,
+body[data-view="eventprofile"] #eventProfilePage,
+body[data-view="archive"] #archivePage{
+  display:block;
+}
+
+/* Dedicated V7 routes own their viewport. Do not leak legacy standings/home cards. */
+body[data-view="tracks"] .hero,
+body[data-view="trackprofile"] .hero,
+body[data-view="teams"] .hero,
+body[data-view="teamprofile"] .hero,
+body[data-view="events"] .hero,
+body[data-view="eventprofile"] .hero,
+body[data-view="archive"] .hero{
+  display:none!important;
+}
+body[data-view="tracks"] .home-race-pulse,
+body[data-view="tracks"] #hubNavigation,
+body[data-view="tracks"] .toolbar,
+body[data-view="tracks"] .live-section,
+body[data-view="tracks"] .leaders-section,
+body[data-view="tracks"] .movers-section,
+body[data-view="tracks"] .series-section,
+body[data-view="tracks"] .schedule-section,
+body[data-view="tracks"] .race-center-grid,
+body[data-view="tracks"] .series-directory,
+body[data-view="tracks"] .series-profile-page,
+body[data-view="tracks"] .drivers-directory,
+body[data-view="tracks"] .driver-profile-page,
+body[data-view="trackprofile"] .home-race-pulse,
+body[data-view="trackprofile"] #hubNavigation,
+body[data-view="trackprofile"] .toolbar,
+body[data-view="trackprofile"] .live-section,
+body[data-view="trackprofile"] .leaders-section,
+body[data-view="trackprofile"] .movers-section,
+body[data-view="trackprofile"] .series-section,
+body[data-view="trackprofile"] .schedule-section,
+body[data-view="trackprofile"] .race-center-grid,
+body[data-view="trackprofile"] .series-directory,
+body[data-view="trackprofile"] .series-profile-page,
+body[data-view="trackprofile"] .drivers-directory,
+body[data-view="trackprofile"] .driver-profile-page,
+body[data-view="teams"] .home-race-pulse,
+body[data-view="teams"] #hubNavigation,
+body[data-view="teams"] .toolbar,
+body[data-view="teams"] .live-section,
+body[data-view="teams"] .leaders-section,
+body[data-view="teams"] .movers-section,
+body[data-view="teams"] .series-section,
+body[data-view="teams"] .schedule-section,
+body[data-view="teams"] .race-center-grid,
+body[data-view="teams"] .series-directory,
+body[data-view="teams"] .series-profile-page,
+body[data-view="teams"] .drivers-directory,
+body[data-view="teams"] .driver-profile-page,
+body[data-view="teamprofile"] .home-race-pulse,
+body[data-view="teamprofile"] #hubNavigation,
+body[data-view="teamprofile"] .toolbar,
+body[data-view="teamprofile"] .live-section,
+body[data-view="teamprofile"] .leaders-section,
+body[data-view="teamprofile"] .movers-section,
+body[data-view="teamprofile"] .series-section,
+body[data-view="teamprofile"] .schedule-section,
+body[data-view="teamprofile"] .race-center-grid,
+body[data-view="teamprofile"] .series-directory,
+body[data-view="teamprofile"] .series-profile-page,
+body[data-view="teamprofile"] .drivers-directory,
+body[data-view="teamprofile"] .driver-profile-page,
+body[data-view="events"] .home-race-pulse,
+body[data-view="events"] #hubNavigation,
+body[data-view="events"] .toolbar,
+body[data-view="events"] .live-section,
+body[data-view="events"] .leaders-section,
+body[data-view="events"] .movers-section,
+body[data-view="events"] .series-section,
+body[data-view="events"] .schedule-section,
+body[data-view="events"] .race-center-grid,
+body[data-view="events"] .series-directory,
+body[data-view="events"] .series-profile-page,
+body[data-view="events"] .drivers-directory,
+body[data-view="events"] .driver-profile-page,
+body[data-view="eventprofile"] .home-race-pulse,
+body[data-view="eventprofile"] #hubNavigation,
+body[data-view="eventprofile"] .toolbar,
+body[data-view="eventprofile"] .live-section,
+body[data-view="eventprofile"] .leaders-section,
+body[data-view="eventprofile"] .movers-section,
+body[data-view="eventprofile"] .series-section,
+body[data-view="eventprofile"] .schedule-section,
+body[data-view="eventprofile"] .race-center-grid,
+body[data-view="eventprofile"] .series-directory,
+body[data-view="eventprofile"] .series-profile-page,
+body[data-view="eventprofile"] .drivers-directory,
+body[data-view="eventprofile"] .driver-profile-page,
+body[data-view="archive"] .home-race-pulse,
+body[data-view="archive"] #hubNavigation,
+body[data-view="archive"] .toolbar,
+body[data-view="archive"] .live-section,
+body[data-view="archive"] .leaders-section,
+body[data-view="archive"] .movers-section,
+body[data-view="archive"] .series-section,
+body[data-view="archive"] .schedule-section,
+body[data-view="archive"] .race-center-grid,
+body[data-view="archive"] .series-directory,
+body[data-view="archive"] .series-profile-page,
+body[data-view="archive"] .drivers-directory,
+body[data-view="archive"] .driver-profile-page{
+  display:none!important;
+}
+
+.v7-platform-page{
+  width:min(1440px,calc(100% - 36px));
+  margin:0 auto;
+  padding:36px 0 86px;
+}
+.v7-directory-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:28px;
+  padding-bottom:22px;
+  border-bottom:1px solid #242e37;
+}
+.v7-directory-head>div{max-width:820px}
+.v7-directory-head h2{
+  margin:5px 0 7px;
+  color:#f6f7f8;
+  font-size:clamp(38px,4.4vw,62px);
+  line-height:.95;
+  letter-spacing:-.052em;
+}
+.v7-directory-head p{
+  max-width:760px;
+  margin:0;
+  color:#8997a8;
+  font-size:14px;
+  line-height:1.55;
+}
+.v7-directory-head .driver-search{
+  width:min(390px,38vw);
+  flex:0 0 auto;
+}
+.v7-directory-meta{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin:16px 0 12px;
+  color:#718093;
+  font-size:10px;
+}
+.v7-directory-meta strong{
+  color:#f2f5f7;
+  font-size:12px;
+}
+.v7-entity-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.v7-entity-card{
+  position:relative;
+  min-width:0;
+  border:1px solid #29343e;
+  border-radius:14px;
+  background:linear-gradient(150deg,#11171c,#0b1015 78%);
+  overflow:hidden;
+  transition:border-color .14s ease,transform .14s ease;
+}
+.v7-entity-card:hover{
+  border-color:rgba(255,85,0,.42);
+  transform:translateY(-1px);
+}
+.v7-entity-main{
+  min-height:112px;
+  display:grid;
+  grid-template-columns:54px minmax(0,1fr) auto;
+  gap:14px;
+  align-items:center;
+  padding:15px 132px 15px 15px;
+}
+.v7-entity-icon{
+  width:54px;
+  height:54px;
+  display:grid;
+  place-items:center;
+  border:1px solid #33404b;
+  border-radius:13px;
+  background:#0a0f13;
+  color:#ff8350;
+  font-size:22px;
+  font-weight:1000;
+}
+.v7-entity-main>div{min-width:0}
+.v7-entity-main strong{
+  display:block;
+  margin:4px 0 3px;
+  color:#f4f6f8;
+  font-size:17px;
+  line-height:1.2;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.v7-entity-main small{
+  display:block;
+  color:#9ba6b4;
+  font-size:11px;
+}
+.v7-entity-main em{
+  display:block;
+  margin-top:7px;
+  color:#697789;
+  font-size:10px;
+  font-style:normal;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.v7-entity-main>b{color:#68778a}
+.v7-entity-actions{
+  position:absolute;
+  right:12px;
+  bottom:12px;
+  display:flex;
+  gap:6px;
+}
+.v7-follow{
+  min-height:31px;
+  padding:0 10px;
+  border:1px solid #36424e;
+  border-radius:8px;
+  background:#0b1116;
+  color:#a8b2bf;
+  font:900 10px/1 inherit;
+  cursor:pointer;
+}
+.v7-follow:hover{border-color:#566676;color:#fff}
+.v7-follow.is-following{
+  border-color:rgba(255,193,84,.38);
+  background:rgba(255,193,84,.07);
+  color:#ffd36b;
+}
+.v7-follow:disabled{opacity:.55;cursor:wait}
+
+.v7-profile-hero,
+.v7-event-hero{
+  display:grid;
+  grid-template-columns:128px minmax(0,1fr) minmax(290px,.64fr);
+  gap:24px;
+  align-items:center;
+  padding:26px;
+  border:1px solid #2b3741;
+  border-radius:19px;
+  background:
+    radial-gradient(circle at 86% 0,rgba(255,85,0,.07),transparent 27%),
+    linear-gradient(145deg,#151c22,#0a0f13 76%);
+}
+.v7-profile-icon{
+  width:128px;
+  height:112px;
+  display:grid;
+  place-items:center;
+  border:1px solid #33414c;
+  border-radius:17px;
+  background:#0a0f13;
+  color:#ff8451;
+  font-size:42px;
+  font-weight:1000;
+}
+.v7-profile-copy h2,
+.v7-event-hero h2{
+  margin:6px 0 8px;
+  color:#f6f7f8;
+  font-size:clamp(38px,4.7vw,64px);
+  line-height:.94;
+  letter-spacing:-.055em;
+}
+.v7-profile-copy>p,
+.v7-event-hero>div:nth-child(2)>p{
+  margin:0;
+  color:#929faf;
+  font-size:13px;
+}
+.v7-profile-actions{
+  display:flex;
+  gap:7px;
+  flex-wrap:wrap;
+  margin-top:15px;
+}
+.v7-profile-stats{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:7px;
+}
+.v7-profile-stats>div{
+  padding:12px 13px;
+  border:1px solid #2d3843;
+  border-radius:11px;
+  background:#090e13;
+}
+.v7-profile-stats span,
+.v7-event-countdown>span{
+  display:block;
+  color:#778699;
+  font-size:8px;
+  font-weight:1000;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+}
+.v7-profile-stats strong{
+  display:block;
+  margin-top:4px;
+  color:#f4f6f8;
+  font-size:18px;
+}
+.v7-profile-layout{
+  display:grid;
+  grid-template-columns:minmax(0,1.58fr) minmax(300px,.72fr);
+  gap:12px;
+  margin-top:12px;
+  align-items:start;
+}
+.v7-profile-main,.v7-profile-aside{
+  display:grid;
+  gap:12px;
+}
+.v7-panel{
+  padding:17px;
+  border:1px solid #29343e;
+  border-radius:14px;
+  background:#0d1318;
+}
+.v7-panel h3{
+  margin:4px 0 10px;
+  color:#f0f3f5;
+  font-size:20px;
+}
+.v7-panel>p{
+  color:#8d99a8;
+  font-size:12px;
+  line-height:1.55;
+}
+.v7-related-list{
+  display:grid;
+  gap:7px;
+  margin-top:11px;
+}
+.v7-related-chip{
+  min-height:46px;
+  display:grid;
+  grid-template-columns:52px minmax(0,1fr);
+  gap:10px;
+  align-items:center;
+  padding:7px 9px;
+  border:1px solid #28333d;
+  border-radius:9px;
+  background:#090e13;
+}
+.v7-related-chip:hover{border-color:#435260}
+.v7-related-chip .v7-series-mark{
+  width:48px;
+  height:30px;
+  object-fit:contain;
+}
+.v7-related-chip span{
+  color:#dce2e8;
+  font-size:11px;
+  font-weight:850;
+}
+.v7-driver-list{
+  margin-top:12px;
+  border:1px solid #27313b;
+  border-radius:11px;
+  overflow:hidden;
+}
+.v7-driver-row{
+  min-height:47px;
+  display:grid;
+  grid-template-columns:50px minmax(150px,1fr) minmax(130px,.7fr) auto;
+  gap:10px;
+  align-items:center;
+  padding:0 11px;
+  border-top:1px solid #232c35;
+  background:#090e12;
+}
+.v7-driver-row:first-child{border-top:0}
+.v7-driver-row:hover{background:#111820}
+.v7-driver-row>span{color:#ff8c58;font-size:10px;font-weight:1000}
+.v7-driver-row>strong{color:#eef1f4;font-size:12px}
+.v7-driver-row>small{color:#7e8b9b;font-size:10px}
+.v7-driver-row>em{color:#aab3bf;font-size:10px;font-style:normal}
+
+/* Event / Race Day */
+.v7-race-day-hero{
+  margin:18px 0 16px;
+  padding:17px;
+  border:1px solid #3a322d;
+  border-radius:15px;
+  background:
+    linear-gradient(100deg,rgba(255,85,0,.09),transparent 38%),
+    #0e1419;
+}
+.v7-race-day-heading h3{
+  margin:4px 0 12px;
+  color:#f4f5f6;
+  font-size:25px;
+}
+.v7-race-day-heading p{color:#7c8998;font-size:11px}
+.v7-race-day-strip{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+}
+.v7-event-list{display:grid;gap:8px}
+.v7-event-card{
+  position:relative;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  border:1px solid #29343e;
+  border-radius:12px;
+  background:#0c1217;
+  overflow:hidden;
+}
+.v7-event-card.is-live{
+  border-color:rgba(55,218,139,.42);
+  background:linear-gradient(90deg,rgba(55,218,139,.055),#0c1217 34%);
+}
+.v7-event-main{
+  min-height:76px;
+  display:grid;
+  grid-template-columns:72px minmax(0,1fr) auto;
+  gap:12px;
+  align-items:center;
+  padding:9px 13px;
+}
+.v7-event-state{
+  display:grid;
+  place-items:center;
+  min-height:32px;
+  padding:5px 7px;
+  border:1px solid #34404b;
+  border-radius:8px;
+  background:#090e13;
+  color:#ff925f;
+  font-size:9px;
+  font-weight:1000;
+  text-align:center;
+}
+.v7-event-card.is-live .v7-event-state{
+  color:#72e5b1;
+  border-color:rgba(55,218,139,.35);
+}
+.v7-event-main>div{min-width:0}
+.v7-event-main strong{
+  display:block;
+  margin:3px 0 3px;
+  color:#f0f3f5;
+  font-size:13px;
+}
+.v7-event-main small{
+  display:block;
+  color:#8592a2;
+  font-size:10px;
+}
+.v7-event-main em{
+  display:block;
+  margin-top:4px;
+  color:#697789;
+  font-size:9px;
+  font-style:normal;
+}
+.v7-event-main>b{color:#69788a}
+.v7-event-actions{
+  display:flex;
+  gap:6px;
+  align-items:center;
+  padding:0 12px 0 6px;
+}
+.v7-mini-action{
+  display:inline-flex;
+  align-items:center;
+  min-height:31px;
+  padding:0 9px;
+  border:1px solid #34404b;
+  border-radius:8px;
+  color:#d4dae1;
+  font-size:9px;
+  font-weight:900;
+}
+.v7-mini-action:hover{border-color:#536170;color:#fff}
+.v7-inline-link{color:#ff9a6b;text-decoration:none}
+.v7-inline-link:hover{text-decoration:underline}
+.v7-event-hero.is-live{
+  border-color:rgba(55,218,139,.38);
+  box-shadow:inset 4px 0 0 #38d989;
+}
+.v7-event-hero>div:first-child{
+  height:110px;
+  display:grid;
+  place-items:center;
+  padding:16px;
+  border:1px solid #303b45;
+  border-radius:15px;
+  background:#090e12;
+}
+.v7-event-hero .v7-series-mark{max-width:100%;max-height:80px;object-fit:contain}
+.v7-event-countdown{
+  padding:18px;
+  border:1px solid #2e3943;
+  border-radius:13px;
+  background:#090e13;
+}
+.v7-event-countdown strong{
+  display:block;
+  margin:5px 0 8px;
+  color:#f7f8f9;
+  font-size:32px;
+  letter-spacing:-.045em;
+}
+.v7-event-countdown small{
+  display:block;
+  color:#8794a3;
+  font-size:10px;
+}
+.v7-fact-list{
+  margin:10px 0 0;
+}
+.v7-fact-list>div{
+  display:grid;
+  grid-template-columns:90px minmax(0,1fr);
+  gap:10px;
+  padding:9px 0;
+  border-top:1px solid #26313a;
+}
+.v7-fact-list>div:first-child{border-top:0}
+.v7-fact-list dt{
+  color:#738295;
+  font-size:9px;
+  font-weight:950;
+  text-transform:uppercase;
+}
+.v7-fact-list dd{
+  margin:0;
+  color:#dbe1e7;
+  font-size:11px;
+  text-align:right;
+}
+.v7-source-list{display:grid;gap:7px;margin-top:10px}
+.v7-source-list a{
+  padding:9px 10px;
+  border:1px solid #2d3943;
+  border-radius:8px;
+  background:#090e13;
+  color:#ff9666;
+  font-size:10px;
+  font-weight:850;
+}
+
+/* My Racing briefing is intelligence, not a timeline. */
+.v7-briefing{
+  margin:0 0 26px;
+  padding:17px;
+  border:1px solid #2a3540;
+  border-radius:15px;
+  background:
+    radial-gradient(circle at 100% 0,rgba(255,85,0,.055),transparent 26%),
+    #0d1318;
+}
+.v7-briefing .section-head{margin-bottom:12px!important}
+.v7-briefing-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:7px;
+}
+.v7-brief-card{
+  min-height:88px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:4px;
+  padding:12px;
+  border:1px solid #2d3843;
+  border-radius:10px;
+  background:#090e13;
+}
+.v7-brief-card:hover{border-color:#495867}
+.v7-brief-card>span{
+  color:#ff8f5d;
+  font-size:8px;
+  font-weight:1000;
+  letter-spacing:.09em;
+}
+.v7-brief-card>strong{
+  color:#f0f3f5;
+  font-size:12px;
+  line-height:1.25;
+}
+.v7-brief-card>small{
+  color:#768495;
+  font-size:9px;
+  line-height:1.4;
+}
+.v7-brief-card.live{
+  border-color:rgba(55,218,139,.34);
+}
+.v7-brief-card.live>span{color:#67dfa9}
+.v7-brief-card.data-health{
+  border-color:rgba(107,145,255,.27);
+}
+.v7-brief-card.data-health>span{color:#8ea9ff}
+
+/* My Racing can now hold more than series/driver chips. */
+.v7-extra-racing-chip .v7-chip-kind{
+  min-width:50px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border:1px solid #303c47;
+  border-radius:8px;
+  background:#0a0f13;
+  color:#ff8f5c;
+  font-size:8px;
+  font-weight:1000;
+}
+.v7-extra-racing-chip strong{max-width:170px}
+
+/* V7 claim / verification */
+.v7-claim-button{font-size:10px!important}
+#entityClaimDialog .claim-form{margin-top:14px}
+
+/* Keep the expanded navigation usable at normal desktop widths. */
+@media(max-width:1420px){
+  .site-header nav{gap:1px}
+  .site-header nav a{padding-left:6px;padding-right:6px;font-size:11px}
+}
+@media(max-width:1180px){
+  .v7-entity-grid{grid-template-columns:1fr}
+  .v7-race-day-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .v7-briefing-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .v7-profile-hero,.v7-event-hero{grid-template-columns:110px minmax(0,1fr)}
+  .v7-profile-icon{width:110px;height:96px}
+  .v7-profile-stats,.v7-event-countdown{grid-column:1/-1}
+  .v7-profile-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .v7-event-countdown{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}
+  .v7-event-countdown strong{margin:0}
+}
+@media(max-width:880px){
+  .v7-platform-page{width:min(100% - 22px,1440px);padding-top:22px}
+  .v7-directory-head{align-items:flex-start;flex-direction:column}
+  .v7-directory-head .driver-search{width:100%}
+  .v7-directory-meta{align-items:flex-start;flex-direction:column}
+  .v7-profile-layout{grid-template-columns:1fr}
+  .v7-race-day-strip{grid-template-columns:1fr}
+  .v7-event-card{grid-template-columns:1fr}
+  .v7-event-actions{padding:0 12px 10px;justify-content:flex-start}
+}
+@media(max-width:680px){
+  .v7-directory-head h2{font-size:38px}
+  .v7-entity-main{grid-template-columns:44px minmax(0,1fr) auto;padding-right:12px;padding-bottom:54px}
+  .v7-entity-icon{width:44px;height:44px;font-size:18px}
+  .v7-entity-actions{left:12px;right:auto}
+  .v7-profile-hero,.v7-event-hero{grid-template-columns:1fr;padding:16px}
+  .v7-profile-icon{width:82px;height:72px}
+  .v7-profile-stats{grid-template-columns:1fr}
+  .v7-event-hero>div:first-child{width:110px;height:84px}
+  .v7-event-countdown{display:block}
+  .v7-event-main{grid-template-columns:62px minmax(0,1fr) auto}
+  .v7-driver-row{grid-template-columns:42px minmax(0,1fr) auto}
+  .v7-driver-row>small{display:none}
+  .v7-briefing-grid{grid-template-columns:1fr}
+}
