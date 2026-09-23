@@ -434,7 +434,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("data-driver-follow", public_js)
         self.assertIn("credentials:'same-origin'", public_js)
 
-    def test_race_center_v5_social_network_and_live_stage(self):
+    def test_race_center_v5_social_network_and_feed_native_race_moments(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
         social_js = self.read("api/race_center_v5.js")
@@ -460,7 +460,6 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(route, public_api)
         for token in (
-            'id="liveStage"',
             'id="raceFeed"',
             'id="raceFeedList"',
             'class="social-composer-card"',
@@ -471,10 +470,10 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, public_html)
         for token in (
-            "v5RenderLive",
             "v5RenderUnifiedFeed",
             "v5BuildRacingObjects",
-            "v5YoutubeEmbed",
+            "v5RaceMomentObject",
+            "race-moment-card",
             "v5LoadFeed",
             "Official watch info",
         ):
@@ -559,6 +558,8 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("pulseFavorites", public_js)
         self.assertNotIn('id="personalFeed"', public_html)
         self.assertNotIn('id="pitWallFeed"', public_html)
+        self.assertNotIn('id="liveStage"', public_html)
+        self.assertIn(".race-moment-card", css)
 
     def test_race_center_identity_type_is_owned_but_verification_is_not(self):
         accounts = self.read("services/race_center_accounts.py")
