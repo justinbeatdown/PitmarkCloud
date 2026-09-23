@@ -514,10 +514,10 @@
         baseRenderAccount();
         v5RenderProfile();
         v5RenderSocialShell();
-        if(state.account&&state.account.authenticated){
+        if($('#v5Home')&&state.account&&state.account.authenticated){
           v5LoadPeople();
           v5LoadFeed();
-        }else{
+        }else if($('#v5Home')){
           v5People=[];
           v5RenderPeople();
         }
@@ -642,14 +642,22 @@
 
     document.addEventListener('submit',function(event){
       if(event.target&&['signupForm','loginForm'].includes(event.target.id)){
-        setTimeout(function(){v5RenderProfile();v5LoadFeed();v5LoadPeople();},800);
+        setTimeout(function(){
+          v5RenderProfile();
+          if($('#v5Home')){v5LoadFeed();v5LoadPeople();}
+        },800);
       }
     });
     const logout=$('#logoutButton');
-    if(logout)logout.addEventListener('click',function(){setTimeout(function(){v5RenderProfile();v5LoadFeed();v5LoadPeople();},250);});
+    if(logout)logout.addEventListener('click',function(){setTimeout(function(){
+      v5RenderProfile();
+      if($('#v5Home')){v5LoadFeed();v5LoadPeople();}
+    },250);});
 
-    v5LoadFeed();
-    v5LoadPeople();
+    if($('#v5Home')){
+      v5LoadFeed();
+      v5LoadPeople();
+    }
     setTimeout(v5RenderAll,150);
     setTimeout(v5RenderAll,900);
     setInterval(function(){
