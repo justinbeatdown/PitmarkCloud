@@ -415,17 +415,40 @@ def my_racing_brief(follows: list[dict[str, Any]]) -> dict[str, Any]:
     by_track = {str(x["key"]): x for x in graph["tracks"]}
     by_team = {str(x["key"]): x for x in graph["teams"]}
     followed_series = {str(x.get("key") or "") for x in follows if x.get("kind") == "series"}
-    followed_driver = {identity_key(str(x.get("label") or x.get("key") or "")) for x in follows if x.get("kind") == "driver"}
+    followed_driver: set[str] = set()
+    for item in follows:
+        if item.get("kind") != "driver":
+            continue
+        label = str(item.get("label") or "").strip()
+        raw_key = str(item.get("key") or "").strip()
+        fallback_name = raw_key.split(":", 1)[1] if ":" in raw_key else raw_key
+        key = identity_key(label or fallback_name)
+        if key:
+            followed_driver.add(key)
     followed_track = {str(x.get("key") or "") for x in follows if x.get("kind") == "track"}
     followed_team = {str(x.get("key") or "") for x in follows if x.get("kind") == "team"}
 
+    drivers = [by_driver[key] for key in followed_driver if key in by_driver]
+    driver_series = {
+        str(series.get("series_key") or "")
+        for driver in drivers
+        for series in (driver.get("series") or [])
+        if series.get("series_key")
+    }
+    team_series = {
+        str(series_key)
+        for key in followed_team
+        if key in by_team
+        for series_key in (by_team[key].get("series") or [])
+    }
+    relevant_series = followed_series | driver_series | team_series
+
     events = [
         item for item in graph["events"]
-        if item.get("series_key") in followed_series or item.get("track_key") in followed_track
+        if item.get("series_key") in relevant_series or item.get("track_key") in followed_track
     ]
     events.sort(key=lambda x: str(x.get("start") or ""))
 
-    drivers = [by_driver[key] for key in followed_driver if key in by_driver]
     movers = []
     for driver in drivers:
         for series in driver.get("series") or []:
