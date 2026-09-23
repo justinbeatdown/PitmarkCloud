@@ -344,6 +344,54 @@ def intelligence_google_oauth_complete(payload: WorkspaceOAuthComplete, request:
     return {"ok": True, "connected": True}
 
 
+
+@router.get("/api/control/intelligence/youtube/status")
+def intelligence_youtube_status(request: Request):
+    _auth(request)
+    from services.youtube_intelligence_auth import configured as youtube_credentials_configured
+    connected = youtube_credentials_configured()
+    return {
+        "configured": connected,
+        "connected": connected,
+        "scope": "youtube.readonly",
+        "mode": "read_only",
+    }
+
+
+@router.post("/api/control/intelligence/youtube/oauth/start")
+def intelligence_youtube_oauth_start(request: Request):
+    user = _auth(request)
+    user_key = user.username if user else "admin"
+    from services.youtube_intelligence_auth import (
+        YouTubeAuthorizationRequired,
+        begin_authorization as begin_youtube_authorization,
+    )
+    try:
+        return begin_youtube_authorization(user_key)
+    except YouTubeAuthorizationRequired as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.post("/api/control/intelligence/youtube/oauth/complete")
+def intelligence_youtube_oauth_complete(payload: WorkspaceOAuthComplete, request: Request):
+    user = _auth(request)
+    user_key = user.username if user else "admin"
+    from services.youtube_intelligence_auth import (
+        YouTubeAuthorizationRequired,
+        complete_authorization as complete_youtube_authorization,
+    )
+    try:
+        complete_youtube_authorization(payload.callback_url, user_key)
+        try:
+            from services.native_analytics_suite import clear_cache
+            clear_cache()
+        except Exception:
+            pass
+    except YouTubeAuthorizationRequired as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return {"ok": True, "connected": True, "mode": "read_only"}
+
+
 @router.get("/api/control/hq/overview")
 def hq_overview(request: Request):
     _auth(request)
