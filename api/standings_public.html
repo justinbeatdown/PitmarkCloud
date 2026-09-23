@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Pitmark Race Center V5 — Racing Standings, Schedules + Live Board</title>
-  <meta name="description" content="Pitmark Race Center V5 tracks racing standings, championship leaders, live and upcoming events, schedules and official watch information across major racing series.">
+  <title>Pitmark Race Center V5 — The Social Home for Racing</title>
+  <meta name="description" content="Pitmark Race Center is the social home for racing — people, posts, live events, standings, schedules and championship movement in one racing-first feed.">
   <meta property="og:title" content="Pitmark Race Center V5">
-  <meta property="og:description" content="Live motorsports intelligence. One home base.">
+  <meta property="og:description" content="The social home for racing. Follow people, drivers and series while racing data lives directly in your feed.">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#090b0e">
-  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-v5-social-20260922bb">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-v5-spine-20260922">
 </head>
 <body data-view="{{RACE_CENTER_VIEW}}">
   <a class="skip-link" href="#standingsStart">Skip to Race Center</a>
@@ -68,6 +68,7 @@
           <div class="social-profile-copy">
             <strong id="socialProfileName">My Race Center</strong>
             <span id="socialProfileHandle">Sign in to personalize</span>
+            <em class="social-profile-role" id="socialProfileRole">Racing fan</em>
           </div>
           <button class="social-profile-edit" id="socialProfileOpen" type="button">View profile</button>
           <div class="social-profile-stats">
@@ -124,23 +125,13 @@
           </div>
         </section>
 
-        <section class="social-for-you">
+        <section class="social-feed-card unified-race-feed" id="raceFeed">
           <div class="feed-heading">
-            <div><span class="eyebrow">FOR YOU</span><h2>Racing updates</h2></div>
-            <p id="personalStatus">Follow drivers and series to build your feed.</p>
+            <div><span class="eyebrow">FOR YOU</span><h2>Your race feed</h2></div>
+            <p id="personalStatus">People, drivers, series and race data — together.</p>
           </div>
-          <div class="personal-feed social-racing-feed" id="personalFeed">
-            <div class="loading-card">Building your racing board…</div>
-          </div>
-        </section>
-
-        <section class="social-feed-card" id="pitWall">
-          <div class="feed-heading">
-            <div><span class="eyebrow">YOUR FEED</span><h2>Pit Wall</h2></div>
-            <span class="social-live-pill">RACING SOCIAL</span>
-          </div>
-          <div class="pit-wall-feed social-post-feed" id="pitWallFeed">
-            <div class="loading-card">Loading your racing feed…</div>
+          <div class="pit-wall-feed social-post-feed social-racing-feed unified-feed" id="raceFeedList">
+            <div class="loading-card">Building your racing feed…</div>
           </div>
         </section>
       </section>
@@ -340,8 +331,18 @@
         </div>
         <form class="profile-form" id="profileForm">
           <label>Handle<input id="profileHandle" name="handle" maxlength="40" pattern="[a-z0-9_]{3,40}" placeholder="your_handle"></label>
+          <label>Who are you in racing?
+            <select id="profileAccountType" name="account_type">
+              <option value="fan">Fan</option>
+              <option value="driver">Driver</option>
+              <option value="team">Team</option>
+              <option value="series">Series</option>
+              <option value="track">Track</option>
+              <option value="media">Media / Creator</option>
+            </select>
+          </label>
           <label>Favorite track<input id="profileTrack" name="favorite_track" maxlength="120" placeholder="Your home track"></label>
-          <label class="full">Bio<textarea id="profileBio" name="bio" maxlength="280" placeholder="What kind of racing are you here for?"></textarea></label>
+          <label class="full">Bio<textarea id="profileBio" name="bio" maxlength="280" placeholder="Your car, class, team, home track, racing story — make this profile yours."></textarea></label>
           <div class="full profile-actions"><button class="button primary" type="submit">Save Profile</button><span id="profileMessage"></span></div>
         </form>
         <button class="button" id="logoutButton" type="button">Sign Out</button>
@@ -382,6 +383,6 @@
     <small>Race Center prioritizes official and structured series sources. Pitmark hides unsupported identity fields instead of guessing. Use each linked official series source for final classifications, rules and race-control decisions.</small>
   </footer>
 
-  <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-v5-20260922" defer></script>\n  <script src="/race-center-v5.js?v={{PITMARK_VERSION}}-social-20260922" defer></script>
+  <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-v5-20260922" defer></script>\n  <script src="/race-center-v5.js?v={{PITMARK_VERSION}}-spine-20260922" defer></script>
 </body>
 </html>

@@ -24,6 +24,7 @@ on:
       - 'api/standings_public.html'
       - 'api/standings_public.css'
       - 'api/standings_public.js'
+      - 'api/race_center_v5.js'
       - 'api/__init__.py'
       - 'services/google_workspace_auth.py'
       - 'services/google_gmail.py'
@@ -33,6 +34,7 @@ on:
       - 'services/social_publish_worker.py'
       - 'services/google_business_intelligence_auth.py'
       - 'services/racing_standings.py'
+      - 'services/race_center_accounts.py'
       - 'requirements.txt'
       - 'scripts/test_control_center_2026_contract.py'
       - 'scripts/test_control_center_lowrisk_runtime.py'
@@ -68,6 +70,7 @@ on:
       - 'services/social_publish_worker.py'
       - 'services/google_business_intelligence_auth.py'
       - 'services/racing_standings.py'
+      - 'services/race_center_accounts.py'
       - 'requirements.txt'
       - 'scripts/test_control_center_2026_contract.py'
       - 'scripts/test_control_center_pwa_retirement.py'
@@ -102,6 +105,7 @@ jobs:
           if [ -f services/google_workspace_auth.py ]; then python -m py_compile services/google_workspace_auth.py; fi
           if [ -f services/master_checklist.py ]; then python -m py_compile services/master_checklist.py; fi
           if [ -f services/racing_standings.py ]; then python -m py_compile services/racing_standings.py; fi
+          if [ -f services/race_center_accounts.py ]; then python -m py_compile services/race_center_accounts.py; fi
           if [ -f services/business_intelligence.py ]; then python -m py_compile services/business_intelligence.py; fi
           if [ -f services/google_business_intelligence_auth.py ]; then python -m py_compile services/google_business_intelligence_auth.py; fi
           if [ -f services/native_analytics_suite.py ]; then python -m py_compile services/native_analytics_suite.py; fi
@@ -115,4 +119,5 @@ jobs:
           if [ -f api/control_center_views.js ]; then node --check api/control_center_views.js; fi
           if [ -f api/control_sw.js ]; then node --check api/control_sw.js; fi
           if [ -f api/standings_public.js ]; then node --check api/standings_public.js; fi
+          if [ -f api/race_center_v5.js ]; then node --check api/race_center_v5.js; fi
           if [ -f api/control_native_ops.js ]; then node --check api/control_native_ops.js; fi

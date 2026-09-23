@@ -461,18 +461,19 @@ class ControlCenter2026Contract(unittest.TestCase):
             self.assertIn(route, public_api)
         for token in (
             'id="liveStage"',
-            'id="personalFeed"',
-            'id="pitWall"',
+            'id="raceFeed"',
+            'id="raceFeedList"',
             'class="social-composer-card"',
             'id="pitWallInput"',
             'id="profileForm"',
+            'id="profileAccountType"',
             "/race-center-v5.js",
         ):
             self.assertIn(token, public_html)
         for token in (
             "v5RenderLive",
-            "v5RenderPersonal",
-            "v5RenderPitWall",
+            "v5RenderUnifiedFeed",
+            "v5BuildRacingObjects",
             "v5YoutubeEmbed",
             "v5LoadFeed",
             "Official watch info",
@@ -530,8 +531,8 @@ class ControlCenter2026Contract(unittest.TestCase):
             'class="social-center"',
             'class="social-right"',
             'id="socialMyRacingList"',
-            'id="personalFeed"',
-            'id="pitWallFeed"',
+            'id="raceFeed"',
+            'id="raceFeedList"',
             'id="peopleGrid"',
             'id="pulseLive"',
         ):
@@ -540,6 +541,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             "network-standing-row",
             "CHAMPIONSHIP",
             "DRIVER YOU FOLLOW",
+            "v5RenderUnifiedFeed",
             "v5RenderSocialShell",
             "socialMyRacingList",
         ):
@@ -550,9 +552,26 @@ class ControlCenter2026Contract(unittest.TestCase):
             ".network-standings",
             ".social-nav",
             ".social-post-feed",
+            ".unified-race-feed",
+            ".unified-feed",
         ):
             self.assertIn(token, css)
         self.assertIn("pulseFavorites", public_js)
+        self.assertNotIn('id="personalFeed"', public_html)
+        self.assertNotIn('id="pitWallFeed"', public_html)
+
+    def test_race_center_identity_type_is_owned_but_verification_is_not(self):
+        accounts = self.read("services/race_center_accounts.py")
+        public_api = self.read("api/standings_public.py")
+        public_html = self.read("api/standings_public.html")
+        social_js = self.read("api/race_center_v5.js")
+        self.assertIn("ALLOWED_ACCOUNT_TYPES", accounts)
+        self.assertIn('account_type: str = Field(default="fan"', public_api)
+        self.assertIn("account_type=body.account_type", public_api)
+        self.assertIn('id="profileAccountType"', public_html)
+        self.assertIn("v5AccountTypeLabel", social_js)
+        self.assertNotIn("verification_status=body", public_api)
+        self.assertNotIn("official_label=body", public_api)
 
     def test_control_center_readability_scale_covers_tiny_ui_text(self):
         css = self.read("api/control_center_overhaul.css")
