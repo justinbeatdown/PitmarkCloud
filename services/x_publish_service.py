@@ -7,6 +7,9 @@ from utils.config import settings
 
 class XPublishError(RuntimeError): pass
 
+_X_CREDIT_COOLDOWN_SECONDS = 60 * 60
+_credits_depleted_until = 0.0
+
 def configured()->bool:
     return all(x.strip() for x in (settings.x_api_key, settings.x_api_secret, settings.x_access_token, settings.x_access_token_secret))
 
@@ -18,11 +21,14 @@ def _max_post_chars()->int:
 
 def connection_status()->dict:
     max_chars = _max_post_chars()
+    credit_guarded = time.time() < _credits_depleted_until
     return {
         'configured': configured(),
         'connected': configured(),
-        'read_write': True if configured() else False,
-        'realtime_search_enabled': configured(),
+        'read_write': True if configured() and not credit_guarded else False,
+        'realtime_search_enabled': configured() and not credit_guarded,
+        'publishing_paused': credit_guarded,
+        'status': 'credits_depleted' if credit_guarded else ('live' if configured() else 'not_configured'),
         'max_post_characters': max_chars,
         'premium_long_posts': max_chars > 280,
     }
@@ -44,7 +50,10 @@ def _decode(r):
     return data
 
 def publish_x_post(text:str)->dict:
+    global _credits_depleted_until
     if not configured(): raise XPublishError('X publishing is not configured on the server.')
+    if time.time() < _credits_depleted_until:
+        raise XPublishError('X publishing is paused because API credits are depleted. Pitmark will retry after the credit cooldown instead of repeatedly billing the API.')
     body=(text or '').strip()
     if not body: raise XPublishError('X post body is empty.')
     max_chars = _max_post_chars()
@@ -53,6 +62,9 @@ def publish_x_post(text:str)->dict:
     url='https://api.x.com/2/tweets'
     try: r=httpx.post(url,headers={'Authorization':_oauth('POST',url),'Content-Type':'application/json'},json={'text':body},timeout=30)
     except httpx.HTTPError as e: raise XPublishError(f'X request failed: {e}') from e
+    if r.status_code == 402:
+        _credits_depleted_until = time.time() + _X_CREDIT_COOLDOWN_SECONDS
+        raise XPublishError('X publishing is paused because API credits are depleted. Pitmark will retry after the credit cooldown instead of repeatedly billing the API.')
     data=_decode(r); pid=(data.get('data') or {}).get('id')
     if not pid: raise XPublishError('X returned success without a post id.')
     return {'ok':True,'platform':'x','external_post_id':pid,'raw':data,'character_count':len(body),'max_post_characters':max_chars}

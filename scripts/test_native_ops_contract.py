@@ -94,8 +94,9 @@ class NativeOpsContractTests(unittest.TestCase):
 
     def test_google_connected_forbidden_state_is_distinct(self):
         client = (ROOT / "api" / "control_native_ops.js").read_text(encoding="utf-8")
-        self.assertIn("googleAuthorized", client)
-        self.assertIn("Google connected · API access needs attention", client)
+        self.assertIn("googleConnected", client)
+        self.assertIn("googleNeedsApi", client)
+        self.assertIn("Google is connected — turn on the data pipes", client)
 
     def test_google_callback_does_not_require_control_cookie(self):
         hq = (ROOT / "api" / "control_center_hq.py").read_text(encoding="utf-8")
@@ -133,6 +134,81 @@ class NativeOpsContractTests(unittest.TestCase):
         self.assertIn("pageInfo { hasNextPage endCursor }", service)
         self.assertIn('orders(first: 100, after: $after', service)
         self.assertIn('after = str(page_info.get("endCursor")', service)
+
+    def test_meta_business_intelligence_uses_page_token_for_page_reads(self):
+        service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
+        self.assertIn("meta_page_token", service)
+        self.assertIn('"/published_posts"', service)
+        self.assertIn("reactions.limit(0).summary(true)", service)
+        self.assertIn('"access_token": page_token', service)
+        self.assertIn('"access_token": system_token', service)
+
+    def test_connector_health_keeps_google_errors_separate(self):
+        service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
+        self.assertIn('ga4["error"]', service)
+        self.assertIn('search_console["error"]', service)
+        source_block = service.split('"sources": {', 1)[1].split('"commerce": shopify', 1)[0]
+        self.assertIn('(google.get("ga4") or {}).get("error")', source_block)
+        self.assertIn('(google.get("search_console") or {}).get("error")', source_block)
+
+    def test_native_connector_health_has_google_enable_actions(self):
+        client = (ROOT / "api" / "control_native_ops.js").read_text(encoding="utf-8")
+        self.assertIn("function sourceActions", client)
+        self.assertIn("setup_urls", client)
+        self.assertIn("Enable API", client)
+
+    def test_native_ops_assets_are_cache_busted(self):
+        html = (ROOT / "api" / "control_native_ops.html").read_text(encoding="utf-8")
+        self.assertIn("/control-native-ops.css?v=6", html)
+        self.assertIn("/control-native-ops.js?v=7", html)
+
+
+    def test_meta_reporting_uses_published_posts_with_graceful_fallback(self):
+        service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
+        self.assertIn('"/published_posts"', service)
+        self.assertIn("reactions.limit(0).summary(true)", service)
+        self.assertIn('basic_fields = "id,message,created_time,permalink_url,shares"', service)
+        self.assertIn('"permission_required"', service)
+        self.assertIn("ads_read access", service)
+
+    def test_google_sources_expose_setup_actions_independently(self):
+        service = (ROOT / "services" / "business_intelligence.py").read_text(encoding="utf-8")
+        self.assertIn("def _google_setup_urls", service)
+        self.assertIn('"analyticsadmin.googleapis.com"', service)
+        self.assertIn('"analyticsdata.googleapis.com"', service)
+        self.assertIn('"searchconsole.googleapis.com"', service)
+        self.assertIn('"api_disabled"', service)
+        self.assertIn('"setup_urls": (google.get("ga4")', service)
+        self.assertIn('"setup_urls": (google.get("search_console")', service)
+
+    def test_native_analytics_has_replacement_dashboard_sections(self):
+        client = (ROOT / "api" / "control_native_ops.js").read_text(encoding="utf-8")
+        self.assertIn("function sourceHealthRow", client)
+        self.assertIn("Social Performance", client)
+        self.assertIn("Website + Google Search", client)
+        self.assertIn("Recent Orders", client)
+        self.assertIn("Replacement Coverage", client)
+        self.assertIn("setup_urls", client)
+
+    def test_native_analytics_rows_escape_detail_by_default(self):
+        client = (ROOT / "api" / "control_native_ops.js").read_text(encoding="utf-8")
+        self.assertIn("detailIsHtml=false", client)
+        self.assertIn("const safeDetail=detailIsHtml?String(detail||''):esc(detail)", client)
+        self.assertIn("rel=\"noopener noreferrer\"", client)
+
+    def test_native_ops_assets_are_cache_busted_for_v2(self):
+        html = (ROOT / "api" / "control_native_ops.html").read_text(encoding="utf-8")
+        self.assertIn("/control-native-ops.css?v=6", html)
+        self.assertIn("/control-native-ops.js?v=7", html)
+
+
+    def test_x_publish_service_has_credit_circuit_breaker(self):
+        service = (ROOT / "services" / "x_publish_service.py").read_text(encoding="utf-8")
+        self.assertIn("_X_CREDIT_COOLDOWN_SECONDS", service)
+        self.assertIn("_credits_depleted_until", service)
+        self.assertIn("if r.status_code == 402", service)
+        self.assertIn("instead of repeatedly billing the API", service)
+        compile(service, "services/x_publish_service.py", "exec")
 
 
 if __name__ == "__main__":

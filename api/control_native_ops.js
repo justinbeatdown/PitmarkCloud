@@ -16,27 +16,85 @@ async function request(url,options={}){
   return data;
 }
 function badge(value){
-  const raw=String(value||'unknown');const lower=raw.toLowerCase();
-  const tone=(lower==='live'||lower==='ok'||lower==='healthy'||lower==='published')?'good':(lower.includes('error')||lower.includes('fail')||lower.includes('degraded'))?'bad':'warn';
-  return '<span class="badge '+tone+'">'+esc(raw)+'</span>';
+  const raw=String(value||'unknown');
+  const lower=raw.toLowerCase();
+  const good=['live','ok','healthy','published','connected'].includes(lower);
+  const bad=lower==='error'||lower==='failed'||lower.includes('fatal')||lower.includes('degraded');
+  return '<span class="badge '+(good?'good':bad?'bad':'warn')+'">'+esc(raw.replaceAll('_',' '))+'</span>';
 }
 function metric(label,value,small=''){return '<div class="card metric"><span>'+esc(label)+'</span><strong>'+esc(value)+'</strong><small>'+esc(small)+'</small></div>'}
 function rows(items,emptyText='Nothing to show.'){
   if(!items?.length)return '<div class="empty">'+esc(emptyText)+'</div>';
   return '<div class="rows">'+items.join('')+'</div>';
 }
-function row(title,detail,right=''){return '<div class="row"><div><strong>'+esc(title)+'</strong><small>'+esc(detail)+'</small></div><div>'+right+'</div></div>'}
+function row(title,detail,right='',detailIsHtml=false){const safeDetail=detailIsHtml?String(detail||''):esc(detail);return '<div class="row"><div><strong>'+esc(title)+'</strong><small>'+safeDetail+'</small></div><div>'+right+'</div></div>'}
+function clip(value,length=92){
+  const text=String(value||'').replace(/\s+/g,' ').trim();
+  return text.length>length?text.slice(0,length-1)+'…':text;
+}
+function safeUrl(value){
+  try{
+    const u=new URL(String(value||''),location.origin);
+    return ['http:','https:'].includes(u.protocol)?u.href:'';
+  }catch{return ''}
+}
+function inlineLink(label,url){
+  const safe=safeUrl(url);
+  return safe?'<a class="inline-link" href="'+esc(safe)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+'</a>':'';
+}
+function sourceActions(value){
+  const actions=(value?.setup_urls||[]).map(item=>inlineLink(item?.label||'Open setup',item?.url)).filter(Boolean);
+  return actions.length?'<div class="source-actions">'+actions.join('')+'</div>':'';
+}
+function sourceHealthRow(name,value){
+  const status=value?.live?'live':value?.status||'not_configured';
+  const detail=esc(value?.error||value?.note||'Direct Pitmark connector')+sourceActions(value);
+  return row(name.replaceAll('_',' '),detail,badge(status),true);
+}
+function pct(value){
+  const n=Number(value||0);
+  return (n<=1?n*100:n).toLocaleString(undefined,{maximumFractionDigits:1})+'%';
+}
+function dateTime(value){
+  if(!value)return 'Unknown time';
+  const d=new Date(value);
+  return Number.isNaN(d.getTime())?'Unknown time':d.toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+}
 
 function renderAnalytics(data){
   const e=data.executive||{}, commerce=data.commerce||{}, growth=data.growth||{}, sources=data.sources||{};
+  const social=data.social||{}, meta=social.meta||{}, google=social.google||{};
+  const facebook=meta.facebook||{}, instagram=meta.instagram||{}, ga4=google.ga4||{}, search=google.search_console||{};
+  const fbPage=facebook.page||{}, igProfile=instagram.profile||{};
   const googleReady=['ga4','search_console'].some(key=>sources[key]?.live);
-  const googleAuthorized=['ga4','search_console'].some(key=>['live','error','timeout'].includes(String(sources[key]?.status||'')));
-  const top=commerce.top_products||[], recs=data.recommendations||[];
+  const googleConnected=['ga4','search_console'].some(key=>!['not_configured','auth_required'].includes(String(sources[key]?.status||'')));
+  const googleNeedsApi=['ga4','search_console'].some(key=>String(sources[key]?.status||'')==='api_disabled');
+  const top=commerce.top_products||[], recentOrders=commerce.recent_orders||[], recs=data.recommendations||[];
   const rel=growth.relationships||{}, prt=growth.prt||{};
+  const fbTop=(facebook.top_posts||[]).map(p=>({
+    platform:'Facebook',
+    text:p.message||'Facebook post',
+    engagement:Number(p.engagement_actions||0),
+    url:p.permalink_url,
+    timestamp:p.created_time
+  }));
+  const igTop=(instagram.top_posts||[]).map(p=>({
+    platform:'Instagram',
+    text:p.caption||'Instagram post',
+    engagement:Number(p.engagement_actions||0),
+    url:p.permalink,
+    timestamp:p.timestamp
+  }));
+  const topSocial=[...fbTop,...igTop].sort((a,b)=>b.engagement-a.engagement).slice(0,8);
+  const setupLinks=['ga4','search_console'].flatMap(key=>(sources[key]?.setup_urls||[])).filter((item,index,array)=>array.findIndex(x=>x?.url===item?.url)===index);
+  const googleBanner=googleReady?'':googleNeedsApi
+    ? '<section class="card setup-card"><span class="section-label">Google Data</span><h2>Google is connected — turn on the data pipes</h2><p>Your authorization is good. The Google Cloud project still has the reporting APIs disabled. Enable them once and Pitmark will start reading GA4 + Search Console automatically.</p><div class="setup-actions">'+setupLinks.map(item=>inlineLink(item?.label||'Enable API',item?.url)).join('')+'</div></section>'
+    : googleConnected
+      ? '<section class="card setup-card"><span class="section-label">Google Data</span><h2>Google connected · source setup needs attention</h2><p>The account is authorized, but a GA4 property or Search Console property still needs to be visible to Pitmark. Connector Health below shows exactly which source needs attention.</p></section>'
+      : '<section class="card setup-card"><span class="section-label">Google Data</span><h2>Connect GA4 + Search Console</h2><p>One read-only authorization unlocks website traffic and Google search performance. YouTube stays separate so it cannot block this setup.</p><button id="connect-google" type="button" class="native-action">Connect Google Analytics</button></section>';
+
   $('#analytics-view').innerHTML=
-    (googleReady?'':googleAuthorized
-      ? '<section class="card" style="margin-bottom:12px"><span class="section-label">Google Data</span><h2>Google connected · API access needs attention</h2><p style="color:var(--muted)">Authorization succeeded, but Google is denying the Analytics/Search APIs. Check Connector Health below for the exact Google message.</p></section>'
-      : '<section class="card" style="margin-bottom:12px"><span class="section-label">Google Data</span><h2>Connect GA4 + Search Console</h2><p style="color:var(--muted)">One read-only authorization unlocks website traffic and Google search performance. YouTube is connected separately so it cannot block this setup.</p><button id="connect-google" type="button" class="native-action">Connect Google Analytics</button></section>')+
+    googleBanner+
     '<div class="grid metrics">'+
       metric('Revenue',money(e.revenue),num(e.orders)+' orders')+
       metric('AOV',money(e.average_order_value),'Shopify')+
@@ -44,25 +102,97 @@ function renderAnalytics(data){
       metric('Meta spend',money(e.meta_spend),num(e.meta_clicks)+' clicks')+
       metric('PRT demand',num(e.prt_applications),'applications')+
       metric('Relationships',num(e.relationships),num(rel.overdue_follow_up)+' overdue')+
+      metric('Data coverage',num(e.live_sources)+' / '+num(e.source_count),'live connectors')+
+      metric('Social queue',num(e.social_scheduled),num(e.social_published)+' published')+
     '</div>'+
-    '<div class="grid two" style="margin-top:12px">'+
+    '<div class="grid two section-gap">'+
       '<section class="card"><span class="section-label">Decision Engine</span><h2>What deserves attention</h2>'+
         rows(recs.map(r=>'<div class="recommendation"><div>'+badge(r.priority||'info')+' <span class="badge">'+esc(r.type||'signal')+'</span></div><h3>'+esc(r.title||'Recommendation')+'</h3><p>'+esc(r.reason||'')+'</p><p><strong>Next:</strong> '+esc(r.action||'')+'</p></div>'),'No active warnings right now.')+
       '</section>'+
       '<section class="card"><span class="section-label">Connector Health</span><h2>First-party sources</h2>'+
-        rows(Object.entries(sources).map(([name,value])=>row(name.replaceAll('_',' '),value?.error||'Direct Pitmark connector',badge(value?.live?'live':value?.status||'not configured'))))+
+        rows(Object.entries(sources).map(([name,value])=>sourceHealthRow(name,value)))+
       '</section>'+
     '</div>'+
-    '<div class="grid two" style="margin-top:12px">'+
-      '<section class="card"><span class="section-label">Commerce</span><h2>Top products</h2>'+
-        rows(top.slice(0,10).map(p=>row(p.title||'Product',num(p.quantity)+' units · '+num(p.orders)+' order lines','<strong>'+money(p.revenue)+'</strong>')),'No qualifying product sales in this window.')+
+    '<div class="grid two section-gap">'+
+      '<section class="card"><span class="section-label">Social Performance</span><h2>Facebook + Instagram</h2>'+
+        '<div class="mini-metrics">'+
+          '<div><span>Facebook followers</span><strong>'+num(fbPage.followers_count??fbPage.fan_count)+'</strong></div>'+
+          '<div><span>FB engagement</span><strong>'+num(facebook.engagement_actions)+'</strong></div>'+
+          '<div><span>Instagram followers</span><strong>'+num(igProfile.followers_count)+'</strong></div>'+
+          '<div><span>IG engagement</span><strong>'+num(instagram.engagement_actions)+'</strong></div>'+
+        '</div>'+
+        '<span class="section-label sub-label">Top social posts</span>'+
+        rows(topSocial.map(p=>row(
+          p.platform+' · '+clip(p.text,82),
+          esc(dateTime(p.timestamp))+(p.url?' · '+inlineLink('Open post',p.url):''),
+          badge(num(p.engagement)+' actions'),
+          true
+        )),'Social post performance will appear as connector permissions allow.')+
       '</section>'+
+      '<section class="card"><span class="section-label">Acquisition</span><h2>Website + Google Search</h2>'+
+        '<span class="section-label sub-label">Top pages</span>'+
+        rows((ga4.top_pages||[]).slice(0,6).map(p=>row(
+          clip(p.path||'Page',78),
+          num(p.sessions)+' sessions',
+          badge(num(p.page_views)+' views')
+        )),'GA4 top pages will appear once the Analytics APIs are enabled.')+
+        '<span class="section-label sub-label">Top searches</span>'+
+        rows((search.top_queries||[]).slice(0,6).map(q=>row(
+          clip(q.query||'Search query',78),
+          num(q.clicks)+' clicks · '+num(q.impressions)+' impressions · '+pct(q.ctr),
+          badge('pos '+Number(q.position||0).toFixed(1))
+        )),'Search Console queries will appear once that API is enabled.')+
+      '</section>'+
+    '</div>'+
+    '<div class="grid two section-gap">'+
+      '<section class="card"><span class="section-label">Commerce</span><h2>Top products</h2>'+
+        rows(top.slice(0,10).map(p=>row(
+          p.title||'Product',
+          num(p.quantity)+' units · '+num(p.orders)+' order lines',
+          '<strong>'+money(p.revenue)+'</strong>'
+        )),'No qualifying product sales in this window.')+
+      '</section>'+
+      '<section class="card"><span class="section-label">Recent Orders</span><h2>Latest Shopify conversions</h2>'+
+        rows(recentOrders.slice(0,8).map(order=>row(
+          order.name||'Order',
+          dateTime(order.created_at)+' · '+String(order.financial_status||'').replaceAll('_',' ').toLowerCase(),
+          '<strong>'+money(order.amount)+'</strong>'
+        )),'No qualifying orders in this reporting window.')+
+      '</section>'+
+    '</div>'+
+    '<div class="grid two section-gap">'+
       '<section class="card"><span class="section-label">Growth</span><h2>PRT + relationships</h2>'+
         rows([
           row('PRT applications',num(prt.applications_total),badge(num(prt.applications_new)+' new')),
           row('PRT tester activation',num(prt.testers_redeemed)+' redeemed',badge((prt.redemption_rate??0)+'%')),
           row('Warm relationships',num(rel.warm),badge(num(rel.overdue_follow_up)+' overdue')),
           row('Stale open relationships',num(rel.stale_open),'')
+        ])+
+      '</section>'+
+      '<section class="card"><span class="section-label">Replacement Coverage</span><h2>Metricool + Supermetrics exit readiness</h2>'+
+        '<div class="readiness"><strong>'+num(e.live_sources)+' / '+num(e.source_count)+'</strong><span>sources live now</span></div>'+
+        rows([
+          row('Commerce + revenue','Shopify is the source of truth.',badge(sources.shopify?.live?'ready':sources.shopify?.status)),
+          row('Social publishing','Pitmark scheduler + Social Desk own the workflow.',badge('ready')),
+          row('Social reporting','Meta reads are first-party; TikTok/YouTube remain staged.',badge(sources.meta?.status||'checking')),
+          row('Web + SEO','GA4 + Search Console feed the acquisition view.',badge(googleReady?'ready':'setup')),
+          row('PRT + outreach','Native Pitmark data is already unified here.',badge('ready'))
+        ])+
+      '</section>'+
+    '</div>'+
+    '<div class="grid two" style="margin-top:12px">'+
+      '<section class="card"><span class="section-label">Platform pulse</span><h2>Meta performance</h2>'+
+        rows([
+          row('Facebook posts',num(data.social?.meta?.facebook?.posts_count||0),badge(num(data.social?.meta?.facebook?.engagement_actions||0)+' actions')),
+          row('Instagram posts',num(data.social?.meta?.instagram?.posts_count||0),badge(num(data.social?.meta?.instagram?.engagement_actions||0)+' actions')),
+          row('Meta ad clicks',num(e.meta_clicks),money(e.meta_spend)+' spend')
+        ])+
+      '</section>'+
+      '<section class="card"><span class="section-label">Discovery</span><h2>Search + site traffic</h2>'+
+        rows([
+          row('Sessions',num(e.sessions),badge(num(e.users)+' users')),
+          row('Page views',num(e.page_views),badge(num(e.search_queries_loaded)+' search queries')),
+          row('Live data sources',num(e.live_sources)+' of '+num(e.source_count),'')
         ])+
       '</section>'+
     '</div>';
