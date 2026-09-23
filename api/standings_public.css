@@ -2166,3 +2166,15 @@ body[data-view="series"] .series-directory{margin-top:24px}
   .site-header nav::-webkit-scrollbar{display:none}
   .site-header nav a{padding:7px 9px;font-size:11px}
 }
+
+
+@media(max-width:680px){
+  .mobile-dock{
+    justify-content:flex-start;
+    overflow-x:auto;
+    overscroll-behavior-x:contain;
+    scrollbar-width:none;
+  }
+  .mobile-dock::-webkit-scrollbar{display:none}
+  .mobile-dock>a,.mobile-dock>button{min-width:74px;flex:1 0 74px}
+}
