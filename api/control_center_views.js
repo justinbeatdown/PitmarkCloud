@@ -1,4 +1,4 @@
-import { api, clearCache } from './control-center-api.js?v=20260920results2';
+import { api, clearCache } from './control-center-api.js?v=20260922publishfix1';
 
 export const DOMAIN_META = Object.freeze({
   hq: { title: 'HQ', kicker: 'Corporate Operations', context: 'What matters, what moved, and what needs you.' },
