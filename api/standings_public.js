@@ -586,18 +586,18 @@ const age=iso=>{
 };
 
 const move=(value,ready=true)=>{
-  if(!ready)return '<span class="move flat" title="No prior trustworthy comparison yet">↔0</span>';
+  if(!ready)return '';
   const v=Number(value||0);
-  if(!Number.isFinite(v)||v===0)return '<span class="move flat" title="No championship position change">↔0</span>';
+  if(!Number.isFinite(v)||v===0)return '';
   return v>0
     ?`<span class="move up" title="Up ${Math.abs(v)} championship position${Math.abs(v)===1?'':'s'}">▲${Math.abs(v)}</span>`
     :`<span class="move down" title="Down ${Math.abs(v)} championship position${Math.abs(v)===1?'':'s'}">▼${Math.abs(v)}</span>`;
 };
 
 const pointsDelta=(value,ready=true)=>{
-  if(!ready)return '<small class="points-delta flat" title="No prior trustworthy comparison yet">Δ 0</small>';
+  if(!ready)return '';
   const v=Number(value||0);
-  if(!Number.isFinite(v)||v===0)return '<small class="points-delta flat">Δ 0</small>';
+  if(!Number.isFinite(v)||v===0)return '';
   const display=fmt.format(Math.abs(v));
   return v>0
     ?`<small class="points-delta up" title="Points gained since the prior trustworthy snapshot">▲ +${display}</small>`
@@ -742,10 +742,10 @@ function allMovement(){
   const movers=[];
   (state.payload?.series||[]).forEach(series=>{
     (series.entries||[]).forEach(row=>{
-      if(row.comparison_ready===false)return;
+      if(row.comparison_ready===false||row.movement_verified===false)return;
       const movement=Number(row.movement||0);
       const delta=Number(row.points_delta||0);
-      if(!movement&&!delta)return;
+      if(!movement||!delta)return;
       movers.push({series,row,movement,delta,score:Math.abs(movement)*100000+Math.abs(delta)});
     });
   });
