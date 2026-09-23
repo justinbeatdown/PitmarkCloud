@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import json
 import re
 import unicodedata
+import threading
 from typing import Any
 
 from sqlalchemy import select
@@ -16,6 +17,11 @@ from services.racing_standings import (
     get_standings_snapshot_hub,
 )
 from services import race_center_accounts
+
+
+_platform_lock = threading.Lock()
+_platform_cache: dict[str, Any] = {"at": None, "value": None}
+PLATFORM_CACHE_SECONDS = 30
 
 
 def utcnow() -> datetime:
@@ -310,14 +316,26 @@ def build_race_day(events: list[dict[str, Any]], *, hours: int = 36) -> list[dic
     return chosen[:18]
 
 
-def build_platform() -> dict[str, Any]:
+def build_platform(*, force: bool = False) -> dict[str, Any]:
+    now = utcnow()
+    with _platform_lock:
+        cached_at = _platform_cache.get("at")
+        cached_value = _platform_cache.get("value")
+        if (
+            not force
+            and cached_at
+            and cached_value
+            and (now - cached_at).total_seconds() < PLATFORM_CACHE_SECONDS
+        ):
+            return cached_value
+
     standings = get_standings_snapshot_hub()
     event_hub = get_racing_event_hub()
     events = build_event_catalog(standings, event_hub)
     tracks = build_track_catalog(events)
     teams = build_team_catalog(standings)
-    return {
-        "generated_at": utcnow().isoformat(),
+    value = {
+        "generated_at": now.isoformat(),
         "season": standings.get("season"),
         "tracks": tracks,
         "teams": teams,
@@ -326,6 +344,10 @@ def build_platform() -> dict[str, Any]:
         "archive": build_results_archive(events),
         "health": build_data_health(standings, event_hub, events),
     }
+    with _platform_lock:
+        _platform_cache["at"] = now
+        _platform_cache["value"] = value
+    return value
 
 
 def build_my_racing_brief(user_id: int | None) -> dict[str, Any]:
