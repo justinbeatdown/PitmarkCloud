@@ -259,12 +259,26 @@
 
   function teamProfile(item){
     const drivers=item.drivers||[];
-    return '<article class="v7-profile-hero"><div><span class="eyebrow">TEAM</span><h2>'+esc(item.name)+'</h2><p>'+esc(item.manufacturer||'Manufacturer not consistently published across connected series')+'</p>'+
+    const cars=item.cars||[];
+    const manufacturers=item.manufacturers||[];
+    const upcoming=(item.upcoming_events||[]).slice(0,8);
+    const recent=(item.recent_results||[]).slice(0,10);
+    const sources=(item.provenance&&item.provenance.source_urls)||item.source_urls||[];
+    return '<article class="v7-profile-hero"><div><span class="eyebrow">TEAM</span><h2>'+esc(item.name)+'</h2><p>'+esc(manufacturers.join(' · ')||item.manufacturer||'Manufacturer not consistently published')+'</p>'+
       '<div class="v7-profile-actions">'+followButton('team',item)+claimButton('team',item)+shareButton(item.name+' — Pitmark Race Center')+'</div></div>'+
-      '<div class="v7-profile-stats"><div><span>DRIVERS</span><strong>'+drivers.length+'</strong></div><div><span>SERIES</span><strong>'+Number((item.series||[]).length)+'</strong></div></div></article>'+
-      '<div class="v7-profile-layout"><section class="v7-profile-section"><span class="eyebrow">DRIVER ROSTER</span><h3>Connected drivers</h3><div class="v7-related-list">'+drivers.map(d=>
+      '<div class="v7-profile-stats"><div><span>DRIVERS</span><strong>'+drivers.length+'</strong></div><div><span>SERIES</span><strong>'+Number((item.series||[]).length)+'</strong></div><div><span>CARS</span><strong>'+Number(cars.length)+'</strong></div></div></article>'+
+      (cars.length?'<section class="v7-chip-strip"><span class="eyebrow">CARS / NUMBERS</span><div class="v7-chip-list">'+cars.map(number=>'<span>#'+esc(number)+'</span>').join('')+'</div></section>':'')+
+      '<div class="v7-profile-layout"><section class="v7-profile-section"><span class="eyebrow">DRIVER ROSTER</span><h3>Connected drivers</h3><div class="v7-related-list">'+(drivers.length?drivers.map(d=>
         '<a href="/race-center/driver/'+encodeURIComponent(d.series_key||'')+'/'+encodeURIComponent(d.name||'')+'"><strong>'+esc((d.number?'#'+d.number+' · ':'')+d.name)+'</strong><span>'+esc(d.series_key||'Race Center driver')+'</span></a>'
-      ).join('')+'</div></section><section class="v7-profile-section"><span class="eyebrow">CHAMPIONSHIPS</span><h3>Series</h3><div class="v7-chip-list">'+(item.series||[]).map(key=>'<a href="/race-center/series/'+encodeURIComponent(key)+'">'+esc(key)+'</a>').join('')+'</div></section></div>';
+      ).join(''):'<p>No source-backed driver relationships are published yet.</p>')+'</div></section><section class="v7-profile-section"><span class="eyebrow">CHAMPIONSHIPS</span><h3>Series</h3><div class="v7-chip-list">'+(item.series||[]).map(key=>'<a href="/race-center/series/'+encodeURIComponent(key)+'">'+esc(key)+'</a>').join('')+'</div></section></div>'+
+      '<div class="v7-profile-layout"><section class="v7-profile-section"><span class="eyebrow">UPCOMING RACES</span><h3>Team race calendar</h3><div class="v7-related-list">'+
+        (upcoming.length?upcoming.map(e=>'<a href="/race-center/event/'+encodeURIComponent(e.key)+'"><strong>'+esc(e.name||'Race event')+'</strong><span>'+esc([eventCountdown(e.start,e.state),e.series_name,e.venue].filter(Boolean).join(' · '))+'</span></a>').join(''):'<p>No upcoming connected events are available yet.</p>')+
+      '</div></section><section class="v7-profile-section"><span class="eyebrow">RECENT RESULTS</span><h3>Result-backed finishes</h3><div class="v7-related-list">'+
+        (recent.length?recent.map(r=>'<a href="/race-center/event/'+encodeURIComponent(r.event_key)+'"><strong>'+esc((r.position?'P'+r.position+' · ':'')+(r.driver||r.event_name||'Result'))+'</strong><span>'+esc([r.event_name,r.series_name,r.venue].filter(Boolean).join(' · '))+'</span></a>').join(''):'<p>Team results appear only when the connected result source publishes team identity.</p>')+
+      '</div></section></div>'+
+      '<section class="v7-profile-section"><span class="eyebrow">SOURCES</span><h3>Team data provenance</h3><div class="v7-related-list">'+
+        (sources.length?sources.map((url,index)=>'<a href="'+esc(url)+'" target="_blank" rel="noopener"><strong>Source '+(index+1)+'</strong><span>'+esc(url)+'</span></a>').join(''):'<p>This team is currently derived from source-backed driver/championship relationships.</p>')+
+      '</div></section>';
   }
 
   function eventProfile(item){

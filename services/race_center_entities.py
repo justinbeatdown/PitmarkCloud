@@ -408,6 +408,73 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
 
     for team in teams.values():
         team["series"] = sorted(team["series"])
+        team_series = set(team["series"])
+        team["cars"] = sorted({
+            str(driver.get("number"))
+            for driver in team.get("drivers") or []
+            if driver.get("number") not in (None, "")
+        })
+        manufacturers = sorted({
+            str(driver.get("manufacturer") or "")
+            for driver in drivers.values()
+            if slugify(str(driver.get("team") or "")) == str(team.get("key") or "")
+            and str(driver.get("manufacturer") or "").strip()
+        })
+        team["manufacturers"] = manufacturers
+        if not team.get("manufacturer") and manufacturers:
+            team["manufacturer"] = manufacturers[0]
+        team["upcoming_events"] = [
+            {
+                "key": event.get("key"),
+                "name": event.get("name"),
+                "start": event.get("start"),
+                "state": event.get("state"),
+                "series_key": event.get("series_key"),
+                "series_name": event.get("series_name"),
+                "venue": event.get("venue"),
+                "track_key": event.get("track_key"),
+            }
+            for event in event_items
+            if str(event.get("series_key") or "") in team_series
+            and event.get("state") in {"live", "next", "schedule"}
+        ][:16]
+        recent_results = []
+        team_key = identity_key(str(team.get("name") or ""))
+        for event in reversed(event_items):
+            for result in event.get("results") or []:
+                if not isinstance(result, dict):
+                    continue
+                result_team = str(result.get("team") or "").strip()
+                if not result_team or identity_key(result_team) != team_key:
+                    continue
+                recent_results.append({
+                    "event_key": event.get("key"),
+                    "event_name": event.get("name"),
+                    "series_key": event.get("series_key"),
+                    "series_name": event.get("series_name"),
+                    "start": event.get("start"),
+                    "venue": event.get("venue"),
+                    "driver": result.get("name") or result.get("driver"),
+                    "number": result.get("number"),
+                    "position": result.get("position"),
+                })
+                if len(recent_results) >= 16:
+                    break
+            if len(recent_results) >= 16:
+                break
+        team["recent_results"] = recent_results
+        source_urls = sorted({
+            str(value)
+            for series_row in series_items
+            if str(series_row.get("key") or "") in team_series
+            for value in (series_row.get("official_url"), series_row.get("schedule_url"))
+            if value
+        })
+        team["source_urls"] = source_urls
+        team["provenance"] = {
+            "generated_at": now.isoformat(),
+            "confidence": "source-backed" if source_urls else "derived",
+        }
     for track in tracks.values():
         track["series"] = sorted(track["series"])
         track["events"].sort(key=lambda x: str(x.get("start") or ""))
