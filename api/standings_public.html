@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/race-center.webmanifest?v={{PITMARK_VERSION}}">
-  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-v7-platform-20260923">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-calendar-export-20260923">
 </head>
 <body data-view="{{RACE_CENTER_VIEW}}">
   <a class="skip-link" href="#standingsStart">Skip to Race Center</a>
@@ -235,7 +235,10 @@
           <h2 id="v7MyRacingTitle">Your personal racing briefing</h2>
           <p>What is live, what is next, who moved, and what changed across the racing you follow.</p>
         </div>
-        <button class="button" id="v7AlertsButton" type="button">Alert settings</button>
+        <div class="v7-page-actions">
+          <a class="button" href="/api/public/race-center/calendar/my-racing.ics">Download calendar ↓</a>
+          <button class="button" id="v7AlertsButton" type="button">Alert settings</button>
+        </div>
       </div>
       <div class="v7-my-racing-grid" id="v7MyRacingGrid"><div class="loading-card">Building your briefing…</div></div>
     </section>
@@ -481,6 +484,6 @@
   <script src="/standings.js?v={{PITMARK_VERSION}}-race-center-v7-core-20260923" defer></script>
   <script src="/race-center-v5.js?v={{PITMARK_VERSION}}-v6-social-20260923" defer></script>
   <script src="/race-center-v6.js?v={{PITMARK_VERSION}}-finished-final-20260923" defer></script>
-  <script src="/race-center-v7.js?v={{PITMARK_VERSION}}-platform-final-20260923" defer></script>
+  <script src="/race-center-v7.js?v={{PITMARK_VERSION}}-calendar-export-20260923" defer></script>
 </body>
 </html>

@@ -181,7 +181,8 @@
   function trackProfile(item){
     const events=(item.events||[]).slice(0,12);
     return '<article class="v7-profile-hero"><div><span class="eyebrow">TRACK</span><h2>'+esc(item.name)+'</h2><p>'+esc(item.location||'Location sourced from connected events')+'</p>'+
-      '<div class="v7-profile-actions">'+followButton('track',item)+claimButton('track',item)+'</div></div>'+
+      '<div class="v7-profile-actions">'+followButton('track',item)+claimButton('track',item)+
+      '<a class="button" href="/api/public/race-center/calendar/track/'+encodeURIComponent(item.key)+'.ics">Calendar ↓</a></div></div>'+
       '<div class="v7-profile-stats"><div><span>SERIES</span><strong>'+Number((item.series||[]).length)+'</strong></div><div><span>EVENTS</span><strong>'+Number(events.length)+'</strong></div></div></article>'+
       '<div class="v7-profile-layout"><section class="v7-profile-section"><span class="eyebrow">UPCOMING / RECENT</span><h3>Events at '+esc(item.name)+'</h3><div class="v7-related-list">'+
       (events.length?events.map(e=>'<a href="/race-center/event/'+encodeURIComponent(e.key)+'"><strong>'+esc(e.name)+'</strong><span>'+esc([e.series_name,eventWhen(e.start)].filter(Boolean).join(' · '))+'</span></a>').join(''):'<p>No connected events are available yet.</p>')+
@@ -203,6 +204,7 @@
       '<div class="v7-event-time">'+esc(eventWhen(item.start))+'</div><div class="v7-profile-actions">'+
       (item.watch_url?'<a class="button primary" href="'+esc(item.watch_url)+'" target="_blank" rel="noopener">Watch info ↗</a>':'')+
       (item.schedule_url?'<a class="button" href="'+esc(item.schedule_url)+'" target="_blank" rel="noopener">Official schedule ↗</a>':'')+
+      '<a class="button" href="/api/public/race-center/calendar/event/'+encodeURIComponent(item.key)+'.ics">Add to calendar ↓</a>'+
       '</div></div><div class="v7-profile-stats"><div><span>STATUS</span><strong>'+esc(String(item.state||'schedule').toUpperCase())+'</strong></div><div><span>SERIES</span><strong>'+esc(item.series_name||'—')+'</strong></div></div></article>'+
       '<div class="v7-profile-layout"><section class="v7-profile-section"><span class="eyebrow">EVENT HUB</span><h3>Race-day connections</h3><div class="v7-related-list">'+
       '<a href="/race-center/series/'+encodeURIComponent(item.series_key||'')+'"><strong>'+esc(item.series_name||'Series')+'</strong><span>Championship profile + standings</span></a>'+
@@ -457,7 +459,8 @@
           }).join(''):'<div class="loading-card">No saved archive snapshots yet.</div>')+'</div>';
         if(entity){
           section.innerHTML+=ownerContentBlock(entity)+editorialBlock(entity.editorial||[])+
-            '<div class="v7-profile-actions">'+claimButton('series',entity)+'</div>';
+            '<div class="v7-profile-actions">'+claimButton('series',entity)+
+            '<a class="button" href="/api/public/race-center/calendar/series/'+encodeURIComponent(key)+'.ics">Series calendar ↓</a></div>';
         }
         content.appendChild(section);
       };

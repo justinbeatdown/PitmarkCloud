@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from io import BytesIO
+from datetime import datetime, timedelta, timezone
 import base64
 import threading
 import time
@@ -58,6 +59,95 @@ def _asset(name: str, media_type: str) -> Response:
         (ASSET_DIR / name).read_text(encoding="utf-8"),
         media_type=media_type,
         headers={"Cache-Control": "no-store, max-age=0"},
+    )
+
+
+def _ics_escape(value: object) -> str:
+    return (
+        str(value or "")
+        .replace("\\", "\\\\")
+        .replace("\r\n", "\\n")
+        .replace("\n", "\\n")
+        .replace(",", "\\,")
+        .replace(";", "\\;")
+    )
+
+
+def _ics_datetime(value: object) -> tuple[str, bool]:
+    raw = str(value or "").strip()
+    if not raw:
+        return "", False
+    if len(raw) == 10 and raw[4:5] == "-" and raw[7:8] == "-":
+        return raw.replace("-", ""), True
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.astimezone(timezone.utc)
+        return parsed.strftime("%Y%m%dT%H%M%SZ"), False
+    except ValueError:
+        return "", False
+
+
+def _race_center_calendar(events: list[dict], *, name: str) -> Response:
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Pitmark Racing Co.//Race Center//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        f"X-WR-CALNAME:{_ics_escape(name)}",
+    ]
+    seen: set[str] = set()
+    for event in events:
+        key = str(event.get("key") or "").strip()
+        if not key or key in seen:
+            continue
+        start, all_day = _ics_datetime(event.get("start"))
+        if not start:
+            continue
+        seen.add(key)
+        uid = f"{key}@racecenter.pitmarkracing.com"
+        title = event.get("name") or event.get("series_name") or "Race Center event"
+        location = " · ".join(
+            str(value).strip()
+            for value in (event.get("venue"), event.get("location"))
+            if str(value or "").strip()
+        )
+        description_parts = [
+            str(event.get("series_name") or "").strip(),
+            str(event.get("broadcast") or "").strip(),
+        ]
+        description = " · ".join(value for value in description_parts if value)
+        lines.extend(["BEGIN:VEVENT", f"UID:{_ics_escape(uid)}"])
+        if all_day:
+            lines.append(f"DTSTART;VALUE=DATE:{start}")
+        else:
+            lines.append(f"DTSTART:{start}")
+            try:
+                parsed = datetime.strptime(start, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+                lines.append(f"DTEND:{(parsed + timedelta(hours=4)).strftime('%Y%m%dT%H%M%SZ')}")
+            except ValueError:
+                pass
+        lines.append(f"SUMMARY:{_ics_escape(title)}")
+        if location:
+            lines.append(f"LOCATION:{_ics_escape(location)}")
+        if description:
+            lines.append(f"DESCRIPTION:{_ics_escape(description)}")
+        url = event.get("event_url") or event.get("watch_url") or event.get("schedule_url")
+        if url:
+            lines.append(f"URL:{_ics_escape(url)}")
+        lines.extend(["END:VEVENT"])
+    lines.append("END:VCALENDAR")
+    body = "\r\n".join(lines) + "\r\n"
+    safe_name = "".join(ch if ch.isalnum() or ch in "-_" else "-" for ch in name.lower()).strip("-") or "race-center"
+    return Response(
+        body,
+        media_type="text/calendar; charset=utf-8",
+        headers={
+            "Cache-Control": "no-store, max-age=0",
+            "Content-Disposition": f'attachment; filename="{safe_name}.ics"',
+        },
     )
 
 
@@ -337,6 +427,43 @@ def race_center_race_day(request: Request):
 @router.get("/api/public/race-center/data-health", include_in_schema=False)
 def race_center_data_health():
     return race_center_entities.data_health()
+
+
+@router.get("/api/public/race-center/calendar/event/{entity_key}.ics", include_in_schema=False)
+def race_center_event_calendar(entity_key: str):
+    event = race_center_entities.entity_detail("event", entity_key)
+    if not event:
+        raise HTTPException(status_code=404, detail="Race Center event not found.")
+    return _race_center_calendar([event], name=str(event.get("name") or "Race Center event"))
+
+
+@router.get("/api/public/race-center/calendar/series/{series_key}.ics", include_in_schema=False)
+def race_center_series_calendar(series_key: str):
+    graph = race_center_entities.build_entity_graph()
+    events = [item for item in graph.get("events") or [] if item.get("series_key") == series_key]
+    series = next((item for item in graph.get("series") or [] if item.get("key") == series_key), None)
+    if not series:
+        raise HTTPException(status_code=404, detail="Race Center series not found.")
+    return _race_center_calendar(events, name=f"{series.get('name') or series_key} — Race Center")
+
+
+@router.get("/api/public/race-center/calendar/track/{track_key}.ics", include_in_schema=False)
+def race_center_track_calendar(track_key: str):
+    graph = race_center_entities.build_entity_graph()
+    events = [item for item in graph.get("events") or [] if item.get("track_key") == track_key]
+    track = next((item for item in graph.get("tracks") or [] if item.get("key") == track_key), None)
+    if not track:
+        raise HTTPException(status_code=404, detail="Race Center track not found.")
+    return _race_center_calendar(events, name=f"{track.get('name') or track_key} — Race Center")
+
+
+@router.get("/api/public/race-center/calendar/my-racing.ics", include_in_schema=False)
+def race_center_my_racing_calendar(request: Request):
+    account = _race_account_or_401(request)
+    follows = race_center_accounts.list_follows(account.id)
+    brief = race_center_entities.my_racing_brief(follows)
+    events = [*(brief.get("live") or []), *(brief.get("upcoming") or [])]
+    return _race_center_calendar(events, name="My Racing — Pitmark Race Center")
 
 
 @router.get("/api/public/race-center/archive/{series_key}", include_in_schema=False)
