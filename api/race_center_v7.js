@@ -593,7 +593,22 @@
           const data=await getJson('/api/public/race-center/search?q='+encodeURIComponent(q)+'&limit=18&v=7');
           if(String(input.value||'').trim()!==q)return;
           const rows=data.results||[];
-          host.innerHTML=rows.length?rows.map(item=>'<a class="race-search-result" href="'+esc(hrefFor(item.type,item))+'"><span class="race-search-kind">'+esc(item.type)+'</span><span class="race-search-copy"><strong>'+esc(item.name||item.series_name||'Racing')+'</strong><small>'+esc([item.team,item.manufacturer,item.location,item.group,item.series_name].filter(Boolean).join(' · ')||'Open in Race Center')+'</small></span><b>→</b></a>').join(''):'<div class="race-search-empty"><strong>No match yet.</strong><span>Try a driver, number, team, track, series or event.</span></div>';
+          if(rows.length){
+            const order=['driver','team','track','series','event'];
+            const groups=new Map();
+            rows.forEach(item=>{
+              const kind=String(item.type||'racing').toLowerCase();
+              if(!groups.has(kind))groups.set(kind,[]);
+              groups.get(kind).push(item);
+            });
+            host.innerHTML=order.filter(kind=>groups.has(kind)).map(kind=>
+              '<section class="race-search-group"><div class="race-search-group-title">'+esc(kind.toUpperCase()+'S')+'</div>'+
+              groups.get(kind).map(item=>'<a class="race-search-result" href="'+esc(hrefFor(item.type,item))+'"><span class="race-search-kind">'+esc(item.type)+'</span><span class="race-search-copy"><strong>'+esc(item.name||item.series_name||'Racing')+'</strong><small>'+esc([item.number?('#'+item.number):'',item.team,item.manufacturer,item.location,item.group,item.series_name].filter(Boolean).join(' · ')||'Open in Race Center')+'</small></span><b>→</b></a>').join('')+
+              '</section>'
+            ).join('');
+          }else{
+            host.innerHTML='<div class="race-search-empty"><strong>No match yet.</strong><span>Try a driver, #car, team, track, series, event, manufacturer or location.</span></div>';
+          }
           host.hidden=false;
         }catch(_error){}
       },160);
