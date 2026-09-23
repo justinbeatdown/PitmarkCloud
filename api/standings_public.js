@@ -1031,12 +1031,22 @@ function renderMySeries(){
   const allSeries=seriesDirectoryRows();
   const allDrivers=driverDirectoryRows();
   const accountFollows=state.account?.authenticated?(state.account.follows||[]):[];
-  const seriesFollows=state.account?.authenticated
-    ?accountFollows.filter(x=>x.kind==='series')
-    :[...state.favorites].map(key=>({kind:'series',key,label:''}));
-  const driverFollows=state.account?.authenticated
-    ?accountFollows.filter(x=>x.kind==='driver')
-    :[...state.drivers].map(key=>({kind:'driver',key,label:'',series_key:String(key).split(':')[0]||''}));
+  const seriesFollowMap=new Map(
+    accountFollows.filter(x=>x.kind==='series').map(x=>[String(x.key),x])
+  );
+  state.favorites.forEach(key=>{
+    const clean=String(key);
+    if(!seriesFollowMap.has(clean))seriesFollowMap.set(clean,{kind:'series',key:clean,label:''});
+  });
+  const driverFollowMap=new Map(
+    accountFollows.filter(x=>x.kind==='driver').map(x=>[String(x.key),x])
+  );
+  state.drivers.forEach(key=>{
+    const clean=String(key);
+    if(!driverFollowMap.has(clean))driverFollowMap.set(clean,{kind:'driver',key:clean,label:'',series_key:clean.split(':')[0]||''});
+  });
+  const seriesFollows=[...seriesFollowMap.values()];
+  const driverFollows=[...driverFollowMap.values()];
 
   const seriesItems=seriesFollows.map(follow=>{
     const item=allSeries.find(series=>String(series.series_key)===String(follow.key));
@@ -1589,6 +1599,7 @@ function bootRaceCenter(){
       savePrefs();
       if(state.lastSeries)openSeries(state.lastSeries);
       renderAccount();
+      render();
       return;
     }
     const claim=event.target.closest('[data-driver-claim]');
