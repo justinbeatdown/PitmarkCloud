@@ -908,7 +908,8 @@ def series_archive(series_key: str, season: int | None = None, limit: int = 24) 
     season = int(season or utcnow().year)
     key = str(series_key or "").strip()
     if not key:
-        return {"series_key": key, "season": season, "snapshots": []}
+        return {"series_key": key, "season": season, "snapshots": [], "events": []}
+
     with SessionLocal() as db:
         rows = list(db.scalars(
             select(RacingStandingSnapshot)
@@ -919,6 +920,12 @@ def series_archive(series_key: str, season: int | None = None, limit: int = 24) 
             .order_by(RacingStandingSnapshot.fetched_at.desc())
             .limit(max(1, min(limit, 80)))
         ).all())
+        season_rows = list(db.scalars(
+            select(RacingStandingSnapshot.season)
+            .where(RacingStandingSnapshot.series_key == key)
+            .order_by(RacingStandingSnapshot.season.desc())
+        ).all())
+
     snapshots = []
     for row in rows:
         try:
@@ -935,11 +942,54 @@ def series_archive(series_key: str, season: int | None = None, limit: int = 24) 
             "leader": _entry_identity(entries[0]) if entries else None,
             "top_three": [_entry_identity(item) for item in entries[:3]],
         })
+
+    graph = build_entity_graph()
+    event_history = []
+    for event in graph.get("events") or []:
+        if str(event.get("series_key") or "") != key:
+            continue
+        start_text = str(event.get("start") or "")
+        if start_text[:4].isdigit() and int(start_text[:4]) != season:
+            continue
+        results = [row for row in (event.get("results") or []) if isinstance(row, dict)]
+        if event.get("state") != "recent" and not results:
+            continue
+        ordered_results = sorted(
+            results,
+            key=lambda row: (
+                int(row.get("position")) if str(row.get("position") or "").isdigit() else 10_000,
+                str(row.get("name") or row.get("driver") or ""),
+            ),
+        )
+        winner = next(
+            (row for row in ordered_results if str(row.get("position") or "") == "1"),
+            ordered_results[0] if ordered_results else None,
+        )
+        event_history.append({
+            "key": event.get("key"),
+            "name": event.get("name"),
+            "start": event.get("start"),
+            "venue": event.get("venue"),
+            "track_key": event.get("track_key"),
+            "winner": winner,
+            "results": ordered_results[:60],
+            "source_urls": event.get("source_urls") or [],
+        })
+
+    event_history.sort(key=lambda row: str(row.get("start") or ""), reverse=True)
+    available_seasons = sorted({int(value) for value in season_rows if value is not None}, reverse=True)
+    if season not in available_seasons:
+        available_seasons.append(season)
+        available_seasons.sort(reverse=True)
+
     return {
         "series_key": key,
         "season": season,
+        "available_seasons": available_seasons[:20],
         "snapshot_count": len(snapshots),
         "snapshots": snapshots,
+        "event_count": len(event_history),
+        "events": event_history[:max(1, min(limit, 80))],
     }
 
 
