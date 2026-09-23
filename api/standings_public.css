@@ -797,9 +797,9 @@ body:not([data-view="hub"]) .v5-home{display:none}
   min-height:30px;padding:0 9px;border:1px solid #29333e;border-radius:8px;background:#0d1318;color:#8390a1;font-size:9px;font-weight:900;cursor:pointer
 }
 .wall-action:hover,.wall-action.active{color:#fff;border-color:#4a5968;background:#151c23}
-.wall-action.active[data-reaction="checkered"]{color:#ffd56a}
-.wall-action.active[data-reaction="fire"]{color:#ff8a5f}
-.wall-action.active[data-reaction="eyes"]{color:#b7aaff}
+.wall-action.active[data-v5-reaction="checkered"]{color:#ffd56a}
+.wall-action.active[data-v5-reaction="fire"]{color:#ff8a5f}
+.wall-action.active[data-v5-reaction="eyes"]{color:#b7aaff}
 .wall-delete{margin-left:auto}
 .wall-comments{display:grid;gap:6px;margin-top:9px}
 .wall-comment{padding:8px 9px;border-radius:9px;background:#11171d;color:#aeb9c6;font-size:9px;line-height:1.45}
@@ -813,7 +813,7 @@ body:not([data-view="hub"]) .v5-home{display:none}
 .profile-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}
 .profile-form label{display:grid;gap:5px;color:#8391a4;font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.07em}
 .profile-form .full{grid-column:1/-1}
-.profile-form input,.profile-form textarea{
+.profile-form input,.profile-form textarea,.profile-form select{
   width:100%;border:1px solid #2a333e;border-radius:9px;background:#080c10;color:#fff;padding:10px 11px;outline:0;
   font-size:11px;text-transform:none;letter-spacing:0
 }
@@ -1013,6 +1013,10 @@ body[data-view="hub"] .content-section:not(.social-feed-card){display:none!impor
 .social-profile-copy{margin-top:10px}
 .social-profile-copy strong{display:block;font-size:14px}
 .social-profile-copy span{display:block;margin-top:2px;color:#778598;font-size:9px}
+.social-profile-role{
+  display:inline-flex;margin-top:7px;padding:4px 7px;border:1px solid rgba(255,85,0,.28);border-radius:999px;
+  background:rgba(255,85,0,.07);color:#ff9a69;font-size:7px;font-style:normal;font-weight:1000;letter-spacing:.07em;text-transform:uppercase
+}
 .social-profile-edit{
   width:100%;height:33px;margin-top:11px;border:1px solid #2b3540;border-radius:9px;
   background:#11171d;color:#c5ced8;font-size:9px;font-weight:950;cursor:pointer
@@ -1075,6 +1079,11 @@ body[data-view="hub"] .content-section:not(.social-feed-card){display:none!impor
 .social-live-card h2{font-size:clamp(28px,3.6vw,50px)}
 
 .social-for-you,.social-feed-card{padding:13px}
+.unified-race-feed{padding:15px}
+.unified-feed{display:grid;gap:11px;max-height:none;overflow:visible;margin-top:0}
+.unified-feed>.network-object,.unified-feed>.wall-post{box-shadow:0 9px 26px rgba(0,0,0,.14)}
+.unified-feed>.network-object{border-color:#2a3540}
+.unified-feed>.wall-post{border-color:#252f39}
 .feed-heading{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:10px}
 .feed-heading h2{margin:4px 0 0;font-size:23px;letter-spacing:-.04em}
 .feed-heading p{margin:0;color:#728094;font-size:9px}
@@ -1205,3 +1214,18 @@ body[data-view="hub"] .content-section:not(.social-feed-card){display:none!impor
   display:inline-block;margin-top:10px;color:#d7dde5;font-size:8px;text-decoration:none;opacity:.74
 }
 .broadcast-photo-credit:hover{opacity:1;color:#fff}
+
+
+/* Race Center social spine — identity + one daily racing feed */
+.profile-role{
+  display:inline-flex;margin-top:7px;padding:5px 8px;border:1px solid #2b3540;border-radius:999px;
+  color:#aeb9c6;background:#10161c;font-size:8px;font-weight:1000;text-transform:uppercase;letter-spacing:.06em
+}
+.profile-official{margin-left:6px}
+.unified-race-feed .feed-heading{padding:2px 2px 5px}
+.unified-race-feed .feed-heading h2{font-size:26px}
+@media(max-width:680px){
+  .unified-race-feed{padding:10px;border-radius:13px}
+  .unified-feed{gap:9px}
+  .unified-race-feed .feed-heading{align-items:flex-start;flex-direction:column}
+}
