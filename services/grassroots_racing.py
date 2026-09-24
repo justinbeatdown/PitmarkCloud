@@ -3,6 +3,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 import copy
+import html as html_lib
 import re
 import threading
 import time
@@ -246,9 +247,13 @@ def _tables(url: str) -> list[tuple[list[str], list[list[str]]]]:
 
 
 def _plain_line(value: str) -> str:
-    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", str(value or ""))
+    text = html_lib.unescape(str(value or ""))
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", text)
     text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
     text = re.sub(r"<[^>]+>", " ", text)
+    text = text.replace("|", " ").replace("\\|", " ").replace("\t", " ")
+    text = re.sub(r"[#*_~`]+", "", text)
+    text = re.sub(r"\\(?=[\[\](){}.#*_~-])", "", text)
     return _clean(text)
 
 
@@ -359,7 +364,7 @@ def _drivers_from_text(text: str, source: dict[str, Any]) -> list[dict[str, Any]
         if not line:
             continue
         match = re.match(
-            r"^(?P<rank>\d{1,5})\s+(?P<name>.+?)\s+"
+            r"^(?P<rank>\d{1,5})[.):]?\s+(?P<name>.+?)\s+"
             r"(?P<rating>(?:0?\.\d+|1(?:\.0+)?))\s+"
             r"(?P<races>\d{1,5})\s+(?P<wins>\d{1,5})(?:\s+(?P<tail>.*))?$",
             line,
@@ -399,7 +404,7 @@ def _drivers_from_text(text: str, source: dict[str, Any]) -> list[dict[str, Any]
         flat_rows: list[dict[str, Any]] = []
         flat_seen: set[str] = set()
         pattern = re.compile(
-            r"(?<!\d)(?P<rank>\d{1,5})\s+"
+            r"(?<!\d)(?P<rank>\d{1,5})[.):]?\s+"
             r"(?P<name>[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ0-9.'’\- ]{1,60}?)\s+"
             r"(?P<rating>(?:0?\.\d{3,6}|1(?:\.0+)?))\s+"
             r"(?P<races>\d{1,5})\s+(?P<wins>\d{1,5})(?=\s|$)"
