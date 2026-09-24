@@ -1352,7 +1352,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             'function wireSearchUX()',
             'function wireMobileDock()',
             'function wireAlertDeepLink()',
-            "getJson('/api/public/race-center/race-day?v=consumer-launch')",
+            "getJson('/api/public/race-center/race-day?v=home-shared')",
             "getJson('/api/public/race-center/graph?v=consumer-launch')",
             "writeLegacyPrefs({...legacy,favorites:[...current]});",
             "consumer-customize",
