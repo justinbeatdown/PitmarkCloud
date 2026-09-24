@@ -473,8 +473,18 @@ def _links_root_target(request: Request) -> str | None:
     return "/links" if host == "links.pitmarkracing.com" else None
 
 
+def _race_center_custom_host(request: Request) -> bool:
+    host = (request.url.hostname or "").lower().rstrip(".")
+    return host == "racecenter.pitmarkracing.com"
+
+
 @app.get("/")
 async def root(request: Request):
+    if _race_center_custom_host(request):
+        # Serve Race Center directly at racecenter.pitmarkracing.com with no
+        # /race-center landing-path baggage.
+        return standings_public.public_standings_home(request)
+
     dashboard_target = _dashboard_root_target(request)
     if dashboard_target:
         return RedirectResponse(url=dashboard_target, status_code=302)
