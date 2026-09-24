@@ -1,4 +1,4 @@
-const CACHE='pitmark-race-center-v7-shell-3';
+const CACHE='pitmark-race-center-v7-shell-4';
 const SHELL=[
   '/race-center',
   '/race-center/drivers',
