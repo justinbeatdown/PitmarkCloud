@@ -1419,6 +1419,21 @@ class ControlCenter2026Contract(unittest.TestCase):
 
         self.assertIn("const CACHE='pitmark-race-center-v7-shell-4';", sw)
 
+    def test_race_center_custom_root_injects_runtime_in_head(self):
+        public_api = self.read("api/standings_public.py")
+        for token in (
+            'host == "racecenter.pitmarkracing.com" and path in {"", "/"}',
+            '"/standings.js"',
+            '"/race-center-v5.js"',
+            '"/race-center-v6.js"',
+            '"/race-center-v7.js"',
+            '"/race-center-consumer.js"',
+            'custom-root-head-20260924',
+            'html.replace("</head>", runtime_head + "\\n" + bootstrap + "\\n</head>", 1)',
+            '"Cache-Control": "no-cache, no-store, must-revalidate"',
+        ):
+            self.assertIn(token, public_api)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
