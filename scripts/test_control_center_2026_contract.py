@@ -1298,7 +1298,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             'class="mobile-dock consumer-mobile-dock"',
             'data-consumer-action="search"',
             'data-consumer-action="profile"',
-            '/race-center-consumer.js?v={{PITMARK_VERSION}}-consumer-launch-20260924',
+            '/race-center-consumer.js?v={{PITMARK_VERSION}}-custom-domain-boot-20260924',
         ):
             self.assertIn(token, html)
 
@@ -1328,7 +1328,7 @@ class ControlCenter2026Contract(unittest.TestCase):
 
         self.assertIn('@router.get("/race-center-consumer.js"', public_api)
         self.assertIn('return _asset("race_center_consumer.js", "application/javascript")', public_api)
-        self.assertIn("const CACHE='pitmark-race-center-v7-shell-3';", sw)
+        self.assertIn("const CACHE='pitmark-race-center-v7-shell-4';", sw)
         self.assertIn("'/race-center-consumer.js'", sw)
         self.assertIn("title:'Your racing.<br><em>Right when it matters.</em>'", core)
         self.assertIn("primary:['What’s racing now','/race-center/live']", core)
@@ -1392,6 +1392,33 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('host == "racecenter.pitmarkracing.com"', main)
         self.assertIn('return standings_public.public_standings_home(request)', main)
 
+    def test_race_center_custom_domain_boots_data_without_dom_lifecycle_race(self):
+        html = self.read("api/standings_public.html")
+        core = self.read("api/standings_public.js")
+        consumer = self.read("api/race_center_consumer.js")
+        sw = self.read("api/race_center_sw.js")
+
+        for token in (
+            "let raceCenterBooted=false;",
+            "function startRaceCenter(){",
+            "window.__pitmarkRaceCenterBooted=true;",
+            "window.addEventListener('load',startRaceCenter,{once:true});",
+            "if(document.readyState!=='loading')startRaceCenter();",
+        ):
+            self.assertIn(token, core)
+
+        self.assertIn("Array.from(document.querySelectorAll('.loading-card')).forEach(card=>{", consumer)
+        self.assertIn("Array.from(document.querySelectorAll('main > section')).forEach(", consumer)
+
+        for token in (
+            "standings.js?v={{PITMARK_VERSION}}-custom-domain-boot-20260924",
+            "race-center-v7.js?v={{PITMARK_VERSION}}-custom-domain-boot-20260924",
+            "race-center-consumer.js?v={{PITMARK_VERSION}}-custom-domain-boot-20260924",
+        ):
+            self.assertIn(token, html)
+
+        self.assertIn("const CACHE='pitmark-race-center-v7-shell-4';", sw)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
@@ -1428,7 +1455,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('"scope": "/race-center/"', manifest)
         self.assertIn('"src": "/race-center-icon-192.png"', manifest)
         self.assertIn('"src": "/race-center-icon-512.png"', manifest)
-        self.assertIn("pitmark-race-center-v7-shell-3", service_worker)
+        self.assertIn("pitmark-race-center-v7-shell-4", service_worker)
         self.assertIn("/race-center/my-racing", service_worker)
         self.assertIn("/race-center/teams", service_worker)
         self.assertIn("/race-center-icon-192.png", service_worker)

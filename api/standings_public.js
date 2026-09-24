@@ -2002,8 +2002,22 @@ function bootRaceCenter(){
   }
 }
 
-if(document.readyState==='loading'){
-  document.addEventListener('DOMContentLoaded',bootRaceCenter,{once:true});
-}else{
+let raceCenterBooted=false;
+function startRaceCenter(){
+  if(raceCenterBooted)return;
+  raceCenterBooted=true;
+  window.__pitmarkRaceCenterBooted=true;
   bootRaceCenter();
+}
+
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',startRaceCenter,{once:true});
+  window.addEventListener('load',startRaceCenter,{once:true});
+  // Custom hosts, browser optimizers and restored tabs can occasionally execute
+  // deferred assets after DOMContentLoaded. This watchdog guarantees startup.
+  setTimeout(()=>{
+    if(document.readyState!=='loading')startRaceCenter();
+  },250);
+}else{
+  startRaceCenter();
 }
