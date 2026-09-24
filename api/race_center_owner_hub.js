@@ -23,9 +23,10 @@ var api=async function(url,options){
   return p;
 };
 var when=function(v){if(!v)return 'Date TBA';var d=new Date(v);return Number.isNaN(d.getTime())?v:new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}).format(d);};
-var endpoint=type==='driver'
-  ?'/api/public/race-center/entity-hub-driver/'+encodeURIComponent(driverSeries)+'/'+encodeURIComponent(driverName)
-  :'/api/public/race-center/entity-hub/'+encodeURIComponent(type)+'/'+encodeURIComponent(key);
+if(type==='driver'){
+  key=String(driverName||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+}
+var endpoint='/api/public/race-center/entity-hub/'+encodeURIComponent(type)+'/'+encodeURIComponent(key);
 
 var root=document.createElement('section');root.className='rc-owner-hub';root.id='raceCenterOwnerHub';
 var main=document.querySelector('main');if(!main)return;main.appendChild(root);
@@ -45,7 +46,7 @@ function manageHtml(){
 }
 async function upload(file,kind,title,credit){
   if(!file)return null;var fd=new FormData();fd.append('image',file);fd.append('media_kind',kind||'photo');fd.append('title',title||'');fd.append('credit',credit||'');fd.append('alt_text',title||'');
-  var base=type==='driver'?'/api/public/race-center/entity-hub-driver/'+encodeURIComponent(driverSeries)+'/'+encodeURIComponent(driverName):'/api/public/race-center/entity-hub/'+encodeURIComponent(type)+'/'+encodeURIComponent(key);
+  var base='/api/public/race-center/entity-hub/'+encodeURIComponent(type)+'/'+encodeURIComponent(key);
   var p=await api(base+'/media',{method:'POST',body:fd});return p.media||null;
 }
 function bindManage(){
@@ -54,7 +55,7 @@ function bindManage(){
   document.querySelector('#rcMediaForm').addEventListener('submit',async function(ev){ev.preventDefault();var form=ev.currentTarget,msg=form.querySelector('.rc-owner-message');msg.textContent='Uploading…';try{var d=new FormData(form);await upload(d.get('image'),d.get('media_kind'),d.get('title'),d.get('credit'));await refresh();}catch(e){msg.textContent=e.message;}});
   document.querySelector('#rcSponsorForm').addEventListener('submit',async function(ev){ev.preventDefault();var form=ev.currentTarget,msg=form.querySelector('.rc-owner-message');msg.textContent='Saving…';try{var d=new FormData(form),rows=String(d.get('sponsors')||'').split(/\n+/).map(function(line,i){var p=line.split('|').map(function(x){return x.trim();});return {name:p[0]||'',website_url:p[1]||'',logo_url:p[2]||'',description:p[3]||'',sort_order:i};}).filter(function(x){return x.name;});await api(actionBase()+'/sponsors',{method:'PUT',body:JSON.stringify({sponsors:rows})});await refresh();}catch(e){msg.textContent=e.message;}});
 }
-function actionBase(){return type==='driver'?'/api/public/race-center/entity-hub-driver/'+encodeURIComponent(driverSeries)+'/'+encodeURIComponent(driverName):'/api/public/race-center/entity-hub/'+encodeURIComponent(type)+'/'+encodeURIComponent(key);}
+function actionBase(){return '/api/public/race-center/entity-hub/'+encodeURIComponent(type)+'/'+encodeURIComponent(key);}
 async function refresh(){var h=await api(endpoint);render(h);}
 refresh().catch(function(e){root.innerHTML='<div class="rc-owner-empty">'+esc(e.message)+'</div>';});
 })();
