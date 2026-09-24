@@ -1238,6 +1238,19 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('"tracked_series_total": len({', api)
         self.assertIn("summary.tracked_series_total||summary.schedule_series_total||total", js)
 
+    def test_race_center_driver_photo_pipeline_uses_commons_for_all_drivers(self):
+        standings = self.read("services/racing_standings.py")
+        for token in (
+            'DRIVER_IDENTITY_RESOLVER_VERSION = 4',
+            'WIKIMEDIA_COMMONS_API_URL = "https://commons.wikimedia.org/w/api.php"',
+            'def _commons_driver_photo(driver_name: str)',
+            '"gsrnamespace": "6"',
+            '"photo_use_allowed": True',
+            'if not config:',
+            '"source_kind": "wikimedia_commons" if photo.get("photo_url") else "unresolved"',
+        ):
+            self.assertIn(token, standings)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
