@@ -86,18 +86,31 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; "
                 "base-uri 'none'; form-action 'none'; img-src 'none'; script-src 'none'"
             )
-        elif request.url.path.startswith(("/prt", "/links", "/partners", "/partner-guide", "/standings", "/race-center")):
-            # Public Pitmark pages use same-origin static assets. PRT additionally
-            # embeds Pitmark-owned YouTube proof video, so permit only YouTube's
-            # official embed origins rather than opening frame access generally.
+        elif (
+            request.url.path.startswith(("/prt", "/links", "/partners", "/partner-guide", "/standings", "/race-center"))
+            or (
+                (request.url.hostname or "").lower().rstrip(".") == "racecenter.pitmarkracing.com"
+                and request.url.path in {"", "/"}
+            )
+        ):
+            # Public Pitmark pages use same-origin static assets. The clean
+            # racecenter.pitmarkracing.com root is Race Center too, even though
+            # its URL path is "/".
+            is_race_center = (
+                request.url.path.startswith(("/standings", "/race-center"))
+                or (
+                    (request.url.hostname or "").lower().rstrip(".") == "racecenter.pitmarkracing.com"
+                    and request.url.path in {"", "/"}
+                )
+            )
             frame_src = (
                 "frame-src https://www.youtube.com https://www.youtube-nocookie.com; "
-                if request.url.path.startswith(("/prt", "/standings", "/race-center"))
+                if request.url.path.startswith("/prt") or is_race_center
                 else ""
             )
             image_src = (
                 "img-src 'self' https:; "
-                if request.url.path.startswith(("/standings", "/race-center"))
+                if is_race_center
                 else "img-src 'self'; "
             )
             response.headers["Content-Security-Policy"] = (
