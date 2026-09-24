@@ -427,7 +427,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("fetch('/api/public/standings", public_js)
         self.assertIn("AbortController", public_js)
         self.assertIn("bootRaceCenter", public_js)
-        self.assertIn("<small>V7</small>", public_html)
+        self.assertIn("<small>V8</small>", public_html)
         self.assertIn('class="race-pulse home-race-pulse"', public_html)
         self.assertIn('id="pulseLive"', public_html)
         self.assertIn('id="favoritesFilter"', public_html)
@@ -916,7 +916,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             'id="leaderStrip"',
             'id="standingsBoard"',
             '/race-center-v6.js',
-            '<small>V7</small>',
+            '<small>V8</small>',
         ):
             self.assertIn(token, public_html)
         self.assertNotIn('id="v5Home"', public_html)
@@ -994,6 +994,53 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('body[data-view="hub"] .series-section{', css)
         self.assertIn('display:block!important', css)
 
+    def test_race_center_claimed_owner_hub_contract(self):
+        api = self.read("api/race_center_v8.py")
+        hub = self.read("services/race_center_owner_hub.py")
+        html = self.read("api/standings_public.html")
+        js = self.read("api/race_center_owner_hub.js")
+        css = self.read("api/race_center_owner_hub.css")
+        database = self.read("services/database.py")
+        security = self.read("utils/security.py")
+
+        for token in (
+            "race_center_entity_schedule_items",
+            "race_center_entity_media",
+            "race_center_entity_updates",
+            "race_center_entity_sponsors",
+            "race_center_driver_owner_meta",
+            "def user_can_manage",
+            "def update_driver_meta",
+            "def upsert_schedule",
+            "def add_media",
+            "def add_update",
+            "def replace_sponsors",
+            "def followed_updates",
+        ):
+            self.assertIn(token, hub)
+
+        for route in (
+            "/api/public/race-center/entity-hub/{entity_type}/{entity_key}",
+            "/schedule",
+            "/updates",
+            "/sponsors",
+            "/media",
+            "/api/public/race-center/following-updates",
+            "/race-center-owner-hub.js",
+            "/race-center-owner-hub.css",
+        ):
+            self.assertIn(route, api)
+
+        self.assertIn("/race-center-owner-hub.js", html)
+        self.assertIn("/race-center-owner-hub.css", html)
+        self.assertIn("MANAGE YOUR RACING HOME", js)
+        self.assertIn("Post race update", js)
+        self.assertIn("Update sponsors", js)
+        self.assertIn("Driver identity", js)
+        self.assertIn(".rc-owner-manage", css)
+        self.assertIn("race_center_owner_hub  # noqa: F401", database)
+        self.assertIn("RACE_CENTER_ENTITY_MEDIA_MAX_REQUEST_BODY", security)
+
     def test_race_center_v7_platform_contract(self):
         public_html = self.read("api/standings_public.html")
         public_js = self.read("api/standings_public.js")
@@ -1009,7 +1056,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         service_worker = self.read("api/race_center_sw.js")
 
         for token in (
-            '<small>V7</small>',
+            '<small>V8</small>',
             'data-race-view="tracks"',
             'data-race-view="events"',
             'id="v7RaceDay"',
