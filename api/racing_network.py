@@ -26,7 +26,7 @@ _PAGE = """<!doctype html>
     <a class="network-card primary" href="#racing-desk-form"><span class="network-icon">▤</span><div><small>RACING NEWS</small><strong>Send the Racing Desk a lead</strong><p>Results, schedules, press releases, corrections, photos, video, or something Pitmark should cover.</p></div><b>Use Racing Desk →</b></a>
     <a class="network-card" href="https://docs.google.com/forms/d/e/1FAIpQLScWmRdjn3BcFLY1vhpPpW0n0h2biXgM6WMwKe0zICrf-AsKLA/viewform" target="_blank" rel="noopener"><span class="network-icon">✦</span><div><small>DRIVERS + TEAMS</small><strong>Tell Pitmark your story</strong><p>Rookie year, new class, family team, comeback, race updates, Q&A interest, or a program we should follow.</p></div><b>Submit your story ↗</b></a>
     <a class="network-card" href="https://docs.google.com/forms/d/e/1FAIpQLSfJEJAAhYdfPfqD5qGSktbFmK8acwytd_Clx2tMDNMcDrVkhg/viewform" target="_blank" rel="noopener"><span class="network-icon">◎</span><div><small>COMMUNITY RADAR</small><strong>Nominate a grassroots racer</strong><p>Know a rookie, small team, family-built program, comeback story, or racer people should be watching? Put them on our radar.</p></div><b>Nominate someone ↗</b></a>
-    <a class="network-card" href="https://docs.google.com/forms/d/e/1FAIpQLSdblkMOvPFtz0y2_3WK9X2C3330zXqzqTaqFC5cHx81e1E0MA/viewform" target="_blank" rel="noopener"><span class="network-icon">↔</span><div><small>WORK WITH PITMARK</small><strong>Start the right conversation</strong><p>Tracks, series, leagues, broadcasters, creators, teams and brands can route partnership, PRT, merch, media, or 2027 ideas here.</p></div><b>Work with Pitmark ↗</b></a>
+    <a class="network-card" href="/media-kit#work-with-pitmark"><span class="network-icon">↔</span><div><small>WORK WITH PITMARK</small><strong>Start the right conversation</strong><p>Tracks, series, leagues, broadcasters, creators, teams and brands can route partnership, PRT, merch, media, or 2027 ideas here.</p></div><b>Work with Pitmark ↗</b></a>
   </section>
   <div id="racing-desk-form" class="anchor-target" aria-hidden="true"></div>
   <section class="panel">
@@ -60,13 +60,13 @@ _MEDIA_KIT_PAGE = """<!doctype html>
   <link rel="stylesheet" href="/racing-network.css?v=20260921mediakit1">
 </head>
 <body><main class="wrap">
-  <div class="top"><a class="brand" href="https://pitmarkracing.com" aria-label="Pitmark Racing Co. home"><img class="brand-logo" src="/prt-logo.png" alt="Pitmark Racing Co."><span class="desk-label">MEDIA + PARTNER KIT</span></a><nav class="nav"><a href="/racing-desk">Racing Desk</a><a href="/race-center">Race Center</a><a href="https://pitmarkracing.com">Store</a></nav></div>
+  <div class="top"><a class="brand" href="https://pitmarkracing.com" aria-label="Pitmark Racing Co. home"><img class="brand-logo" src="/prt-logo.png" alt="Pitmark Racing Co."><span class="desk-label">MEDIA + PARTNER KIT</span></a><nav class="nav"><a href="/racing-desk">Racing Desk</a><a href="/race-center">Race Center</a><a href="#work-with-pitmark">Work With Us</a><a href="https://pitmarkracing.com">Store</a></nav></div>
 
   <section class="hero media-hero">
     <div class="eyebrow">GRASSROOTS RACING · MEDIA · TECHNOLOGY · COMMUNITY</div>
     <h1>Built around<br>the people racing.</h1>
     <p>Pitmark Racing Co. is an independent motorsports brand rooted in western Pennsylvania. We build racing media, community relationships, apparel, and Pitmark Racing Tools (PRT) around a simple idea: the people, teams, tracks and communities doing the work deserve useful coverage and useful tools.</p>
-    <div class="media-actions"><a class="btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdblkMOvPFtz0y2_3WK9X2C3330zXqzqTaqFC5cHx81e1E0MA/viewform" target="_blank" rel="noopener">Work With Pitmark</a><a class="btn secondary" href="/racing-desk">Send Racing News</a></div>
+    <div class="media-actions"><a class="btn" href="#work-with-pitmark">Work With Pitmark</a><a class="btn secondary" href="/racing-desk">Send Racing News</a></div>
   </section>
 
   <section class="media-grid">
@@ -96,9 +96,40 @@ _MEDIA_KIT_PAGE = """<!doctype html>
     <div class="media-links">
       <a href="https://docs.google.com/forms/d/e/1FAIpQLScWmRdjn3BcFLY1vhpPpW0n0h2biXgM6WMwKe0zICrf-AsKLA/viewform" target="_blank" rel="noopener"><strong>Driver / Team Story</strong><span>Introduce your program or season story ↗</span></a>
       <a href="https://docs.google.com/forms/d/e/1FAIpQLSfJEJAAhYdfPfqD5qGSktbFmK8acwytd_Clx2tMDNMcDrVkhg/viewform" target="_blank" rel="noopener"><strong>Nominate a Racer</strong><span>Put somebody on Pitmark’s radar ↗</span></a>
-      <a href="https://docs.google.com/forms/d/e/1FAIpQLSdblkMOvPFtz0y2_3WK9X2C3330zXqzqTaqFC5cHx81e1E0MA/viewform" target="_blank" rel="noopener"><strong>Partnership / Collaboration</strong><span>Tracks, series, leagues, broadcasters, creators and brands ↗</span></a>
+      <a href="#work-with-pitmark"><strong>Partnership / Collaboration</strong><span>Tracks, series, leagues, broadcasters, creators and brands →</span></a>
       <a href="/racing-desk"><strong>Racing Desk</strong><span>Send results, news, schedules, media or corrections →</span></a>
     </div>
+  </section>
+
+  <div id="work-with-pitmark" class="anchor-target" aria-hidden="true"></div>
+  <section class="panel media-panel partnership-intake">
+    <div class="panel-head">
+      <div><div class="eyebrow">WORK WITH PITMARK</div><h2>Start the right conversation.</h2></div>
+      <p>Tracks, series, leagues, broadcasters, creators, teams, brands and technology partners can send the opportunity directly to Pitmark — no Google Form, no account required.</p>
+    </div>
+    <form method="post" action="/submit-partnership-inquiry">
+      <label>Your lane<select name="partner_type" required>
+        <option value="">Choose one</option>
+        <option>Track / Speedway</option><option>Racing Series</option><option>League / Sim Racing</option>
+        <option>Broadcaster / Media</option><option>Driver / Team</option><option>Creator / Influencer</option>
+        <option>Brand / Sponsor</option><option>Technology / Data</option><option>Vendor / Manufacturer</option><option>Other</option>
+      </select></label>
+      <label>What are we talking about?<select name="opportunity_type" required>
+        <option value="">Choose one</option>
+        <option>Partnership / Collaboration</option><option>PRT / Race Center</option><option>Media / Coverage</option>
+        <option>Sponsorship / Promotion</option><option>Merch / Apparel</option><option>Broadcast / Content</option>
+        <option>Technology / Data Integration</option><option>Event / Track Activation</option><option>2027 Planning</option><option>Other</option>
+      </select></label>
+      <label>Organization / project<input name="organization" maxlength="180" required placeholder="Track, series, brand, team, channel, project..."></label>
+      <label>Contact name<input name="contact_name" maxlength="140" required></label>
+      <label>Email<input name="email" type="email" maxlength="254" required></label>
+      <label>Website / social <span class="fine">(optional)</span><input name="website_url" maxlength="700" placeholder="https://... or @handle"></label>
+      <label class="full">What do you have in mind?<textarea name="details" maxlength="6000" required placeholder="Tell us what you are building, what you want to do with Pitmark, who it reaches, and what a good outcome would look like."></textarea></label>
+      <label class="full">Anything we should look at? <span class="fine">(optional)</span><input name="reference_url" maxlength="700" placeholder="Deck, schedule, series page, product, media, stream, proposal..."></label>
+      <label class="full check"><input type="checkbox" name="contact_ok" value="yes" required><span>I am okay with Pitmark Racing Co. contacting me about this submission.</span></label>
+      <input class="honeypot" name="company_website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <div class="full actions"><button class="btn" type="submit">Send to Pitmark</button><span class="fine">This goes directly into Pitmark's partnership/outreach inbox. <strong>We will reply to the email above.</strong></span></div>
+    </form>
   </section>
 
   <section class="panel media-panel media-contact">
@@ -134,6 +165,88 @@ def racing_network_css():
 @router.get("/racing-desk", response_class=HTMLResponse, include_in_schema=False)
 def racing_desk():
     return HTMLResponse(_PAGE, headers={"Cache-Control": "no-store"})
+
+
+def _partnership_success() -> HTMLResponse:
+    success = (
+        '<section class="panel success partnership-success"><div class="eyebrow">INQUIRY RECEIVED</div>'
+        '<h2>We got it. 🏁</h2><p>Your note is in Pitmark’s partnership inbox. '
+        'If there is a fit, we can reply directly to the email you provided.</p></section>'
+    )
+    return HTMLResponse(
+        _MEDIA_KIT_PAGE.replace('<div id="work-with-pitmark"', success + '<div id="work-with-pitmark"', 1),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.post("/submit-partnership-inquiry", response_class=HTMLResponse, include_in_schema=False)
+def submit_partnership_inquiry(
+    request: Request,
+    partner_type: str = Form(...),
+    opportunity_type: str = Form(...),
+    organization: str = Form(...),
+    contact_name: str = Form(...),
+    email: str = Form(...),
+    website_url: str = Form(default=""),
+    reference_url: str = Form(default=""),
+    details: str = Form(...),
+    contact_ok: str = Form(default=""),
+    company_website: str = Form(default=""),
+):
+    enforce_rate_limit(request, "pitmark-partnership-submit", 10, 300)
+    if company_website.strip():
+        return _partnership_success()
+
+    email = email.strip()[:254]
+    if "@" not in email or "." not in email.rsplit("@", 1)[-1]:
+        return HTMLResponse("A valid contact email is required.", status_code=400)
+    if contact_ok != "yes":
+        return HTMLResponse("Contact permission is required.", status_code=400)
+
+    partner = partner_type.strip()[:100]
+    opportunity = opportunity_type.strip()[:120]
+    org = organization.strip()[:180]
+    contact = contact_name.strip()[:140]
+    detail = details.strip()[:6000]
+    if not all((partner, opportunity, org, contact, detail)):
+        return HTMLResponse("Please complete the required fields.", status_code=400)
+
+    body = (
+        "PITMARK PARTNERSHIP / COLLABORATION INQUIRY\n\n"
+        f"Partner type: {partner}\n"
+        f"Opportunity: {opportunity}\n"
+        f"Organization / project: {org}\n"
+        f"Contact: {contact} <{email}>\n"
+        f"Website / social: {(website_url or '').strip()[:700] or '—'}\n"
+        f"Reference / deck: {(reference_url or '').strip()[:700] or '—'}\n\n"
+        f"DETAILS\n{detail}\n\n"
+        "Contact permission: YES\n"
+        "Source: links.pitmarkracing.com/media-kit — native Work With Pitmark intake."
+    )
+    subject = f"[Pitmark Partnership] {opportunity}: {org}"[:500]
+    try:
+        send_mail(
+            to=["justin@pitmarkracing.com"],
+            from_identity="outreach",
+            reply_to=[email],
+            subject=subject,
+            text=body,
+            message_headers={"X-Pitmark-Purpose": "partnership-inquiry"},
+        )
+    except ValueError:
+        send_mail(
+            to=["justin@pitmarkracing.com"],
+            reply_to=[email],
+            subject=subject,
+            text=body,
+            message_headers={"X-Pitmark-Purpose": "partnership-inquiry"},
+        )
+    except RuntimeError:
+        return HTMLResponse(
+            "Pitmark could not accept the inquiry right now. Please email outreach@pitmarkracing.com.",
+            status_code=503,
+        )
+    return _partnership_success()
 
 
 @router.post("/submit-racing-news", response_class=HTMLResponse, include_in_schema=False)
