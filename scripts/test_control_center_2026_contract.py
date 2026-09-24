@@ -1588,7 +1588,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         for token in (
             "const fallbackUpcoming=(data.events||[])",
             "['next','schedule'].includes",
-            "(raceDay.upcoming||[]).length",
+            "(raceDayData.upcoming||[]).length",
             "no future event has loaded yet",
         ):
             self.assertIn(token, consumer)
