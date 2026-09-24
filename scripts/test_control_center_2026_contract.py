@@ -1298,7 +1298,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             'class="mobile-dock consumer-mobile-dock"',
             'data-consumer-action="search"',
             'data-consumer-action="profile"',
-            'https://pitmarkcloud.onrender.com/race-center-consumer.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924',
+            '/race-center-consumer.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924',
         ):
             self.assertIn(token, html)
 
@@ -1411,9 +1411,9 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Array.from(document.querySelectorAll('main > section')).forEach(", consumer)
 
         for asset in (
-            "https://pitmarkcloud.onrender.com/standings.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924",
-            "https://pitmarkcloud.onrender.com/race-center-v7.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924",
-            "https://pitmarkcloud.onrender.com/race-center-consumer.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924",
+            "/standings.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
+            "/race-center-v7.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
+            "/race-center-consumer.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
         ):
             self.assertIn(asset, html)
 
@@ -1426,11 +1426,11 @@ class ControlCenter2026Contract(unittest.TestCase):
         body_start = html.index("<body")
         self.assertLess(head_end, body_start)
         for asset in (
-            "https://pitmarkcloud.onrender.com/standings.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924",
-            "https://pitmarkcloud.onrender.com/race-center-v5.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924",
-            "https://pitmarkcloud.onrender.com/race-center-v6.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924",
-            "https://pitmarkcloud.onrender.com/race-center-v7.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924",
-            "https://pitmarkcloud.onrender.com/race-center-consumer.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924",
+            "/standings.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
+            "/race-center-v5.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
+            "/race-center-v6.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
+            "/race-center-v7.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
+            "/race-center-consumer.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
         ):
             pos = html.index(asset)
             self.assertGreater(pos, 0)
@@ -1457,18 +1457,24 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertGreaterEqual(html.count('data-cfasync="false"'), 5)
 
 
-    def test_race_center_custom_domain_loads_runtime_from_render_origin(self):
+    def test_race_center_custom_domain_root_receives_race_center_csp(self):
         html = self.read("api/standings_public.html")
-        origin = "https://pitmarkcloud.onrender.com"
+        security = self.read("utils/security.py")
+
         for asset in (
-            "/standings.js",
-            "/race-center-v5.js",
-            "/race-center-v6.js",
-            "/race-center-v7.js",
-            "/race-center-consumer.js",
+            "/standings.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
+            "/race-center-v5.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
+            "/race-center-v6.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
+            "/race-center-v7.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
+            "/race-center-consumer.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
         ):
-            expected = 'src="' + origin + asset + '?v={{PITMARK_VERSION}}-direct-render-runtime-20260924"'
-            self.assertIn(expected, html)
+            self.assertIn(asset, html)
+
+        self.assertIn('== "racecenter.pitmarkracing.com"', security)
+        self.assertIn('request.url.path in {"", "/"}', security)
+        self.assertIn('script-src \'self\'', security)
+        self.assertIn('connect-src \'self\'', security)
+        self.assertIn('is_race_center = (', security)
 
 
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
