@@ -1547,7 +1547,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         for token in (
             "If the personalized race-day window is empty",
             "graph = build_entity_graph()",
-            '"race_day_reason" = reason',
+            'enriched["race_day_reason"] = reason',
             '"fallback_to_global"',
         ):
             self.assertIn(token, entities)
