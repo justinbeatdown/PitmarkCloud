@@ -1088,6 +1088,24 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("self.addEventListener('push'", service_worker)
         self.assertIn("notificationclick", service_worker)
 
+    def test_race_center_graph_uses_all_configured_series_for_data_completeness(self):
+        entities = self.read("services/race_center_entities.py")
+
+        for token in (
+            "standings_by_key = {",
+            "all_series_keys.extend(",
+            '"status": "schedule-only"',
+            'series_row["event_count"] = len(event_rows)',
+            '"standings_available": bool(entries)',
+            '"schedule_available": bool(event_info.get("schedule_url"))',
+            '"complete_series_count"',
+            '"incomplete_series_count"',
+            '"track_count": len(track_keys)',
+            '"event_sources_warming": bool(events.get("warming"))',
+            "data_health(standings=standings, events=events)",
+        ):
+            self.assertIn(token, entities)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
