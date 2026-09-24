@@ -29,6 +29,17 @@
     return graphPromise;
   }
 
+  function raceDay(){
+    if(window.__pitmarkRaceDayPromise)return window.__pitmarkRaceDayPromise;
+    const promise=getJson('/api/public/race-center/race-day?v=home-shared');
+    window.__pitmarkRaceDayPromise=promise;
+    const clear=()=>setTimeout(()=>{
+      if(window.__pitmarkRaceDayPromise===promise)delete window.__pitmarkRaceDayPromise;
+    },1500);
+    promise.then(clear,clear);
+    return promise;
+  }
+
   function normalize(value){
     return String(value||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
   }
@@ -447,7 +458,7 @@
     const grid=$('#v7RaceDayGrid');
     if(!host||view!=='hub')return;
     try{
-      const data=await getJson('/api/public/race-center/race-day?v=7');
+      const data=await raceDay();
       const rows=[];
       (data.live||[]).slice(0,4).forEach(e=>rows.push(briefCard(e.race_day_reason||'LIVE NOW',e.name,[e.series_name,e.venue,'LIVE NOW'].filter(Boolean).join(' · '),'/race-center/event/'+encodeURIComponent(e.key))));
       (data.upcoming||[]).slice(0,4).forEach(e=>rows.push(briefCard(e.race_day_reason||'UP NEXT',e.name,[eventCountdown(e.start,e.state),e.venue,e.series_name].filter(Boolean).join(' · '),'/race-center/event/'+encodeURIComponent(e.key))));

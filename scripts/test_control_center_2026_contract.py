@@ -1352,7 +1352,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             'function wireSearchUX()',
             'function wireMobileDock()',
             'function wireAlertDeepLink()',
-            "getJson('/api/public/race-center/race-day?v=consumer-launch')",
+            "getJson('/api/public/race-center/race-day?v=home-shared')",
             "getJson('/api/public/race-center/graph?v=consumer-launch')",
             "writeLegacyPrefs({...legacy,favorites:[...current]});",
             "consumer-customize",
@@ -1649,6 +1649,39 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("def _fetch_nascar_regional(", standings)
         self.assertIn('if provider == "nascar_regional":', standings)
         self.assertIn("NASCAR Regional standings table not found", standings)
+
+    def test_race_center_home_first_load_reuses_warmed_data(self):
+        standings = self.read("services/racing_standings.py")
+        entities = self.read("services/race_center_entities.py")
+        public_api = self.read("api/standings_public.py")
+        consumer = self.read("api/race_center_consumer.js")
+        v7_js = self.read("api/race_center_v7.js")
+
+        for token in (
+            "SNAPSHOT_CACHE_SECONDS = 90",
+            'live_cached_at = _cache.get("at")',
+            'return copy.deepcopy(live_cached)',
+            '_snapshot_cache["value"] = copy.deepcopy(value)',
+        ):
+            self.assertIn(token, standings)
+
+        for token in (
+            "_graph_build_lock = threading.Lock()",
+            "def _build_entity_graph_impl(",
+            "def build_entity_graph(",
+            "with _graph_build_lock:",
+            "Another request may have populated the cache",
+        ):
+            self.assertIn(token, entities)
+
+        self.assertIn("snapshot_logo =", public_api)
+        self.assertIn("series.get(\"series_logo_url\")", public_api)
+
+        for source in (consumer, v7_js):
+            self.assertIn("window.__pitmarkRaceDayPromise", source)
+            self.assertIn("/api/public/race-center/race-day?v=home-shared", source)
+
+        self.assertIn("let graphPromise=null;", consumer)
 
     def test_race_center_home_prioritizes_personal_racing_board(self):
         public_html = self.read("api/standings_public.html")

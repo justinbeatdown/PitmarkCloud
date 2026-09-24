@@ -130,6 +130,7 @@ class RaceCenterSeriesSubmission(Base):
 
 
 _graph_lock = threading.Lock()
+_graph_build_lock = threading.Lock()
 _graph_cache: dict[str, Any] = {"at": None, "value": None}
 
 
@@ -161,7 +162,7 @@ def _entry_identity(entry: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_entity_graph(force: bool = False) -> dict[str, Any]:
+def _build_entity_graph_impl(force: bool = False) -> dict[str, Any]:
     now = utcnow()
     with _graph_lock:
         cached_at = _graph_cache.get("at")
@@ -683,6 +684,38 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
         _graph_cache["at"] = now
         _graph_cache["value"] = value
     return value
+
+
+def build_entity_graph(force: bool = False) -> dict[str, Any]:
+    """Single-flight graph assembly so concurrent homepage calls share one build."""
+    now = utcnow()
+    with _graph_lock:
+        cached_at = _graph_cache.get("at")
+        cached_value = _graph_cache.get("value")
+        ttl = 60 if (cached_value or {}).get("warming") else 300
+        if (
+            not force
+            and cached_at
+            and cached_value
+            and (now - cached_at).total_seconds() < ttl
+        ):
+            return cached_value
+
+    with _graph_build_lock:
+        # Another request may have populated the cache while this one waited.
+        now = utcnow()
+        with _graph_lock:
+            cached_at = _graph_cache.get("at")
+            cached_value = _graph_cache.get("value")
+            ttl = 60 if (cached_value or {}).get("warming") else 300
+            if (
+                not force
+                and cached_at
+                and cached_value
+                and (now - cached_at).total_seconds() < ttl
+            ):
+                return cached_value
+        return _build_entity_graph_impl(force=force)
 
 
 def data_health(
