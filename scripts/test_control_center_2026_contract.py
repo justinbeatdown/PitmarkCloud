@@ -398,7 +398,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('class="race-pulse home-race-pulse"', public_html)
         self.assertIn('id="pulseLive"', public_html)
         self.assertIn('id="favoritesFilter"', public_html)
-        self.assertIn('class="mobile-dock"', public_html)
+        self.assertIn('class="mobile-dock consumer-mobile-dock"', public_html)
         self.assertIn("pitmark-race-center-v5", public_js)
         self.assertIn("renderPulse", public_js)
         self.assertIn("renderMySeries", public_js)
@@ -526,7 +526,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             'id="seriesGroups"',
         ):
             self.assertIn(token, public_html)
-        self.assertIn("Your racing.<br><em>One command center.</em>", public_js)
+        self.assertIn("Your racing.<br><em>Right when it matters.</em>", public_js)
         self.assertIn("renderMySeries", public_js)
         self.assertIn("renderPulse", public_js)
         self.assertIn("bindMySeriesScroller", public_js)
@@ -1369,7 +1369,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('"scope": "/race-center/"', manifest)
         self.assertIn('"src": "/race-center-icon-192.png"', manifest)
         self.assertIn('"src": "/race-center-icon-512.png"', manifest)
-        self.assertIn("pitmark-race-center-v7-shell-2", service_worker)
+        self.assertIn("pitmark-race-center-v7-shell-3", service_worker)
         self.assertIn("/race-center/my-racing", service_worker)
         self.assertIn("/race-center/teams", service_worker)
         self.assertIn("/race-center-icon-192.png", service_worker)
