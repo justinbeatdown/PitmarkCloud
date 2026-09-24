@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 
 from services.control_center import SocialPost, utcnow
+from services import persistent_store
 from services.database import SessionLocal
 from services.meta_publish_service import facebook_configured, instagram_configured, publish_facebook_post, publish_instagram_post
 from services.x_publish_service import configured as x_configured, publish_x_post
@@ -62,10 +63,81 @@ def _asset_for(post: SocialPost) -> str | None:
     return asset["url"] if asset else None
 
 
+_RECOVERY_STATE_KEY = "social_quality_gate_missing_title_recovery_v1"
+
+
+def _recover_missing_title_regression(db, now: datetime) -> int:
+    """Requeue only the freshest posts stranded by the missing-title regression.
+
+    This runs once across deployments via RuntimeState, recovers at most one
+    Facebook and one X post, and still requires the repaired quality gate to pass.
+    """
+    try:
+        if persistent_store.get_runtime_state(_RECOVERY_STATE_KEY):
+            return 0
+    except Exception:
+        # Recovery is best-effort; publishing must keep running if state lookup fails.
+        return 0
+
+    recovered = 0
+    for platform in ("facebook", "x"):
+        max_age_minutes = (
+            max(15, int(settings.x_realtime_max_age_minutes))
+            if platform == "x"
+            else max(30, int(float(settings.social_realtime_max_age_hours) * 60))
+        )
+        cutoff = now - timedelta(minutes=max_age_minutes)
+        rows = list(
+            db.scalars(
+                select(SocialPost)
+                .where(
+                    SocialPost.status == "pending",
+                    SocialPost.platform == platform,
+                    SocialPost.source.like("intelligence:%"),
+                    SocialPost.risk == "needs_review",
+                    SocialPost.created_at >= cutoff,
+                )
+                .order_by(SocialPost.id.desc())
+                .limit(10)
+            ).all()
+        )
+        for post in rows:
+            if str(post.title or "").strip():
+                continue
+            quality = assess_automatic_post_quality(
+                platform=platform,
+                title=post.title,
+                body=post.body,
+                source=post.source,
+                media_url=post.media_url,
+            )
+            if not quality["ok"]:
+                continue
+            post.status = "scheduled"
+            post.risk = "low"
+            post.scheduled_for = (now + timedelta(minutes=2)).isoformat()
+            post.updated_at = utcnow()
+            recovered += 1
+            log.warning(
+                "Recovered social post %s from missing-title quality-gate regression",
+                post.id,
+            )
+            break
+
+    if recovered:
+        db.commit()
+    try:
+        persistent_store.set_runtime_state(_RECOVERY_STATE_KEY, now.isoformat())
+    except Exception:
+        log.exception("Could not persist social quality-gate recovery marker")
+    return recovered
+
+
 def publish_due_posts() -> int:
     now = datetime.now(timezone.utc)
     published = 0
     with SessionLocal() as db:
+        _recover_missing_title_regression(db, now)
         rows = list(db.scalars(select(SocialPost).where(SocialPost.status == "scheduled", SocialPost.platform.in_(["facebook", "instagram", "x"])).order_by(SocialPost.id.asc())).all())
         for post in rows:
             if not settings.social_operator_enabled and _automatic_social_source(post.source):

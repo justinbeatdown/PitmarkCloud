@@ -48,6 +48,15 @@ class SocialQualityGateTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertTrue(any("image" in reason for reason in result["reasons"]))
 
+    def test_caption_only_intelligence_post_is_not_mistaken_for_truncated_title(self):
+        result = assess_automatic_post_quality(
+            platform="facebook",
+            title=None,
+            body="South Boston Speedway announced its 2027 schedule. What dates are racers and fans circling first?",
+            source="intelligence:123",
+        )
+        self.assertTrue(result["ok"])
+
     def test_manual_posts_are_not_blocked_by_automation_gate(self):
         result = assess_automatic_post_quality(
             platform="instagram",

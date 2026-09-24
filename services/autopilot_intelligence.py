@@ -150,7 +150,7 @@ def scan_now():
         platforms.append('x')
       for platform in platforms:
        ai=compose_with_ai(platform=platform,goal='community',prompt=f'Create a Pitmark Racing Co. community-first post inspired by this current racing headline: {title}. Use only the verified headline/source context. Do not invent facts, results, quotes, identities, motives, or imply Pitmark involvement. Make it useful to racers, leagues, tracks, fans, or the racing community and invite natural discussion when appropriate.',tone='pitmark')
-       db.add(SocialPost(platform=platform,body=ai.body,content_type='community',source=f'intelligence:{op.id}',risk='low',status='scheduled' if auto_mode=='auto' else 'pending',scheduled_for=scheduled_for))
+       db.add(SocialPost(platform=platform,title=title[:180],body=ai.body,content_type='community',source=f'intelligence:{op.id}',risk='low',status='scheduled' if auto_mode=='auto' else 'pending',scheduled_for=scheduled_for))
       op.status='drafted'; queued+=1
      except Exception as e: log.warning('AI current-event candidate failed: %s',e)
    # Paid X intelligence reads are intentionally disabled from scheduled scans.

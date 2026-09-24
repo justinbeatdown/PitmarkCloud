@@ -78,13 +78,18 @@ def assess_automatic_post_quality(
     if any(marker in lowered for marker in _INTERNAL_MARKERS):
         reasons.append("internal placeholder/automation language is visible")
 
-    if _looks_truncated(clean_title):
-        reasons.append("title appears truncated or unfinished")
+    # Some automation lanes publish caption-only posts and historically did not
+    # persist an internal title. Absence of a title is not the same thing as a
+    # truncated title; keep the body/placeholder checks active and only apply
+    # title-specific validation when a title is actually present.
+    if clean_title:
+        if _looks_truncated(clean_title):
+            reasons.append("title appears truncated or unfinished")
 
-    anchors = _title_anchors(clean_title)
-    body_tokens = _tokens(clean_body)
-    if len(anchors) >= 2 and not (anchors & body_tokens):
-        reasons.append("caption does not reference the post topic")
+        anchors = _title_anchors(clean_title)
+        body_tokens = _tokens(clean_body)
+        if len(anchors) >= 2 and not (anchors & body_tokens):
+            reasons.append("caption does not reference the post topic")
 
     if platform_name == "instagram" and not str(media_url or "").strip():
         reasons.append("automatic Instagram post has no assigned campaign/source image")
