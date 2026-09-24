@@ -33,7 +33,7 @@ function imageUrl(v,w){
 }
 function media(url,title,hero){
   var src=imageUrl(url,900);
-  if(!src)return '<span class="v8-media v8-media-fallback"><b>RACE</b><i>CENTER</i></span>';
+  if(!src)return '<span class="v8-media v8-media-fallback" aria-hidden="true"></span>';
   return '<span class="v8-media"><img src="'+esc(src)+'" alt="'+esc(title||'')+'" width="900" height="506" loading="'+(hero?'eager':'lazy')+'" decoding="async" fetchpriority="'+(hero?'high':'low')+'"><span class="v8-media-shade"></span></span>';
 }
 function isGrassroots(x){
