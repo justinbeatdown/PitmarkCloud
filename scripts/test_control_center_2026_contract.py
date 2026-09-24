@@ -30,7 +30,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         )
         self.assertIn("https://links.pitmarkracing.com/media-kit", race_center)
         self.assertIn("Canonical media kit", standard)
-        self.assertIn("standard outreach asset", standard.lower())
+        self.assertIn("first-class sales, credibility, partnership", standard.lower())
         self.assertIn("Native **Work With Pitmark** intake", standard)
 
         security = self.read("utils/security.py")
