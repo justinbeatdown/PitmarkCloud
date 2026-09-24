@@ -103,26 +103,6 @@ function stage(x,live){
   var watch=x.watch_url||x.broadcast_url||x.event_url||'',embed=live?youtube(watch):'',m=embed?'<div class="v8-live-video"><iframe src="'+esc(embed)+'" title="'+esc(x.name||'Live race')+'" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>':'<div class="v8-live-placeholder"><span>'+(live?'LIVE EVENT':'UP NEXT')+'</span><strong>'+esc(x.name||x.series_name||'Race event')+'</strong><p>'+esc([eventLabel(x.start),x.venue||x.location,x.series_name].filter(Boolean).join(' · '))+'</p>'+(watch?'<a class="button primary" href="'+esc(watch)+'" target="_blank" rel="noopener">Open official stream ↗</a>':'')+'</div>';
   return '<div class="v8-live-stage-shell">'+m+'<aside><span class="eyebrow">'+(live?'LIVE NOW':'NEXT BROADCAST')+'</span><h2>'+esc(x.name||x.series_name||'Race event')+'</h2><p>'+esc([x.series_name,x.venue||x.location,eventLabel(x.start)].filter(Boolean).join(' · '))+'</p><a class="button" href="/race-center/event/'+encodeURIComponent(String(x.key||''))+'">Open event hub</a></aside></div>';
 }
-function renderCommunity(){
-  if(view!=='community')return;
-  var main=$('main');if(!main||$('#v8CommunityPage'))return;
-  var page=document.createElement('section');page.className='v8-community-page content-section';page.id='v8CommunityPage';
-  page.innerHTML='<div class="section-head"><div><span class="eyebrow">RACE CENTER COMMUNITY</span><h1>Find your racing people.</h1><p>Discover drivers, teams, tracks and series, then follow the people and places you actually care about.</p></div></div><div class="v8-community-search"><div><span>⌕</span><input id="v8CommunitySearchInput" type="search" placeholder="Search drivers, teams, tracks, series…" autocomplete="off"></div></div><div class="v8-people-grid" id="v8CommunityResults"><div class="loading-card">Loading the racing community…</div></div>';
-  main.appendChild(page);
-  var input=$('#v8CommunitySearchInput'),host=$('#v8CommunityResults'),timer=null;
-  function card(x){
-    var name=x.display_name||x.name||x.title||'Race Center member',kind=String(x.entity_type||x.type||'driver').toUpperCase(),href=x.url||x.profile_url||'#',sub=x.subtitle||x.team_name||x.location||x.series_name||'';
-    return '<a class="v8-person-card" href="'+esc(href)+'"><div><span class="eyebrow">'+esc(kind)+'</span><strong>'+esc(name)+'</strong><small>'+esc(sub)+'</small></div><b>View →</b></a>';
-  }
-  function load(q){
-    json('/api/public/race-center/community-search?q='+encodeURIComponent(q||'')+'&limit=24').then(function(d){
-      var rows=d.people||[];host.innerHTML=rows.length?rows.map(card).join(''):'<div class="v8-empty"><strong>No matches yet.</strong><span>Try a driver, team, track or series name.</span></div>';
-    }).catch(function(){host.innerHTML='<div class="v8-empty"><strong>Community search is refreshing.</strong><span>Try again in a moment.</span></div>';});
-  }
-  input.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(function(){load(input.value.trim());},180);});
-  load('');
-}
-
 function renderLive(){
   if(view!=='live')return;var main=$('main');if(!main||$('#v8LiveStage'))return;
   var s=document.createElement('section');s.className='v8-live-stage content-section';s.id='v8LiveStage';s.innerHTML='<div class="loading-card">Building the live stage…</div>';main.insertBefore(s,main.firstElementChild);
@@ -175,7 +155,7 @@ function enhanceEventStage(){
 }
 
 function init(){
-  document.body.classList.add('race-center-v8');ensureHome();renderCommunity();
+  document.body.classList.add('race-center-v8');ensureHome();
   if(view==='hub'){renderStories();renderGrassroots();setTimeout(patchLocal,800);}
   renderLive();storyPage();setTimeout(enhanceEventStage,700);setTimeout(enhanceProfileCoverage,1100);setTimeout(enhanceProfileCoverage,2600);setTimeout(images,250);setTimeout(images,1400);
   new MutationObserver(images).observe(document.body,{childList:true,subtree:true});
