@@ -93,3 +93,12 @@ def race_center_v8_css():
         media_type="text/css",
         headers={"Cache-Control": "no-store, max-age=0"},
     )
+
+
+@router.get("/race-center-v8-social.js", include_in_schema=False)
+def race_center_v8_social_js():
+    return Response(
+        (_HERE / "race_center_v8_social.js").read_text(encoding="utf-8"),
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
