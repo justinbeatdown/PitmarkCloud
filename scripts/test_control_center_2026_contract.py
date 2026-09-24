@@ -1190,6 +1190,19 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, grassroots)
 
+    def test_race_center_grassroots_flat_text_parser_handles_legacy_aspnet(self):
+        grassroots = self.read("services/grassroots_racing.py")
+        main = self.read("main.py")
+        for token in (
+            "_TRACK_LOCATION_CODES",
+            "_TRACK_LOCATION_PATTERN",
+            "Old ASP.NET tables sometimes render as a stream of cells",
+            "Reader output from legacy ASP.NET can put every cell on its own line.",
+            "SprintCarRatings track catalog parse too small",
+        ):
+            self.assertIn(token, grassroots)
+        self.assertIn("Race Center grassroots source failed:", main)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
