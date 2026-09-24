@@ -1102,7 +1102,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             '"incomplete_series_count"',
             '"track_count": len(track_keys)',
             '"event_sources_warming": bool(events.get("warming"))',
-            "data_health(standings=standings, events=events)",
+            "data_health(standings=standings, events=events, grassroots=grassroots)",
         ):
             self.assertIn(token, entities)
 
