@@ -105,6 +105,30 @@ class RaceCenterEditorialLink(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class RaceCenterSeriesSubmission(Base):
+    __tablename__ = "race_center_series_submissions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    series_name: Mapped[str] = mapped_column(String(220), index=True)
+    sanctioning_body: Mapped[str] = mapped_column(String(220), default="")
+    region: Mapped[str] = mapped_column(String(220), default="", index=True)
+    classes_json: Mapped[str] = mapped_column(Text, default="[]")
+    website_url: Mapped[str] = mapped_column(Text, default="")
+    schedule_url: Mapped[str] = mapped_column(Text, default="")
+    standings_url: Mapped[str] = mapped_column(Text, default="")
+    roster_url: Mapped[str] = mapped_column(Text, default="")
+    results_url: Mapped[str] = mapped_column(Text, default="")
+    broadcast_url: Mapped[str] = mapped_column(Text, default="")
+    logo_url: Mapped[str] = mapped_column(Text, default="")
+    hero_url: Mapped[str] = mapped_column(Text, default="")
+    contact_name: Mapped[str] = mapped_column(String(180), default="")
+    contact_email: Mapped[str] = mapped_column(String(320), default="", index=True)
+    note: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
 _graph_lock = threading.Lock()
 _graph_cache: dict[str, Any] = {"at": None, "value": None}
 
@@ -1118,6 +1142,122 @@ def update_notification_preferences(user_id: int, values: dict[str, Any]) -> dic
         row.updated_at = utcnow()
         db.commit()
     return notification_preferences(user_id)
+
+
+def _series_submission_payload(row: RaceCenterSeriesSubmission) -> dict[str, Any]:
+    try:
+        classes = json.loads(row.classes_json or "[]")
+    except Exception:
+        classes = []
+    return {
+        "id": row.id,
+        "series_name": row.series_name,
+        "sanctioning_body": row.sanctioning_body,
+        "region": row.region,
+        "classes": classes if isinstance(classes, list) else [],
+        "website_url": row.website_url,
+        "schedule_url": row.schedule_url,
+        "standings_url": row.standings_url,
+        "roster_url": row.roster_url,
+        "results_url": row.results_url,
+        "broadcast_url": row.broadcast_url,
+        "logo_url": row.logo_url,
+        "hero_url": row.hero_url,
+        "contact_name": row.contact_name,
+        "contact_email": row.contact_email,
+        "note": row.note,
+        "status": row.status,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+def submit_series_submission(
+    *,
+    series_name: str,
+    sanctioning_body: str = "",
+    region: str = "",
+    classes: list[str] | None = None,
+    website_url: str = "",
+    schedule_url: str = "",
+    standings_url: str = "",
+    roster_url: str = "",
+    results_url: str = "",
+    broadcast_url: str = "",
+    logo_url: str = "",
+    hero_url: str = "",
+    contact_name: str = "",
+    contact_email: str = "",
+    note: str = "",
+) -> dict[str, Any]:
+    name = " ".join(str(series_name or "").split()).strip()
+    if len(name) < 2:
+        raise ValueError("Series name is required.")
+    email = str(contact_email or "").strip().lower()
+    if "@" not in email or "." not in email.rsplit("@", 1)[-1]:
+        raise ValueError("A valid contact email is required.")
+
+    source_urls = [website_url, schedule_url, standings_url, roster_url, results_url]
+    if not any(str(value or "").strip().startswith(("http://", "https://")) for value in source_urls):
+        raise ValueError("Include at least one official website, schedule, standings, roster, or results URL.")
+
+    clean_classes = [
+        " ".join(str(value or "").split()).strip()[:120]
+        for value in (classes or [])
+        if " ".join(str(value or "").split()).strip()
+    ][:30]
+
+    with SessionLocal() as db:
+        row = RaceCenterSeriesSubmission(
+            series_name=name[:220],
+            sanctioning_body=" ".join(str(sanctioning_body or "").split()).strip()[:220],
+            region=" ".join(str(region or "").split()).strip()[:220],
+            classes_json=json.dumps(clean_classes),
+            website_url=str(website_url or "").strip()[:4000],
+            schedule_url=str(schedule_url or "").strip()[:4000],
+            standings_url=str(standings_url or "").strip()[:4000],
+            roster_url=str(roster_url or "").strip()[:4000],
+            results_url=str(results_url or "").strip()[:4000],
+            broadcast_url=str(broadcast_url or "").strip()[:4000],
+            logo_url=str(logo_url or "").strip()[:4000],
+            hero_url=str(hero_url or "").strip()[:4000],
+            contact_name=" ".join(str(contact_name or "").split()).strip()[:180],
+            contact_email=email[:320],
+            note=str(note or "").strip()[:5000],
+            status="pending",
+            updated_at=utcnow(),
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return _series_submission_payload(row)
+
+
+def series_submissions_for_review(status: str = "", limit: int = 100) -> list[dict[str, Any]]:
+    clean = str(status or "").strip().lower()
+    with SessionLocal() as db:
+        stmt = select(RaceCenterSeriesSubmission)
+        if clean in {"pending", "approved", "denied", "ingested"}:
+            stmt = stmt.where(RaceCenterSeriesSubmission.status == clean)
+        rows = list(db.scalars(
+            stmt.order_by(RaceCenterSeriesSubmission.updated_at.desc()).limit(max(1, min(limit, 250)))
+        ).all())
+        return [_series_submission_payload(row) for row in rows]
+
+
+def review_series_submission(submission_id: int, *, status: str) -> dict[str, Any]:
+    clean = str(status or "").strip().lower()
+    if clean not in {"pending", "approved", "denied", "ingested"}:
+        raise ValueError("Submission status must be pending, approved, denied, or ingested.")
+    with SessionLocal() as db:
+        row = db.get(RaceCenterSeriesSubmission, int(submission_id))
+        if row is None:
+            raise ValueError("Series submission not found.")
+        row.status = clean
+        row.updated_at = utcnow()
+        db.commit()
+        db.refresh(row)
+        return _series_submission_payload(row)
 
 
 def submit_entity_claim(

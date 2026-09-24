@@ -535,7 +535,7 @@ def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
             })
 
     found.sort(key=lambda item: item.get("start") or "")
-    return found[:20]
+    # Preserve the full season. Truncating to the first 20 events hid late-season\n    # races from Live + Next for high-event-count series.\n    return found
 
 
 def _event_summary(events: list[dict[str, Any]], config: dict[str, Any]) -> dict[str, Any]:
@@ -566,7 +566,7 @@ def _event_summary(events: list[dict[str, Any]], config: dict[str, Any]) -> dict
     return {
         "state": state,
         "event": chosen,
-        "events": events[:40],
+        "events": events,
         "schedule_url": config.get("schedule_url"),
         "watch_name": (chosen or {}).get("broadcast") or config.get("watch_name"),
         "watch_url": config.get("watch_url"),
@@ -646,7 +646,7 @@ def get_racing_event_hub(force: bool = False) -> dict[str, Any]:
     value = {
         "generated_at": now.isoformat(),
         "live": live,
-        "next": next_items[:12],
+        "next": next_items[:24],
         "series": by_series,
         "catalog": list(by_series.values()),
         "warming": False,

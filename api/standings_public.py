@@ -206,6 +206,28 @@ class RaceEntityClaimCreate(BaseModel):
     note: str = Field(default="", max_length=1200)
 
 
+class RaceSeriesSubmissionCreate(BaseModel):
+    series_name: str = Field(min_length=2, max_length=220)
+    sanctioning_body: str = Field(default="", max_length=220)
+    region: str = Field(default="", max_length=220)
+    classes: list[str] = Field(default_factory=list, max_length=30)
+    website_url: str = Field(default="", max_length=4000)
+    schedule_url: str = Field(default="", max_length=4000)
+    standings_url: str = Field(default="", max_length=4000)
+    roster_url: str = Field(default="", max_length=4000)
+    results_url: str = Field(default="", max_length=4000)
+    broadcast_url: str = Field(default="", max_length=4000)
+    logo_url: str = Field(default="", max_length=4000)
+    hero_url: str = Field(default="", max_length=4000)
+    contact_name: str = Field(default="", max_length=180)
+    contact_email: str = Field(min_length=5, max_length=320)
+    note: str = Field(default="", max_length=5000)
+
+
+class RaceSeriesSubmissionReview(BaseModel):
+    status: str = Field(min_length=6, max_length=20)
+
+
 class RaceNotificationPreferences(BaseModel):
     race_day: bool | None = None
     live_now: bool | None = None
@@ -552,6 +574,34 @@ def race_center_notification_preferences_update(request: Request, body: RaceNoti
     return {"preferences": race_center_entities.update_notification_preferences(account.id, values)}
 
 
+@router.post("/api/public/race-center/series-submissions", include_in_schema=False)
+def race_center_series_submission_create(request: Request, body: RaceSeriesSubmissionCreate):
+    enforce_rate_limit(request, "race-center-series-submission", 5, 3600)
+    try:
+        return race_center_entities.submit_series_submission(**body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/api/public/race-center/series-submissions/review", include_in_schema=False)
+def race_center_series_submission_review_queue(request: Request, status: str = "", limit: int = 100):
+    _race_staff_or_403(request)
+    return {"submissions": race_center_entities.series_submissions_for_review(status=status, limit=limit)}
+
+
+@router.put("/api/public/race-center/series-submissions/{submission_id}/review", include_in_schema=False)
+def race_center_series_submission_review(
+    request: Request,
+    submission_id: int,
+    body: RaceSeriesSubmissionReview,
+):
+    _race_staff_or_403(request)
+    try:
+        return race_center_entities.review_series_submission(submission_id, status=body.status)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @router.post("/api/public/race-center/entity-claims", include_in_schema=False)
 def race_center_entity_claim_submit(request: Request, body: RaceEntityClaimCreate):
     account = _race_account_or_401(request)
@@ -798,6 +848,7 @@ def race_center_people_unfollow(request: Request, body: RaceUserFollowChange):
 
 
 @router.get("/race-center", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/submit-series", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/compare", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/tracks", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/track/{entity_key}", response_class=HTMLResponse, include_in_schema=False)
@@ -820,6 +871,7 @@ def public_standings_home(request: Request):
     path = request.url.path.rstrip("/").lower()
     view = (
         "standings" if path == "/standings" or path.endswith("/standings")
+        else "submitseries" if path.endswith("/submit-series")
         else "schedules" if path.endswith("/schedules")
         else "live" if path.endswith("/live")
         else "driver" if "/race-center/driver/" in path

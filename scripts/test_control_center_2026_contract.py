@@ -1046,7 +1046,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             self.assertIn(token, entities)
 
         for token in (
-            '"events": events[:40]',
+            '"events": events,',
             '"venue": venue_data.get("fullName")',
             '"venue": circuit.get("circuitName")',
         ):
@@ -1332,6 +1332,65 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("'/race-center-consumer.js'", sw)
         self.assertIn("title:'Your racing.<br><em>Right when it matters.</em>'", core)
         self.assertIn("primary:['What’s racing now','/race-center/live']", core)
+
+    def test_race_center_launch_polish_visuals_submissions_and_clean_domain(self):
+        events = self.read("services/racing_events.py")
+        entities = self.read("services/race_center_entities.py")
+        public_api = self.read("api/standings_public.py")
+        html = self.read("api/standings_public.html")
+        css = self.read("api/standings_public.css")
+        consumer = self.read("api/race_center_consumer.js")
+        main = self.read("main.py")
+
+        self.assertIn("return found", events)
+        self.assertNotIn("return found[:20]", events)
+        self.assertIn('"events": events,', events)
+        self.assertIn('"next": next_items[:24]', events)
+
+        for token in (
+            'class RaceCenterSeriesSubmission(Base):',
+            '__tablename__ = "race_center_series_submissions"',
+            'def submit_series_submission(',
+            'def series_submissions_for_review(',
+            'def review_series_submission(',
+        ):
+            self.assertIn(token, entities)
+
+        for token in (
+            'class RaceSeriesSubmissionCreate(BaseModel):',
+            '@router.post("/api/public/race-center/series-submissions"',
+            '@router.get("/api/public/race-center/series-submissions/review"',
+            '@router.get("/race-center/submit-series"',
+            'else "submitseries" if path.endswith("/submit-series")',
+        ):
+            self.assertIn(token, public_api)
+
+        for token in (
+            'id="seriesSubmitPage"',
+            'id="seriesSubmissionForm"',
+            'Submit Series to Race Center',
+            '/race-center/submit-series',
+        ):
+            self.assertIn(token, html)
+
+        for token in (
+            '.consumer-media{',
+            '.series-submit-page{',
+            '.series-submit-form{',
+            'body[data-view="live"] .event-card',
+        ):
+            self.assertIn(token, css)
+
+        for token in (
+            'function consumerMedia(url,title)',
+            'function wireSeriesSubmission()',
+            '/api/public/race-center/series-submissions',
+            "'SERIES DIRECTORS','Not in Race Center yet?'",
+        ):
+            self.assertIn(token, consumer)
+
+        self.assertIn('host == "racecenter.pitmarkracing.com"', main)
+        self.assertIn('return standings_public.public_standings_home(request)', main)
 
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
