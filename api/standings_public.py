@@ -873,6 +873,7 @@ def race_center_people_unfollow(request: Request, body: RaceUserFollowChange):
 
 
 @router.get("/race-center", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/race-center/community", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/submit-series", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/submit-series", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/compare", response_class=HTMLResponse, include_in_schema=False)
@@ -897,6 +898,7 @@ def public_standings_home(request: Request):
     path = request.url.path.rstrip("/").lower()
     view = (
         "standings" if path == "/standings" or path.endswith("/standings")
+        else "community" if path.endswith("/community")
         else "submitseries" if path.endswith("/submit-series")
         else "schedules" if path.endswith("/schedules")
         else "live" if path.endswith("/live")
