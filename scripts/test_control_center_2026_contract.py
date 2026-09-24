@@ -1407,8 +1407,8 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, core)
 
-        self.assertIn("$('.loading-card').forEach(card=>{", consumer)
-        self.assertNotIn("$('.loading-card').forEach(card=>{", consumer)
+        self.assertIn("Array.from(document.querySelectorAll('.loading-card')).forEach(card=>{", consumer)
+        self.assertIn("Array.from(document.querySelectorAll('main > section')).forEach(", consumer)
 
         for token in (
             "standings.js?v={{PITMARK_VERSION}}-custom-domain-boot-20260924",
