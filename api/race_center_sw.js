@@ -1,4 +1,4 @@
-const CACHE='pitmark-race-center-v7-shell-2';
+const CACHE='pitmark-race-center-v7-shell-3';
 const SHELL=[
   '/race-center',
   '/race-center/drivers',
@@ -14,6 +14,7 @@ const SHELL=[
   '/standings.js',
   '/race-center-v6.js',
   '/race-center-v7.js',
+  '/race-center-consumer.js',
   '/prt-logo.png',
   '/race-center-icon-192.png',
   '/race-center-icon-512.png'
