@@ -110,6 +110,17 @@ def race_center_v8_social_js():
 
 
 
+class DriverOwnerMetaChange(BaseModel):
+    hometown: str = Field(default="", max_length=180)
+    car_number: str = Field(default="", max_length=40)
+    primary_class: str = Field(default="", max_length=180)
+    classes: list[str] = Field(default_factory=list, max_length=20)
+    team_name: str = Field(default="", max_length=220)
+    car_info: str = Field(default="", max_length=4000)
+    social_links: list[dict] = Field(default_factory=list, max_length=20)
+    website_url: str = Field(default="", max_length=4000)
+
+
 class OwnerHubScheduleChange(BaseModel):
     title: str = Field(default="", max_length=220)
     start_at: str = Field(default="", max_length=80)
@@ -157,6 +168,15 @@ def race_center_entity_hub(request: Request, entity_type: str, entity_key: str):
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.put("/api/public/race-center/entity-hub/driver/{entity_key}/driver-meta", include_in_schema=False)
+def race_center_driver_meta_update(request: Request, entity_key: str, body: DriverOwnerMetaChange):
+    account = _account_or_401(request)
+    try:
+        return {"driver_meta": race_center_owner_hub.update_driver_meta(account.id, entity_key, body.model_dump())}
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
 
 
 @router.post("/api/public/race-center/entity-hub/{entity_type}/{entity_key}/schedule", include_in_schema=False)
