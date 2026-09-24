@@ -919,6 +919,10 @@ def public_standings_home(request: Request):
     )
     html = html.replace("{{PITMARK_VERSION}}", settings.app_version)
     html = html.replace("{{RACE_CENTER_VIEW}}", view)
+    if view == "community":
+        html = html.replace("</head>", '<style id="community-route-guard">body[data-view="community"] main>section:not(.v8-community-page),body[data-view="community"] main>.v8-home-expansion{display:none!important}</style></head>')
+        html = html.replace('href="/race-center/community" data-race-view="community"', 'href="/race-center/community" data-race-view="community" class="active" aria-current="page"')
+        html = html.replace('href="/race-center" data-race-view="hub"', 'href="/race-center" data-race-view="hub"')
 
 
     return HTMLResponse(
