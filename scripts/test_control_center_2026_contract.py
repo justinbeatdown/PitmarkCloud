@@ -1129,6 +1129,13 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, events)
 
+    def test_my_racing_series_cards_do_not_leak_long_event_titles(self):
+        js = self.read("api/standings_public.js")
+        self.assertIn("const eventMeta=event", js)
+        self.assertIn("?'Leader: '+String(leader.name||'—')", js)
+        self.assertIn("?'Next: '+eventMeta", js)
+        self.assertIn("'LIVE · '+String(event.venue||event.name||'Race in progress')", js)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")

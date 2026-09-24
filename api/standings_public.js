@@ -1169,9 +1169,16 @@ function renderMySeries(){
   seriesItems.forEach(item=>{
     const leader=item.entries?.[0];
     const event=item.current_event;
-    const meta=event
-      ?(item.event_state==='live'?'LIVE · ':'')+String(event.name||eventWhen(event))
-      :leader?'Leader: '+String(leader.name||'—'):'Saved championship';
+    const eventMeta=event
+      ?[eventWhen(event),event.venue||event.location].filter(Boolean).join(' · ')
+      :'';
+    const meta=item.event_state==='live'&&event
+      ?'LIVE · '+String(event.venue||event.name||'Race in progress')
+      :leader
+        ?'Leader: '+String(leader.name||'—')
+        :eventMeta
+          ?'Next: '+eventMeta
+          :'Saved championship';
     chips.push('<a class="my-series-chip my-racing-series-chip" href="'+seriesProfileHref(item.series_key)+'">'+logo(item)+'<span><strong>'+esc(item.short_name||item.series_name)+'</strong><small>'+esc(meta)+'</small></span></a>');
   });
   driverItems.forEach(driver=>{
