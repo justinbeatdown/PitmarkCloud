@@ -1232,6 +1232,12 @@ class ControlCenter2026Contract(unittest.TestCase):
         for token in ('"key": "ascs"', '"key": "imca"', '"key": "the-third-turn"'):
             self.assertIn(token, grassroots)
 
+    def test_race_center_home_uses_union_tracked_series_count(self):
+        api = self.read("api/standings_public.py")
+        js = self.read("api/standings_public.js")
+        self.assertIn('"tracked_series_total": len({', api)
+        self.assertIn("summary.tracked_series_total||summary.schedule_series_total||total", js)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
