@@ -3905,3 +3905,217 @@ body[data-view="compare"] .v7-compare{
   font-weight:950;
   letter-spacing:.12em;
 }
+
+
+/* ==========================================================================
+   Race Center Consumer Launch — 2026-09-24
+   ========================================================================== */
+
+body:not([data-view="hub"]) .consumer-home{display:none!important}
+
+.consumer-home{
+  width:min(var(--max),calc(100% - 36px));
+  margin:0 auto 34px;
+  display:grid;
+  gap:16px
+}
+.consumer-home-head{
+  display:flex;align-items:end;justify-content:space-between;gap:24px;
+  padding:4px 0 2px
+}
+.consumer-home-head h2{margin:5px 0 7px;font-size:clamp(28px,3vw,44px);letter-spacing:-.045em}
+.consumer-home-head p{margin:0;max-width:760px;color:var(--muted);line-height:1.55}
+.consumer-home-block{
+  min-width:0;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 90% -30%,rgba(255,85,0,.07),transparent 22rem),
+    linear-gradient(180deg,rgba(18,23,29,.92),rgba(12,16,20,.96));
+  padding:18px;
+  box-shadow:0 14px 42px rgba(0,0,0,.15)
+}
+.consumer-home-today{
+  border-color:rgba(255,85,0,.28);
+  background:
+    radial-gradient(circle at 86% -60%,rgba(255,85,0,.15),transparent 26rem),
+    linear-gradient(180deg,rgba(19,24,30,.98),rgba(11,15,19,.98))
+}
+.consumer-home-split{display:grid;grid-template-columns:1fr 1fr;gap:16px;min-width:0}
+.consumer-block-head{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px
+}
+.consumer-block-head>div{display:flex;align-items:center;gap:9px}
+.consumer-block-head strong{font-size:17px;letter-spacing:-.02em}
+.consumer-block-head a,.consumer-link-button{
+  border:0;background:none;padding:0;color:var(--orange2);font-size:12px;font-weight:850;cursor:pointer
+}
+.consumer-section-icon{
+  display:grid;place-items:center;width:25px;height:25px;border-radius:8px;
+  background:rgba(255,85,0,.10);border:1px solid rgba(255,85,0,.22);
+  color:var(--orange2);font-size:12px;font-weight:950
+}
+.consumer-rail{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0
+}
+.consumer-rail-featured{grid-template-columns:repeat(3,minmax(0,1fr))}
+.consumer-card{
+  position:relative;min-width:0;min-height:132px;padding:16px;border-radius:14px;
+  border:1px solid var(--line);background:rgba(8,11,14,.72);
+  display:flex;flex-direction:column;align-items:flex-start;
+  transition:border-color .16s ease,transform .16s ease,background .16s ease
+}
+.consumer-card:hover{
+  transform:translateY(-2px);border-color:rgba(255,85,0,.42);
+  background:rgba(19,23,28,.95)
+}
+.consumer-card .consumer-kicker{
+  color:var(--orange2);font-size:9px;font-weight:950;letter-spacing:.14em;text-transform:uppercase
+}
+.consumer-card>strong{
+  margin-top:8px;font-size:16px;line-height:1.12;letter-spacing:-.025em;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden
+}
+.consumer-card p{
+  margin:7px 0 14px;color:var(--muted);font-size:11px;line-height:1.42;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden
+}
+.consumer-card b{margin-top:auto;color:var(--orange2);font-size:11px}
+.consumer-live-dot{
+  position:absolute;right:12px;top:12px;padding:4px 7px;border-radius:999px;
+  color:#07110b;background:var(--green);font-size:8px;font-weight:1000;letter-spacing:.1em
+}
+.consumer-sub-actions{
+  display:flex;align-items:center;gap:16px;margin-top:13px;padding-top:12px;border-top:1px solid var(--line-soft)
+}
+.consumer-sub-actions a,.consumer-sub-actions button{font-size:11px;color:var(--muted);font-weight:800}
+.consumer-sub-actions a:hover,.consumer-sub-actions button:hover{color:var(--text)}
+.consumer-empty{
+  grid-column:1/-1;min-height:132px;padding:18px;border:1px dashed rgba(255,255,255,.12);
+  border-radius:14px;background:rgba(5,8,11,.36);display:flex;align-items:center;gap:14px
+}
+.consumer-empty-mark{
+  flex:0 0 auto;display:grid;place-items:center;width:44px;height:44px;border-radius:13px;
+  background:rgba(255,85,0,.09);border:1px solid rgba(255,85,0,.18);
+  color:var(--orange2);font-weight:1000;font-style:italic
+}
+.consumer-empty strong{display:block;font-size:15px}
+.consumer-empty p{margin:5px 0 10px;color:var(--muted);font-size:12px;line-height:1.45}
+.consumer-empty .button{display:inline-flex;padding:7px 10px;font-size:10px}
+.consumer-skeleton{
+  min-height:132px;border-radius:14px;border:1px solid var(--line);
+  background:linear-gradient(100deg,rgba(255,255,255,.025) 20%,rgba(255,255,255,.065) 40%,rgba(255,255,255,.025) 60%);
+  background-size:220% 100%;animation:consumerShimmer 1.25s linear infinite
+}
+@keyframes consumerShimmer{to{background-position:-220% 0}}
+
+/* Search feels like a product surface, not a debug dropdown. */
+.race-search-results{
+  border-radius:16px!important;
+  box-shadow:0 24px 80px rgba(0,0,0,.62)!important;
+  overflow:auto;max-height:min(68vh,680px)
+}
+.consumer-search-shortcuts{padding:12px}
+.consumer-search-shortcuts section+section{margin-top:12px;padding-top:12px;border-top:1px solid var(--line-soft)}
+.consumer-search-shortcuts section>span{
+  display:block;margin-bottom:8px;color:var(--dim);font-size:9px;font-weight:950;letter-spacing:.14em
+}
+.consumer-search-shortcuts section>div{display:flex;flex-wrap:wrap;gap:7px}
+.consumer-search-shortcuts button{
+  border:1px solid var(--line);border-radius:999px;background:var(--panel);padding:8px 11px;
+  color:var(--text);font-size:11px;font-weight:800;cursor:pointer
+}
+.consumer-search-shortcuts button:hover{border-color:rgba(255,85,0,.42);color:var(--orange2)}
+
+/* First-run setup */
+.consumer-onboarding{
+  width:min(760px,calc(100% - 28px));max-height:min(90vh,880px);padding:0;
+  border:1px solid rgba(255,85,0,.28);border-radius:22px;color:var(--text);
+  background:#0d1116;box-shadow:0 40px 120px rgba(0,0,0,.72)
+}
+.consumer-onboarding::backdrop{background:rgba(0,0,0,.78);backdrop-filter:blur(8px)}
+.consumer-onboarding-shell{padding:30px}
+.consumer-onboarding-shell h2{margin:7px 0 7px;font-size:34px;letter-spacing:-.045em}
+.consumer-onboarding-shell>p{margin:0 0 22px;color:var(--muted);line-height:1.55}
+.consumer-interest-grid{
+  margin:0;padding:0;border:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px
+}
+.consumer-interest-grid legend{
+  grid-column:1/-1;margin-bottom:8px;color:var(--text);font-size:13px;font-weight:900
+}
+.consumer-interest-grid label{position:relative;cursor:pointer}
+.consumer-interest-grid input{position:absolute;opacity:0;pointer-events:none}
+.consumer-interest-grid label>span{
+  min-height:70px;padding:13px 14px;border:1px solid var(--line);border-radius:13px;
+  background:var(--panel);display:flex;flex-direction:column;justify-content:center;
+  font-size:13px;font-weight:900;transition:.15s ease
+}
+.consumer-interest-grid label small{margin-top:4px;color:var(--muted);font-size:10px;font-weight:600}
+.consumer-interest-grid input:checked+span{
+  border-color:var(--orange);background:rgba(255,85,0,.10);box-shadow:inset 0 0 0 1px rgba(255,85,0,.14)
+}
+.consumer-region-field{
+  display:flex;flex-direction:column;gap:7px;margin-top:20px;font-size:12px;font-weight:850
+}
+.consumer-region-field input{
+  width:100%;height:46px;border-radius:11px;border:1px solid var(--line);
+  padding:0 13px;background:#090c10;color:var(--text);outline:none
+}
+.consumer-region-field input:focus{border-color:var(--orange)}
+.consumer-region-field small{color:var(--dim);font-size:10px;font-weight:600}
+.consumer-onboarding-actions{
+  display:flex;justify-content:flex-end;gap:9px;margin-top:24px;padding-top:18px;border-top:1px solid var(--line-soft)
+}
+
+/* Consumer trust + state polish */
+.consumer-launch .loading-card{
+  border-style:solid;
+  background:linear-gradient(100deg,rgba(255,255,255,.02),rgba(255,255,255,.04),rgba(255,255,255,.02))
+}
+.consumer-launch .v7-profile-section p,
+.consumer-launch .driver-detail-card p{line-height:1.55}
+.consumer-launch .v7-verified-badge{box-shadow:0 0 0 1px rgba(57,217,138,.08)}
+.consumer-launch .driver-photo{background:#11171d}
+
+/* Five-item mobile app shell */
+.consumer-mobile-dock{grid-template-columns:repeat(5,1fr)!important}
+.consumer-mobile-dock a,.consumer-mobile-dock button{
+  appearance:none;border:0;background:transparent;color:var(--muted);font:inherit;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  min-width:0;cursor:pointer;padding:7px 2px
+}
+.consumer-mobile-dock a span,.consumer-mobile-dock button span{font-size:16px;line-height:1}
+.consumer-mobile-dock a.active{color:var(--orange2)}
+.consumer-mobile-dock a.active span{filter:drop-shadow(0 0 8px rgba(255,85,0,.45))}
+
+@media (max-width:980px){
+  .consumer-home-split{grid-template-columns:1fr}
+  .consumer-rail-featured{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:720px){
+  .consumer-home{width:min(100% - 20px,var(--max));margin-bottom:22px;gap:11px}
+  .consumer-home-head{align-items:flex-start;flex-direction:column;gap:13px}
+  .consumer-home-head h2{font-size:29px}
+  .consumer-home-head .button{width:100%;justify-content:center}
+  .consumer-home-block{padding:13px;border-radius:15px}
+  .consumer-block-head{align-items:flex-start}
+  .consumer-block-head strong{font-size:15px}
+  .consumer-rail,.consumer-rail-featured{
+    display:flex;gap:9px;overflow-x:auto;scroll-snap-type:x proximity;
+    scrollbar-width:none;padding-bottom:3px
+  }
+  .consumer-rail::-webkit-scrollbar{display:none}
+  .consumer-card,.consumer-skeleton,.consumer-empty{
+    flex:0 0 min(82vw,300px);scroll-snap-align:start
+  }
+  .consumer-onboarding{width:calc(100% - 18px);max-height:92vh}
+  .consumer-onboarding-shell{padding:20px 16px 18px}
+  .consumer-onboarding-shell h2{font-size:28px}
+  .consumer-interest-grid{grid-template-columns:1fr}
+  .consumer-interest-grid label>span{min-height:60px}
+  .consumer-onboarding-actions{position:sticky;bottom:0;background:#0d1116;padding-bottom:2px}
+  .consumer-mobile-dock{
+    padding-left:max(7px,env(safe-area-inset-left));
+    padding-right:max(7px,env(safe-area-inset-right))
+  }
+}

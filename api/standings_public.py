@@ -883,6 +883,11 @@ def public_race_center_v7_js():
     return _asset("race_center_v7.js", "application/javascript")
 
 
+@router.get("/race-center-consumer.js", include_in_schema=False)
+def public_race_center_consumer_js():
+    return _asset("race_center_consumer.js", "application/javascript")
+
+
 @router.get("/race-center.webmanifest", include_in_schema=False)
 def public_race_center_manifest():
     return _asset("race-center.webmanifest", "application/manifest+json")

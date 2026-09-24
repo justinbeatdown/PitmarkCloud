@@ -398,7 +398,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('class="race-pulse home-race-pulse"', public_html)
         self.assertIn('id="pulseLive"', public_html)
         self.assertIn('id="favoritesFilter"', public_html)
-        self.assertIn('class="mobile-dock"', public_html)
+        self.assertIn('class="mobile-dock consumer-mobile-dock"', public_html)
         self.assertIn("pitmark-race-center-v5", public_js)
         self.assertIn("renderPulse", public_js)
         self.assertIn("renderMySeries", public_js)
@@ -526,7 +526,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             'id="seriesGroups"',
         ):
             self.assertIn(token, public_html)
-        self.assertIn("Your racing.<br><em>One command center.</em>", public_js)
+        self.assertIn("Your racing.<br><em>Right when it matters.</em>", public_js)
         self.assertIn("renderMySeries", public_js)
         self.assertIn("renderPulse", public_js)
         self.assertIn("bindMySeriesScroller", public_js)
@@ -1278,6 +1278,61 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("const cards=Array.from(document.querySelectorAll('[data-driver-enrich-series]')).filter(", js)
 
 
+    def test_race_center_consumer_launch_experience_is_wired(self):
+        html = self.read("api/standings_public.html")
+        css = self.read("api/standings_public.css")
+        js = self.read("api/race_center_consumer.js")
+        public_api = self.read("api/standings_public.py")
+        sw = self.read("api/race_center_sw.js")
+        core = self.read("api/standings_public.js")
+
+        for token in (
+            'id="consumerHome"',
+            'id="consumerTodayGrid"',
+            'id="consumerFollowingGrid"',
+            'id="consumerLocalGrid"',
+            'id="consumerResultsGrid"',
+            'id="consumerOnboarding"',
+            'name="consumerInterest"',
+            'id="consumerRegion"',
+            'class="mobile-dock consumer-mobile-dock"',
+            'data-consumer-action="search"',
+            'data-consumer-action="profile"',
+            '/race-center-consumer.js?v={{PITMARK_VERSION}}-consumer-launch-20260924',
+        ):
+            self.assertIn(token, html)
+
+        for token in (
+            '.consumer-home{',
+            '.consumer-home-split{',
+            '.consumer-card{',
+            '.consumer-onboarding{',
+            '.consumer-mobile-dock{grid-template-columns:repeat(5,1fr)!important}',
+            '@media (max-width:720px)',
+        ):
+            self.assertIn(token, css)
+
+        for token in (
+            "const PREF_KEY='pitmark-race-center-consumer-v1';",
+            'function wireOnboarding()',
+            'async function renderConsumerHome()',
+            'function wireSearchUX()',
+            'function wireMobileDock()',
+            'function wireAlertDeepLink()',
+            "getJson('/api/public/race-center/race-day?v=consumer-launch')",
+            "getJson('/api/public/race-center/graph?v=consumer-launch')",
+            "writeLegacyPrefs({...legacy,favorites:[...current]});",
+            "consumer-customize",
+        ):
+            self.assertIn(token, js)
+
+        self.assertIn('@router.get("/race-center-consumer.js"', public_api)
+        self.assertIn('return _asset("race_center_consumer.js", "application/javascript")', public_api)
+        self.assertIn("const CACHE='pitmark-race-center-v7-shell-3';", sw)
+        self.assertIn("'/race-center-consumer.js'", sw)
+        self.assertIn("title:'Your racing.<br><em>Right when it matters.</em>'", core)
+        self.assertIn("primary:['What’s racing now','/race-center/live']", core)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
@@ -1314,7 +1369,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('"scope": "/race-center/"', manifest)
         self.assertIn('"src": "/race-center-icon-192.png"', manifest)
         self.assertIn('"src": "/race-center-icon-512.png"', manifest)
-        self.assertIn("pitmark-race-center-v7-shell-2", service_worker)
+        self.assertIn("pitmark-race-center-v7-shell-3", service_worker)
         self.assertIn("/race-center/my-racing", service_worker)
         self.assertIn("/race-center/teams", service_worker)
         self.assertIn("/race-center-icon-192.png", service_worker)
