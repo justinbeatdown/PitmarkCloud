@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import copy
 import re
 import threading
+import time
 import unicodedata
 from typing import Any
 from urllib.parse import urlsplit
@@ -84,6 +85,8 @@ SOURCE_REGISTRY: tuple[dict[str, str], ...] = (
 
 _cache_lock = threading.Lock()
 _cache: dict[str, Any] = {"at": None, "value": None}
+_reader_lock = threading.Lock()
+_reader_last_at = 0.0
 
 
 def utcnow() -> datetime:
@@ -177,7 +180,39 @@ def _markdown_tables(markdown: str) -> list[tuple[list[str], list[list[str]]]]:
     return out
 
 
-def _tables(url: str) -> list[tuple[list[str], list[list[str]]]]:
+def _reader_markdown(url: str) -> str:
+    global _reader_last_at
+    delays = (0.0, 2.5, 6.0, 12.0)
+    last_error: Exception | None = None
+    for delay in delays:
+        if delay:
+            time.sleep(delay)
+        with _reader_lock:
+            # Jina's public reader throttles bursts. Serialize all reader calls
+            # and leave a small gap so one Race Center refresh cannot 429 itself.
+            elapsed = time.monotonic() - _reader_last_at
+            if elapsed < 1.75:
+                time.sleep(1.75 - elapsed)
+            try:
+                with httpx.Client(
+                    timeout=30.0,
+                    follow_redirects=True,
+                    headers={"User-Agent": USER_AGENT, "X-Return-Format": "markdown"},
+                ) as client:
+                    response = client.get(_reader_url(url))
+                _reader_last_at = time.monotonic()
+                if response.status_code == 429:
+                    last_error = RuntimeError("rendered reader rate limited")
+                    continue
+                response.raise_for_status()
+                return response.text
+            except Exception as exc:
+                _reader_last_at = time.monotonic()
+                last_error = exc
+    raise RuntimeError(f"rendered fallback failed after retries: {last_error}")
+
+
+def _source_tables_and_text(url: str) -> tuple[list[tuple[list[str], list[list[str]]]], str]:
     headers = {
         "User-Agent": USER_AGENT,
         "Accept": "text/html,application/xhtml+xml",
@@ -185,30 +220,115 @@ def _tables(url: str) -> list[tuple[list[str], list[list[str]]]]:
     }
     direct_error: Exception | None = None
     try:
-        with httpx.Client(timeout=18.0, follow_redirects=True, headers=headers) as client:
+        with httpx.Client(timeout=10.0, follow_redirects=True, headers=headers) as client:
             response = client.get(url)
             response.raise_for_status()
         parsed = _html_tables(response.text)
         if parsed:
-            return parsed
+            return parsed, BeautifulSoup(response.text, "html.parser").get_text("\n", strip=True)
     except Exception as exc:
         direct_error = exc
 
     try:
-        with httpx.Client(
-            timeout=24.0,
-            follow_redirects=True,
-            headers={"User-Agent": USER_AGENT, "X-Return-Format": "markdown"},
-        ) as client:
-            response = client.get(_reader_url(url))
-            response.raise_for_status()
-        parsed = _markdown_tables(response.text)
-        if parsed:
-            return parsed
+        markdown = _reader_markdown(url)
+        return _markdown_tables(markdown), markdown
     except Exception as reader_error:
-        raise RuntimeError(f"grassroots source unavailable ({direct_error}); rendered fallback failed ({reader_error})") from reader_error
+        raise RuntimeError(
+            f"grassroots source unavailable ({direct_error}); {reader_error}"
+        ) from reader_error
 
+
+def _tables(url: str) -> list[tuple[list[str], list[list[str]]]]:
+    tables, _ = _source_tables_and_text(url)
+    if tables:
+        return tables
     raise RuntimeError("grassroots source returned no usable tables")
+
+
+def _plain_line(value: str) -> str:
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", str(value or ""))
+    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"<[^>]+>", " ", text)
+    return _clean(text)
+
+
+_STATE_TOKEN = re.compile(r"^(?:[A-Z]{2,3})(?:,[A-Z]{2,3})?$")
+
+
+def _tracks_from_text(text: str) -> list[dict[str, Any]]:
+    lines = [_plain_line(line) for line in str(text or "").splitlines()]
+    lines = [line for line in lines if line]
+    start = next(
+        (index for index, line in enumerate(lines) if line.casefold().replace(" ", "") in {"trackstate", "tracklocation"}),
+        -1,
+    )
+    if start < 0:
+        start = next((index for index, line in enumerate(lines) if line.casefold() == "track list"), -1)
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for line in lines[start + 1 if start >= 0 else 0:]:
+        if line.casefold().startswith(("order by", "compiled by", "count:", "driver rating", "latest stats")):
+            continue
+        match = re.match(r"^(?P<name>.+?)\s+(?P<state>[A-Z]{2,3}(?:,[A-Z]{2,3})?)$", line)
+        if not match:
+            continue
+        name = _clean(match.group("name"))
+        location = _clean(match.group("state"))
+        if not name or name.casefold() in {"track", "state"}:
+            continue
+        if name.isdigit() and len(name) > 4:
+            continue
+        token = slugify(f"{name}-{location}")
+        if token in seen:
+            continue
+        seen.add(token)
+        rows.append({
+            "key": token,
+            "name": name,
+            "location": location,
+            "grassroots": True,
+            "source_key": "sprintcarratings",
+            "source_name": "SprintCarRatings track database",
+            "source_url": SPRINTCAR_TRACKS_URL,
+        })
+    return rows
+
+
+def _drivers_from_text(text: str, source: dict[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for raw in str(text or "").splitlines():
+        line = _plain_line(raw)
+        if not line:
+            continue
+        match = re.match(
+            r"^(?P<rank>\d{1,5})\s+(?P<name>.+?)\s+(?P<rating>(?:0?\.\d+|1(?:\.0+)?))\s+(?P<races>\d{1,5})\s+(?P<wins>\d{1,5})(?:\s+(?P<tail>.*))?$",
+            line,
+        )
+        if not match:
+            continue
+        name = _clean(match.group("name"))
+        key = identity_key(name)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        tail = _clean(match.group("tail"))
+        money_values = re.findall(r"\$[\d,]+(?:\.\d+)?", tail)
+        rows.append({
+            "key": key,
+            "name": name,
+            "grassroots": True,
+            "source_key": str(source["key"]),
+            "source_name": str(source["name"]),
+            "source_url": str(source["url"]),
+            "discipline": str(source["discipline"]),
+            "rank": int(match.group("rank")),
+            "rating": _number(match.group("rating")),
+            "races": _number(match.group("races")),
+            "wins": _number(match.group("wins")),
+            "money": _number(money_values[0]) if money_values else None,
+        })
+    return rows
 
 
 def _header_index(headers: list[str], names: tuple[str, ...]) -> int | None:
@@ -224,39 +344,37 @@ def _header_index(headers: list[str], names: tuple[str, ...]) -> int | None:
 
 
 def _fetch_sprintcar_tracks() -> list[dict[str, Any]]:
-    tables = _tables(SPRINTCAR_TRACKS_URL)
+    tables, text = _source_tables_and_text(SPRINTCAR_TRACKS_URL)
     chosen: tuple[list[str], list[list[str]]] | None = None
     for headers, rows in tables:
         joined = " ".join(headers).casefold()
         if "track" in joined and ("state" in joined or "location" in joined):
             chosen = (headers, rows)
             break
-    if not chosen:
-        raise RuntimeError("SprintCarRatings track table not found")
-
-    headers, rows = chosen
-    track_index = _header_index(headers, ("track",))
-    state_index = _header_index(headers, ("state", "location"))
-    if track_index is None:
-        track_index = 0
-    if state_index is None:
-        state_index = 1 if len(headers) > 1 else None
 
     tracks: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for row in rows:
-        if track_index >= len(row):
-            continue
-        name = _clean(row[track_index])
-        location = _clean(row[state_index]) if state_index is not None and state_index < len(row) else ""
-        if not name or name.casefold() == "track":
-            continue
-        token = slugify(f"{name}-{location}")
-        if token in seen:
-            continue
-        seen.add(token)
-        tracks.append(
-            {
+    if chosen:
+        headers, rows = chosen
+        track_index = _header_index(headers, ("track",))
+        state_index = _header_index(headers, ("state", "location"))
+        if track_index is None:
+            track_index = 0
+        if state_index is None:
+            state_index = 1 if len(headers) > 1 else None
+
+        seen: set[str] = set()
+        for row in rows:
+            if track_index >= len(row):
+                continue
+            name = _clean(row[track_index])
+            location = _clean(row[state_index]) if state_index is not None and state_index < len(row) else ""
+            if not name or name.casefold() == "track":
+                continue
+            token = slugify(f"{name}-{location}")
+            if token in seen:
+                continue
+            seen.add(token)
+            tracks.append({
                 "key": token,
                 "name": name,
                 "location": location or None,
@@ -264,66 +382,73 @@ def _fetch_sprintcar_tracks() -> list[dict[str, Any]]:
                 "source_key": "sprintcarratings",
                 "source_name": "SprintCarRatings track database",
                 "source_url": SPRINTCAR_TRACKS_URL,
-            }
-        )
+            })
+
+    if len(tracks) < 100:
+        text_tracks = _tracks_from_text(text)
+        if len(text_tracks) > len(tracks):
+            tracks = text_tracks
+    if len(tracks) < 100:
+        raise RuntimeError(f"SprintCarRatings track catalog parse too small ({len(tracks)})")
     return tracks
 
 
 def _fetch_sprintcar_drivers(source: dict[str, Any]) -> list[dict[str, Any]]:
     url = str(source["url"])
-    tables = _tables(url)
+    tables, text = _source_tables_and_text(url)
     chosen: tuple[list[str], list[list[str]]] | None = None
     for headers, rows in tables:
         joined = " ".join(headers).casefold()
         if "driver" in joined and "rating" in joined and len(rows) >= 3:
             chosen = (headers, rows)
             break
-    if not chosen:
-        raise RuntimeError(f"{source['name']} rating table not found")
-
-    headers, rows = chosen
-    name_index = _header_index(headers, ("driver",))
-    rating_index = _header_index(headers, ("rating",))
-    races_index = _header_index(headers, ("races", "race"))
-    wins_index = _header_index(headers, ("wins", "win"))
-    money_index = _header_index(headers, ("money", "2026 money"))
-    if name_index is None or rating_index is None:
-        raise RuntimeError(f"{source['name']} required columns missing")
 
     drivers: list[dict[str, Any]] = []
-    for fallback_position, row in enumerate(rows, start=1):
-        # SprintCarRatings tables render an unlabeled ranking column before Driver.
-        offset = 1 if len(row) > len(headers) and row and re.fullmatch(r"\d+", _clean(row[0])) else 0
+    if chosen:
+        headers, rows = chosen
+        name_index = _header_index(headers, ("driver",))
+        rating_index = _header_index(headers, ("rating",))
+        races_index = _header_index(headers, ("races", "race"))
+        wins_index = _header_index(headers, ("wins", "win"))
+        money_index = _header_index(headers, ("money", "2026 money"))
+        if name_index is not None and rating_index is not None:
+            for fallback_position, row in enumerate(rows, start=1):
+                offset = 1 if len(row) > len(headers) and row and re.fullmatch(r"\d+", _clean(row[0])) else 0
 
-        def cell(index: int | None) -> str:
-            actual = None if index is None else index + offset
-            return _clean(row[actual]) if actual is not None and actual < len(row) else ""
+                def cell(index: int | None) -> str:
+                    actual = None if index is None else index + offset
+                    return _clean(row[actual]) if actual is not None and actual < len(row) else ""
 
-        name = cell(name_index)
-        rating = _number(cell(rating_index))
-        if not name or rating is None:
-            continue
-        rank = fallback_position
-        if offset and row:
-            parsed_rank = _number(row[0])
-            if isinstance(parsed_rank, int) and parsed_rank > 0:
-                rank = parsed_rank
-        drivers.append(
-            {
-                "key": identity_key(name),
-                "name": name,
-                "grassroots": True,
-                "source_key": str(source["key"]),
-                "source_name": str(source["name"]),
-                "source_url": url,
-                "discipline": str(source["discipline"]),
-                "rank": rank,
-                "rating": rating,
-                "races": _number(cell(races_index)),
-                "wins": _number(cell(wins_index)),
-                "money": _number(cell(money_index)),
-            }
-        )
+                name = cell(name_index)
+                rating = _number(cell(rating_index))
+                if not name or rating is None:
+                    continue
+                rank = fallback_position
+                if offset and row:
+                    parsed_rank = _number(row[0])
+                    if isinstance(parsed_rank, int) and parsed_rank > 0:
+                        rank = parsed_rank
+                drivers.append({
+                    "key": identity_key(name),
+                    "name": name,
+                    "grassroots": True,
+                    "source_key": str(source["key"]),
+                    "source_name": str(source["name"]),
+                    "source_url": url,
+                    "discipline": str(source["discipline"]),
+                    "rank": rank,
+                    "rating": rating,
+                    "races": _number(cell(races_index)),
+                    "wins": _number(cell(wins_index)),
+                    "money": _number(cell(money_index)),
+                })
+
+    if len(drivers) < 10:
+        text_drivers = _drivers_from_text(text, source)
+        if len(text_drivers) > len(drivers):
+            drivers = text_drivers
+    if len(drivers) < 10:
+        raise RuntimeError(f"{source['name']} driver parse too small ({len(drivers)})")
     return drivers
 
 
