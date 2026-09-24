@@ -9,6 +9,30 @@ class ControlCenter2026Contract(unittest.TestCase):
     def read(self, relative):
         return (ROOT / relative).read_text(encoding="utf-8")
 
+    def test_media_kit_is_first_class_and_uses_native_partnership_intake(self):
+        network = self.read("api/racing_network.py")
+        race_center = self.read("api/standings_public.html")
+        standard = self.read("docs/MEDIA_KIT_OUTREACH_STANDARD.md")
+
+        for token in (
+            'href="#work-with-pitmark">Work With Pitmark</a>',
+            'href="/media-kit#work-with-pitmark"',
+            'action="/submit-partnership-inquiry"',
+            '@router.post("/submit-partnership-inquiry"',
+            '"X-Pitmark-Purpose": "partnership-inquiry"',
+            "PITMARK PARTNERSHIP / COLLABORATION INQUIRY",
+        ):
+            self.assertIn(token, network)
+
+        self.assertNotIn(
+            '1FAIpQLSdblkMOvPFtz0y2_3WK9X2C3330zXqzqTaqFC5cHx81e1E0MA/viewform',
+            network,
+        )
+        self.assertIn("https://links.pitmarkracing.com/media-kit", race_center)
+        self.assertIn("Canonical media kit", standard)
+        self.assertIn("standard outreach asset", standard.lower())
+        self.assertIn("Native **Work With Pitmark** intake", standard)
+
     def test_prt_ops_api_exists_and_exposes_required_routes(self):
         text = self.read("api/control_center_2026.py")
         for route in (
