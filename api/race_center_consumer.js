@@ -71,12 +71,34 @@
     return new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(date);
   }
 
-  function consumerCard(kicker,title,body,url,extra=''){
-    return '<a class="consumer-card" href="'+esc(url||'#')+'">'+
-      '<span class="consumer-kicker">'+esc(kicker)+'</span>'+
+  function consumerMedia(url,title){
+    const src=String(url||'').trim();
+    if(!src)return '<span class="consumer-media consumer-media-fallback" aria-hidden="true"><b>RACE</b><i>CENTER</i></span>';
+    return '<span class="consumer-media"><img src="'+esc(src)+'" alt="" loading="lazy" decoding="async"><span class="consumer-media-shade"></span></span>';
+  }
+
+  function consumerCard(kicker,title,body,url,mediaUrl='',extra=''){
+    return '<a class="consumer-card '+(mediaUrl?'has-media':'')+'" href="'+esc(url||'#')+'">'+
+      consumerMedia(mediaUrl,title)+
+      '<span class="consumer-card-copy"><span class="consumer-kicker">'+esc(kicker)+'</span>'+
       '<strong>'+esc(title||'Racing')+'</strong>'+
       '<p>'+esc(body||'')+'</p>'+extra+
-      '<b>Open →</b></a>';
+      '<b>Open →</b></span></a>';
+  }
+
+  function seriesMedia(seriesByKey,key){
+    const item=seriesByKey.get(String(key||''));
+    return String(item?.logo_url||'').trim();
+  }
+
+  function trackMedia(track,seriesByKey){
+    const rows=Array.isArray(track?.series)?track.series:[];
+    for(const raw of rows){
+      const key=typeof raw==='string'?raw:(raw?.series_key||raw?.key);
+      const media=seriesMedia(seriesByKey,key);
+      if(media)return media;
+    }
+    return '';
   }
 
   function emptyState(title,body,actionHref='',action=''){
@@ -208,14 +230,24 @@
         graph(),
         getJson('/api/public/race-center/race-day?v=consumer-launch').catch(()=>({live:[],upcoming:[],movement:[]}))
       ]);
+      const seriesByKey=new Map((data.series||[]).map(item=>[String(item.series_key||item.key||''),item]));
 
       const live=(raceDay.live||[]).slice(0,3);
-      const upcoming=(raceDay.upcoming||[]).slice(0,5);
+      const upcoming=(raceDay.upcoming||[]).slice(0,6);
       const todayRows=[
-        ...live.map(item=>consumerCard('LIVE NOW',item.name,[item.series_name,item.venue].filter(Boolean).join(' · '),'/race-center/event/'+encodeURIComponent(item.key),'<span class="consumer-live-dot">LIVE</span>')),
-        ...upcoming.slice(0,Math.max(0,6-live.length)).map(item=>consumerCard('UP NEXT',item.name,[eventWhen(item.start),item.series_name,item.venue].filter(Boolean).join(' · '),'/race-center/event/'+encodeURIComponent(item.key)))
+        ...live.map(item=>consumerCard(
+          'LIVE NOW',item.name,[item.series_name,item.venue].filter(Boolean).join(' · '),
+          '/race-center/event/'+encodeURIComponent(item.key),
+          seriesMedia(seriesByKey,item.series_key),
+          '<span class="consumer-live-dot">LIVE</span>'
+        )),
+        ...upcoming.slice(0,Math.max(0,6-live.length)).map(item=>consumerCard(
+          'UP NEXT',item.name,[eventWhen(item.start),item.series_name,item.venue].filter(Boolean).join(' · '),
+          '/race-center/event/'+encodeURIComponent(item.key),
+          seriesMedia(seriesByKey,item.series_key)
+        ))
       ];
-      today.innerHTML=todayRows.length?todayRows.join(''):emptyState('Quiet right now','No tracked race is currently live. Open Live + Next to see what is coming up.','/race-center/live','See upcoming races');
+      today.innerHTML=todayRows.length?todayRows.join(''):emptyState('Quiet right now','No tracked race is currently live. Open Live + Next to see the full upcoming slate.','/race-center/live','See upcoming races');
 
       const legacy=legacyPrefs();
       const favoriteSet=new Set(legacy.favorites||[]);
@@ -226,21 +258,45 @@
         return [...driverSet].some(key=>String(key).toLowerCase().endsWith(':'+name));
       }).slice(0,4);
       const followRows=[
-        ...series.map(item=>consumerCard('MY SERIES',item.name||item.series_name,'Championship, schedule and drivers','/race-center/series/'+encodeURIComponent(item.series_key||item.key))),
-        ...drivers.map(item=>consumerCard('MY DRIVER',(item.number?'#'+item.number+' · ':'')+item.name,[item.team,(item.series||[])[0]?.series_name].filter(Boolean).join(' · '),href('driver',item)))
+        ...series.map(item=>consumerCard(
+          'MY SERIES',item.name||item.series_name,'Championship, schedule and drivers',
+          '/race-center/series/'+encodeURIComponent(item.series_key||item.key),
+          item.logo_url
+        )),
+        ...drivers.map(item=>consumerCard(
+          'MY DRIVER',(item.number?'#'+item.number+' · ':'')+item.name,
+          [item.team,(item.series||[])[0]?.series_name].filter(Boolean).join(' · '),
+          href('driver',item),
+          item.photo_url
+        ))
       ];
       following.innerHTML=followRows.length?followRows.join(''):emptyState('Make Race Center yours','Follow a few drivers, series or tracks and this becomes your personal racing front page.','#','Customize My Racing');
 
       const region=selectedRegion();
       const grassrootsTracks=(data.tracks||[]).filter(item=>item.grassroots||((item.provenance?.source_names||[]).join(' ').toLowerCase().includes('grassroots')));
-      const localMatches=region?grassrootsTracks.filter(item=>regionMatches(item,region)):grassrootsTracks.slice(0,6);
-      local.innerHTML=(localMatches.slice(0,6).map(item=>consumerCard(region?'NEAR YOUR REGION':'GRASSROOTS',item.name,item.location||'Grassroots racing venue','/race-center/track/'+encodeURIComponent(item.key))).join(''))||
-        emptyState(region?'No regional match yet':'Set your racing region',region?'We are still expanding local track coverage for '+readPrefs().region+'.':'Tell Race Center your state, province or region and local tracks will surface here.','#','Set region');
+      const regional=region?grassrootsTracks.filter(item=>regionMatches(item,region)):[];
+      const localRows=(region&&regional.length?regional:grassrootsTracks).slice(0,5);
+      const localKicker=region&&regional.length?'NEAR YOUR REGION':'GRASSROOTS DISCOVERY';
+      const localCards=localRows.map(item=>consumerCard(
+        localKicker,item.name,item.location||'Grassroots racing venue',
+        '/race-center/track/'+encodeURIComponent(item.key),
+        trackMedia(item,seriesByKey)
+      ));
+      localCards.push(consumerCard(
+        'SERIES DIRECTORS','Not in Race Center yet?','Send us your official roster, schedule, standings, results and media.',
+        '/race-center/submit-series',''
+      ));
+      local.innerHTML=localCards.length?localCards.join(''):emptyState('Help us map grassroots racing','Series and promoters can submit their official sources directly to Race Center.','/race-center/submit-series','Submit your series');
 
       const resultEvents=(data.events||[]).filter(item=>Array.isArray(item.results)&&item.results.length).sort((a,b)=>new Date(b.start||0)-new Date(a.start||0)).slice(0,6);
       results.innerHTML=resultEvents.length?resultEvents.map(item=>{
         const winner=(item.results||[]).find(row=>String(row.position||'')==='1')||(item.results||[])[0]||{};
-        return consumerCard('RESULT',item.name,[winner.name||winner.driver?('Winner: '+(winner.name||winner.driver)):'',item.series_name,item.venue].filter(Boolean).join(' · '),'/race-center/event/'+encodeURIComponent(item.key));
+        return consumerCard(
+          'RESULT',item.name,
+          [winner.name||winner.driver?('Winner: '+(winner.name||winner.driver)):'',item.series_name,item.venue].filter(Boolean).join(' · '),
+          '/race-center/event/'+encodeURIComponent(item.key),
+          seriesMedia(seriesByKey,item.series_key)
+        );
       }).join(''):emptyState('Results are filling in','Verified connected results will appear here as Race Center receives them.','/race-center/events','Browse events');
 
       const regionLabel=$('#consumerRegionLabel');
@@ -331,10 +387,53 @@
   }
 
   function enhanceTrustCopy(){
-    $$('.loading-card').forEach(card=>{
+    $('.loading-card').forEach(card=>{
       if(card.dataset.consumerEnhanced)return;
       card.dataset.consumerEnhanced='1';
       card.setAttribute('aria-live','polite');
+    });
+  }
+
+  function wireSeriesSubmission(){
+    if(view!=='submitseries')return;
+    document.body.classList.add('series-submit-view');
+    document.title='Submit Your Series — Pitmark Race Center';
+    $('main > section').forEach(section=>{section.hidden=!section.classList.contains('series-submit-page');});
+    const form=$('#seriesSubmissionForm');
+    const message=$('#seriesSubmissionMessage');
+    if(!form)return;
+    form.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const button=form.querySelector('button[type="submit"]');
+      if(button){button.disabled=true;button.textContent='Submitting…';}
+      if(message){message.className='series-submit-message';message.textContent='Sending your series to Pitmark…';}
+      const raw=Object.fromEntries(new FormData(form).entries());
+      const payload={
+        ...raw,
+        classes:String(raw.classes||'').split(',').map(value=>value.trim()).filter(Boolean)
+      };
+      try{
+        const response=await fetch('/api/public/race-center/series-submissions',{
+          method:'POST',
+          credentials:'same-origin',
+          headers:{'Content-Type':'application/json',Accept:'application/json'},
+          body:JSON.stringify(payload)
+        });
+        const data=await response.json().catch(()=>({}));
+        if(!response.ok)throw new Error(data.detail||'Unable to submit this series.');
+        form.reset();
+        if(message){
+          message.className='series-submit-message success';
+          message.innerHTML='<strong>Got it.</strong> Submission #'+esc(data.id)+' is in the Pitmark review queue. We’ll verify the sources before anything is published.';
+        }
+      }catch(error){
+        if(message){
+          message.className='series-submit-message error';
+          message.textContent=error?.message||'Unable to submit this series right now.';
+        }
+      }finally{
+        if(button){button.disabled=false;button.textContent='Submit Series to Race Center';}
+      }
     });
   }
 
@@ -346,6 +445,7 @@
       if(customize){event.preventDefault();openOnboarding(true);}
     });
     renderConsumerHome();
+    wireSeriesSubmission();
     wireSearchUX();
     wireMobileDock();
     wireAlertDeepLink();
