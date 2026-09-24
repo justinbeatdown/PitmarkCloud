@@ -1218,6 +1218,20 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('preview = _plain_line(str(text or ""))[:1400]', grassroots)
         self.assertIn('; preview={preview}', grassroots)
 
+    def test_race_center_expands_grassroots_standings_sources(self):
+        standings = self.read("services/racing_standings.py")
+        events = self.read("services/racing_events.py")
+        grassroots = self.read("services/grassroots_racing.py")
+        for token in (
+            '"key": "nascar-local"',
+            '"key": "ascs-national"',
+            '"official_url": "https://ascsracing.com/series-points/"',
+        ):
+            self.assertIn(token, standings)
+        self.assertIn('"ascs-national": {"name":"American Sprint Car Series National Tour"', events)
+        for token in ('"key": "ascs"', '"key": "imca"', '"key": "the-third-turn"'):
+            self.assertIn(token, grassroots)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
