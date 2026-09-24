@@ -74,6 +74,8 @@ _MEDIA_KIT_PAGE = """<!doctype html>
     <article class="media-card"><div class="eyebrow">RACING TECHNOLOGY</div><h2>PRT</h2><p>Pitmark Racing Tools is our independent iRacing companion platform. Early Access development spans race-night overlays, telemetry, driver analysis, league tools and broadcast workflows.</p></article>
     <article class="media-card"><div class="eyebrow">GRASSROOTS RELATIONSHIPS</div><h2>Drivers + Teams</h2><p>We actively look for rookie seasons, new-class moves, family teams, comeback stories and smaller programs worth following before everybody already knows their name.</p></article>
     <article class="media-card"><div class="eyebrow">RACING CULTURE</div><h2>Brand + Store</h2><p>Pitmark apparel and products are built around racing identity, local-track culture and the people who keep showing up. “Leave your mark.” is the core idea behind the brand.</p></article>
+    <article class="media-card"><div class="eyebrow">RACING DISCOVERY</div><h2>Race Center</h2><p>Race Center is Pitmark's racing information hub for schedules, live and upcoming races, standings, drivers, tracks, series and grassroots discovery — built to reduce the need to hunt across disconnected racing sites.</p></article>
+    <article class="media-card"><div class="eyebrow">PARTNERSHIPS</div><h2>Build With Pitmark</h2><p>We work with tracks, series, leagues, broadcasters, creators, teams, brands and racing technology companies when there is a useful reason to build something together.</p></article>
   </section>
 
   <section class="panel media-panel">
