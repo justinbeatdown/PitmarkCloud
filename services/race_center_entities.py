@@ -1085,7 +1085,7 @@ def race_day_brief(follows: list[dict[str, Any]]) -> dict[str, Any]:
             return 40, "FOLLOWED TRACK"
         if str(item.get("series_key") or "") in followed_series:
             return 30, "FOLLOWED SERIES"
-        return 10, "YOUR RACING"
+        return 10, "UP NEXT"
 
     candidates = [*(brief.get("live") or []), *(brief.get("upcoming") or [])]
     rows: list[dict[str, Any]] = []
@@ -1100,6 +1100,30 @@ def race_day_brief(follows: list[dict[str, Any]]) -> dict[str, Any]:
         enriched["race_day_score"] = score + (100 if item.get("state") == "live" else 0)
         rows.append(enriched)
 
+    # If the personalized race-day window is empty, Race Center should still
+    # be useful. Fall back to the nearest future races across the full graph
+    # instead of showing a dead "Quiet right now" panel.
+    if not rows:
+        graph = build_entity_graph()
+        fallback: list[dict[str, Any]] = []
+        for item in graph.get("events") or []:
+            state = str(item.get("state") or "").lower()
+            if state not in {"live", "next", "schedule"}:
+                continue
+            when = start_dt(item)
+            if state != "live" and (not when or when < now - timedelta(hours=2)):
+                continue
+            score, reason = relevance(item)
+            enriched = dict(item)
+            enriched["race_day_reason"] = reason
+            enriched["race_day_score"] = score + (100 if state == "live" else 0)
+            fallback.append(enriched)
+        fallback.sort(key=lambda item: (
+            0 if str(item.get("state") or "").lower() == "live" else 1,
+            str(item.get("start") or ""),
+        ))
+        rows = fallback[:12]
+
     rows.sort(key=lambda item: (-int(item.get("race_day_score") or 0), str(item.get("start") or "")))
     return {
         "generated_at": brief.get("generated_at"),
@@ -1108,6 +1132,7 @@ def race_day_brief(follows: list[dict[str, Any]]) -> dict[str, Any]:
         "movement": brief.get("movement") or [],
         "counts": brief.get("counts") or {},
         "window_hours": 30,
+        "fallback_to_global": not bool(candidates),
     }
 
 
