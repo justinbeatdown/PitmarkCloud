@@ -254,6 +254,19 @@ def _plain_line(value: str) -> str:
 
 _STATE_TOKEN = re.compile(r"^(?:[A-Z]{2,3})(?:,[A-Z]{2,3})?$")
 
+_TRACK_LOCATION_CODES = (
+    "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA",
+    "ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK",
+    "OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY",
+    "ALB,CAN","BC,CAN","MB,CAN","NB,CAN","NL,CAN","NS,CAN","NT,CAN","ONT,CAN","PEI,CAN",
+    "QUE,CAN","SK,CAN","YT,CAN","ACT,AUS","NSW,AUS","NT,AUS","QLD,AUS","SA,AUS","TAS,AUS",
+    "VIC,AUS","WA,AUS","NZ","MEX"
+)
+_TRACK_LOCATION_PATTERN = "|".join(
+    re.escape(value) for value in sorted(_TRACK_LOCATION_CODES, key=len, reverse=True)
+)
+
+
 
 def _tracks_from_text(text: str) -> list[dict[str, Any]]:
     lines = [_plain_line(line) for line in str(text or "").splitlines()]
@@ -264,6 +277,7 @@ def _tracks_from_text(text: str) -> list[dict[str, Any]]:
     )
     if start < 0:
         start = next((index for index, line in enumerate(lines) if line.casefold() == "track list"), -1)
+
     rows: list[dict[str, Any]] = []
     seen: set[str] = set()
     for line in lines[start + 1 if start >= 0 else 0:]:
@@ -274,9 +288,7 @@ def _tracks_from_text(text: str) -> list[dict[str, Any]]:
             continue
         name = _clean(match.group("name"))
         location = _clean(match.group("state"))
-        if not name or name.casefold() in {"track", "state"}:
-            continue
-        if name.isdigit() and len(name) > 4:
+        if not name or name.casefold() == "track":
             continue
         token = slugify(f"{name}-{location}")
         if token in seen:
@@ -291,6 +303,51 @@ def _tracks_from_text(text: str) -> list[dict[str, Any]]:
             "source_name": "SprintCarRatings track database",
             "source_url": SPRINTCAR_TRACKS_URL,
         })
+
+    # Old ASP.NET tables sometimes render as a stream of cells instead of one
+    # markdown row per track. Flatten that stream and use known location codes
+    # as reliable row boundaries.
+    if len(rows) < 100:
+        flat = " ".join(lines)
+        marker = re.search(r"\bTrack\s+State\b", flat, flags=re.IGNORECASE)
+        if marker:
+            flat = flat[marker.end():]
+        flat_rows: list[dict[str, Any]] = []
+        flat_seen: set[str] = set()
+        pattern = re.compile(
+            rf"(?P<name>[A-Za-z0-9][A-Za-z0-9 .&'’/()\-]{{0,78}}?)\s+"
+            rf"(?P<state>{_TRACK_LOCATION_PATTERN})(?=\s+[A-Za-z0-9]|$)"
+        )
+        for match in pattern.finditer(flat):
+            name = _clean(match.group("name")).strip(" -")
+            location = _clean(match.group("state"))
+            name = re.sub(
+                rf"^.*\b(?:{_TRACK_LOCATION_PATTERN})\s+",
+                "",
+                name,
+            ).strip()
+            low = name.casefold()
+            if (
+                not name
+                or len(name) > 80
+                or any(token in low for token in ("track list", "order by", "count:", "compiled by", "select"))
+            ):
+                continue
+            token = slugify(f"{name}-{location}")
+            if token in flat_seen:
+                continue
+            flat_seen.add(token)
+            flat_rows.append({
+                "key": token,
+                "name": name,
+                "location": location,
+                "grassroots": True,
+                "source_key": "sprintcarratings",
+                "source_name": "SprintCarRatings track database",
+                "source_url": SPRINTCAR_TRACKS_URL,
+            })
+        if len(flat_rows) > len(rows):
+            rows = flat_rows
     return rows
 
 
@@ -302,7 +359,9 @@ def _drivers_from_text(text: str, source: dict[str, Any]) -> list[dict[str, Any]
         if not line:
             continue
         match = re.match(
-            r"^(?P<rank>\d{1,5})\s+(?P<name>.+?)\s+(?P<rating>(?:0?\.\d+|1(?:\.0+)?))\s+(?P<races>\d{1,5})\s+(?P<wins>\d{1,5})(?:\s+(?P<tail>.*))?$",
+            r"^(?P<rank>\d{1,5})\s+(?P<name>.+?)\s+"
+            r"(?P<rating>(?:0?\.\d+|1(?:\.0+)?))\s+"
+            r"(?P<races>\d{1,5})\s+(?P<wins>\d{1,5})(?:\s+(?P<tail>.*))?$",
             line,
         )
         if not match:
@@ -328,6 +387,45 @@ def _drivers_from_text(text: str, source: dict[str, Any]) -> list[dict[str, Any]
             "wins": _number(match.group("wins")),
             "money": _number(money_values[0]) if money_values else None,
         })
+
+    # Reader output from legacy ASP.NET can put every cell on its own line.
+    # A flattened rating row is still highly structured: rank, driver, decimal
+    # rating, race count, win count.
+    if len(rows) < 10:
+        flat = " ".join(_plain_line(line) for line in str(text or "").splitlines())
+        marker = re.search(r"\bDriver\s+Rating\b", flat, flags=re.IGNORECASE)
+        if marker:
+            flat = flat[marker.end():]
+        flat_rows: list[dict[str, Any]] = []
+        flat_seen: set[str] = set()
+        pattern = re.compile(
+            r"(?<!\d)(?P<rank>\d{1,5})\s+"
+            r"(?P<name>[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ0-9.'’\- ]{1,60}?)\s+"
+            r"(?P<rating>(?:0?\.\d{3,6}|1(?:\.0+)?))\s+"
+            r"(?P<races>\d{1,5})\s+(?P<wins>\d{1,5})(?=\s|$)"
+        )
+        for match in pattern.finditer(flat):
+            name = _clean(match.group("name"))
+            key = identity_key(name)
+            if not key or key in flat_seen:
+                continue
+            flat_seen.add(key)
+            flat_rows.append({
+                "key": key,
+                "name": name,
+                "grassroots": True,
+                "source_key": str(source["key"]),
+                "source_name": str(source["name"]),
+                "source_url": str(source["url"]),
+                "discipline": str(source["discipline"]),
+                "rank": int(match.group("rank")),
+                "rating": _number(match.group("rating")),
+                "races": _number(match.group("races")),
+                "wins": _number(match.group("wins")),
+                "money": None,
+            })
+        if len(flat_rows) > len(rows):
+            rows = flat_rows
     return rows
 
 
