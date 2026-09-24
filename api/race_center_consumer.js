@@ -9,6 +9,7 @@
   const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const view=String(document.body.dataset.view||'hub');
   let graphCache=null;
+  let graphPromise=null;
 
   function readPrefs(){
     try{
@@ -51,8 +52,22 @@
 
   function graph(){
     if(graphCache)return Promise.resolve(graphCache);
-    return getJson('/api/public/race-center/graph?v=consumer-launch')
-      .then(data=>{graphCache=data;return data;});
+    if(graphPromise)return graphPromise;
+    graphPromise=getJson('/api/public/race-center/graph?v=consumer-launch')
+      .then(data=>{graphCache=data;return data;})
+      .finally(()=>{graphPromise=null;});
+    return graphPromise;
+  }
+
+  function raceDay(){
+    if(window.__pitmarkRaceDayPromise)return window.__pitmarkRaceDayPromise;
+    const promise=getJson('/api/public/race-center/race-day?v=home-shared');
+    window.__pitmarkRaceDayPromise=promise;
+    const clear=()=>setTimeout(()=>{
+      if(window.__pitmarkRaceDayPromise===promise)delete window.__pitmarkRaceDayPromise;
+    },1500);
+    promise.then(clear,clear);
+    return promise;
   }
 
   function href(type,item){
@@ -228,7 +243,7 @@
     try{
       const [data,raceDay]=await Promise.all([
         graph(),
-        getJson('/api/public/race-center/race-day?v=consumer-launch').catch(()=>({live:[],upcoming:[],movement:[]}))
+        raceDay().catch(()=>({live:[],upcoming:[],movement:[]}))
       ]);
       const seriesByKey=new Map((data.series||[]).map(item=>[String(item.series_key||item.key||''),item]));
 
