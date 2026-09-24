@@ -1,5 +1,7 @@
 const routePath=(location.pathname.replace(/\/+$/,'')||'/').toLowerCase();
-const pageView=routePath==='/standings'||routePath.endsWith('/standings')
+const pageView=routePath.endsWith('/community')
+  ?'community'
+  :routePath==='/standings'||routePath.endsWith('/standings')
   ?'standings'
   :routePath.endsWith('/submit-series')
     ?'submitseries'
