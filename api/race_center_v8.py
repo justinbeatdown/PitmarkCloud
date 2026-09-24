@@ -390,3 +390,13 @@ def race_center_owner_hub_js():
         media_type="application/javascript",
         headers={"Cache-Control": "no-store, max-age=0"},
     )
+
+
+
+@router.get("/race-center-owner-hub.css", include_in_schema=False)
+def race_center_owner_hub_css():
+    return Response(
+        (_HERE / "race_center_owner_hub.css").read_text(encoding="utf-8"),
+        media_type="text/css",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
