@@ -1455,7 +1455,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('"scope": "/race-center/"', manifest)
         self.assertIn('"src": "/race-center-icon-192.png"', manifest)
         self.assertIn('"src": "/race-center-icon-512.png"', manifest)
-        self.assertIn("pitmark-race-center-v7-shell-3", service_worker)
+        self.assertIn("pitmark-race-center-v7-shell-4", service_worker)
         self.assertIn("/race-center/my-racing", service_worker)
         self.assertIn("/race-center/teams", service_worker)
         self.assertIn("/race-center-icon-192.png", service_worker)
