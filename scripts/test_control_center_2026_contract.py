@@ -1662,6 +1662,12 @@ class ControlCenter2026Contract(unittest.TestCase):
             'live_cached_at = _cache.get("at")',
             'return copy.deepcopy(live_cached)',
             '_snapshot_cache["value"] = copy.deepcopy(value)',
+            "snapshots_by_series:",
+            "identity_by_series:",
+            "snapshot_rows = list(db.scalars(",
+            "identity_rows = list(db.scalars(",
+            "cached_rows=identity_by_series.get",
+            "Bulk saved standings read failed",
         ):
             self.assertIn(token, standings)
 
