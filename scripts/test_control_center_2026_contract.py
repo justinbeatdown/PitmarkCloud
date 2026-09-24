@@ -1457,6 +1457,21 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertGreaterEqual(html.count('data-cfasync="false"'), 5)
         self.assertIn("data-cfasync=\"false\"", public_api)
 
+    def test_race_center_custom_domain_loads_runtime_from_render_origin(self):
+        html = self.read("api/standings_public.html")
+        public_api = self.read("api/standings_public.py")
+        origin = "https://pitmarkcloud.onrender.com"
+        for asset in (
+            "/standings.js",
+            "/race-center-v5.js",
+            "/race-center-v6.js",
+            "/race-center-v7.js",
+            "/race-center-consumer.js",
+        ):
+            self.assertIn(f'src="{origin}{asset}?v={{PITMARK_VERSION}}-direct-render-runtime-20260924"', html)
+        self.assertIn('render_origin = "https://pitmarkcloud.onrender.com"', public_api)
+        self.assertIn('direct-render-runtime-20260924', public_api)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
