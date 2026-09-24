@@ -917,7 +917,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('@router.get("/race-center-v6.js"', public_api)
 
         for token in (
-            "DRIVER_IDENTITY_RESOLVER_VERSION = 3",
+            "DRIVER_IDENTITY_RESOLVER_VERSION = 4",
             "class RaceCenterDriverIdentityCache(Base):",
             "def _driver_identity_cache_get(",
             "def _driver_identity_cache_set(",
