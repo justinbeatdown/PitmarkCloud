@@ -1203,6 +1203,16 @@ class ControlCenter2026Contract(unittest.TestCase):
             self.assertIn(token, grassroots)
         self.assertIn("Race Center grassroots source failed:", main)
 
+    def test_sprintcar_legacy_markup_is_normalized_before_parsing(self):
+        grassroots = self.read("services/grassroots_racing.py")
+        for token in (
+            "html_lib.unescape",
+            'text.replace("|", " ")',
+            're.sub(r"[#*_~\\`]+"',
+            '(?P<rank>\\d{1,5})[.):]?',
+        ):
+            self.assertIn(token, grassroots)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
