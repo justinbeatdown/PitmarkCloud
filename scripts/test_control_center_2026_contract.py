@@ -1119,6 +1119,16 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, events)
 
+    def test_race_center_track_inference_rejects_event_copy(self):
+        events = self.read("services/racing_events.py")
+        for token in (
+            "def _venue_candidate(",
+            "looks_like_venue = (",
+            '" at ", " vs ", " showdown", " nationals", " classic"',
+            "Prefer nearby standalone lines over the line containing the date/event.",
+        ):
+            self.assertIn(token, events)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
