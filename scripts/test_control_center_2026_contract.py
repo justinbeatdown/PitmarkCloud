@@ -1213,6 +1213,11 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, grassroots)
 
+    def test_sprintcar_parser_failures_include_sanitized_preview(self):
+        grassroots = self.read("services/grassroots_racing.py")
+        self.assertIn('preview = _plain_line(str(text or ""))[:1400]', grassroots)
+        self.assertIn('; preview={preview}', grassroots)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
