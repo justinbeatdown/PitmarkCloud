@@ -5,6 +5,7 @@ import os
 import threading
 import time
 from urllib.parse import urljoin, urlparse
+from concurrent.futures import ThreadPoolExecutor
 from xml.etree import ElementTree as ET
 
 import httpx
@@ -131,6 +132,24 @@ def _story_from_entry(entry: ET.Element, ns: dict[str, str], source_url: str) ->
     }
 
 
+def _page_featured_image(url: str, headers: dict[str, str]) -> str:
+    if not url:
+        return ""
+    try:
+        with httpx.Client(timeout=4.0, follow_redirects=True, headers=headers) as client:
+            response = client.get(url)
+            response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        for attrs in ({"property": "og:image:secure_url"}, {"property": "og:image"}, {"name": "twitter:image"}, {"name": "twitter:image:src"}):
+            node = soup.find("meta", attrs=attrs)
+            value = str(node.get("content") or "").strip() if node else ""
+            if value:
+                return urljoin(url, value)
+    except Exception as exc:
+        log.debug("Race Center article image lookup failed for %s: %s", url, exc)
+    return ""
+
+
 def _fetch_stories() -> list[dict]:
     feed_url = (os.getenv("PITMARK_RACING_CULTURE_FEED_URL") or DEFAULT_FEED_URL).strip()
     source_url = (os.getenv("PITMARK_RACING_CULTURE_URL") or DEFAULT_SOURCE_URL).strip()
@@ -144,11 +163,22 @@ def _fetch_stories() -> list[dict]:
     root = ET.fromstring(response.content)
     ns = {"a": "http://www.w3.org/2005/Atom"}
     entries = root.findall("a:entry", ns)
-    return [
+    stories = [
         _story_from_entry(entry, ns, source_url)
         for entry in entries
         if _entry_text(entry, ns, "title")
     ]
+
+    missing = [story for story in stories if not story.get("image_url") and story.get("url")]
+    if missing:
+        workers = min(6, len(missing))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            images = list(pool.map(lambda story: _page_featured_image(str(story["url"]), headers), missing))
+        for story, image_url in zip(missing, images):
+            if image_url:
+                story["image_url"] = image_url
+
+    return stories
 
 
 def get_racing_culture_feed(*, limit: int = 12, force: bool = False) -> dict:
