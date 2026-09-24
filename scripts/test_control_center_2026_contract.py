@@ -1298,7 +1298,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             'class="mobile-dock consumer-mobile-dock"',
             'data-consumer-action="search"',
             'data-consumer-action="profile"',
-            '/race-center-consumer.js?v={{PITMARK_VERSION}}-static-head-runtime-20260924',
+            'https://pitmarkcloud.onrender.com/race-center-consumer.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924',
         ):
             self.assertIn(token, html)
 
@@ -1410,14 +1410,15 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Array.from(document.querySelectorAll('.loading-card')).forEach(card=>{", consumer)
         self.assertIn("Array.from(document.querySelectorAll('main > section')).forEach(", consumer)
 
-        for token in (
-            "standings.js?v={{PITMARK_VERSION}}-static-head-runtime-20260924",
-            "race-center-v7.js?v={{PITMARK_VERSION}}-static-head-runtime-20260924",
-            "race-center-consumer.js?v={{PITMARK_VERSION}}-static-head-runtime-20260924",
+        for asset in (
+            "https://pitmarkcloud.onrender.com/standings.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924",
+            "https://pitmarkcloud.onrender.com/race-center-v7.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924",
+            "https://pitmarkcloud.onrender.com/race-center-consumer.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924",
         ):
-            self.assertIn(token, html)
+            self.assertIn(asset, html)
 
         self.assertIn("const CACHE='pitmark-race-center-v7-shell-4';", sw)
+
 
     def test_race_center_template_loads_runtime_before_body(self):
         html = self.read("api/standings_public.html")
@@ -1425,37 +1426,50 @@ class ControlCenter2026Contract(unittest.TestCase):
         body_start = html.index("<body")
         self.assertLess(head_end, body_start)
         for asset in (
-            "/standings.js?v={{PITMARK_VERSION}}-static-head-runtime-20260924",
-            "/race-center-v5.js?v={{PITMARK_VERSION}}-static-head-runtime-20260924",
-            "/race-center-v6.js?v={{PITMARK_VERSION}}-static-head-runtime-20260924",
-            "/race-center-v7.js?v={{PITMARK_VERSION}}-static-head-runtime-20260924",
-            "/race-center-consumer.js?v={{PITMARK_VERSION}}-static-head-runtime-20260924",
+            "https://pitmarkcloud.onrender.com/standings.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924",
+            "https://pitmarkcloud.onrender.com/race-center-v5.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924",
+            "https://pitmarkcloud.onrender.com/race-center-v6.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924",
+            "https://pitmarkcloud.onrender.com/race-center-v7.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924",
+            "https://pitmarkcloud.onrender.com/race-center-consumer.js?v={{PITMARK_VERSION}}-direct-render-runtime-20260924",
         ):
             pos = html.index(asset)
             self.assertGreater(pos, 0)
             self.assertLess(pos, head_end)
-        self.assertNotIn("custom-domain-boot-20260924", html)
 
-    def test_race_center_custom_root_injects_runtime_in_head(self):
+
+    def test_race_center_custom_root_does_not_duplicate_runtime_tags(self):
+        html = self.read("api/standings_public.html")
         public_api = self.read("api/standings_public.py")
-        for token in (
-            'host == "racecenter.pitmarkracing.com" and path in {"", "/"}',
-            '"/standings.js"',
-            '"/race-center-v5.js"',
-            '"/race-center-v6.js"',
-            '"/race-center-v7.js"',
-            '"/race-center-consumer.js"',
-            'custom-root-head-20260924',
-            'html.replace("</head>", runtime_head + "\\n" + bootstrap + "\\n</head>", 1)',
-            '"Cache-Control": "no-cache, no-store, must-revalidate"',
+        for asset in (
+            "standings.js",
+            "race-center-v5.js",
+            "race-center-v6.js",
+            "race-center-v7.js",
+            "race-center-consumer.js",
         ):
-            self.assertIn(token, public_api)
+            self.assertEqual(html.count(asset), 1)
+        self.assertNotIn("runtime_head =", public_api)
+        self.assertNotIn("custom-root-head-20260924", public_api)
+
 
     def test_race_center_runtime_opts_out_of_edge_script_rewriting(self):
         html = self.read("api/standings_public.html")
-        public_api = self.read("api/standings_public.py")
         self.assertGreaterEqual(html.count('data-cfasync="false"'), 5)
-        self.assertIn("data-cfasync=\"false\"", public_api)
+
+
+    def test_race_center_custom_domain_loads_runtime_from_render_origin(self):
+        html = self.read("api/standings_public.html")
+        origin = "https://pitmarkcloud.onrender.com"
+        for asset in (
+            "/standings.js",
+            "/race-center-v5.js",
+            "/race-center-v6.js",
+            "/race-center-v7.js",
+            "/race-center-consumer.js",
+        ):
+            expected = 'src="' + origin + asset + '?v={{PITMARK_VERSION}}-direct-render-runtime-20260924"'
+            self.assertIn(expected, html)
+
 
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")

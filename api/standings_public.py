@@ -892,43 +892,6 @@ def public_standings_home(request: Request):
     html = html.replace("{{PITMARK_VERSION}}", settings.app_version)
     html = html.replace("{{RACE_CENTER_VIEW}}", view)
 
-    # The clean Race Center custom-domain root is served at "/" instead of
-    # "/race-center". Keep its runtime in <head> so the application cannot
-    # lose its JavaScript boot if late body parsing, browser optimization, or
-    # restored-tab behavior skips end-of-body deferred assets.
-    host = (request.url.hostname or "").lower().rstrip(".")
-    if host == "racecenter.pitmarkracing.com" and path in {"", "/"}:
-        runtime_paths = (
-            "/standings.js",
-            "/race-center-v5.js",
-            "/race-center-v6.js",
-            "/race-center-v7.js",
-            "/race-center-consumer.js",
-        )
-        # Remove the ordinary body runtime tags before adding the head copy so
-        # every runtime executes exactly once.
-        for runtime_path in runtime_paths:
-            marker = f'<script src="{runtime_path}?v='
-            while marker in html:
-                start = html.find(marker)
-                end = html.find("</script>", start)
-                if end < 0:
-                    break
-                html = html[:start] + html[end + len("</script>"):]
-
-        version = f"{settings.app_version}-custom-root-head-20260924"
-        runtime_head = "\n".join(
-            f'<script data-cfasync="false" src="{runtime_path}?v={version}" defer></script>'
-            for runtime_path in runtime_paths
-        )
-        bootstrap = (
-            '<script>window.__PITMARK_RACE_CENTER_CUSTOM_ROOT__=true;'
-            'window.addEventListener("error",function(e){'
-            'if(e&&e.target&&e.target.tagName==="SCRIPT"){'
-            'document.documentElement.dataset.raceRuntimeError="1";'
-            '}});</script>'
-        )
-        html = html.replace("</head>", runtime_head + "\n" + bootstrap + "\n</head>", 1)
 
     return HTMLResponse(
         html,
