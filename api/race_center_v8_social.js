@@ -81,7 +81,7 @@ function ownerUpdatesPreview(){
     return json('/api/public/race-center/following-updates?limit=12').then(function(payload){
       var rows=payload.updates||[],host=$('#v8OwnerUpdatesGrid');
       host.innerHTML=rows.length?rows.map(function(x){
-        return '<article class="v8-person-card"><div class="v8-person-main"><span class="v8-person-copy"><small>'+esc(String(x.entity_type||'racing').toUpperCase())+'</small><strong>'+esc(x.entity_name||'Racer')+'</strong><p>'+esc(x.body||'')+'</p>'+(x.media_url?'<img src="'+esc(x.media_url)+'" alt="" loading="lazy" decoding="async" style="width:100%;margin-top:10px;border-radius:10px">':'')+'</span></div></article>';
+        return '<article class="v8-person-card"><div class="v8-person-main"><span class="v8-person-copy"><small>'+esc(String(x.entity_type||'racing').toUpperCase())+'</small><strong>'+esc(x.entity_name||'Racer')+'</strong><p>'+esc(x.body||'')+'</p>'+(x.media_url?'<img src="'+esc(x.media_url)+'" alt="" loading="lazy" decoding="async" class="rc-follow-update-image">':'')+'</span></div></article>';
       }).join(''):'<div class="v8-empty"><strong>No new trackside updates yet.</strong><span>When drivers and teams you follow post from their verified profiles, they’ll appear here.</span></div>';
     });
   }).catch(function(){var host=$('#v8OwnerUpdatesGrid');if(host)host.innerHTML='<div class="v8-empty"><strong>Updates are refreshing.</strong></div>';});
