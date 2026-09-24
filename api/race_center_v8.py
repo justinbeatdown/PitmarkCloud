@@ -58,18 +58,6 @@ def _race_center_shell(view: str) -> str:
     return html.replace("{{RACE_CENTER_VIEW}}", view)
 
 
-@router.get("/race-center/community", response_class=HTMLResponse, include_in_schema=False)
-def race_center_community_page():
-    return HTMLResponse(
-        _race_center_shell("community"),
-        headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0",
-        },
-    )
-
-
 @router.get("/race-center/story/{story_key}", response_class=HTMLResponse, include_in_schema=False)
 def race_center_story_page(story_key: str):
     return HTMLResponse(

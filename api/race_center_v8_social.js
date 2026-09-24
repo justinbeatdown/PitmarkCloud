@@ -109,6 +109,7 @@ function renderHomePreview(){
 function communityPage(){
   if(view!=='community')return;
   var main=$('main');if(!main)return;
+  var existing=$('#v8CommunityPage');if(existing)return;
   while(main.firstChild)main.removeChild(main.firstChild);
   var section=document.createElement('section');
   section.className='v8-community-page content-section';

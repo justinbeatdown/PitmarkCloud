@@ -1,4 +1,4 @@
-const CACHE='pitmark-race-center-v7-shell-4';
+const CACHE='pitmark-race-center-shell-20260924-1';
 const SHELL=[
   '/race-center',
   '/race-center/drivers',
@@ -7,6 +7,7 @@ const SHELL=[
   '/race-center/events',
   '/race-center/teams',
   '/race-center/my-racing',
+  '/race-center/community',
   '/race-center/standings',
   '/race-center/schedules',
   '/race-center/live',
