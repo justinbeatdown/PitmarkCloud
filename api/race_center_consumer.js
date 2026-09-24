@@ -387,7 +387,7 @@
   }
 
   function enhanceTrustCopy(){
-    $('.loading-card').forEach(card=>{
+    Array.from(document.querySelectorAll('.loading-card')).forEach(card=>{
       if(card.dataset.consumerEnhanced)return;
       card.dataset.consumerEnhanced='1';
       card.setAttribute('aria-live','polite');
@@ -398,7 +398,7 @@
     if(view!=='submitseries')return;
     document.body.classList.add('series-submit-view');
     document.title='Submit Your Series — Pitmark Race Center';
-    $('main > section').forEach(section=>{section.hidden=!section.classList.contains('series-submit-page');});
+    Array.from(document.querySelectorAll('main > section')).forEach(section=>{section.hidden=!section.classList.contains('series-submit-page');});
     const form=$('#seriesSubmissionForm');
     const message=$('#seriesSubmissionMessage');
     if(!form)return;
