@@ -384,49 +384,94 @@ _VENUE_HINTS = (
     "racetrack",
 )
 
+_VENUE_EXACTISH = (
+    "road america",
+    "road atlanta",
+    "watkins glen",
+    "lime rock",
+    "sebring",
+    "laguna seca",
+    "mid-ohio",
+)
+
+
+def _venue_candidate(value: str, *, title: str = "", series_name: str = "") -> str | None:
+    candidate = _clean_schedule_text(value).strip(" ·|-")
+    if not candidate or len(candidate) < 4 or len(candidate) > 82:
+        return None
+
+    low = candidate.casefold()
+    if any(token in low for token in (
+        "ticket", "watch", "broadcast", "results", "standings", "newsletter",
+        "privacy", "cookie", "schedule", "presented by", "feature", "heat ",
+        "qualifying", "practice", "main event", "championship points",
+    )):
+        return None
+    if re.search(r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec"
+                 r"|january|february|march|april|june|july|august|september|october|november|december)"
+                 r"\.?\s+\d{1,2}\b", low):
+        return None
+    if re.search(r"\b20\d{2}\b", low):
+        return None
+    if re.search(r"\b(?:\$\d|\d{1,3},\d{3}\s*to win|laps?\b)", low):
+        return None
+    if series_name and series_name.casefold() in low:
+        return None
+
+    looks_like_venue = (
+        any(hint in low for hint in _VENUE_HINTS)
+        or any(name in low for name in _VENUE_EXACTISH)
+    )
+    if not looks_like_venue:
+        return None
+
+    title_low = str(title or "").casefold().strip()
+    # If the "venue" is literally the whole event title, accept only clean
+    # venue-shaped names. Event phrases like "Series at X Speedway" are rejected.
+    if title_low and low == title_low:
+        if any(token in low for token in (" at ", " vs ", " showdown", " nationals", " classic", " weekend", " night ")):
+            return None
+
+    # Strip common event-copy prefixes while preserving the actual venue name.
+    candidate = re.sub(
+        r"^(?:at|from|visit|race at|racing at|returns? to|heads? to)\s+",
+        "",
+        candidate,
+        flags=re.IGNORECASE,
+    ).strip(" ·|-")
+    if len(candidate) > 82:
+        return None
+    return candidate or None
+
 
 def _schedule_venue(lines: list[str], index: int, title: str, config: dict[str, Any]) -> str | None:
     candidates: list[tuple[int, str]] = []
-    series_name = str(config.get("name") or "").casefold()
-    title_low = str(title or "").casefold()
+    series_name = str(config.get("name") or "")
 
-    for pos in range(max(0, index - 3), min(len(lines), index + 4)):
-        value = _clean_schedule_text(lines[pos])
-        if not value:
+    # Prefer nearby standalone lines over the line containing the date/event.
+    positions = [index - 2, index - 1, index + 1, index + 2, index]
+    for pos in positions:
+        if pos < 0 or pos >= len(lines):
             continue
-        segments = [seg.strip(" ·|-") for seg in re.split(r"\s*[·|]\s*", value) if seg.strip(" ·|-")]
-        for segment in segments or [value]:
-            low = segment.casefold()
-            if len(segment) < 4 or len(segment) > 100:
+        raw = _clean_schedule_text(lines[pos])
+        if not raw:
+            continue
+        pieces = [seg.strip(" ·|-") for seg in re.split(r"\s*[·|]\s*", raw) if seg.strip(" ·|-")]
+        for piece in pieces or [raw]:
+            venue = _venue_candidate(piece, title=title, series_name=series_name)
+            if not venue:
                 continue
-            if any(token in low for token in (
-                "schedule", "tickets", "watch live", "watch now", "broadcast",
-                "results", "standings", "newsletter", "privacy", "cookie",
-            )):
-                continue
-            if re.search(r"\b20\d{2}\b", segment):
-                continue
-
-            score = 0
-            if any(hint in low for hint in _VENUE_HINTS):
-                score += 12
-            if re.search(r"\b(?:road america|road atlanta|watkins glen|lime rock|sebring|laguna seca|mid-ohio)\b", low):
-                score += 10
-            if "," in segment:
-                score += 1
-            if segment.isupper():
-                score += 1
-            if low == title_low:
-                score += 2 if any(hint in low for hint in _VENUE_HINTS) else -4
-            if series_name and series_name in low:
-                score -= 6
-
-            if score >= 8:
-                candidates.append((score, segment))
+            low = venue.casefold()
+            score = 20 if pos != index else 8
+            if any(low.endswith(hint) for hint in _VENUE_HINTS):
+                score += 4
+            if any(name == low for name in _VENUE_EXACTISH):
+                score += 4
+            candidates.append((score, venue))
 
     if not candidates:
         return None
-    candidates.sort(key=lambda item: (-item[0], len(item[1])))
+    candidates.sort(key=lambda item: (-item[0], len(item[1]), item[1].casefold()))
     return candidates[0][1]
 
 
