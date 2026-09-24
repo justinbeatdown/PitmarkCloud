@@ -115,10 +115,48 @@ function storyPage(){
 function images(){
   $$('img').forEach(function(img,i){if(img.dataset.v8img)return;img.dataset.v8img='1';img.decoding='async';if(i<4&&img.getBoundingClientRect().top<innerHeight*1.5){img.loading='eager';try{img.fetchPriority='high';}catch(_e){}}else img.loading='lazy';img.addEventListener('error',function(){img.classList.add('v8-image-failed');});});
 }
+
+function profileCoverageHost(){
+  if(view==='driver')return $('#driverProfileContent');
+  if(view==='seriesprofile')return $('#seriesProfileContent');
+  if(['trackprofile','teamprofile','eventprofile'].indexOf(view)>=0)return $('#v7EntityProfileContent');
+  return null;
+}
+function enhanceProfileCoverage(){
+  var host=profileCoverageHost();if(!host||$('#v8RelatedCoverage',host))return;
+  var heading=host.querySelector('h1,h2,strong'),text=[heading&&heading.textContent,host.textContent].filter(Boolean).join(' ').toLowerCase();
+  var stop=new Set(['race','racing','center','series','driver','team','track','event','profile','official','the','and','with','from','this','that']);
+  var tokens=Array.from(new Set(text.split(/[^a-z0-9]+/).filter(function(x){return x.length>3&&!stop.has(x);}))).slice(0,24);
+  stories().then(function(payload){
+    var all=payload.stories||[],ranked=all.map(function(story){
+      var hay=[story.title,story.summary,(story.categories||[]).join(' ')].filter(Boolean).join(' ').toLowerCase();
+      var score=tokens.reduce(function(n,t){return n+(hay.indexOf(t)>=0?1:0);},0);
+      return {story:story,score:score};
+    }).sort(function(a,b){return b.score-a.score;});
+    var matched=ranked.filter(function(x){return x.score>0;}).slice(0,3);
+    var rows=(matched.length?matched:ranked.slice(0,3)).map(function(x){return x.story;});
+    if(!rows.length)return;
+    var section=document.createElement('section');section.className='v8-related-coverage';section.id='v8RelatedCoverage';
+    section.innerHTML='<div class="section-head"><div><span class="eyebrow">PITMARK RACING CULTURE</span><h2>'+(matched.length?'Related coverage':'Latest coverage')+'</h2></div><a class="section-link" href="https://pitmarkracing.com/blogs/racing-culture">All coverage ↗</a></div><div class="v8-story-grid v8-related-story-grid">'+rows.map(storyCard).join('')+'</div>';
+    host.appendChild(section);
+  }).catch(function(){});
+}
+function enhanceEventStage(){
+  if(view!=='eventprofile')return;
+  var host=$('#v7EntityProfileContent');if(!host||$('#v8EventStage',host))return;
+  var key=decodeURIComponent(location.pathname.split('/').filter(Boolean).pop()||'');if(!key)return;
+  json('/api/public/race-center/entity/event/'+encodeURIComponent(key)).then(function(event){
+    if($('#v8EventStage',host))return;
+    var wrap=document.createElement('div');wrap.id='v8EventStage';wrap.className='v8-event-stage';
+    wrap.innerHTML=stage(event,String(event.state||'').toLowerCase()==='live');
+    host.insertBefore(wrap,host.firstChild);
+  }).catch(function(){});
+}
+
 function init(){
   document.body.classList.add('race-center-v8');ensureHome();
   if(view==='hub'){renderStories();renderGrassroots();setTimeout(patchLocal,800);}
-  renderLive();storyPage();setTimeout(images,250);setTimeout(images,1400);
+  renderLive();storyPage();setTimeout(enhanceEventStage,700);setTimeout(enhanceProfileCoverage,1100);setTimeout(enhanceProfileCoverage,2600);setTimeout(images,250);setTimeout(images,1400);
   new MutationObserver(images).observe(document.body,{childList:true,subtree:true});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
