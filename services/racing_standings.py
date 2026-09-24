@@ -835,6 +835,8 @@ class RacingStandingSnapshot(Base):
 
 _cache_lock = threading.Lock()
 _cache: dict[str, Any] = {"at": None, "value": None}
+_snapshot_cache: dict[str, Any] = {"at": None, "season": None, "value": None}
+SNAPSHOT_CACHE_SECONDS = 90
 _profile_metadata_lock = threading.Lock()
 _profile_metadata_cache: dict[str, tuple[datetime, dict[str, dict[str, str | None]], str | None]] = {}
 
@@ -3414,6 +3416,25 @@ def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
     """Return the latest saved standings immediately without touching remote sources."""
     season = int(season or utcnow().year)
     now = utcnow()
+
+    # The background sync already builds the exact public-safe standings shape.
+    # Reuse that in-memory snapshot instead of re-reading the same championship
+    # rows from Postgres on every page load.
+    with _cache_lock:
+        live_cached = _cache.get("value")
+        if live_cached and int(live_cached.get("season") or 0) == season:
+            return copy.deepcopy(live_cached)
+
+        cached_at = _snapshot_cache.get("at")
+        cached_value = _snapshot_cache.get("value")
+        if (
+            cached_at
+            and cached_value
+            and int(_snapshot_cache.get("season") or 0) == season
+            and (now - cached_at).total_seconds() < SNAPSHOT_CACHE_SECONDS
+        ):
+            return copy.deepcopy(cached_value)
+
     ordered: list[dict[str, Any]] = []
     for config in SERIES:
         latest_row = _latest_valid_snapshot(config["key"], season)
@@ -3484,7 +3505,7 @@ def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
     stale = sum(1 for item in ordered if item.get("status") == "stale")
     unavailable = sum(1 for item in ordered if item.get("status") == "unavailable")
     synced_times = [item.get("fetched_at") for item in ordered if item.get("fetched_at")]
-    return {
+    value = {
         "season": season,
         "generated_at": now.isoformat(),
         "series": ordered,
@@ -3496,6 +3517,11 @@ def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
             "last_snapshot_at": max(synced_times) if synced_times else None,
         },
     }
+    with _cache_lock:
+        _snapshot_cache["at"] = now
+        _snapshot_cache["season"] = season
+        _snapshot_cache["value"] = copy.deepcopy(value)
+    return value
 
 
 
@@ -4563,3 +4589,6 @@ def clear_standings_cache() -> None:
     with _cache_lock:
         _cache["at"] = None
         _cache["value"] = None
+        _snapshot_cache["at"] = None
+        _snapshot_cache["season"] = None
+        _snapshot_cache["value"] = None
