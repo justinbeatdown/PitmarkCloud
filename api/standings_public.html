@@ -408,6 +408,70 @@
       </a>
     </section>
 
+    <section class="series-submit-page content-section" id="seriesSubmitPage" aria-labelledby="seriesSubmitTitle">
+      <div class="series-submit-hero">
+        <div>
+          <span class="eyebrow">GRASSROOTS DATA NETWORK</span>
+          <h1 id="seriesSubmitTitle">Put your series in Race Center.</h1>
+          <p>Promoters, series directors and timing/data partners can send Pitmark the official sources for schedules, rosters, standings, results, broadcasts and media. We review every submission before it becomes Race Center data.</p>
+        </div>
+        <div class="series-submit-callout">
+          <strong>What happens next?</strong>
+          <span>1. You send official sources.</span>
+          <span>2. Pitmark verifies the data.</span>
+          <span>3. We connect drivers, tracks, events and standings.</span>
+          <span>4. Your series becomes discoverable across Race Center.</span>
+        </div>
+      </div>
+
+      <form id="seriesSubmissionForm" class="series-submit-form">
+        <div class="series-submit-section">
+          <div class="series-submit-section-head"><span>01</span><div><strong>Series identity</strong><p>Tell us exactly what championship or touring series this is.</p></div></div>
+          <div class="series-submit-grid">
+            <label>Series name *<input name="series_name" maxlength="220" required placeholder="Western PA Sprint Series"></label>
+            <label>Sanctioning body<input name="sanctioning_body" maxlength="220" placeholder="Optional"></label>
+            <label>Region / area<input name="region" maxlength="220" placeholder="Western Pennsylvania / Ohio"></label>
+            <label>Classes<input name="classes" maxlength="1000" placeholder="410 Sprint, 305 Sprint, Late Model"></label>
+          </div>
+        </div>
+
+        <div class="series-submit-section">
+          <div class="series-submit-section-head"><span>02</span><div><strong>Official data sources</strong><p>Links are better than pasted data because Race Center can keep checking the source.</p></div></div>
+          <div class="series-submit-grid">
+            <label>Official website<input name="website_url" type="url" maxlength="4000" placeholder="https://..."></label>
+            <label>Schedule URL<input name="schedule_url" type="url" maxlength="4000" placeholder="https://.../schedule"></label>
+            <label>Standings / points URL<input name="standings_url" type="url" maxlength="4000" placeholder="https://.../points"></label>
+            <label>Roster / drivers URL<input name="roster_url" type="url" maxlength="4000" placeholder="https://.../drivers"></label>
+            <label>Results URL<input name="results_url" type="url" maxlength="4000" placeholder="https://.../results"></label>
+            <label>Broadcast / watch URL<input name="broadcast_url" type="url" maxlength="4000" placeholder="FloRacing, DIRTVision, YouTube, etc."></label>
+          </div>
+        </div>
+
+        <div class="series-submit-section">
+          <div class="series-submit-section-head"><span>03</span><div><strong>Make it look alive</strong><p>Officially supplied artwork can be used after review. Only submit media you are authorized to provide.</p></div></div>
+          <div class="series-submit-grid">
+            <label>Official logo URL<input name="logo_url" type="url" maxlength="4000" placeholder="https://.../logo.png"></label>
+            <label>Official hero / series image URL<input name="hero_url" type="url" maxlength="4000" placeholder="https://.../series-photo.jpg"></label>
+          </div>
+        </div>
+
+        <div class="series-submit-section">
+          <div class="series-submit-section-head"><span>04</span><div><strong>Contact</strong><p>We need one person we can contact if a source needs clarification.</p></div></div>
+          <div class="series-submit-grid">
+            <label>Your name<input name="contact_name" maxlength="180" placeholder="Series director / promoter"></label>
+            <label>Email *<input name="contact_email" type="email" maxlength="320" required placeholder="you@series.com"></label>
+            <label class="series-submit-full">Notes<textarea name="note" maxlength="5000" placeholder="Anything important about classes, points format, timing provider, split divisions, schedule changes, etc."></textarea></label>
+          </div>
+        </div>
+
+        <div class="series-submit-actions">
+          <p>At least one official website, schedule, standings, roster or results link is required.</p>
+          <button class="button primary" type="submit">Submit Series to Race Center</button>
+        </div>
+        <div class="series-submit-message" id="seriesSubmissionMessage" aria-live="polite"></div>
+      </form>
+    </section>
+
     <aside class="v7-install-prompt" id="v7InstallPrompt" hidden>
       <div>
         <span class="eyebrow">RACE CENTER APP</span>
@@ -563,6 +627,7 @@
         <a href="/race-center/tracks">Tracks</a>
         <a href="/race-center/teams">Teams</a>
         <a href="/race-center/events">Events</a>
+        <a href="/race-center/submit-series">Submit Your Series</a>
         <a href="/race-center/my-racing">My Racing</a>
         <a href="/race-center/standings">Standings</a>
         <a href="/race-center/schedules">Schedules</a>
