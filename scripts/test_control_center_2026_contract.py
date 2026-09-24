@@ -1251,6 +1251,14 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, standings)
 
+    def test_race_center_driver_photos_warm_in_background(self):
+        standings = self.read("services/racing_standings.py")
+        main = self.read("main.py")
+        self.assertIn("def warm_driver_identity_cache(", standings)
+        self.assertIn("limit: int = 48", standings)
+        self.assertIn("async def race_center_driver_photo_sync_loop()", main)
+        self.assertIn('name="race-center-driver-photos"', main)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
