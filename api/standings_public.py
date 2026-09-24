@@ -1043,6 +1043,18 @@ def public_standings_data():
                     **(payload.get("summary") or {}),
                     "events_live": len(event_hub.get("live") or []),
                     "schedule_series_total": len(event_hub.get("catalog") or []),
+                    "tracked_series_total": len({
+                        *{
+                            str(item.get("series_key") or "")
+                            for item in (payload.get("series") or [])
+                            if str(item.get("series_key") or "").strip()
+                        },
+                        *{
+                            str(item.get("series_key") or "")
+                            for item in (event_hub.get("catalog") or [])
+                            if str(item.get("series_key") or "").strip()
+                        },
+                    }),
                 },
                 "events": {
                     "generated_at": event_hub.get("generated_at"),
