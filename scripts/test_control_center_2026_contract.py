@@ -1272,6 +1272,13 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, js)
 
+    def test_race_center_driver_directory_hydration_uses_collection_selector(self):
+        js = self.read("api/standings_public.js")
+        self.assertIn("$('[data-driver-enrich-series]').forEach(card=>{", js)
+        self.assertIn("const cards=$('[data-driver-enrich-series]').filter(", js)
+        self.assertNotIn("$('[data-driver-enrich-series]').forEach(card=>{", js)
+        self.assertNotIn("const cards=$('[data-driver-enrich-series]').filter(", js)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
