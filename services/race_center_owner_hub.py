@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 
-from sqlalchemy import DateTime, ForeignKey, Integer, LargeBinary, String, Text, delete, select
+from sqlalchemy import DateTime, ForeignKey, Integer, LargeBinary, String, Text, delete, or_, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from services.database import Base, SessionLocal
@@ -378,3 +378,47 @@ def replace_sponsors(user_id: int, entity_type: str, entity_key: str, sponsors: 
             db.add(RaceCenterEntitySponsor(entity_type=kind, entity_key=key, owner_user_id=user_id, **item))
         db.commit()
     return clean
+
+
+
+def followed_updates(follows: list[dict], limit: int = 30) -> list[dict]:
+    targets: set[tuple[str, str]] = set()
+    for item in follows or []:
+        kind = str(item.get("kind") or "").strip().lower()
+        raw_key = str(item.get("key") or "").strip()
+        if kind == "driver":
+            label = str(item.get("label") or "").strip()
+            fallback = raw_key.split(":", 1)[1] if ":" in raw_key else raw_key
+            key = race_center_entities.identity_key(label or fallback)
+        elif kind in {"team", "track", "series"}:
+            key = raw_key
+        else:
+            continue
+        if key:
+            targets.add((kind, key))
+    if not targets:
+        return []
+    conditions = [
+        (RaceCenterEntityUpdate.entity_type == kind) & (RaceCenterEntityUpdate.entity_key == key)
+        for kind, key in targets
+    ]
+    with SessionLocal() as db:
+        rows = list(db.scalars(
+            select(RaceCenterEntityUpdate)
+            .where(or_(*conditions))
+            .order_by(RaceCenterEntityUpdate.created_at.desc())
+            .limit(max(1, min(int(limit or 30), 60)))
+        ).all())
+    output = []
+    for row in rows:
+        detail = race_center_entities.entity_detail(row.entity_type, row.entity_key) or {}
+        output.append({
+            "id": row.id,
+            "entity_type": row.entity_type,
+            "entity_key": row.entity_key,
+            "entity_name": detail.get("name") or detail.get("series_name") or row.entity_key,
+            "body": row.body,
+            "media_url": f"/api/public/race-center/entity-media/{row.media_id}" if row.media_id else None,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        })
+    return output
