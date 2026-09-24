@@ -918,7 +918,7 @@ def public_standings_home(request: Request):
 
         version = f"{settings.app_version}-custom-root-head-20260924"
         runtime_head = "\n".join(
-            f'<script src="{runtime_path}?v={version}" defer></script>'
+            f'<script data-cfasync="false" src="{runtime_path}?v={version}" defer></script>'
             for runtime_path in runtime_paths
         )
         bootstrap = (
