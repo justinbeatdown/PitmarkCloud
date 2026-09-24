@@ -1177,6 +1177,19 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("grassroots_racing_sync_loop", main)
         self.assertIn('name="race-center-grassroots"', main)
 
+    def test_race_center_grassroots_ingest_handles_reader_limits_and_plain_text(self):
+        grassroots = self.read("services/grassroots_racing.py")
+        for token in (
+            "def _reader_markdown(",
+            "elapsed < 1.75",
+            "response.status_code == 429",
+            "def _tracks_from_text(",
+            "def _drivers_from_text(",
+            "SprintCarRatings track catalog parse too small",
+            "driver parse too small",
+        ):
+            self.assertIn(token, grassroots)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
