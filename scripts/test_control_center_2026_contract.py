@@ -1259,6 +1259,19 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("async def race_center_driver_photo_sync_loop()", main)
         self.assertIn('name="race-center-driver-photos"', main)
 
+    def test_race_center_driver_directory_is_not_capped_at_600(self):
+        js = self.read("api/standings_public.js")
+        self.assertNotIn("filtered.slice(0,600)", js)
+        for token in (
+            "let driverDirectoryRenderLimit=300;",
+            "function setupDriverDirectoryProgressiveLoad(total)",
+            "driverDirectoryRenderLimit+300",
+            "data-driver-directory-more",
+            "Load 300 more drivers",
+            "Showing '+visible.length+' of '+filtered.length+' driver profiles",
+        ):
+            self.assertIn(token, js)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")

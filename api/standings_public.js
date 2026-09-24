@@ -442,6 +442,10 @@ function driverPortrait(driver,large=false){
 
 
 let driverDirectoryObserver=null;
+let driverDirectoryLoadObserver=null;
+let driverDirectoryRenderLimit=300;
+let driverDirectoryRenderQuery='';
+
 
 function applyDriverIdentityToCards(seriesKey,driverName,payload){
   if(!payload||payload.status!=='ready')return;
@@ -503,18 +507,53 @@ function hydrateDriverDirectoryCards(){
   cards.forEach(card=>driverDirectoryObserver.observe(card));
 }
 
+function setupDriverDirectoryProgressiveLoad(total){
+  if(driverDirectoryLoadObserver&&driverDirectoryLoadObserver.disconnect){
+    driverDirectoryLoadObserver.disconnect();
+  }
+  const sentinel=$('[data-driver-directory-more]');
+  if(!sentinel)return;
+
+  const loadMore=()=>{
+    if(driverDirectoryRenderLimit>=total)return;
+    driverDirectoryRenderLimit=Math.min(total,driverDirectoryRenderLimit+300);
+    renderDrivers();
+  };
+
+  const button=sentinel.querySelector('[data-driver-directory-load-more]');
+  if(button)button.addEventListener('click',loadMore,{once:true});
+
+  if(!('IntersectionObserver' in window))return;
+  driverDirectoryLoadObserver=new IntersectionObserver(entries=>{
+    if(!entries.some(entry=>entry.isIntersecting))return;
+    driverDirectoryLoadObserver.disconnect();
+    loadMore();
+  },{rootMargin:'900px 0px'});
+  driverDirectoryLoadObserver.observe(sentinel);
+}
+
 function renderDrivers(){
   const grid=$('#driversGrid');
   if(!grid||!state.payload)return;
   const q=normalizeSearch(state.driverSearch);
+  if(q!==driverDirectoryRenderQuery){
+    driverDirectoryRenderQuery=q;
+    driverDirectoryRenderLimit=300;
+  }
+
   const all=driverDirectoryRows();
   const filtered=q?all.filter(driver=>[
     driver.name,driver.number,driver.team,driver.manufacturer,driver.series_name,driver.series_short,driver.group
   ].filter(Boolean).join(' ').toLowerCase().includes(q)):all;
+  const visible=filtered.slice(0,driverDirectoryRenderLimit);
   const count=$('#driverResultCount');
-  if(count)count.textContent=filtered.length+' driver profile'+(filtered.length===1?'':'s');
+  if(count){
+    count.textContent=visible.length<filtered.length
+      ?'Showing '+visible.length+' of '+filtered.length+' driver profiles'
+      :filtered.length+' driver profile'+(filtered.length===1?'':'s');
+  }
 
-  grid.innerHTML=filtered.length?filtered.slice(0,600).map(driver=>{
+  const cards=visible.map(driver=>{
     const followed=state.drivers.has(driver.key);
     return '<article class="driver-directory-card" data-driver-enrich-series="'+esc(driver.series_key)+'" data-driver-enrich-name="'+esc(driver.name)+'">'+
       '<a class="driver-directory-main" href="'+driverProfileHref(driver.series_key,driver.name)+'">'+
@@ -526,8 +565,20 @@ function renderDrivers(){
       '</a>'+
       '<button class="driver-directory-follow '+(followed?'is-following':'')+'" type="button" data-driver-follow="'+esc(driver.key)+'" data-driver-label="'+esc(driver.name)+'" data-driver-series="'+esc(driver.series_key)+'" aria-pressed="'+(followed?'true':'false')+'" aria-label="'+(followed?'Unfollow ':'Follow ')+esc(driver.name)+'">'+(followed?'★':'☆')+'</button>'+
     '</article>';
-  }).join(''):'<div class="loading-card">No drivers match that search.</div>';
-  requestAnimationFrame(hydrateDriverDirectoryCards);
+  }).join('');
+
+  const more=visible.length<filtered.length
+    ?'<div class="driver-directory-more" data-driver-directory-more>'+
+       '<button class="button" type="button" data-driver-directory-load-more>Load 300 more drivers</button>'+
+       '<small>'+esc(filtered.length-visible.length)+' more profiles available</small>'+
+     '</div>'
+    :'';
+
+  grid.innerHTML=filtered.length?cards+more:'<div class="loading-card">No drivers match that search.</div>';
+  requestAnimationFrame(()=>{
+    hydrateDriverDirectoryCards();
+    setupDriverDirectoryProgressiveLoad(filtered.length);
+  });
 }
 
 
