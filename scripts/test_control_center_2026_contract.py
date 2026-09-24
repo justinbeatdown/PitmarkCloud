@@ -1106,6 +1106,19 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, entities)
 
+    def test_race_center_schedule_parser_keeps_full_season_and_builds_tracks(self):
+        events = self.read("services/racing_events.py")
+
+        for token in (
+            "_VENUE_HINTS = (",
+            "def _schedule_venue(",
+            "if dt.year != SEASON:",
+            "venue = _schedule_venue(lines, i, title, config)",
+            '"venue": venue',
+            "Keep the entire configured season",
+        ):
+            self.assertIn(token, events)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
