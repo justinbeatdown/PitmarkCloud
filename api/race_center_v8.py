@@ -10,6 +10,7 @@ from PIL import Image, ImageOps
 
 from services import race_center_accounts
 from services import race_center_owner_hub
+from services import race_center_entities
 from services.racing_culture import get_racing_culture_feed, get_racing_culture_story
 from utils.config import settings
 
@@ -266,3 +267,106 @@ def race_center_entity_media(media_id: int):
         raise HTTPException(status_code=404, detail="Race Center media not found.")
     body, content_type = result
     return Response(body, media_type=content_type, headers={"Cache-Control": "public, max-age=300"})
+
+
+
+@router.get("/api/public/race-center/entity-hub-driver/{series_key}/{driver_name:path}", include_in_schema=False)
+def race_center_driver_owner_hub(request: Request, series_key: str, driver_name: str):
+    viewer = race_center_accounts.account_from_request(request)
+    try:
+        return race_center_owner_hub.public_hub(
+            "driver",
+            race_center_entities.identity_key(driver_name),
+            viewer_user_id=viewer.id if viewer else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.post("/api/public/race-center/entity-hub-driver/{series_key}/{driver_name:path}/schedule", include_in_schema=False)
+def race_center_driver_schedule_create(request: Request, series_key: str, driver_name: str, body: OwnerHubScheduleChange):
+    account = _account_or_401(request)
+    try:
+        return {"item": race_center_owner_hub.upsert_schedule(
+            account.id, "driver", race_center_entities.identity_key(driver_name), body.model_dump()
+        )}
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+
+
+@router.post("/api/public/race-center/entity-hub-driver/{series_key}/{driver_name:path}/updates", include_in_schema=False)
+def race_center_driver_update_create(request: Request, series_key: str, driver_name: str, body: OwnerHubUpdateCreate):
+    account = _account_or_401(request)
+    try:
+        return race_center_owner_hub.add_update(
+            account.id,
+            "driver",
+            race_center_entities.identity_key(driver_name),
+            body=body.body,
+            media_id=body.media_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+
+
+@router.put("/api/public/race-center/entity-hub-driver/{series_key}/{driver_name:path}/sponsors", include_in_schema=False)
+def race_center_driver_sponsors_replace(request: Request, series_key: str, driver_name: str, body: OwnerHubSponsorList):
+    account = _account_or_401(request)
+    try:
+        return {"sponsors": race_center_owner_hub.replace_sponsors(
+            account.id,
+            "driver",
+            race_center_entities.identity_key(driver_name),
+            [item.model_dump() for item in body.sponsors],
+        )}
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+
+
+@router.post("/api/public/race-center/entity-hub-driver/{series_key}/{driver_name:path}/media", include_in_schema=False)
+async def race_center_driver_media_upload(
+    request: Request,
+    series_key: str,
+    driver_name: str,
+    image: UploadFile = File(...),
+    media_kind: str = Form(default="photo"),
+    title: str = Form(default=""),
+    credit: str = Form(default=""),
+    alt_text: str = Form(default=""),
+):
+    account = _account_or_401(request)
+    raw = await image.read(3 * 1024 * 1024 + 1)
+    if len(raw) > 3 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Images must be 3 MB or smaller.")
+    try:
+        opened = Image.open(BytesIO(raw))
+        opened = ImageOps.exif_transpose(opened).convert("RGB")
+        if max(opened.size) > 1800:
+            opened.thumbnail((1800, 1800), Image.Resampling.LANCZOS)
+        output = BytesIO()
+        opened.save(output, format="WEBP", quality=88, method=6)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Upload a valid JPG, PNG, or WebP image.") from exc
+    try:
+        return {"media": race_center_owner_hub.add_media(
+            account.id,
+            "driver",
+            race_center_entities.identity_key(driver_name),
+            image_data=output.getvalue(),
+            content_type="image/webp",
+            media_kind=media_kind,
+            title=title,
+            credit=credit,
+            alt_text=alt_text,
+        )}
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+
+
+@router.get("/race-center-owner-hub.js", include_in_schema=False)
+def race_center_owner_hub_js():
+    return Response(
+        (_HERE / "race_center_owner_hub.js").read_text(encoding="utf-8"),
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
