@@ -82,6 +82,35 @@
       </div>
     </section>
 
+    <section class="race-pulse home-race-pulse" aria-labelledby="racePulseTitle">
+      <div class="pulse-head">
+        <div>
+          <span class="eyebrow">RIGHT NOW</span>
+          <h2 id="racePulseTitle">Your racing board</h2>
+        </div>
+        <div class="pulse-actions">
+          <a class="pulse-action" href="/race-center/live">Live + Next →</a>
+          <a class="pulse-action" href="/race-center/schedules">Full schedule →</a>
+        </div>
+      </div>
+      <div class="pulse-grid">
+        <article class="pulse-card pulse-live"><span>LIVE NOW</span><strong id="pulseLive">—</strong><small id="pulseLiveText">Checking official schedules…</small></article>
+        <article class="pulse-card"><span>NEXT GREEN</span><strong id="pulseCountdown">—</strong><small id="pulseNextText">Finding the next race…</small></article>
+        <article class="pulse-card"><span>CHAMPIONSHIP MOVES</span><strong id="pulseMoves">—</strong><small>Verified changes since the last snapshot</small></article>
+        <article class="pulse-card pulse-personal"><span>MY SERIES</span><strong id="pulseFavorites">0</strong><small id="pulseFavoriteText">Star a series to build your board</small></article>
+      </div>
+      <div class="my-series-shell" id="mySeriesShell">
+        <div class="my-series-head">
+          <div><strong>My Racing</strong><span id="mySeriesHint">Your saved championships live here.</span></div>
+          <div class="my-series-controls" id="mySeriesControls" hidden>
+            <button id="mySeriesPrev" type="button" aria-label="Scroll My Racing left">‹</button>
+            <button id="mySeriesNext" type="button" aria-label="Scroll My Racing right">›</button>
+          </div>
+        </div>
+        <div class="my-series-strip" id="mySeriesStrip"></div>
+      </div>
+    </section>
+
     <section class="consumer-home content-section" id="consumerHome" aria-label="Your racing today">
       <div class="consumer-home-head">
         <div>
@@ -119,35 +148,6 @@
       </section>
     </section>
 
-
-    <section class="race-pulse home-race-pulse" aria-labelledby="racePulseTitle">
-      <div class="pulse-head">
-        <div>
-          <span class="eyebrow">RIGHT NOW</span>
-          <h2 id="racePulseTitle">Your racing board</h2>
-        </div>
-        <div class="pulse-actions">
-          <a class="pulse-action" href="/race-center/live">Live + Next →</a>
-          <a class="pulse-action" href="/race-center/schedules">Full schedule →</a>
-        </div>
-      </div>
-      <div class="pulse-grid">
-        <article class="pulse-card pulse-live"><span>LIVE NOW</span><strong id="pulseLive">—</strong><small id="pulseLiveText">Checking official schedules…</small></article>
-        <article class="pulse-card"><span>NEXT GREEN</span><strong id="pulseCountdown">—</strong><small id="pulseNextText">Finding the next race…</small></article>
-        <article class="pulse-card"><span>CHAMPIONSHIP MOVES</span><strong id="pulseMoves">—</strong><small>Verified changes since the last snapshot</small></article>
-        <article class="pulse-card pulse-personal"><span>MY SERIES</span><strong id="pulseFavorites">0</strong><small id="pulseFavoriteText">Star a series to build your board</small></article>
-      </div>
-      <div class="my-series-shell" id="mySeriesShell">
-        <div class="my-series-head">
-          <div><strong>My Racing</strong><span id="mySeriesHint">Your saved championships live here.</span></div>
-          <div class="my-series-controls" id="mySeriesControls" hidden>
-            <button id="mySeriesPrev" type="button" aria-label="Scroll My Racing left">‹</button>
-            <button id="mySeriesNext" type="button" aria-label="Scroll My Racing right">›</button>
-          </div>
-        </div>
-        <div class="my-series-strip" id="mySeriesStrip"></div>
-      </div>
-    </section>
 
     <section class="v7-race-day content-section" id="v7RaceDay" aria-labelledby="v7RaceDayTitle">
       <div class="section-head">
