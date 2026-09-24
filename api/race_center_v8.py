@@ -157,6 +157,15 @@ def _account_or_401(request: Request):
     return account
 
 
+@router.get("/api/public/race-center/following-updates", include_in_schema=False)
+def race_center_following_updates(request: Request, limit: int = 24):
+    account = race_center_accounts.account_from_request(request)
+    if not account:
+        return {"updates": []}
+    follows = race_center_accounts.list_follows(account.id)
+    return {"updates": race_center_owner_hub.followed_updates(follows, limit=limit)}
+
+
 @router.get("/api/public/race-center/entity-hub/{entity_type}/{entity_key}", include_in_schema=False)
 def race_center_entity_hub(request: Request, entity_type: str, entity_key: str):
     viewer = race_center_accounts.account_from_request(request)
