@@ -38,6 +38,11 @@ function card(person){
     '<footer><span>'+String(person.followers||0)+' follower'+(Number(person.followers||0)===1?'':'s')+'</span><button class="v8-follow-button'+(person.viewer_follows?' is-following':'')+'" type="button" data-user-id="'+esc(person.id)+'" data-following="'+(person.viewer_follows?'1':'0')+'">'+(person.viewer_follows?'Following':'Follow')+'</button></footer>'+
   '</article>';
 }
+function entityCard(item){
+  var type=String(item.entity_type||'driver'),name=item.display_name||'Racing profile',src=String(item.photo_url||'').trim();
+  return '<article class="v8-person-card v8-entity-card"><a class="v8-person-main" href="'+esc(item.profile_url||'#')+'"><span class="v8-person-avatar"><span>'+esc(initials(name))+'</span>'+(src?'<img src="'+esc(src)+'" alt="" loading="lazy" decoding="async" onerror="this.remove()">':'')+'</span><span class="v8-person-copy"><small>'+esc(type.toUpperCase())+'</small><strong>'+esc(name)+'</strong><em>Race Center '+esc(type)+'</em><p>'+esc(item.subtitle||'Public racing profile')+'</p></span></a><footer><span>Public racing data</span><a class="v8-follow-button" href="'+esc(item.profile_url||'#')+'">View</a></footer></article>';
+}
+
 function wireFollow(root){
   $$('.v8-follow-button',root||document).forEach(function(button){
     if(button.dataset.v8Wired==='1')return;
@@ -123,9 +128,9 @@ function communityPage(){
   function load(){
     var q=String(input.value||'').trim(),host=$('#v8CommunityGrid');
     searchPeople(q,48).then(function(payload){
-      var rows=payload.people||[];
-      $('#v8CommunityMeta').textContent=rows.length+(rows.length===1?' profile':' profiles')+(q?' matching “'+q+'”':' to discover');
-      host.innerHTML=rows.length?rows.map(card).join(''):'<div class="v8-empty"><strong>No profile matched that search.</strong><span>Try a name, handle, role or home track.</span></div>';
+      var people=payload.people||[],entities=payload.entities||[],total=people.length+entities.length,counts=payload.counts||{};
+      $('#v8CommunityMeta').textContent=total+(total===1?' result':' results')+(q?' matching “'+q+'”':' to discover')+(!q&&counts.entities?' · '+counts.drivers+' drivers · '+counts.teams+' teams · '+counts.tracks+' tracks · '+counts.series+' series':'');
+      host.innerHTML=total?people.map(card).join('')+entities.map(entityCard).join(''):'<div class="v8-empty"><strong>No racing profile matched that search.</strong><span>Try a driver, team, track, series, handle or home track.</span></div>';
       wireFollow(host);
     }).catch(function(){host.innerHTML='<div class="v8-empty"><strong>Profiles are refreshing.</strong></div>';});
   }
