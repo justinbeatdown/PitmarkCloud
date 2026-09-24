@@ -1091,7 +1091,13 @@ def public_standings_data():
         # incomplete.
         safe_entries = [dict(raw_entry) for raw_entry in (series.get("entries") or [])]
         series_key = str(series.get("series_key") or "")
-        logo_info = get_series_logo_info(series_key)
+        snapshot_logo = str(series.get("series_logo_url") or "").strip()
+        snapshot_logo_source = str(series.get("series_logo_source_url") or "").strip()
+        logo_info = (
+            {"url": snapshot_logo, "source_url": snapshot_logo_source}
+            if snapshot_logo and snapshot_logo_source
+            else get_series_logo_info(series_key)
+        )
         event_info = event_series.get(series_key) or {}
         safe_series.append(
             {
