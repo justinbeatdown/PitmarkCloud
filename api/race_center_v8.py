@@ -69,7 +69,6 @@ def race_center_community_page():
 def race_center_story_page(story_key: str):
     return HTMLResponse(
         _race_center_shell("story"),
-        html,
         headers={
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
