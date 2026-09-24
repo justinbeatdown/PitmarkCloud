@@ -1150,6 +1150,7 @@ def public_standings_data():
                     "live": event_hub.get("live") or [],
                     "next": event_hub.get("next") or [],
                     "catalog": event_hub.get("catalog") or [],
+                    "warming": bool(event_hub.get("warming")),
                 },
                 "grassroots": {
                     "generated_at": grassroots.get("generated_at"),
