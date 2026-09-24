@@ -342,11 +342,24 @@ def prt_current_logo():
 
 @router.get("/prt-tools-logo.png", include_in_schema=False)
 def prt_tools_logo():
-    return RedirectResponse(
-        url="https://cdn.shopify.com/s/files/1/1067/3913/8641/files/pitmark-racing-tools-logo-2026.png?v=1790289898",
-        status_code=307,
-        headers={"Cache-Control": "no-store"},
-    )
+    target = "https://cdn.shopify.com/s/files/1/1067/3913/8641/files/pitmark-racing-tools-logo-2026.png?v=1790289898"
+    try:
+        request = UrlRequest(target, headers={"User-Agent": "PitmarkCloud-PRT/1.0"})
+        with urlopen(request, timeout=15) as upstream:
+            data = upstream.read((2 * 1024 * 1024) + 1)
+            if len(data) > 2 * 1024 * 1024:
+                raise ValueError("PRT logo exceeded allowed size")
+        return Response(
+            data,
+            media_type="image/png",
+            headers={"Cache-Control": "public, max-age=3600"},
+        )
+    except Exception:
+        return FileResponse(
+            ASSET_DIR / "prt-tools-logo.png",
+            media_type="image/png",
+            headers={"Cache-Control": "no-store"},
+        )
 
 
 @router.get("/prt-app-preview.png", include_in_schema=False)
