@@ -108,7 +108,7 @@
 
   function consumerMedia(url,title){
     const src=String(url||'').trim();
-    if(!src)return '<span class="consumer-media consumer-media-fallback" aria-hidden="true"><b>RACE</b><i>CENTER</i></span>';
+    if(!src)return '<span class="consumer-media consumer-media-fallback" aria-hidden="true"></span>';
     return '<span class="consumer-media"><img src="'+esc(src)+'" alt="" loading="lazy" decoding="async"><span class="consumer-media-shade"></span></span>';
   }
 
