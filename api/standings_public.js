@@ -1512,12 +1512,21 @@ function renderEvents(){
   };
   const live=(events.live||[]).filter(filterItem);
   const next=(events.next||[]).filter(filterItem);
+  const warming=Boolean(events.warming);
   $('#eventStatusText').textContent=live.length
     ?`${live.length} event${live.length===1?'':'s'} live right now`
-    :next.length?'Nothing live in this view — here’s what’s next.':'No upcoming events match this view.';
+    :next.length
+      ?'Nothing live in this view — here’s what’s next.'
+      :warming
+        ?'Refreshing upcoming races from official schedules…'
+        :'No upcoming events match this view.';
   $('#liveNow').innerHTML=live.length?`<div class="live-grid">${live.map(eventCard).join('')}</div>`:'';
   const nextLimit=state.view==='hub'?4:12;
-  $('#nextEvents').innerHTML=next.length?next.slice(0,nextLimit).map(eventCard).join(''):'<div class="loading-card">No upcoming events match this view.</div>';
+  $('#nextEvents').innerHTML=next.length
+    ?next.slice(0,nextLimit).map(eventCard).join('')
+    :warming
+      ?'<div class="loading-card">Building the upcoming race slate…</div>'
+      :'<div class="loading-card">No upcoming events match this view.</div>';
 }
 
 function renderScheduleCatalog(){
@@ -1685,11 +1694,14 @@ function setLoadError(message){
   $('#statusText').textContent=message;
 }
 
+let eventWarmRetries=0;
+let eventWarmTimer=null;
+
 async function load(){
   try{
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),20000);
-    const response=await fetch('/api/public/standings?v=race-center-v6-20260923',{
+    const response=await fetch('/api/public/standings?v=race-center-v7-events-20260924',{
       headers:{Accept:'application/json'},
       cache:'no-store',
       signal:controller.signal
@@ -1699,6 +1711,16 @@ async function load(){
     state.payload=await response.json();
     saveCachedPayload(state.payload);
     render();
+
+    if(state.payload?.events?.warming&&eventWarmRetries<6){
+      eventWarmRetries++;
+      clearTimeout(eventWarmTimer);
+      eventWarmTimer=setTimeout(()=>load(),8000);
+    }else{
+      eventWarmRetries=0;
+      clearTimeout(eventWarmTimer);
+      eventWarmTimer=null;
+    }
   }catch(error){
     setLoadError(error?.name==='AbortError'?'Race Center timed out. Refresh to retry.':(error.message||'Unable to load Race Center.'));
   }
