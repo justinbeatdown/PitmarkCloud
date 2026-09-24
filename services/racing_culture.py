@@ -70,6 +70,27 @@ def _story_from_entry(entry: ET.Element, ns: dict[str, str], source_url: str) ->
     if not summary:
         summary = _clean_text(_entry_text(entry, ns, "summary"), 360)
 
+    # Shopify's Atom feed carries the article body. Keep a conservative,
+    # sanitized copy so Race Center can present Pitmark editorial natively.
+    for tag in soup.find_all(["script", "style", "iframe", "object", "form", "input", "button"]):
+        tag.decompose()
+    for tag in soup.find_all(True):
+        for attr in list(tag.attrs):
+            if attr.lower().startswith("on"):
+                del tag.attrs[attr]
+        if tag.name == "a":
+            href = str(tag.get("href") or "").strip()
+            if href:
+                tag["href"] = urljoin(source_url, href)
+                tag["rel"] = "noopener"
+        elif tag.name == "img":
+            src = str(tag.get("src") or "").strip()
+            if src:
+                tag["src"] = urljoin(source_url, src)
+                tag["loading"] = "lazy"
+                tag["decoding"] = "async"
+    content_html = "".join(str(node) for node in soup.contents).strip()
+
     categories = []
     for category in entry.findall("a:category", ns):
         term = _clean_text(category.attrib.get("term"), 80)
@@ -83,6 +104,7 @@ def _story_from_entry(entry: ET.Element, ns: dict[str, str], source_url: str) ->
         "url": url or source_url,
         "published_at": published or None,
         "summary": summary,
+        "content_html": content_html,
         "image_url": image_url or None,
         "author": author or "Pitmark Racing Co.",
         "categories": categories[:8],
@@ -166,3 +188,15 @@ def get_racing_culture_feed(*, limit: int = 12, force: bool = False) -> dict:
         "stale": False,
         "error": None,
     }
+
+
+
+def get_racing_culture_story(key: str) -> dict | None:
+    clean_key = str(key or "").strip().lower()
+    if not clean_key:
+        return None
+    payload = get_racing_culture_feed(limit=30)
+    for story in payload.get("stories") or []:
+        if str(story.get("key") or "").strip().lower() == clean_key:
+            return dict(story)
+    return None
