@@ -67,6 +67,66 @@ SERIES: tuple[dict[str, Any], ...] = (
         "metadata_url": "https://www.nascar.com/drivers/nascar-craftsman-truck-series/",
     },
     {
+        "key": "nascar-whelen-modified",
+        "name": "NASCAR Whelen Modified Tour",
+        "short_name": "Whelen Modified",
+        "group": "NASCAR",
+        "provider": "nascar_regional",
+        "official_url": "https://www.nascar.com/regional/",
+        "regional_heading": "Whelen Modified Tour",
+        "logo_source_url": "https://www.nascar.com/whelen-modified-tour/",
+        "logo_url": "https://www.nascar.com/wp-content/uploads/sites/7/2024/01/05/NWMT_Logo.svg",
+        "metadata_provider": "nascar_driver_directory",
+        "metadata_url": "https://www.nascar.com/nascar-whelen-modified-tour-drivers/",
+        "source_name": "NASCAR Regional official Whelen Modified Tour standings",
+        "name_headers": ("driver",),
+        "position_headers": ("number", "pos", "position", "rank"),
+        "number_headers": ("car #", "car no.", "no."),
+        "points_headers": ("points",),
+        "wins_headers": ("wins",),
+        "starts_headers": ("races", "starts"),
+    },
+    {
+        "key": "arca-east",
+        "name": "ARCA Menards Series East",
+        "short_name": "ARCA East",
+        "group": "NASCAR",
+        "provider": "nascar_regional",
+        "official_url": "https://www.nascar.com/regional/",
+        "regional_heading": "ARCA Menards East",
+        "logo_source_url": "https://www.arcaracing.com/competitor-site/",
+        "logo_url": "https://www.arcaracing.com/wp-content/uploads/sites/36/2021/02/02/ArcaMenardsSeries_East_ANASCARTouringDivision_Primary_4C_BLK.png",
+        "metadata_provider": "arca_driver_directory",
+        "metadata_url": "https://www.arcaracing.com/drivers-arca-menards-east/",
+        "source_name": "NASCAR Regional official ARCA Menards East standings",
+        "name_headers": ("driver",),
+        "position_headers": ("number", "pos", "position", "rank"),
+        "number_headers": ("car #", "car no.", "no."),
+        "points_headers": ("points",),
+        "wins_headers": ("wins",),
+        "starts_headers": ("races", "starts"),
+    },
+    {
+        "key": "arca-west",
+        "name": "ARCA Menards Series West",
+        "short_name": "ARCA West",
+        "group": "NASCAR",
+        "provider": "nascar_regional",
+        "official_url": "https://www.nascar.com/regional/",
+        "regional_heading": "ARCA Menards West",
+        "logo_source_url": "https://www.arcaracing.com/competitor-site/",
+        "logo_url": "https://www.arcaracing.com/wp-content/uploads/sites/36/2021/02/02/ArcaMenardsSeries_West_ANASCARTouringDivision_Primary_4C_BLK.png",
+        "metadata_provider": "arca_driver_directory",
+        "metadata_url": "https://www.arcaracing.com/drivers-arca-menards-west/",
+        "source_name": "NASCAR Regional official ARCA Menards West standings",
+        "name_headers": ("driver",),
+        "position_headers": ("number", "pos", "position", "rank"),
+        "number_headers": ("car #", "car no.", "no."),
+        "points_headers": ("points",),
+        "wins_headers": ("wins",),
+        "starts_headers": ("races", "starts"),
+    },
+    {
         "key": "nascar-local",
         "name": "NASCAR Local Racing Series",
         "short_name": "NASCAR Local",
@@ -1629,6 +1689,41 @@ def _parse_position(value: Any) -> int | None:
         return None
 
 
+def _fetch_nascar_regional(config: dict[str, Any], season: int) -> dict[str, Any]:
+    """Extract one championship table from NASCAR's shared Regional standings page."""
+    url = _series_url(config, season)
+    wanted = " ".join(str(config.get("regional_heading") or "").split()).casefold()
+    if not wanted:
+        raise RuntimeError("NASCAR Regional standings heading is not configured")
+
+    markdown = _reader_markdown(url)
+    lines = str(markdown or "").splitlines()
+    heading_index: int | None = None
+    for index, raw in enumerate(lines):
+        match = re.match(r"^\s*#{1,6}\s+(.+?)\s*$", raw)
+        if not match:
+            continue
+        label = _clean_markdown_cell(match.group(1)).casefold()
+        if label == wanted:
+            heading_index = index
+            break
+    if heading_index is None:
+        raise RuntimeError(f"NASCAR Regional standings section not found: {config.get('regional_heading')}")
+
+    # Each series heading is followed by its own standings table. Parse only
+    # the first table after the requested heading so another series with the
+    # same columns can never win the generic table-scoring heuristic.
+    for index in range(heading_index + 1, len(lines) - 1):
+        if "|" not in lines[index]:
+            continue
+        tables = _parse_markdown_tables("\n".join(lines[index:index + 80]))
+        if not tables:
+            continue
+        return _normalize_official_tables(config, url, [tables[0]])
+
+    raise RuntimeError(f"NASCAR Regional standings table not found: {config.get('regional_heading')}")
+
+
 def _fetch_official_table(config: dict[str, Any], season: int) -> dict[str, Any]:
     urls = [_series_url(config, season)]
     for fallback in config.get("fallback_urls") or ():
@@ -2783,6 +2878,8 @@ def _fetch_series(config: dict[str, Any], season: int) -> dict[str, Any]:
         return _fetch_imsa_linked_pdf(config, season)
     if provider == "wec":
         return _fetch_wec(config, season)
+    if provider == "nascar_regional":
+        return _fetch_nascar_regional(config, season)
     if provider == "official_table":
         return _fetch_official_table(config, season)
     if provider == "linked_pdf":
