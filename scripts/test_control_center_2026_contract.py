@@ -1634,6 +1634,22 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("/race-center/teams", service_worker)
         self.assertIn("/race-center-icon-192.png", service_worker)
 
+    def test_race_center_nascar_regional_standings_close_schedule_only_gaps(self):
+        standings = self.read("services/racing_standings.py")
+        events = self.read("services/racing_events.py")
+
+        for key in ("nascar-whelen-modified", "arca-east", "arca-west"):
+            self.assertIn(f'"key": "{key}"', standings)
+            self.assertIn(f'"{key}":', events)
+
+        for heading in ("Whelen Modified Tour", "ARCA Menards East", "ARCA Menards West"):
+            self.assertIn(f'"regional_heading": "{heading}"', standings)
+
+        self.assertIn('"provider": "nascar_regional"', standings)
+        self.assertIn("def _fetch_nascar_regional(", standings)
+        self.assertIn('if provider == "nascar_regional":', standings)
+        self.assertIn("NASCAR Regional standings table not found", standings)
+
     def test_race_center_v7_calendar_exports(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
