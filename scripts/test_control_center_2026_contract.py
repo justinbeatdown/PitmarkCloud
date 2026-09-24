@@ -1046,7 +1046,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             self.assertIn(token, entities)
 
         for token in (
-            '"events": events[:40]',
+            '"events": events,',
             '"venue": venue_data.get("fullName")',
             '"venue": circuit.get("circuitName")',
         ):
