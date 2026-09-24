@@ -139,6 +139,25 @@ async def grassroots_racing_sync_loop() -> None:
         await asyncio.sleep(interval)
 
 
+async def race_center_driver_photo_sync_loop() -> None:
+    interval = _env_int("PITMARK_DRIVER_PHOTO_SYNC_SECONDS", 3600, 1800, 21600)
+    while True:
+        try:
+            from services.racing_standings import warm_driver_identity_cache
+            result = await asyncio.to_thread(warm_driver_identity_cache, limit=48)
+            log.info(
+                "Race Center driver photo sync: attempted=%s photos=%s resolved=%s remaining=%s errors=%s",
+                result.get("attempted", 0),
+                result.get("photos", 0),
+                result.get("resolved", 0),
+                result.get("remaining", 0),
+                result.get("errors", 0),
+            )
+        except Exception as exc:
+            log.warning("Race Center driver photo sync failed: %s", exc)
+        await asyncio.sleep(interval)
+
+
 async def racing_standings_sync_loop() -> None:
     interval = _env_int("PITMARK_STANDINGS_SYNC_SECONDS", 14400, 1800, 43200)
     while True:
@@ -248,6 +267,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(gmail_sync_loop(), name="gmail-shield"),
         asyncio.create_task(runtime_maintenance_loop(), name="runtime-memory-maintenance"),
         asyncio.create_task(racing_standings_sync_loop(), name="racing-standings"),
+        asyncio.create_task(race_center_driver_photo_sync_loop(), name="race-center-driver-photos"),
         asyncio.create_task(racing_events_sync_loop(), name="race-center-events"),
         asyncio.create_task(grassroots_racing_sync_loop(), name="race-center-grassroots"),
         asyncio.create_task(results_sweep_loop(), name="sunday-results-sweep"),
