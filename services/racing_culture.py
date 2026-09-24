@@ -4,7 +4,7 @@ import logging
 import os
 import threading
 import time
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 from xml.etree import ElementTree as ET
 
 import httpx
@@ -42,6 +42,24 @@ def _entry_link(entry: ET.Element, ns: dict[str, str]) -> str:
         if link.attrib.get("href"):
             return str(link.attrib["href"]).strip()
     return ""
+
+
+def _story_key(url: str, title: str) -> str:
+    """Return a stable Race Center story key from Shopify article URLs."""
+    path = urlparse(str(url or "")).path.rstrip("/")
+    if path:
+        parts = [part for part in path.split("/") if part]
+        if "blogs" in parts:
+            try:
+                blog_index = parts.index("blogs")
+                # Shopify article URLs are /blogs/{blog-handle}/{article-handle}.
+                if len(parts) > blog_index + 2:
+                    return parts[-1]
+            except ValueError:
+                pass
+        if parts:
+            return parts[-1]
+    return _clean_text(title.lower().replace(" ", "-"), 180)
 
 
 def _story_from_entry(entry: ET.Element, ns: dict[str, str], source_url: str) -> dict:
@@ -97,7 +115,7 @@ def _story_from_entry(entry: ET.Element, ns: dict[str, str], source_url: str) ->
         if term and term not in categories:
             categories.append(term)
 
-    key = url.rstrip("/").split("/")[-1] if url else _clean_text(title.lower().replace(" ", "-"), 180)
+    key = _story_key(url, title)
     return {
         "key": key,
         "title": title or "Pitmark Racing Culture",
