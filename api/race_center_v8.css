@@ -96,9 +96,9 @@
 .v8-mini-empty{padding:22px;color:#858c93;font-size:12px}
 .v8-image-failed{opacity:0}
 
-body[data-view="community"].race-center-v8 main>section:not(.v8-community-page),
+body[data-view="community"] main>section:not(.v8-community-page),
 body[data-view="story"].race-center-v8 main>section:not(.v8-story-page),
-body[data-view="community"].race-center-v8 main>.v8-home-expansion,
+body[data-view="community"] main>.v8-home-expansion,
 body[data-view="story"].race-center-v8 main>.v8-home-expansion{display:none!important}
 
 @media (max-width:1050px){
