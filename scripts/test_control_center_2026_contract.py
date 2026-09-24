@@ -1208,7 +1208,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         for token in (
             "html_lib.unescape",
             'text.replace("|", " ")',
-            're.sub(r"[#*_~\\`]+"',
+            'text = re.sub(r"[#*_~',
             '(?P<rank>\\d{1,5})[.):]?',
         ):
             self.assertIn(token, grassroots)
