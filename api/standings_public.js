@@ -190,7 +190,7 @@ function configurePage(){
       intro:'See what is live, what is next, what changed, and the local racing you care about — all in one place.',
       primary:['What’s racing now','/race-center/live'],
       secondary:['Build My Racing','#consumerHome'],
-      pageTitle:'Pitmark Race Center — Your Racing, One Home'
+      pageTitle:'Pitmark Race Center — Your Racing Command Center'
     },
     drivers:{
       title:'Find a driver.<br><em>Know their racing.</em>',
