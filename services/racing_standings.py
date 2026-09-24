@@ -3421,8 +3421,14 @@ def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
     # Reuse that in-memory snapshot instead of re-reading the same championship
     # rows from Postgres on every page load.
     with _cache_lock:
+        live_cached_at = _cache.get("at")
         live_cached = _cache.get("value")
-        if live_cached and int(live_cached.get("season") or 0) == season:
+        if (
+            live_cached_at
+            and live_cached
+            and int(live_cached.get("season") or 0) == season
+            and (now - live_cached_at).total_seconds() <= 6 * 3600
+        ):
             return copy.deepcopy(live_cached)
 
         cached_at = _snapshot_cache.get("at")
