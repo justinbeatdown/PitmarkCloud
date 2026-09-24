@@ -372,6 +372,7 @@ const driverProfileHref=(seriesKey,name)=>'/race-center/driver/'+encodeURICompon
 
 function driverDirectoryRows(){
   const rows=[];
+  const identity=value=>String(value||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'');
   (state.payload?.series||[]).forEach(series=>{
     const seen=new Set();
     const candidates=[...(series.entries||[]),...(series.roster||[])];
@@ -396,6 +397,33 @@ function driverDirectoryRows(){
         photo_url:row.photo_use_allowed===true?String(row.photo_url||''):'',
         photo_source_url:row.photo_use_allowed===true?String(row.photo_source_url||''):'',
       });
+    });
+  });
+
+  const known=new Set(rows.map(row=>identity(row.name)).filter(Boolean));
+  (state.payload?.grassroots?.drivers||[]).forEach(driver=>{
+    const name=String(driver?.name||'').trim();
+    const driverIdentity=identity(name);
+    if(!name||!driverIdentity||known.has(driverIdentity))return;
+    known.add(driverIdentity);
+    const ranking=(driver.grassroots_rankings||[])[0]||{};
+    rows.push({
+      key:'grassroots:'+driverIdentity,
+      name,
+      number:'',
+      team:'',
+      manufacturer:'',
+      position:ranking.rank||null,
+      points:ranking.rating??null,
+      series_key:'grassroots',
+      series_name:'Grassroots Racing',
+      series_short:String(ranking.discipline||'Grassroots Racing'),
+      group:'GRASSROOTS',
+      photo_url:'',
+      photo_source_url:'',
+      grassroots:true,
+      grassroots_rankings:driver.grassroots_rankings||[],
+      source_urls:driver.source_urls||[],
     });
   });
   return rows.sort((a,b)=>a.name.localeCompare(b.name)||a.series_short.localeCompare(b.series_short));

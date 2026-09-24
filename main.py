@@ -114,6 +114,24 @@ async def racing_events_sync_loop() -> None:
         await asyncio.sleep(interval)
 
 
+async def grassroots_racing_sync_loop() -> None:
+    interval = _env_int("PITMARK_GRASSROOTS_SYNC_SECONDS", 21600, 1800, 43200)
+    while True:
+        try:
+            from services.grassroots_racing import get_grassroots_catalog
+            result = await asyncio.to_thread(get_grassroots_catalog, force=True)
+            summary = result.get("summary") or {}
+            log.info(
+                "Race Center grassroots sync: tracks=%s drivers=%s errors=%s",
+                summary.get("tracks", 0),
+                summary.get("drivers", 0),
+                len(summary.get("errors") or []),
+            )
+        except Exception as exc:
+            log.warning("Race Center grassroots background sync failed: %s", exc)
+        await asyncio.sleep(interval)
+
+
 async def racing_standings_sync_loop() -> None:
     interval = _env_int("PITMARK_STANDINGS_SYNC_SECONDS", 14400, 1800, 43200)
     while True:
@@ -224,6 +242,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(runtime_maintenance_loop(), name="runtime-memory-maintenance"),
         asyncio.create_task(racing_standings_sync_loop(), name="racing-standings"),
         asyncio.create_task(racing_events_sync_loop(), name="race-center-events"),
+        asyncio.create_task(grassroots_racing_sync_loop(), name="race-center-grassroots"),
         asyncio.create_task(results_sweep_loop(), name="sunday-results-sweep"),
     ]
     log.info(

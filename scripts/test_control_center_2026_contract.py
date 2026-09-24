@@ -1102,7 +1102,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             '"incomplete_series_count"',
             '"track_count": len(track_keys)',
             '"event_sources_warming": bool(events.get("warming"))',
-            "data_health(standings=standings, events=events)",
+            "data_health(standings=standings, events=events, grassroots=grassroots)",
         ):
             self.assertIn(token, entities)
 
@@ -1135,6 +1135,47 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("?'Leader: '+String(leader.name||'—')", js)
         self.assertIn("?'Next: '+eventMeta", js)
         self.assertIn("'LIVE · '+String(event.venue||event.name||'Race in progress')", js)
+
+    def test_race_center_grassroots_source_network(self):
+        grassroots = self.read("services/grassroots_racing.py")
+        standings = self.read("services/racing_standings.py")
+        entities = self.read("services/race_center_entities.py")
+        api = self.read("api/standings_public.py")
+        js = self.read("api/standings_public.js")
+        v7 = self.read("api/race_center_v7.js")
+        main = self.read("main.py")
+
+        for token in (
+            "SPRINTCAR_TRACKS_URL",
+            "SPRINTCAR_DRIVER_SOURCES",
+            "get_grassroots_catalog",
+            '"sprintcarratings"',
+            '"myracepass"',
+            '"race-monitor"',
+            '"mylaps-speedhive"',
+        ):
+            self.assertIn(token, grassroots)
+
+        for key in (
+            "dirtcar-late-model",
+            "dirtcar-ump-modified",
+            "dirtcar-stock-car",
+            "dirtcar-pro-modified",
+            "dirtcar-sport-compact",
+            "dirtcar-factory-stock",
+        ):
+            self.assertIn(key, standings)
+
+        self.assertIn("get_grassroots_catalog", entities)
+        self.assertIn('"grassroots_rankings"', entities)
+        self.assertIn('"grassroots_tracks"', entities)
+        self.assertIn('"grassroots_drivers"', entities)
+        self.assertIn('"grassroots": {', api)
+        self.assertIn("state.payload?.grassroots?.drivers", js)
+        self.assertIn("GRASSROOTS INTELLIGENCE", v7)
+        self.assertIn("GRASSROOTS TRACKS", v7)
+        self.assertIn("grassroots_racing_sync_loop", main)
+        self.assertIn('name="race-center-grassroots"', main)
 
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")

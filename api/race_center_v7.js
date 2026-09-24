@@ -40,7 +40,7 @@
     if(type==='event')return '/race-center/event/'+key;
     if(type==='series')return '/race-center/series/'+key;
     if(type==='driver'){
-      const series=(item.series&&item.series[0]&&item.series[0].series_key)||'';
+      const series=(item.series&&item.series[0]&&item.series[0].series_key)||(item.grassroots?'grassroots':'');
       return '/race-center/driver/'+encodeURIComponent(series)+'/'+encodeURIComponent(String(item.name||''));
     }
     return '/race-center';
@@ -121,11 +121,14 @@
 
   function entityCard(type,item){
     if(type==='track'){
+      const grassroots=Boolean(item.grassroots);
       return '<a class="v7-entity-card" href="'+esc(hrefFor(type,item))+'">'+
-        '<span class="v7-card-kicker">TRACK</span>'+
+        '<span class="v7-card-kicker">'+(grassroots?'GRASSROOTS TRACK':'TRACK')+'</span>'+
         '<h3>'+esc(item.name||'Track')+'</h3>'+
-        '<p>'+esc(item.location||'Location from official event source')+'</p>'+
-        '<div class="v7-card-meta"><span>'+Number((item.series||[]).length)+' series</span><span>'+Number((item.events||[]).length)+' events</span></div>'+
+        '<p>'+esc(item.location||'Location from connected racing sources')+'</p>'+
+        '<div class="v7-card-meta">'+(grassroots&&!(item.series||[]).length&&!(item.events||[]).length
+          ?'<span>Grassroots database</span><span>Tracked venue</span>'
+          :'<span>'+Number((item.series||[]).length)+' series</span><span>'+Number((item.events||[]).length)+' events</span>')+'</div>'+
         '<strong>Open track →</strong></a>';
     }
     if(type==='team'){
@@ -563,7 +566,9 @@
         ['STALE',data.stale_series_count,'need refresh'],
         ['UNAVAILABLE',data.unavailable_series_count,'no usable saved snapshot'],
         ['IDENTITY',data.complete_driver_identity,'complete driver rows'],
-        ['IDENTITY GAPS',data.incomplete_driver_identity,'rows need enrichment']
+        ['IDENTITY GAPS',data.incomplete_driver_identity,'rows need enrichment'],
+        ['GRASSROOTS TRACKS',data.grassroots_tracks,'source-backed venues'],
+        ['GRASSROOTS DRIVERS',data.grassroots_drivers,'rating / result profiles']
       ];
       grid.innerHTML='<div class="v7-health-stats">'+cards.map(x=>'<div><span>'+esc(x[0])+'</span><strong>'+Number(x[1]||0)+'</strong><small>'+esc(x[2])+'</small></div>').join('')+'</div>'+
         '<div class="v7-health-lists"><section><h3>Stale sources</h3>'+((data.stale_series||[]).map(x=>'<a href="/race-center/series/'+encodeURIComponent(x.key)+'">'+esc(x.name)+'</a>').join('')||'<p>None.</p>')+'</section>'+
@@ -668,6 +673,17 @@
           ['TOP 5s',stats.top5s],
           ['TOP 10s',stats.top10s]
         ].filter(row=>Number(row[1])>0);
+        const grassrootsRankings=(driver.grassroots_rankings||[]).slice(0,8);
+        const grassrootsBlock=grassrootsRankings.length
+          ?'<section class="v7-profile-section"><span class="eyebrow">GRASSROOTS INTELLIGENCE</span><h3>Sprint car ratings + activity</h3><div class="v7-related-list">'+
+            grassrootsRankings.map(row=>'<a href="'+esc(row.source_url||'#')+'" target="_blank" rel="noopener"><strong>'+esc(row.discipline||row.source_name||'Grassroots ranking')+'</strong><span>'+esc([
+              row.rank?('Rank '+row.rank):'',
+              row.rating!==undefined&&row.rating!==null?('Rating '+row.rating):'',
+              row.races!==undefined&&row.races!==null?(row.races+' races'):'',
+              row.wins!==undefined&&row.wins!==null?(row.wins+' wins'):''
+            ].filter(Boolean).join(' · '))+'</span></a>').join('')+
+          '</div></section>'
+          :'';
         section.innerHTML='<div class="section-head"><div><span class="eyebrow">CONNECTED RACING</span><h2>Across Race Center</h2></div><div class="v7-profile-actions"><a class="button" href="/race-center/compare?a='+encodeURIComponent(driver.key)+'">Compare driver ↔</a>'+shareButton(driver.name+' — Pitmark Race Center')+'</div></div>'+
           (statTiles.length?'<div class="v7-driver-stat-strip">'+statTiles.map(row=>'<div><span>'+esc(row[0])+'</span><strong>'+esc(row[1])+'</strong></div>').join('')+'</div>':'')+
           '<div class="v7-profile-layout"><section class="v7-profile-section"><h3>Team</h3><div class="v7-related-list">'+(teams.join('')||'<p>No team relationship is published yet.</p>')+'</div></section><section class="v7-profile-section"><h3>Current championships</h3><div class="v7-related-list">'+series+'</div></section></div>'+
@@ -680,7 +696,7 @@
             (tracks.length?tracks.map(track=>'<a href="/race-center/track/'+encodeURIComponent(track.key)+'">'+esc(track.name||track.key)+'</a>').join(''):'<span>No result-backed track history yet.</span>')+
           '</div></section><section class="v7-profile-section"><span class="eyebrow">DATA PROVENANCE</span><h3>Driver sources</h3><div class="v7-related-list">'+
             (sources.length?sources.map((url,index)=>'<a href="'+esc(url)+'" target="_blank" rel="noopener"><strong>Source '+(index+1)+'</strong><span>'+esc(url)+'</span></a>').join(''):'<p>Source details are not yet attached to this driver entity.</p>')+
-          '</div></section></div>'+ownerContentBlock(entity||{})+editorialBlock(entity?.editorial||[]);
+          '</div></section></div>'+grassrootsBlock+ownerContentBlock(entity||{})+editorialBlock(entity?.editorial||[]);
         content.appendChild(section);
       };
       add();

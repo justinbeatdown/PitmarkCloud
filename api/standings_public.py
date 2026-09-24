@@ -15,6 +15,7 @@ from PIL import Image, ImageOps
 
 from services.racing_standings import SERIES as STANDINGS_SERIES, get_driver_identity, get_series_logo_info, get_series_roster, get_standings_snapshot_hub
 from services.racing_events import get_racing_event_hub
+from services.grassroots_racing import get_grassroots_catalog
 from services import race_center_accounts
 from services import race_center_entities
 from utils.config import settings
@@ -989,6 +990,7 @@ def public_standings_logo(series_key: str):
 def public_standings_data():
     payload = get_standings_snapshot_hub()
     event_hub = get_racing_event_hub()
+    grassroots = get_grassroots_catalog()
     event_series = event_hub.get("series") or {}
     safe_series = []
     for series in payload.get("series") or []:
@@ -1047,6 +1049,13 @@ def public_standings_data():
                     "live": event_hub.get("live") or [],
                     "next": event_hub.get("next") or [],
                     "catalog": event_hub.get("catalog") or [],
+                },
+                "grassroots": {
+                    "generated_at": grassroots.get("generated_at"),
+                    "warming": bool(grassroots.get("warming")),
+                    "summary": grassroots.get("summary") or {},
+                    "sources": grassroots.get("sources") or [],
+                    "drivers": grassroots.get("drivers") or [],
                 },
                 "series": safe_series,
             },
