@@ -1650,6 +1650,19 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('if provider == "nascar_regional":', standings)
         self.assertIn("NASCAR Regional standings table not found", standings)
 
+    def test_race_center_home_prioritizes_personal_racing_board(self):
+        public_html = self.read("api/standings_public.html")
+
+        board = public_html.index('class="race-pulse home-race-pulse"')
+        consumer = public_html.index('id="consumerHome"')
+        race_day = public_html.index('id="v7RaceDay"')
+
+        self.assertGreaterEqual(board, 0)
+        self.assertGreater(consumer, board)
+        self.assertGreater(race_day, consumer)
+        self.assertIn("Your racing board", public_html)
+        self.assertIn("Open Race Center. Know what matters.", public_html)
+
     def test_race_center_v7_calendar_exports(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
