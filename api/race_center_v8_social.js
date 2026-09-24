@@ -65,6 +65,28 @@ function wireFollow(root){
     });
   });
 }
+function ownerUpdatesPreview(){
+  if(view!=='hub'||$('#v8OwnerUpdates'))return;
+  var expansion=$('.v8-home-expansion');if(!expansion)return;
+  var section=document.createElement('section');
+  section.className='v8-community-preview content-section';
+  section.id='v8OwnerUpdates';
+  section.innerHTML='<div class="section-head"><div><span class="eyebrow">FROM YOUR RACING</span><h2>Trackside updates</h2></div><a class="section-link" href="/race-center/my-racing">My Racing →</a></div><div class="v8-story-grid" id="v8OwnerUpdatesGrid"><div class="loading-card">Loading updates from racers you follow…</div></div>';
+  expansion.appendChild(section);
+  me().then(function(account){
+    if(!account.authenticated){
+      $('#v8OwnerUpdatesGrid').innerHTML='<div class="v8-empty"><strong>Follow racers to build this feed.</strong><span>Sign in, follow drivers and teams, and their owner-posted updates will show up here.</span><button class="button primary" type="button" data-v8-open-account>Open My Race Center</button></div>';
+      return;
+    }
+    return json('/api/public/race-center/following-updates?limit=12').then(function(payload){
+      var rows=payload.updates||[],host=$('#v8OwnerUpdatesGrid');
+      host.innerHTML=rows.length?rows.map(function(x){
+        return '<article class="v8-person-card"><div class="v8-person-main"><span class="v8-person-copy"><small>'+esc(String(x.entity_type||'racing').toUpperCase())+'</small><strong>'+esc(x.entity_name||'Racer')+'</strong><p>'+esc(x.body||'')+'</p>'+(x.media_url?'<img src="'+esc(x.media_url)+'" alt="" loading="lazy" decoding="async" class="rc-follow-update-image">':'')+'</span></div></article>';
+      }).join(''):'<div class="v8-empty"><strong>No new trackside updates yet.</strong><span>When drivers and teams you follow post from their verified profiles, they’ll appear here.</span></div>';
+    });
+  }).catch(function(){var host=$('#v8OwnerUpdatesGrid');if(host)host.innerHTML='<div class="v8-empty"><strong>Updates are refreshing.</strong></div>';});
+}
+
 function ensureHomePreview(){
   if(view!=='hub'||$('#v8CommunityPreview'))return;
   var expansion=$('.v8-home-expansion');
@@ -127,7 +149,7 @@ function nav(){
 }
 function init(){
   ensureHomePreview();
-  if(view==='hub')renderHomePreview();
+  if(view==='hub'){renderHomePreview();ownerUpdatesPreview();}
   communityPage();
   wireOpeners();
   nav();
