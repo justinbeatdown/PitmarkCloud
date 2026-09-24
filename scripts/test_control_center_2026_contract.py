@@ -33,6 +33,15 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("standard outreach asset", standard.lower())
         self.assertIn("Native **Work With Pitmark** intake", standard)
 
+        security = self.read("utils/security.py")
+        for route in (
+            '"/media-kit"',
+            '"/press"',
+            '"/submit-partnership-inquiry"',
+        ):
+            self.assertIn(route, security)
+        self.assertIn("form-action 'self'", security)
+
     def test_prt_ops_api_exists_and_exposes_required_routes(self):
         text = self.read("api/control_center_2026.py")
         for route in (
