@@ -866,3 +866,127 @@ def followed_user_ids(user_id: int) -> list[int]:
         return list(db.scalars(select(RaceCenterConnection.followed_user_id).where(
             RaceCenterConnection.follower_user_id == user_id
         )).all())
+
+
+
+def search_people(
+    query: str = "",
+    *,
+    viewer_user_id: int | None = None,
+    limit: int = 24,
+) -> list[dict]:
+    """Public Race Center people search with optional viewer relationship context."""
+    clean_query = " ".join(str(query or "").lower().split()).strip()
+    safe_limit = max(1, min(int(limit or 24), 60))
+    with SessionLocal() as db:
+        profiles = list(db.scalars(
+            select(RaceCenterProfile).order_by(RaceCenterProfile.updated_at.desc())
+        ).all())
+        if not profiles:
+            return []
+
+        user_ids = [profile.user_id for profile in profiles]
+        users = {
+            user.id: user
+            for user in db.scalars(
+                select(RaceCenterUser).where(RaceCenterUser.id.in_(user_ids))
+            ).all()
+        }
+        identities = {
+            identity.user_id: identity
+            for identity in db.scalars(
+                select(RaceCenterIdentity).where(RaceCenterIdentity.user_id.in_(user_ids))
+            ).all()
+        }
+        follower_counts = {
+            int(user_id): int(count)
+            for user_id, count in db.execute(
+                select(
+                    RaceCenterConnection.followed_user_id,
+                    func.count(RaceCenterConnection.id),
+                )
+                .where(RaceCenterConnection.followed_user_id.in_(user_ids))
+                .group_by(RaceCenterConnection.followed_user_id)
+            ).all()
+        }
+
+        viewer_following: set[int] = set()
+        viewer_keys: set[tuple[str, str]] = set()
+        if viewer_user_id:
+            viewer_following = set(db.scalars(
+                select(RaceCenterConnection.followed_user_id).where(
+                    RaceCenterConnection.follower_user_id == viewer_user_id
+                )
+            ).all())
+            viewer_keys = {
+                (row.kind, row.follow_key)
+                for row in db.scalars(
+                    select(RaceCenterFollow).where(RaceCenterFollow.user_id == viewer_user_id)
+                ).all()
+            }
+
+        follow_rows = list(db.scalars(
+            select(RaceCenterFollow).where(RaceCenterFollow.user_id.in_(user_ids))
+        ).all())
+        follow_map: dict[int, set[tuple[str, str]]] = {}
+        for row in follow_rows:
+            follow_map.setdefault(row.user_id, set()).add((row.kind, row.follow_key))
+
+        rows: list[dict] = []
+        for profile in profiles:
+            if viewer_user_id and profile.user_id == viewer_user_id:
+                continue
+            user = users.get(profile.user_id)
+            identity = identities.get(profile.user_id)
+            display_name = (user.display_name if user else "") or profile.handle
+            account_type = identity.account_type if identity else "fan"
+            official_label = identity.official_label if identity else ""
+            haystack = " ".join(
+                value for value in (
+                    display_name,
+                    profile.handle,
+                    profile.bio,
+                    profile.favorite_track,
+                    account_type,
+                    official_label,
+                )
+                if value
+            ).lower()
+            if clean_query and clean_query not in haystack:
+                tokens = [token for token in clean_query.split() if token]
+                if tokens and not all(token in haystack for token in tokens):
+                    continue
+
+            shared = sorted(viewer_keys & follow_map.get(profile.user_id, set())) if viewer_keys else []
+            staff = _pitmark_staff_identity(user.email if user else "")
+            rows.append({
+                "id": profile.user_id,
+                "display_name": display_name,
+                "handle": profile.handle,
+                "bio": profile.bio,
+                "favorite_track": profile.favorite_track,
+                "photo_url": f"/api/public/race-center/profile-photo/{profile.handle}",
+                "followers": follower_counts.get(profile.user_id, 0),
+                "viewer_follows": profile.user_id in viewer_following,
+                "shared_count": len(shared),
+                "shared": [{"kind": kind, "key": key} for kind, key in shared[:6]],
+                "staff": staff,
+                "identity": {
+                    "account_type": account_type,
+                    "verification_status": identity.verification_status if identity else "unverified",
+                    "official_label": official_label,
+                    "external_url": identity.external_url if identity else "",
+                },
+            })
+
+        rows.sort(
+            key=lambda item: (
+                1 if (item.get("staff") or {}).get("label") else 0,
+                1 if (item.get("identity") or {}).get("verification_status") == "verified" else 0,
+                int(item.get("shared_count") or 0),
+                int(item.get("followers") or 0),
+                str(item.get("display_name") or "").lower(),
+            ),
+            reverse=True,
+        )
+        return rows[:safe_limit]
