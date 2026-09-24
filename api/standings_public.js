@@ -449,7 +449,7 @@ let driverDirectoryRenderQuery='';
 
 function applyDriverIdentityToCards(seriesKey,driverName,payload){
   if(!payload||payload.status!=='ready')return;
-  $('[data-driver-enrich-series]').forEach(card=>{
+  Array.from(document.querySelectorAll('[data-driver-enrich-series]')).forEach(card=>{
     if(String(card.dataset.driverEnrichSeries||'')!==String(seriesKey||''))return;
     if(driverIdentityKey(card.dataset.driverEnrichName)!==driverIdentityKey(driverName))return;
     const currentPhoto=card.querySelector('.driver-photo');
@@ -476,7 +476,7 @@ function applyDriverIdentityToCards(seriesKey,driverName,payload){
 function hydrateDriverDirectoryCards(){
   if(state.view!=='drivers')return;
   if(driverDirectoryObserver&&driverDirectoryObserver.disconnect)driverDirectoryObserver.disconnect();
-  const cards=$('[data-driver-enrich-series]').filter(card=>card.dataset.driverEnriched!=='1');
+  const cards=Array.from(document.querySelectorAll('[data-driver-enrich-series]')).filter(card=>card.dataset.driverEnriched!=='1');
   if(!cards.length)return;
 
   const hydrate=card=>{
