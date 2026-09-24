@@ -535,7 +535,9 @@ def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
             })
 
     found.sort(key=lambda item: item.get("start") or "")
-    # Preserve the full season. Truncating to the first 20 events hid late-season\n    # races from Live + Next for high-event-count series.\n    return found
+    # Preserve the full season. Truncating to the first 20 events hid late-season
+    # races from Live + Next for high-event-count series.
+    return found
 
 
 def _event_summary(events: list[dict[str, Any]], config: dict[str, Any]) -> dict[str, Any]:
@@ -620,21 +622,23 @@ def get_racing_event_hub(force: bool = False) -> dict[str, Any]:
         return value
 
     by_series: dict[str, Any] = {}
-    dynamic = [(key, cfg) for key, cfg in SERIES_EVENT_CONFIG.items() if cfg.get("espn_league") or cfg.get("provider")]
-    with ThreadPoolExecutor(max_workers=5) as pool:
-        futures = [pool.submit(_build_one, key, cfg) for key, cfg in dynamic]
-        for future in as_completed(futures):
+    configs = list(SERIES_EVENT_CONFIG.items())
+    workers = max(2, min(8, len(configs)))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        future_map = {
+            pool.submit(_build_one, key, cfg): (key, cfg)
+            for key, cfg in configs
+        }
+        for future in as_completed(future_map):
+            key, cfg = future_map[future]
             try:
-                key, item = future.result()
-                by_series[key] = item
+                resolved_key, item = future.result()
+                by_series[resolved_key] = item
             except Exception:
-                pass
-
-    for key, cfg in SERIES_EVENT_CONFIG.items():
-        if key in by_series:
-            continue
-        _, item = _build_one(key, cfg)
-        by_series[key] = item
+                # A single blocked schedule source must never hold the entire
+                # race-weekend board hostage.
+                _, item = _build_one_static(key, cfg)
+                by_series[key] = item
 
     live = [item for item in by_series.values() if item.get("state") == "live"]
     next_items = [
@@ -646,7 +650,7 @@ def get_racing_event_hub(force: bool = False) -> dict[str, Any]:
     value = {
         "generated_at": now.isoformat(),
         "live": live,
-        "next": next_items[:24],
+        "next": next_items[:48],
         "series": by_series,
         "catalog": list(by_series.values()),
         "warming": False,

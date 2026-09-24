@@ -152,27 +152,65 @@
     const cfg=directoryConfig();
     const host=$('#v7EntityDirectory');
     if(!cfg||!host)return;
-    host.style.display='block';
-    $('#v7DirectoryEyebrow').textContent=cfg.eyebrow;
-    $('#v7DirectoryTitle').textContent=cfg.title;
-    $('#v7DirectoryIntro').textContent=cfg.intro;
-    $('#v7DirectorySearch').placeholder=cfg.placeholder;
 
-    const data=await graph();
-    const all=Array.isArray(data[cfg.collection])?data[cfg.collection]:[];
+    host.style.display='block';
+    const eyebrow=$('#v7DirectoryEyebrow');
+    const title=$('#v7DirectoryTitle');
+    const intro=$('#v7DirectoryIntro');
+    const search=$('#v7DirectorySearch');
     const grid=$('#v7EntityGrid');
     const count=$('#v7DirectoryCount');
     const meta=$('#v7DirectoryMeta');
 
-    const draw=()=>{
-      const q=String($('#v7DirectorySearch').value||'').trim().toLowerCase();
-      const rows=!q?all:all.filter(item=>JSON.stringify(item).toLowerCase().includes(q));
-      count.textContent=rows.length+' '+cfg.collection;
-      meta.textContent=cfg.type==='event'?'Each event connects the race to its series, track and watch information.':'Built from source-backed Race Center relationships.';
-      grid.innerHTML=rows.length?rows.map(item=>entityCard(cfg.type,item)).join(''):'<div class="loading-card">No matches in the current Race Center graph.</div>';
+    if(eyebrow)eyebrow.textContent=cfg.eyebrow;
+    if(title)title.textContent=cfg.title;
+    if(intro)intro.textContent=cfg.intro;
+    if(search)search.placeholder=cfg.placeholder;
+    if(!grid||!count||!meta)return;
+
+    const safeCard=item=>{
+      try{return entityCard(cfg.type,item||{});}
+      catch(_error){
+        const name=String(item?.name||item?.series_name||'Racing entry');
+        return '<article class="v7-entity-card"><span class="v7-card-kicker">'+esc(cfg.type.toUpperCase())+'</span><h3>'+esc(name)+'</h3><p>Race Center entry</p></article>';
+      }
     };
-    $('#v7DirectorySearch').addEventListener('input',draw);
-    draw();
+
+    const draw=rows=>{
+      const q=String(search?.value||'').trim().toLowerCase();
+      const filtered=!q?rows:rows.filter(item=>{
+        try{return JSON.stringify(item).toLowerCase().includes(q);}
+        catch(_error){return String(item?.name||'').toLowerCase().includes(q);}
+      });
+      count.textContent=filtered.length+' '+cfg.collection;
+      meta.textContent=cfg.type==='event'
+        ?'Each event connects the race to its series, track and watch information.'
+        :'Built from source-backed Race Center relationships.';
+      grid.innerHTML=filtered.length
+        ?filtered.map(safeCard).join('')
+        :'<div class="loading-card">No matches in the current Race Center directory.</div>';
+    };
+
+    try{
+      const response=await fetch('/api/public/race-center/directory/'+encodeURIComponent(cfg.collection),{
+        credentials:'same-origin',
+        cache:'no-store',
+        headers:{Accept:'application/json'}
+      });
+      if(!response.ok)throw new Error('Directory request failed');
+      const payload=await response.json();
+      const rows=Array.isArray(payload?.items)?payload.items:[];
+      draw(rows);
+      if(search&&!search.dataset.v7Bound){
+        search.dataset.v7Bound='1';
+        search.addEventListener('input',()=>draw(rows));
+      }
+    }catch(error){
+      console.error('Race Center directory load failed',error);
+      count.textContent='Directory unavailable';
+      meta.textContent='Race Center is retrying this directory.';
+      grid.innerHTML='<div class="loading-card">Unable to load this directory right now. Refresh to retry.</div>';
+    }
   }
 
   function followButton(type,item){

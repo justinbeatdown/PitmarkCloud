@@ -90,7 +90,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             request.url.path.startswith(("/prt", "/links", "/partners", "/partner-guide", "/standings", "/race-center"))
             or (
                 (request.url.hostname or "").lower().rstrip(".") == "racecenter.pitmarkracing.com"
-                and request.url.path in {"", "/"}
+                and not request.url.path.startswith("/api/")
             )
         ):
             # Public Pitmark pages use same-origin static assets. The clean
@@ -100,7 +100,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 request.url.path.startswith(("/standings", "/race-center"))
                 or (
                     (request.url.hostname or "").lower().rstrip(".") == "racecenter.pitmarkracing.com"
-                    and request.url.path in {"", "/"}
+                    and not request.url.path.startswith("/api/")
                 )
             )
             frame_src = (

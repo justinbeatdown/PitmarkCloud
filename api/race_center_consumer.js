@@ -284,9 +284,9 @@
       ));
       localCards.push(consumerCard(
         'SERIES DIRECTORS','Not in Race Center yet?','Send us your official roster, schedule, standings, results and media.',
-        '/race-center/submit-series',''
+        '/submit-series',''
       ));
-      local.innerHTML=localCards.length?localCards.join(''):emptyState('Help us map grassroots racing','Series and promoters can submit their official sources directly to Race Center.','/race-center/submit-series','Submit your series');
+      local.innerHTML=localCards.length?localCards.join(''):emptyState('Help us map grassroots racing','Series and promoters can submit their official sources directly to Race Center.','/submit-series','Submit your series');
 
       const resultEvents=(data.events||[]).filter(item=>Array.isArray(item.results)&&item.results.length).sort((a,b)=>new Date(b.start||0)-new Date(a.start||0)).slice(0,6);
       results.innerHTML=resultEvents.length?resultEvents.map(item=>{
