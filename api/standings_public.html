@@ -13,12 +13,17 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/race-center.webmanifest?v={{PITMARK_VERSION}}">
+  <link rel="preconnect" href="https://upload.wikimedia.org" crossorigin>
+  <link rel="preconnect" href="https://cdn.shopify.com" crossorigin>
   <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-static-head-runtime-20260924">
+  <link rel="stylesheet" href="/race-center-v8.css?v={{PITMARK_VERSION}}-living-home-20260924">
   <script data-cfasync="false" src="/standings.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924" defer></script>
   <script data-cfasync="false" src="/race-center-v5.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924" defer></script>
   <script data-cfasync="false" src="/race-center-v6.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924" defer></script>
   <script data-cfasync="false" src="/race-center-v7.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924" defer></script>
   <script data-cfasync="false" src="/race-center-consumer.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924" defer></script>
+  <script data-cfasync="false" src="/race-center-v8.js?v={{PITMARK_VERSION}}-living-home-20260924" defer></script>
+  <script data-cfasync="false" src="/race-center-v8-social.js?v={{PITMARK_VERSION}}-living-home-20260924" defer></script>
 </head>
 <body data-view="{{RACE_CENTER_VIEW}}">
   <a class="skip-link" href="#standingsStart">Skip to Race Center</a>
@@ -27,12 +32,13 @@
     <div class="header-inner">
       <a class="brand" href="/race-center" aria-label="Pitmark Race Center home">
         <img src="/prt-logo.png" alt="Pitmark Racing Co.">
-        <span class="brand-product"><strong>Race Center</strong><small>V7</small></span>
+        <span class="brand-product"><strong>Race Center</strong><small>V8</small></span>
       </a>
       <nav aria-label="Pitmark navigation">
         <a href="https://pitmarkracing.com">Shop</a>
         <a href="/prt">PRT</a>
         <a href="/race-center" data-race-view="hub">Race Center</a>
+        <a href="/race-center/community" data-race-view="community">Community</a>
         <a href="/race-center/drivers" data-race-view="drivers">Drivers</a>
         <a href="/race-center/series" data-race-view="series">Series</a>
         <a href="/race-center/tracks" data-race-view="tracks">Tracks</a>
@@ -55,7 +61,7 @@
       <div class="hero-copy">
         <div class="version-line">
           <span class="eyebrow">PITMARK RACE CENTER</span>
-          <span class="version-pill">V7</span>
+          <span class="version-pill">V8</span>
         </div>
         <h1 id="heroTitle">Your racing.<br><em>One command center.</em></h1>
         <p id="heroIntro">Live racing, next events, championship leaders, standings, drivers and the series you follow — organized around the racing, not a social-media timeline.</p>
@@ -628,6 +634,7 @@
         <a href="https://pitmarkracing.com">Pitmark Racing Co.</a>
         <a href="/prt">Pitmark Racing Tools</a>
         <a href="/race-center">Race Center</a>
+        <a href="/race-center/community">Community</a>
         <a href="/race-center/drivers">Drivers</a>
         <a href="/race-center/series">Series</a>
         <a href="/race-center/tracks">Tracks</a>

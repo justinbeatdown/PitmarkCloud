@@ -52,10 +52,23 @@
 
   function graph(){
     if(graphCache)return Promise.resolve(graphCache);
+    if(window.__pitmarkRaceGraphData){
+      graphCache=window.__pitmarkRaceGraphData;
+      return Promise.resolve(graphCache);
+    }
+    if(window.__pitmarkRaceGraphPromise)return window.__pitmarkRaceGraphPromise;
     if(graphPromise)return graphPromise;
     graphPromise=getJson('/api/public/race-center/graph?v=consumer-launch')
-      .then(data=>{graphCache=data;return data;})
-      .finally(()=>{graphPromise=null;});
+      .then(data=>{
+        graphCache=data;
+        window.__pitmarkRaceGraphData=data;
+        return data;
+      })
+      .finally(()=>{
+        graphPromise=null;
+        delete window.__pitmarkRaceGraphPromise;
+      });
+    window.__pitmarkRaceGraphPromise=graphPromise;
     return graphPromise;
   }
 
