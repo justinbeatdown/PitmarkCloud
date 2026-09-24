@@ -1298,7 +1298,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             'class="mobile-dock consumer-mobile-dock"',
             'data-consumer-action="search"',
             'data-consumer-action="profile"',
-            '/race-center-consumer.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924',
+            '/race-center-consumer.js?v={{PITMARK_VERSION}}-submit-series-view-fix-20260924',
         ):
             self.assertIn(token, html)
 
@@ -1411,9 +1411,9 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Array.from(document.querySelectorAll('main > section')).forEach(", consumer)
 
         for asset in (
-            "/standings.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
-            "/race-center-v7.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
-            "/race-center-consumer.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
+            "/standings.js?v={{PITMARK_VERSION}}-submit-series-view-fix-20260924",
+            "/race-center-v7.js?v={{PITMARK_VERSION}}-submit-series-view-fix-20260924",
+            "/race-center-consumer.js?v={{PITMARK_VERSION}}-submit-series-view-fix-20260924",
         ):
             self.assertIn(asset, html)
 
@@ -1426,11 +1426,11 @@ class ControlCenter2026Contract(unittest.TestCase):
         body_start = html.index("<body")
         self.assertLess(head_end, body_start)
         for asset in (
-            "/standings.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
-            "/race-center-v5.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
-            "/race-center-v6.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
-            "/race-center-v7.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
-            "/race-center-consumer.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
+            "/standings.js?v={{PITMARK_VERSION}}-submit-series-view-fix-20260924",
+            "/race-center-v5.js?v={{PITMARK_VERSION}}-submit-series-view-fix-20260924",
+            "/race-center-v6.js?v={{PITMARK_VERSION}}-submit-series-view-fix-20260924",
+            "/race-center-v7.js?v={{PITMARK_VERSION}}-submit-series-view-fix-20260924",
+            "/race-center-consumer.js?v={{PITMARK_VERSION}}-submit-series-view-fix-20260924",
         ):
             pos = html.index(asset)
             self.assertGreater(pos, 0)
@@ -1462,11 +1462,11 @@ class ControlCenter2026Contract(unittest.TestCase):
         security = self.read("utils/security.py")
 
         for asset in (
-            "/standings.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
-            "/race-center-v5.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
-            "/race-center-v6.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
-            "/race-center-v7.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
-            "/race-center-consumer.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
+            "/standings.js?v={{PITMARK_VERSION}}-submit-series-view-fix-20260924",
+            "/race-center-v5.js?v={{PITMARK_VERSION}}-submit-series-view-fix-20260924",
+            "/race-center-v6.js?v={{PITMARK_VERSION}}-submit-series-view-fix-20260924",
+            "/race-center-v7.js?v={{PITMARK_VERSION}}-submit-series-view-fix-20260924",
+            "/race-center-consumer.js?v={{PITMARK_VERSION}}-submit-series-view-fix-20260924",
         ):
             self.assertIn(asset, html)
 
@@ -1528,6 +1528,17 @@ class ControlCenter2026Contract(unittest.TestCase):
 
         self.assertIn('== "racecenter.pitmarkracing.com"', security)
         self.assertIn('and not request.url.path.startswith("/api/")', security)
+
+    def test_race_center_clean_submit_series_route_survives_client_router(self):
+        core = self.read("api/standings_public.js")
+        public_api = self.read("api/standings_public.py")
+        consumer = self.read("api/race_center_consumer.js")
+
+        self.assertIn("routePath.endsWith('/submit-series')", core)
+        self.assertIn("?\'submitseries\'", core.replace(" ", ""))
+        self.assertIn("submitseries:{", core)
+        self.assertIn("@router.get(\"/submit-series\"", public_api)
+        self.assertIn("'/submit-series'", consumer)
 
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
