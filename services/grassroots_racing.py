@@ -55,6 +55,20 @@ SOURCE_REGISTRY: tuple[dict[str, str], ...] = (
         "url": "https://dirtcar.com/points/",
     },
     {
+        "key": "ascs",
+        "name": "American Sprint Car Series",
+        "kind": "standings-results-schedules-tracks-drivers",
+        "status": "active",
+        "url": "https://ascsracing.com/",
+    },
+    {
+        "key": "imca",
+        "name": "International Motor Contest Association",
+        "kind": "national-regional-state-track-points-drivers-tracks",
+        "status": "discovery",
+        "url": "https://www.imca.com/points/",
+    },
+    {
         "key": "nascar-local",
         "name": "NASCAR Local Racing Series / MyRacePass",
         "kind": "grassroots-standings-drivers-tracks",
@@ -67,6 +81,13 @@ SOURCE_REGISTRY: tuple[dict[str, str], ...] = (
         "kind": "track-series-driver-points",
         "status": "discovery",
         "url": "https://www.myracepass.com/",
+    },
+    {
+        "key": "the-third-turn",
+        "name": "The Third Turn",
+        "kind": "historical-regional-drivers-tracks-results-series",
+        "status": "discovery",
+        "url": "https://www.thethirdturn.com/",
     },
     {
         "key": "race-monitor",
