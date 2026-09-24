@@ -916,9 +916,10 @@ def public_standings_home(request: Request):
                     break
                 html = html[:start] + html[end + len("</script>"):]
 
-        version = f"{settings.app_version}-custom-root-head-20260924"
+        version = f"{settings.app_version}-direct-render-runtime-20260924"
+        render_origin = "https://pitmarkcloud.onrender.com"
         runtime_head = "\n".join(
-            f'<script data-cfasync="false" src="{runtime_path}?v={version}" defer></script>'
+            f'<script data-cfasync="false" src="{render_origin}{runtime_path}?v={version}" defer></script>'
             for runtime_path in runtime_paths
         )
         bootstrap = (
