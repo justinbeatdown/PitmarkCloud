@@ -14,6 +14,22 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class RaceCenterDriverOwnerMeta(Base):
+    __tablename__ = "race_center_driver_owner_meta"
+
+    entity_key: Mapped[str] = mapped_column(String(220), primary_key=True)
+    owner_user_id: Mapped[int] = mapped_column(ForeignKey("race_center_users.id", ondelete="CASCADE"), index=True)
+    hometown: Mapped[str] = mapped_column(String(180), default="")
+    car_number: Mapped[str] = mapped_column(String(40), default="")
+    primary_class: Mapped[str] = mapped_column(String(180), default="")
+    classes_json: Mapped[str] = mapped_column(Text, default="[]")
+    team_name: Mapped[str] = mapped_column(String(220), default="")
+    car_info: Mapped[str] = mapped_column(Text, default="")
+    social_links_json: Mapped[str] = mapped_column(Text, default="[]")
+    website_url: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class RaceCenterEntityScheduleItem(Base):
     __tablename__ = "race_center_entity_schedule_items"
 
@@ -134,6 +150,68 @@ def _schedule_payload(row: RaceCenterEntityScheduleItem) -> dict:
     }
 
 
+def driver_meta(entity_key: str) -> dict:
+    key = str(entity_key or "").strip()
+    with SessionLocal() as db:
+        row = db.get(RaceCenterDriverOwnerMeta, key)
+        if not row:
+            return {}
+        try:
+            classes = json.loads(row.classes_json or "[]")
+        except Exception:
+            classes = []
+        try:
+            social_links = json.loads(row.social_links_json or "[]")
+        except Exception:
+            social_links = []
+        return {
+            "hometown": row.hometown,
+            "car_number": row.car_number,
+            "primary_class": row.primary_class,
+            "classes": classes if isinstance(classes, list) else [],
+            "team_name": row.team_name,
+            "car_info": row.car_info,
+            "social_links": social_links if isinstance(social_links, list) else [],
+            "website_url": row.website_url,
+            "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+        }
+
+
+def update_driver_meta(user_id: int, entity_key: str, payload: dict) -> dict:
+    kind, key = require_manage(user_id, "driver", entity_key)
+    classes = [
+        str(value or "").strip()[:180]
+        for value in (payload.get("classes") or [])
+        if str(value or "").strip()
+    ][:20]
+    social_links = []
+    for item in (payload.get("social_links") or [])[:20]:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label") or "").strip()[:80]
+        url = str(item.get("url") or "").strip()[:4000]
+        if url:
+            social_links.append({"label": label, "url": url})
+    with SessionLocal() as db:
+        row = db.get(RaceCenterDriverOwnerMeta, key)
+        if row is None:
+            row = RaceCenterDriverOwnerMeta(entity_key=key, owner_user_id=user_id)
+            db.add(row)
+        elif row.owner_user_id != user_id:
+            raise ValueError("This driver profile is controlled by another verified owner.")
+        row.hometown = str(payload.get("hometown") or "")[:180]
+        row.car_number = str(payload.get("car_number") or "")[:40]
+        row.primary_class = str(payload.get("primary_class") or "")[:180]
+        row.classes_json = json.dumps(classes)
+        row.team_name = str(payload.get("team_name") or "")[:220]
+        row.car_info = str(payload.get("car_info") or "")[:4000]
+        row.social_links_json = json.dumps(social_links)
+        row.website_url = str(payload.get("website_url") or "")[:4000]
+        row.updated_at = utcnow()
+        db.commit()
+    return driver_meta(key)
+
+
 def public_hub(entity_type: str, entity_key: str, viewer_user_id: int | None = None) -> dict:
     kind, key = _kind_key(entity_type, entity_key)
     detail = race_center_entities.entity_detail(kind, key)
@@ -158,6 +236,7 @@ def public_hub(entity_type: str, entity_key: str, viewer_user_id: int | None = N
         ).order_by(RaceCenterEntitySponsor.sort_order.asc(), RaceCenterEntitySponsor.id.asc())).all())
     return {
         "entity": detail,
+        "driver_meta": driver_meta(key) if kind == "driver" else {},
         "can_manage": bool(viewer_user_id and user_can_manage(viewer_user_id, kind, key)),
         "schedule": [_schedule_payload(row) for row in schedule],
         "media": [_media_payload(row) for row in media],
@@ -200,7 +279,12 @@ def upsert_schedule(user_id: int, entity_type: str, entity_key: str, payload: di
         row.status = status
         row.notes = str(payload.get("notes") or "")[:4000]
         flyer = payload.get("flyer_media_id")
-        row.flyer_media_id = int(flyer) if flyer not in (None, "", 0, "0") else None
+        flyer_id = int(flyer) if flyer not in (None, "", 0, "0") else None
+        if flyer_id:
+            media = db.get(RaceCenterEntityMedia, flyer_id)
+            if not media or media.entity_type != kind or media.entity_key != key or media.owner_user_id != user_id:
+                raise ValueError("Flyer is not part of this verified profile.")
+        row.flyer_media_id = flyer_id
         row.updated_at = utcnow()
         db.commit()
         db.refresh(row)
