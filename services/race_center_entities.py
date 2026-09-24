@@ -162,10 +162,44 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
     tracks: dict[str, dict[str, Any]] = {}
     event_items: list[dict[str, Any]] = []
 
-    for series in standings.get("series") or []:
-        series_key = str(series.get("series_key") or "")
-        entries = list(series.get("entries") or [])
+    standings_rows = list(standings.get("series") or [])
+    standings_by_key = {
+        str(item.get("series_key") or ""): item
+        for item in standings_rows
+        if str(item.get("series_key") or "").strip()
+    }
+    all_series_keys = [
+        str(item.get("series_key") or "")
+        for item in standings_rows
+        if str(item.get("series_key") or "").strip()
+    ]
+    all_series_keys.extend(
+        sorted(
+            (key for key in event_series if key not in standings_by_key),
+            key=lambda key: (
+                str((event_series.get(key) or {}).get("group") or ""),
+                str((event_series.get(key) or {}).get("series_name") or key),
+            ),
+        )
+    )
+
+    for series_key in all_series_keys:
         event_info = event_series.get(series_key) or {}
+        series = dict(standings_by_key.get(series_key) or {})
+        if not series:
+            series_name = str(event_info.get("series_name") or series_key)
+            series = {
+                "series_key": series_key,
+                "series_name": series_name,
+                "short_name": series_name,
+                "group": event_info.get("group"),
+                "season": standings.get("season") or utcnow().year,
+                "status": "schedule-only",
+                "stale": False,
+                "official_url": event_info.get("schedule_url"),
+                "entries": [],
+            }
+        entries = list(series.get("entries") or [])
         event = event_info.get("event") or None
         series_row = {
             "key": series_key,
@@ -184,6 +218,8 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
             "logo_url": series.get("series_logo_url") or event_info.get("logo_url"),
             "event_state": event_info.get("state"),
             "event": event,
+            "standings_available": bool(entries),
+            "schedule_available": bool(event_info.get("schedule_url")),
         }
         series_items.append(series_row)
 
@@ -242,6 +278,16 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
         event_rows = list(event_info.get("events") or [])
         if not event_rows and event:
             event_rows = [event]
+        series_row["event_count"] = len(event_rows)
+        series_row["data_coverage"] = {
+            "standings": bool(entries),
+            "schedule": bool(event_info.get("schedule_url")),
+            "events": bool(event_rows),
+            "identity": bool(entries) and all(
+                bool(entry.get("number")) and bool(entry.get("team")) and bool(entry.get("manufacturer"))
+                for entry in entries
+            ),
+        }
         chosen_key = _event_key(series_key, event) if event else None
         for event_row_source in event_rows:
             if not isinstance(event_row_source, dict):
@@ -529,7 +575,7 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
         "teams": sorted(teams.values(), key=lambda x: x["name"]),
         "tracks": sorted(tracks.values(), key=lambda x: x["name"]),
         "events": event_items,
-        "health": data_health(standings=standings),
+        "health": data_health(standings=standings, events=events),
         "warming": bool(events.get("warming")),
     }
     with _graph_lock:
@@ -538,14 +584,30 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
     return value
 
 
-def data_health(*, standings: dict[str, Any] | None = None) -> dict[str, Any]:
+def data_health(
+    *,
+    standings: dict[str, Any] | None = None,
+    events: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     standings = standings or get_standings_snapshot_hub()
+    events = events or get_racing_event_hub()
     series = list(standings.get("series") or [])
+    event_series = events.get("series") or {}
+    standings_by_key = {
+        str(item.get("series_key") or ""): item
+        for item in series
+        if str(item.get("series_key") or "").strip()
+    }
+    all_series_keys = set(standings_by_key) | set(event_series)
+
     driver_count = 0
     complete_identity = 0
     missing_identity = 0
     stale_series: list[dict[str, str]] = []
     unavailable_series: list[dict[str, str]] = []
+    incomplete_series: list[dict[str, Any]] = []
+    track_keys: set[str] = set()
+    event_count = 0
 
     for item in series:
         if item.get("status") == "stale":
@@ -559,18 +621,61 @@ def data_health(*, standings: dict[str, Any] | None = None) -> dict[str, Any]:
             else:
                 missing_identity += 1
 
+    for key in sorted(all_series_keys):
+        standings_row = standings_by_key.get(key) or {}
+        event_row = event_series.get(key) or {}
+        schedule_events = list(event_row.get("events") or [])
+        event_count += len(schedule_events)
+        for event in schedule_events:
+            if not isinstance(event, dict):
+                continue
+            track_key = _track_key(event)
+            if track_key:
+                track_keys.add(track_key)
+
+        missing: list[str] = []
+        entries = list(standings_row.get("entries") or [])
+        if not entries:
+            missing.append("standings")
+        if not event_row.get("schedule_url"):
+            missing.append("schedule")
+        if not schedule_events:
+            missing.append("events")
+        if entries and any(
+            not entry.get("number") or not entry.get("team") or not entry.get("manufacturer")
+            for entry in entries
+        ):
+            missing.append("identity")
+
+        if missing:
+            incomplete_series.append({
+                "key": key,
+                "name": standings_row.get("series_name") or event_row.get("series_name") or key,
+                "group": standings_row.get("group") or event_row.get("group"),
+                "missing": missing,
+                "standings_status": standings_row.get("status") or "schedule-only",
+            })
+
     summary = standings.get("summary") or {}
     return {
-        "series_total": len(series),
+        "series_total": len(all_series_keys),
+        "standings_series_total": len(standings_by_key),
+        "event_series_total": len(event_series),
         "fresh_series": int(summary.get("live") or 0),
         "stale_series_count": len(stale_series),
         "unavailable_series_count": len(unavailable_series),
         "drivers_seen": driver_count,
         "complete_driver_identity": complete_identity,
         "incomplete_driver_identity": missing_identity,
+        "event_count": event_count,
+        "track_count": len(track_keys),
+        "complete_series_count": max(0, len(all_series_keys) - len(incomplete_series)),
+        "incomplete_series_count": len(incomplete_series),
+        "incomplete_series": incomplete_series[:100],
         "stale_series": stale_series[:20],
         "unavailable_series": unavailable_series[:20],
         "last_snapshot_at": summary.get("last_snapshot_at"),
+        "event_sources_warming": bool(events.get("warming")),
     }
 
 
