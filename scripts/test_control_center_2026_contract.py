@@ -1650,6 +1650,14 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('if provider == "nascar_regional":', standings)
         self.assertIn("NASCAR Regional standings table not found", standings)
 
+    def test_race_center_home_race_day_does_not_shadow_loader(self):
+        consumer = self.read("api/race_center_consumer.js")
+        self.assertIn("const [data,raceDayData]=await Promise.all([", consumer)
+        self.assertIn("raceDay().catch", consumer)
+        self.assertNotIn("const [data,raceDay]=await Promise.all([", consumer)
+        self.assertIn("raceDayData.live", consumer)
+        self.assertIn("raceDayData.upcoming", consumer)
+
     def test_race_center_home_first_load_reuses_warmed_data(self):
         standings = self.read("services/racing_standings.py")
         entities = self.read("services/race_center_entities.py")
