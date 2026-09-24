@@ -414,6 +414,31 @@ def race_center_entity_graph():
     return race_center_entities.build_entity_graph()
 
 
+@router.get("/api/public/race-center/directory/{kind}", include_in_schema=False)
+def race_center_entity_directory(kind: str):
+    clean = str(kind or "").strip().lower()
+    collection_map = {
+        "track": "tracks",
+        "tracks": "tracks",
+        "team": "teams",
+        "teams": "teams",
+        "event": "events",
+        "events": "events",
+    }
+    collection = collection_map.get(clean)
+    if not collection:
+        raise HTTPException(status_code=404, detail="Race Center directory not found.")
+    graph = race_center_entities.build_entity_graph()
+    rows = graph.get(collection) or []
+    return {
+        "generated_at": graph.get("generated_at"),
+        "warming": bool(graph.get("warming")),
+        "kind": collection,
+        "count": len(rows),
+        "items": rows,
+    }
+
+
 @router.get("/api/public/race-center/search", include_in_schema=False)
 def race_center_entity_search(q: str = "", limit: int = 24):
     return {"query": q, "results": race_center_entities.graph_search(q, limit=limit)}
@@ -848,6 +873,7 @@ def race_center_people_unfollow(request: Request, body: RaceUserFollowChange):
 
 
 @router.get("/race-center", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/submit-series", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/submit-series", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/compare", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/race-center/tracks", response_class=HTMLResponse, include_in_schema=False)
