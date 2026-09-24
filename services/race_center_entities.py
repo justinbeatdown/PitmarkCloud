@@ -12,6 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from services.database import Base, SessionLocal
 from services.racing_events import get_racing_event_hub
+from services.grassroots_racing import get_grassroots_catalog
 from services.racing_standings import RacingStandingSnapshot, get_standings_snapshot_hub
 
 
@@ -155,6 +156,7 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
     # graph requests never trigger dozens of remote schedule fetches themselves.
     events = get_racing_event_hub()
     event_series = events.get("series") or {}
+    grassroots = get_grassroots_catalog()
 
     series_items: list[dict[str, Any]] = []
     drivers: dict[str, dict[str, Any]] = {}
@@ -390,6 +392,70 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
                     "series_name": event_row["series_name"],
                 })
 
+    for raw in grassroots.get("tracks") or []:
+        if not isinstance(raw, dict):
+            continue
+        name = str(raw.get("name") or "").strip()
+        if not name:
+            continue
+        track_key = str(raw.get("key") or "").strip() or slugify(f"{name}-{raw.get('location') or ''}")
+        track = tracks.setdefault(track_key, {
+            "key": track_key,
+            "name": name,
+            "location": raw.get("location"),
+            "track_type": None,
+            "surface": None,
+            "length": None,
+            "configuration": None,
+            "official_url": None,
+            "social_links": [],
+            "photo_url": None,
+            "photo_license": None,
+            "photo_attribution": None,
+            "series": set(),
+            "events": [],
+            "source_urls": set(),
+            "grassroots_sources": [],
+        })
+        if not track.get("location") and raw.get("location"):
+            track["location"] = raw.get("location")
+        if raw.get("source_url"):
+            track["source_urls"].add(str(raw["source_url"]))
+        source = {
+            "key": raw.get("source_key"),
+            "name": raw.get("source_name"),
+            "url": raw.get("source_url"),
+        }
+        if source not in track.setdefault("grassroots_sources", []):
+            track["grassroots_sources"].append(source)
+        track["grassroots"] = True
+
+    for raw in grassroots.get("drivers") or []:
+        if not isinstance(raw, dict):
+            continue
+        name = str(raw.get("name") or "").strip()
+        dkey = str(raw.get("key") or identity_key(name)).strip()
+        if not name or not dkey:
+            continue
+        driver = drivers.setdefault(dkey, {
+            "key": dkey,
+            "name": name,
+            "number": None,
+            "team": None,
+            "manufacturer": None,
+            "photo_url": None,
+            "series": [],
+        })
+        driver["grassroots"] = True
+        rankings = driver.setdefault("grassroots_rankings", [])
+        for ranking in raw.get("grassroots_rankings") or []:
+            if ranking not in rankings:
+                rankings.append(ranking)
+        source_urls = driver.setdefault("grassroots_source_urls", [])
+        for source_url in raw.get("source_urls") or []:
+            if source_url and source_url not in source_urls:
+                source_urls.append(source_url)
+
     for driver in drivers.values():
         driver_series = {str(row.get("series_key") or "") for row in driver.get("series") or []}
         driver["stats"] = {
@@ -451,10 +517,17 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
         driver["recent_results"] = recent_results
         driver["tracks_raced"] = sorted(raced_tracks.values(), key=lambda row: str(row.get("name") or ""))
         source_urls = sorted({
-            str(value)
-            for series_row in driver.get("series") or []
-            for value in (series_row.get("official_url"), series_row.get("schedule_url"))
-            if value
+            *{
+                str(value)
+                for series_row in driver.get("series") or []
+                for value in (series_row.get("official_url"), series_row.get("schedule_url"))
+                if value
+            },
+            *{
+                str(value)
+                for value in driver.get("grassroots_source_urls") or []
+                if value
+            },
         })
         driver["source_urls"] = source_urls
         driver["provenance"] = {
@@ -575,8 +648,12 @@ def build_entity_graph(force: bool = False) -> dict[str, Any]:
         "teams": sorted(teams.values(), key=lambda x: x["name"]),
         "tracks": sorted(tracks.values(), key=lambda x: x["name"]),
         "events": event_items,
-        "health": data_health(standings=standings, events=events),
-        "warming": bool(events.get("warming")),
+        "health": data_health(standings=standings, events=events, grassroots=grassroots),
+        "grassroots": {
+            "summary": grassroots.get("summary") or {},
+            "sources": grassroots.get("sources") or [],
+        },
+        "warming": bool(events.get("warming") or grassroots.get("warming")),
     }
     with _graph_lock:
         _graph_cache["at"] = now
@@ -588,9 +665,11 @@ def data_health(
     *,
     standings: dict[str, Any] | None = None,
     events: dict[str, Any] | None = None,
+    grassroots: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     standings = standings or get_standings_snapshot_hub()
     events = events or get_racing_event_hub()
+    grassroots = grassroots or get_grassroots_catalog()
     series = list(standings.get("series") or [])
     event_series = events.get("series") or {}
     standings_by_key = {
@@ -676,6 +755,11 @@ def data_health(
         "unavailable_series": unavailable_series[:20],
         "last_snapshot_at": summary.get("last_snapshot_at"),
         "event_sources_warming": bool(events.get("warming")),
+        "grassroots_tracks": int((grassroots.get("summary") or {}).get("tracks") or 0),
+        "grassroots_drivers": int((grassroots.get("summary") or {}).get("drivers") or 0),
+        "grassroots_sources": grassroots.get("sources") or [],
+        "grassroots_errors": (grassroots.get("summary") or {}).get("errors") or [],
+        "grassroots_warming": bool(grassroots.get("warming")),
     }
 
 
