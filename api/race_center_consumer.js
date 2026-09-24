@@ -56,8 +56,15 @@
       graphCache=window.__pitmarkRaceGraphData;
       return Promise.resolve(graphCache);
     }
-    if(window.__pitmarkRaceGraphPromise)return window.__pitmarkRaceGraphPromise;
     if(graphPromise)return graphPromise;
+    if(window.__pitmarkRaceGraphPromise){
+      graphPromise=window.__pitmarkRaceGraphPromise.then(data=>{
+        graphCache=data;
+        window.__pitmarkRaceGraphData=data;
+        return data;
+      }).finally(()=>{graphPromise=null;});
+      return graphPromise;
+    }
     graphPromise=getJson('/api/public/race-center/graph?v=consumer-launch')
       .then(data=>{
         graphCache=data;
@@ -66,7 +73,7 @@
       })
       .finally(()=>{
         graphPromise=null;
-        delete window.__pitmarkRaceGraphPromise;
+        if(window.__pitmarkRaceGraphPromise===graphPromise)delete window.__pitmarkRaceGraphPromise;
       });
     window.__pitmarkRaceGraphPromise=graphPromise;
     return graphPromise;
