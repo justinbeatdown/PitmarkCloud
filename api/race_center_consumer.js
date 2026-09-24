@@ -241,13 +241,13 @@
     if(!today||!following||!local||!results)return;
 
     try{
-      const [data,raceDay]=await Promise.all([
+      const [data,raceDayData]=await Promise.all([
         graph(),
         raceDay().catch(()=>({live:[],upcoming:[],movement:[]}))
       ]);
       const seriesByKey=new Map((data.series||[]).map(item=>[String(item.series_key||item.key||''),item]));
 
-      const live=(raceDay.live||[]).slice(0,3);
+      const live=(raceDayData.live||[]).slice(0,3);
       const fallbackUpcoming=(data.events||[])
         .filter(item=>['next','schedule'].includes(String(item?.state||'').toLowerCase()))
         .filter(item=>{
@@ -255,7 +255,7 @@
           return Number.isNaN(when.getTime())||when.getTime()>=Date.now()-2*60*60*1000;
         })
         .sort((a,b)=>String(a?.start||'').localeCompare(String(b?.start||'')));
-      const upcoming=((raceDay.upcoming||[]).length?(raceDay.upcoming||[]):fallbackUpcoming).slice(0,6);
+      const upcoming=((raceDayData.upcoming||[]).length?(raceDayData.upcoming||[]):fallbackUpcoming).slice(0,6);
       const todayRows=[
         ...live.map(item=>consumerCard(
           'LIVE NOW',item.name,[item.series_name,item.venue].filter(Boolean).join(' · '),
