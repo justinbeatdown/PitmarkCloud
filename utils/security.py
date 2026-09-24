@@ -120,8 +120,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 + image_src
                 + "font-src 'self'"
             )
-        elif request.url.path.startswith(("/racing-desk", "/submit-racing-news", "/racing-network.css")):
-            # Racing Desk uses same-origin CSS and a same-origin submission form.
+        elif request.url.path.startswith((
+            "/racing-desk",
+            "/submit-racing-news",
+            "/media-kit",
+            "/press",
+            "/submit-partnership-inquiry",
+            "/racing-network.css",
+        )):
+            # Racing Desk and Media Kit use same-origin CSS and same-origin forms.
             # Keep scripts and third-party resources disabled.
             response.headers["Content-Security-Policy"] = (
                 "default-src 'none'; style-src 'self'; frame-ancestors 'none'; "
