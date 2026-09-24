@@ -365,6 +365,71 @@ def _event_title(lines: list[str], index: int, match: re.Match[str], config: dic
     return "See official schedule"
 
 
+_VENUE_HINTS = (
+    "speedway",
+    "raceway",
+    "race course",
+    "racecourse",
+    "motor speedway",
+    "motorsports park",
+    "motorsport park",
+    "motorplex",
+    "dragway",
+    "circuit",
+    "autodrome",
+    "autódromo",
+    "fairgrounds",
+    "road course",
+    "race track",
+    "racetrack",
+)
+
+
+def _schedule_venue(lines: list[str], index: int, title: str, config: dict[str, Any]) -> str | None:
+    candidates: list[tuple[int, str]] = []
+    series_name = str(config.get("name") or "").casefold()
+    title_low = str(title or "").casefold()
+
+    for pos in range(max(0, index - 3), min(len(lines), index + 4)):
+        value = _clean_schedule_text(lines[pos])
+        if not value:
+            continue
+        segments = [seg.strip(" ·|-") for seg in re.split(r"\s*[·|]\s*", value) if seg.strip(" ·|-")]
+        for segment in segments or [value]:
+            low = segment.casefold()
+            if len(segment) < 4 or len(segment) > 100:
+                continue
+            if any(token in low for token in (
+                "schedule", "tickets", "watch live", "watch now", "broadcast",
+                "results", "standings", "newsletter", "privacy", "cookie",
+            )):
+                continue
+            if re.search(r"\b20\d{2}\b", segment):
+                continue
+
+            score = 0
+            if any(hint in low for hint in _VENUE_HINTS):
+                score += 12
+            if re.search(r"\b(?:road america|road atlanta|watkins glen|lime rock|sebring|laguna seca|mid-ohio)\b", low):
+                score += 10
+            if "," in segment:
+                score += 1
+            if segment.isupper():
+                score += 1
+            if low == title_low:
+                score += 2 if any(hint in low for hint in _VENUE_HINTS) else -4
+            if series_name and series_name in low:
+                score -= 6
+
+            if score >= 8:
+                candidates.append((score, segment))
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: (-item[0], len(item[1])))
+    return candidates[0][1]
+
+
 def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
     url = str(config.get("schedule_url") or "").strip()
     if not url:
@@ -399,9 +464,12 @@ def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
                 dt = datetime(int(match.group("y") or now.year), month, int(match.group("d")), 12, 0, tzinfo=timezone.utc)
             except Exception:
                 continue
-            if dt < now - timedelta(days=2) or dt > now + timedelta(days=370):
+            # Keep the entire configured season so Race Center can build a real
+            # season-wide track/event graph instead of only today's remaining venues.
+            if dt.year != SEASON:
                 continue
             title = _event_title(lines, i, match, config)
+            venue = _schedule_venue(lines, i, title, config)
             key = (dt.date().isoformat(), title.casefold())
             if key in seen:
                 continue
@@ -414,6 +482,8 @@ def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
                 "state": "pre" if dt.date() >= now.date() else "post",
                 "completed": dt.date() < now.date(),
                 "broadcast": None,
+                "venue": venue,
+                "location": None,
                 "source_url": url,
             })
 
