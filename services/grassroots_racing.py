@@ -492,7 +492,8 @@ def _fetch_sprintcar_tracks() -> list[dict[str, Any]]:
         if len(text_tracks) > len(tracks):
             tracks = text_tracks
     if len(tracks) < 100:
-        raise RuntimeError(f"SprintCarRatings track catalog parse too small ({len(tracks)})")
+        preview = _plain_line(str(text or ""))[:1400]
+        raise RuntimeError(f"SprintCarRatings track catalog parse too small ({len(tracks)}); preview={preview}")
     return tracks
 
 
@@ -551,7 +552,8 @@ def _fetch_sprintcar_drivers(source: dict[str, Any]) -> list[dict[str, Any]]:
         if len(text_drivers) > len(drivers):
             drivers = text_drivers
     if len(drivers) < 10:
-        raise RuntimeError(f"{source['name']} driver parse too small ({len(drivers)})")
+        preview = _plain_line(str(text or ""))[:1400]
+        raise RuntimeError(f"{source['name']} driver parse too small ({len(drivers)}); preview={preview}")
     return drivers
 
 
