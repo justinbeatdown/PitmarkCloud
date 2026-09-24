@@ -121,12 +121,19 @@ async def grassroots_racing_sync_loop() -> None:
             from services.grassroots_racing import get_grassroots_catalog
             result = await asyncio.to_thread(get_grassroots_catalog, force=True)
             summary = result.get("summary") or {}
+            errors = summary.get("errors") or []
             log.info(
                 "Race Center grassroots sync: tracks=%s drivers=%s errors=%s",
                 summary.get("tracks", 0),
                 summary.get("drivers", 0),
-                len(summary.get("errors") or []),
+                len(errors),
             )
+            for error in errors[:8]:
+                log.warning(
+                    "Race Center grassroots source failed: source=%s error=%s",
+                    error.get("source"),
+                    error.get("error"),
+                )
         except Exception as exc:
             log.warning("Race Center grassroots background sync failed: %s", exc)
         await asyncio.sleep(interval)
