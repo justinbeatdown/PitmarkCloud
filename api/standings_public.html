@@ -13,7 +13,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/race-center.webmanifest?v={{PITMARK_VERSION}}">
-  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-pwa-mobile-20260923">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-consumer-launch-20260924">
 </head>
 <body data-view="{{RACE_CENTER_VIEW}}">
   <a class="skip-link" href="#standingsStart">Skip to Race Center</a>
@@ -74,6 +74,43 @@
         <div><span>Feed health</span><strong id="feedHealth">—</strong><small>available / tracked</small></div>
         <div><span>Last sync</span><strong id="updatedValue">—</strong><small id="seasonValue">Season —</small></div>
       </div>
+    </section>
+
+    <section class="consumer-home content-section" id="consumerHome" aria-label="Your racing today">
+      <div class="consumer-home-head">
+        <div>
+          <span class="eyebrow">TODAY IN RACING</span>
+          <h2>Open Race Center. Know what matters.</h2>
+          <p>Live racing, what is next, your favorites, local tracks and results — without hunting through ten different sites.</p>
+        </div>
+        <button class="button consumer-customize" type="button">Customize My Racing</button>
+      </div>
+
+      <section class="consumer-home-block consumer-home-today">
+        <div class="consumer-block-head"><div><span class="consumer-section-icon">●</span><strong>Live & up next</strong></div><a href="/race-center/live">See race weekend →</a></div>
+        <div class="consumer-rail consumer-rail-featured" id="consumerTodayGrid">
+          <div class="consumer-skeleton"></div><div class="consumer-skeleton"></div><div class="consumer-skeleton"></div>
+        </div>
+      </section>
+
+      <div class="consumer-home-split">
+        <section class="consumer-home-block">
+          <div class="consumer-block-head"><div><span class="consumer-section-icon">★</span><strong>Following</strong></div><a href="/race-center/my-racing">Open My Racing →</a></div>
+          <div class="consumer-rail" id="consumerFollowingGrid"><div class="consumer-skeleton"></div><div class="consumer-skeleton"></div></div>
+          <div class="consumer-sub-actions"><a href="/race-center/my-racing#alerts">Alert settings</a><button class="consumer-link-button consumer-customize" type="button">Edit interests</button></div>
+        </section>
+
+        <section class="consumer-home-block">
+          <div class="consumer-block-head"><div><span class="consumer-section-icon">⌖</span><strong>Local & grassroots</strong></div><button class="consumer-link-button consumer-customize" id="consumerRegionLabel" type="button">Set your region</button></div>
+          <div class="consumer-rail" id="consumerLocalGrid"><div class="consumer-skeleton"></div><div class="consumer-skeleton"></div></div>
+          <div class="consumer-sub-actions"><a href="/race-center/tracks">Explore tracks →</a><a href="/race-center/drivers">Grassroots drivers →</a></div>
+        </section>
+      </div>
+
+      <section class="consumer-home-block">
+        <div class="consumer-block-head"><div><span class="consumer-section-icon">✓</span><strong>Results you may have missed</strong></div><a href="/race-center/events">All events →</a></div>
+        <div class="consumer-rail" id="consumerResultsGrid"><div class="consumer-skeleton"></div><div class="consumer-skeleton"></div><div class="consumer-skeleton"></div></div>
+      </section>
     </section>
 
 
@@ -384,15 +421,41 @@
     </aside>
   </main>
 
-  <nav class="mobile-dock" aria-label="Race Center quick navigation">
-    <a href="/race-center/my-racing"><span>★</span>My Racing</a>
+  <nav class="mobile-dock consumer-mobile-dock" aria-label="Race Center quick navigation">
+    <a href="/race-center"><span>⌂</span>Home</a>
     <a href="/race-center/live"><span>●</span>Live</a>
-    <a href="/race-center/events"><span>⚑</span>Events</a>
-    <a href="/race-center/drivers"><span>◎</span>Drivers</a>
-    <a href="/race-center/tracks"><span>⌖</span>Tracks</a>
-    <a href="/race-center/standings"><span>≡</span>Standings</a>
+    <button type="button" data-consumer-action="search"><span>⌕</span>Search</button>
+    <a href="/race-center/my-racing"><span>★</span>Following</a>
+    <button type="button" data-consumer-action="profile"><span>◎</span>Profile</button>
   </nav>
   <button id="backToTop" class="back-to-top" type="button" aria-label="Back to top" hidden>↑ Top</button>
+
+  <dialog id="consumerOnboarding" class="consumer-onboarding" aria-labelledby="consumerOnboardingTitle">
+    <div class="consumer-onboarding-shell">
+      <span class="eyebrow">WELCOME TO RACE CENTER</span>
+      <h2 id="consumerOnboardingTitle">Build your racing world.</h2>
+      <p>Pick what you care about. Race Center will use it to shape your home screen — you can change this anytime.</p>
+      <fieldset class="consumer-interest-grid">
+        <legend>What do you follow?</legend>
+        <label><input type="checkbox" name="consumerInterest" value="dirt"><span>Dirt racing<small>Sprints, late models, modifieds</small></span></label>
+        <label><input type="checkbox" name="consumerInterest" value="sprint"><span>Sprint cars<small>410s, 360s, 305s, ASCS</small></span></label>
+        <label><input type="checkbox" name="consumerInterest" value="latemodel"><span>Late models<small>Dirt late models and touring series</small></span></label>
+        <label><input type="checkbox" name="consumerInterest" value="nascar"><span>NASCAR & stock cars<small>National, ARCA and regional</small></span></label>
+        <label><input type="checkbox" name="consumerInterest" value="openwheel"><span>Open wheel<small>IndyCar, F1, USAC and more</small></span></label>
+        <label><input type="checkbox" name="consumerInterest" value="sportscar"><span>Sports cars<small>IMSA, WEC, GT racing</small></span></label>
+        <label><input type="checkbox" name="consumerInterest" value="drag"><span>Drag racing<small>NHRA and drag racing</small></span></label>
+        <label><input type="checkbox" name="consumerInterest" value="local"><span>Local & grassroots<small>Short tracks and regional racing</small></span></label>
+      </fieldset>
+      <label class="consumer-region-field">Your racing region
+        <input id="consumerRegion" type="text" maxlength="80" autocomplete="address-level1" placeholder="Pennsylvania, Ohio, Western PA…">
+        <small>Used only to surface relevant tracks and racing. No precise location required.</small>
+      </label>
+      <div class="consumer-onboarding-actions">
+        <button class="button" id="consumerOnboardingSkip" type="button">Skip for now</button>
+        <button class="button primary" id="consumerOnboardingSave" type="button">Build My Race Center</button>
+      </div>
+    </div>
+  </dialog>
 
   <dialog id="accountDialog" class="account-dialog" aria-labelledby="accountDialogTitle">
     <div class="account-shell">
@@ -514,5 +577,6 @@
   <script src="/race-center-v5.js?v={{PITMARK_VERSION}}-v6-social-20260923" defer></script>
   <script src="/race-center-v6.js?v={{PITMARK_VERSION}}-finished-final-20260923" defer></script>
   <script src="/race-center-v7.js?v={{PITMARK_VERSION}}-pwa-mobile-20260923" defer></script>
+  <script src="/race-center-consumer.js?v={{PITMARK_VERSION}}-consumer-launch-20260924" defer></script>
 </body>
 </html>
