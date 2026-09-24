@@ -767,11 +767,28 @@ def public_profile_by_handle(handle: str, viewer_user_id: int | None = None) -> 
             RaceCenterConnection.follower_user_id == profile.user_id
         )) or 0
         viewer_follows = False
+        mutual_connections = 0
+        shared_racing = 0
         if viewer_user_id:
             viewer_follows = db.scalar(select(RaceCenterConnection.id).where(
                 RaceCenterConnection.follower_user_id == viewer_user_id,
                 RaceCenterConnection.followed_user_id == profile.user_id,
             ).limit(1)) is not None
+            viewer_people = set(db.scalars(select(RaceCenterConnection.followed_user_id).where(
+                RaceCenterConnection.follower_user_id == viewer_user_id
+            )).all())
+            their_people = set(db.scalars(select(RaceCenterConnection.followed_user_id).where(
+                RaceCenterConnection.follower_user_id == profile.user_id
+            )).all())
+            mutual_connections = len(viewer_people & their_people)
+            viewer_racing = {
+                (row.kind, row.follow_key)
+                for row in db.scalars(select(RaceCenterFollow).where(
+                    RaceCenterFollow.user_id == viewer_user_id
+                )).all()
+            }
+            their_racing = {(row.kind, row.follow_key) for row in follows}
+            shared_racing = len(viewer_racing & their_racing)
         return {
             "id": profile.user_id,
             "display_name": user.display_name or profile.handle,
@@ -788,6 +805,8 @@ def public_profile_by_handle(handle: str, viewer_user_id: int | None = None) -> 
             "followers": int(follower_count),
             "following": int(following_count),
             "viewer_follows": viewer_follows,
+            "mutual_connections": mutual_connections,
+            "shared_racing": shared_racing,
             "photo_url": f"/api/public/race-center/profile-photo/{profile.handle}",
             "series": [
                 {"key": x.follow_key, "label": x.label}
