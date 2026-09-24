@@ -4392,3 +4392,12 @@ body[data-view="submitseries"] .series-submit-page{display:block}
   .series-submit-hero h1{font-size:42px}
   .consumer-card{flex-basis:min(84vw,310px)!important}
 }
+
+
+body[data-view="submitseries"] main > section:not(.series-submit-page),
+body[data-view="submitseries"] main > aside{
+  display:none!important
+}
+body[data-view="submitseries"] .series-submit-page{
+  display:block!important
+}
