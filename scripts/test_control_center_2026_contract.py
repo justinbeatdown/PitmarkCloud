@@ -1471,7 +1471,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             self.assertIn(asset, html)
 
         self.assertIn('== "racecenter.pitmarkracing.com"', security)
-        self.assertIn('request.url.path in {"", "/"}', security)
+        self.assertIn('and not request.url.path.startswith("/api/")', security)
         self.assertIn('script-src \'self\'', security)
         self.assertIn('connect-src \'self\'', security)
         self.assertIn('is_race_center = (', security)
