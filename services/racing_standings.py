@@ -4398,6 +4398,70 @@ def get_driver_identity(
     return result
 
 
+def warm_driver_identity_cache(
+    *,
+    limit: int = 48,
+    season: int | None = None,
+) -> dict[str, Any]:
+    """Proactively enrich current standings drivers so photos are ready before scroll."""
+    season = int(season or utcnow().year)
+    hub = get_standings_snapshot_hub(season=season)
+    candidates: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+
+    for series in hub.get("series") or []:
+        series_key = str(series.get("series_key") or "").strip()
+        if not series_key:
+            continue
+        for entry in series.get("entries") or []:
+            name = " ".join(str(entry.get("name") or "").split()).strip()
+            key = _identity_key(name)
+            if not name or not key:
+                continue
+            token = (series_key, key)
+            if token in seen:
+                continue
+            seen.add(token)
+            if entry.get("photo_use_allowed") and entry.get("photo_url"):
+                continue
+            cached = _driver_identity_cache_get(series_key, name, season)
+            if cached is not None:
+                continue
+            candidates.append((series_key, name))
+
+    selected = candidates[: max(0, min(int(limit or 0), 120))]
+    photo_count = 0
+    resolved_count = 0
+    errors = 0
+
+    def resolve(item: tuple[str, str]) -> dict[str, Any]:
+        series_key, name = item
+        return get_driver_identity(series_key, name, season=season)
+
+    if selected:
+        with ThreadPoolExecutor(max_workers=min(4, len(selected))) as pool:
+            futures = [pool.submit(resolve, item) for item in selected]
+            for future in as_completed(futures):
+                try:
+                    result = future.result()
+                except Exception:
+                    errors += 1
+                    continue
+                if result.get("resolved"):
+                    resolved_count += 1
+                if result.get("photo_use_allowed") and result.get("photo_url"):
+                    photo_count += 1
+
+    return {
+        "season": season,
+        "attempted": len(selected),
+        "photos": photo_count,
+        "resolved": resolved_count,
+        "remaining": max(0, len(candidates) - len(selected)),
+        "errors": errors,
+    }
+
+
 def clear_standings_cache() -> None:
     with _cache_lock:
         _cache["at"] = None
