@@ -80,9 +80,10 @@
   }
 
   function emptyState(title,body,actionHref='',action=''){
-    return '<div class="consumer-empty"><span class="consumer-empty-mark">P</span><div><strong>'+esc(title)+'</strong><p>'+esc(body)+'</p>'+
-      (actionHref?'<a class="button" href="'+esc(actionHref)+'">'+esc(action||'Explore racing')+'</a>':'')+
-      '</div></div>';
+    const control=actionHref==='#'
+      ?'<button class="button consumer-customize" type="button">'+esc(action||'Customize My Racing')+'</button>'
+      :(actionHref?'<a class="button" href="'+esc(actionHref)+'">'+esc(action||'Explore racing')+'</a>':'');
+    return '<div class="consumer-empty"><span class="consumer-empty-mark">P</span><div><strong>'+esc(title)+'</strong><p>'+esc(body)+'</p>'+control+'</div></div>';
   }
 
   function interestMatches(series,interest){
@@ -165,7 +166,22 @@
 
   function regionMatches(item,region){
     if(!region)return false;
-    return [item.location,item.name].filter(Boolean).join(' ').toLowerCase().includes(region);
+    const hay=[item.location,item.name].filter(Boolean).join(' ').toLowerCase();
+    const cleaned=String(region||'').toLowerCase().replace(/\b(western|eastern|northern|southern|central|greater)\b/g,' ').replace(/[^a-z0-9]+/g,' ').trim();
+    const aliases={
+      pa:'pennsylvania',oh:'ohio',wv:'west virginia',ny:'new york',nj:'new jersey',
+      md:'maryland',va:'virginia',nc:'north carolina',sc:'south carolina',
+      tn:'tennessee',ga:'georgia',fl:'florida',tx:'texas',ca:'california',
+      in:'indiana',il:'illinois',mi:'michigan',wi:'wisconsin',mn:'minnesota',
+      ia:'iowa',mo:'missouri',ks:'kansas',ok:'oklahoma',ne:'nebraska'
+    };
+    const tokens=cleaned.split(/\s+/).filter(Boolean);
+    const candidates=new Set([cleaned]);
+    tokens.forEach(token=>{
+      candidates.add(token);
+      if(aliases[token])candidates.add(aliases[token]);
+    });
+    return [...candidates].some(value=>value.length>=2&&hay.includes(value));
   }
 
   async function renderConsumerHome(){
@@ -314,6 +330,10 @@
   function init(){
     document.body.classList.add('consumer-launch');
     wireOnboarding();
+    document.addEventListener('click',event=>{
+      const customize=event.target.closest('.consumer-customize');
+      if(customize){event.preventDefault();openOnboarding(true);}
+    });
     renderConsumerHome();
     wireSearchUX();
     wireMobileDock();
