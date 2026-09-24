@@ -1094,7 +1094,7 @@ function renderSummary(){
   const fresh=Number(summary.live||0);
   const stale=Number(summary.stale||0);
   const unavailable=Number(summary.unavailable||0);
-  $('#seriesCount').textContent=n(summary.schedule_series_total||total);
+  $('#seriesCount').textContent=n(summary.tracked_series_total||summary.schedule_series_total||total);
   $('#liveCount').textContent=n(summary.events_live||0);
   const available=Math.max(0,total-unavailable);
   $('#feedHealth').textContent=total?`${available}/${total}`:'—';
