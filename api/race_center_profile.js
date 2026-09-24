@@ -36,7 +36,7 @@ function renderAvatar(){
   host.innerHTML='';
   const img=document.createElement('img');
   const photoUrl=profile.photo_url||'/api/public/race-center/profile-photo/'+encodeURIComponent(profile.handle);
-  img.src=photoUrl+(photoUrl.includes('?')?'&':'?')+'v='+Date.now();
+  img.src=photoUrl;
   img.alt=profile.display_name||profile.handle;
   img.onload=()=>{host.classList.add('has-photo');};
   img.onerror=()=>{host.classList.remove('has-photo');host.textContent=initials(profile.display_name||profile.handle);};
@@ -70,6 +70,8 @@ function renderProfile(){
   if(!verified.hidden)verified.textContent='✓ '+(identity.official_label||'Verified');
   const meta=[];
   if(profile.favorite_track)meta.push('<span>Home track <strong>'+esc(profile.favorite_track)+'</strong></span>');
+  if(profile.mutual_connections)meta.push('<span><strong>'+String(profile.mutual_connections)+'</strong> mutual connection'+(Number(profile.mutual_connections)===1?'':'s')+'</span>');
+  if(profile.shared_racing)meta.push('<span><strong>'+String(profile.shared_racing)+'</strong> shared racing interest'+(Number(profile.shared_racing)===1?'':'s')+'</span>');
   if(identity.external_url)meta.push('<a href="'+esc(identity.external_url)+'" target="_blank" rel="noopener">Official link ↗</a>');
   $('#publicProfileMeta').innerHTML=meta.join('');
   $('#profilePhotoUpload').hidden=!owner;
