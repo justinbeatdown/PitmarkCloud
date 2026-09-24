@@ -1451,6 +1451,12 @@ class ControlCenter2026Contract(unittest.TestCase):
         ):
             self.assertIn(token, public_api)
 
+    def test_race_center_runtime_opts_out_of_edge_script_rewriting(self):
+        html = self.read("api/standings_public.html")
+        public_api = self.read("api/standings_public.py")
+        self.assertGreaterEqual(html.count('data-cfasync="false"'), 5)
+        self.assertIn("data-cfasync=\"false\"", public_api)
+
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
         public_html = self.read("api/standings_public.html")
