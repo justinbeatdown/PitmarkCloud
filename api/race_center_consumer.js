@@ -113,12 +113,27 @@
       const data=await graph();
       const legacy=legacyPrefs();
       const current=new Set(legacy.favorites||[]);
-      const candidates=(data.series||[]).filter(series=>interests.some(interest=>interestMatches(series,interest)));
-      candidates.slice(0,8).forEach(series=>{
+      const candidates=(data.series||[]).filter(series=>interests.some(interest=>interestMatches(series,interest))).slice(0,8);
+      candidates.forEach(series=>{
         const key=String(series.series_key||series.key||'').trim();
         if(key)current.add(key);
       });
       writeLegacyPrefs({...legacy,favorites:[...current]});
+
+      const account=await fetch('/api/public/race-center/account',{credentials:'same-origin',cache:'no-store'})
+        .then(response=>response.ok?response.json():null).catch(()=>null);
+      if(account?.authenticated){
+        await Promise.allSettled(candidates.map(series=>{
+          const key=String(series.series_key||series.key||'').trim();
+          if(!key)return Promise.resolve();
+          return fetch('/api/public/race-center/follows',{
+            method:'PUT',
+            credentials:'same-origin',
+            headers:{'Content-Type':'application/json',Accept:'application/json'},
+            body:JSON.stringify({kind:'series',key,label:series.name||series.series_name||key,series_key:key})
+          });
+        }));
+      }
     }catch(_error){}
 
     dialog.close();
@@ -153,10 +168,6 @@
       writePrefs({...readPrefs(),complete:true});
       dialog.close();
     });
-    $$('.consumer-customize').forEach(button=>button.addEventListener('click',event=>{
-      event.preventDefault();
-      openOnboarding(true);
-    }));
     if(view==='hub')setTimeout(()=>openOnboarding(false),700);
   }
 
