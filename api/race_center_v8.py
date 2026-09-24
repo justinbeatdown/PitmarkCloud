@@ -42,13 +42,67 @@ def race_center_story(story_key: str):
 @router.get("/api/public/race-center/community-search", include_in_schema=False)
 def race_center_community_search(request: Request, q: str = "", limit: int = 24):
     viewer = race_center_accounts.account_from_request(request)
+    safe_limit = max(1, min(int(limit or 24), 60))
+    people = race_center_accounts.search_people(
+        q,
+        viewer_user_id=viewer.id if viewer else None,
+        limit=safe_limit,
+    )
+    graph = race_center_entities.build_entity_graph()
+    needle = " ".join(str(q or "").casefold().split()).strip()
+
+    def matches(*values):
+        if not needle:
+            return True
+        haystack = " ".join(str(value or "") for value in values).casefold()
+        return all(token in haystack for token in needle.split())
+
+    entities = []
+    for kind in ("drivers", "teams", "tracks", "series"):
+        singular = kind[:-1] if kind != "series" else "series"
+        for item in graph.get(kind) or []:
+            if singular == "driver":
+                searchable = (item.get("name"), item.get("number"), item.get("team"), item.get("manufacturer"))
+                subtitle = " · ".join(str(value) for value in (item.get("number"), item.get("team")) if value)
+                url = f"/race-center/driver/{item.get('key')}"
+            elif singular == "team":
+                searchable = (item.get("name"), item.get("manufacturer"))
+                subtitle = item.get("manufacturer") or ""
+                url = f"/race-center/team/{item.get('key')}"
+            elif singular == "track":
+                searchable = (item.get("name"), item.get("location"), item.get("surface"), item.get("track_type"))
+                subtitle = item.get("location") or item.get("surface") or ""
+                url = f"/race-center/track/{item.get('key')}"
+            else:
+                searchable = (item.get("name"), item.get("short_name"), item.get("group"))
+                subtitle = item.get("group") or ""
+                url = f"/race-center/series/{item.get('key')}"
+            if not matches(*searchable):
+                continue
+            entities.append({
+                "entity_type": singular,
+                "key": item.get("key"),
+                "display_name": item.get("name") or item.get("short_name"),
+                "subtitle": subtitle,
+                "photo_url": item.get("photo_url") or item.get("logo_url") or "",
+                "profile_url": url,
+                "claimed": False,
+                "source_backed": True,
+            })
+
+    entities.sort(key=lambda item: ({"driver": 0, "team": 1, "track": 2, "series": 3}.get(item["entity_type"], 9), str(item.get("display_name") or "")))
     return {
         "query": q,
-        "people": race_center_accounts.search_people(
-            q,
-            viewer_user_id=viewer.id if viewer else None,
-            limit=limit,
-        ),
+        "people": people,
+        "entities": entities[:safe_limit],
+        "counts": {
+            "people": len(people),
+            "entities": len(entities),
+            "drivers": len(graph.get("drivers") or []),
+            "teams": len(graph.get("teams") or []),
+            "tracks": len(graph.get("tracks") or []),
+            "series": len(graph.get("series") or []),
+        },
     }
 
 
