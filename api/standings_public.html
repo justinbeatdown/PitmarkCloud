@@ -13,7 +13,12 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/race-center.webmanifest?v={{PITMARK_VERSION}}">
-  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-consumer-launch-20260924">
+  <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-static-head-runtime-20260924">
+  <script src="/standings.js?v={{PITMARK_VERSION}}-static-head-runtime-20260924" defer></script>
+  <script src="/race-center-v5.js?v={{PITMARK_VERSION}}-static-head-runtime-20260924" defer></script>
+  <script src="/race-center-v6.js?v={{PITMARK_VERSION}}-static-head-runtime-20260924" defer></script>
+  <script src="/race-center-v7.js?v={{PITMARK_VERSION}}-static-head-runtime-20260924" defer></script>
+  <script src="/race-center-consumer.js?v={{PITMARK_VERSION}}-static-head-runtime-20260924" defer></script>
 </head>
 <body data-view="{{RACE_CENTER_VIEW}}">
   <a class="skip-link" href="#standingsStart">Skip to Race Center</a>
@@ -638,10 +643,5 @@
     <small>Race Center prioritizes official and structured series sources. Pitmark hides unsupported identity fields instead of guessing. Use each linked official series source for final classifications, rules and race-control decisions.</small>
   </footer>
 
-  <script src="/standings.js?v={{PITMARK_VERSION}}-custom-domain-boot-20260924" defer></script>
-  <script src="/race-center-v5.js?v={{PITMARK_VERSION}}-custom-domain-boot-20260924" defer></script>
-  <script src="/race-center-v6.js?v={{PITMARK_VERSION}}-custom-domain-boot-20260924" defer></script>
-  <script src="/race-center-v7.js?v={{PITMARK_VERSION}}-custom-domain-boot-20260924" defer></script>
-  <script src="/race-center-consumer.js?v={{PITMARK_VERSION}}-custom-domain-boot-20260924" defer></script>
 </body>
 </html>
