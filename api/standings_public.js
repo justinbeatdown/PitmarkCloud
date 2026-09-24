@@ -1,7 +1,9 @@
 const routePath=(location.pathname.replace(/\/+$/,'')||'/').toLowerCase();
 const pageView=routePath==='/standings'||routePath.endsWith('/standings')
   ?'standings'
-  :routePath.endsWith('/schedules')
+  :routePath.endsWith('/submit-series')
+    ?'submitseries'
+    :routePath.endsWith('/schedules')
     ?'schedules'
     :routePath.endsWith('/live')
       ?'live'
@@ -303,6 +305,13 @@ function configurePage(){
       primary:['Source health','#v7Health'],
       secondary:['Race Center','/race-center'],
       pageTitle:'Data Health — Pitmark Race Center V7'
+    },
+    submitseries:{
+      title:'Submit your series.<br><em>Get into Race Center.</em>',
+      intro:'Send Pitmark the official sources we need to connect your schedule, roster, standings, results and media.',
+      primary:['Submission form','#seriesSubmitPage'],
+      secondary:['Race Center','/race-center'],
+      pageTitle:'Submit Your Series — Pitmark Race Center'
     }
   }[state.view]||{
     title:'All of racing.<br><em>One home base.</em>',
