@@ -186,11 +186,11 @@ function configurePage(){
 
   const config={
     hub:{
-      title:'Your racing.<br><em>One command center.</em>',
-      intro:'Live racing, next events, championship leaders, standings, drivers and the series you follow — organized around the racing, not a social-media timeline.',
-      primary:['Open standings','/race-center/standings'],
-      secondary:['Find a driver','/race-center/drivers'],
-      pageTitle:'Pitmark Race Center — Your Racing Command Center'
+      title:'Your racing.<br><em>Right when it matters.</em>',
+      intro:'See what is live, what is next, what changed, and the local racing you care about — all in one place.',
+      primary:['What’s racing now','/race-center/live'],
+      secondary:['Build My Racing','#consumerHome'],
+      pageTitle:'Pitmark Race Center — Your Racing, One Home'
     },
     drivers:{
       title:'Find a driver.<br><em>Know their racing.</em>',
