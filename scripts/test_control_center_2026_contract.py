@@ -1298,7 +1298,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             'class="mobile-dock consumer-mobile-dock"',
             'data-consumer-action="search"',
             'data-consumer-action="profile"',
-            '/race-center-consumer.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924',
+            '/race-center-consumer.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924',
         ):
             self.assertIn(token, html)
 
@@ -1345,7 +1345,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("return found", events)
         self.assertNotIn("return found[:20]", events)
         self.assertIn('"events": events,', events)
-        self.assertIn('"next": next_items[:24]', events)
+        self.assertIn('"next": next_items[:48]', events)
 
         for token in (
             'class RaceCenterSeriesSubmission(Base):',
@@ -1411,9 +1411,9 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Array.from(document.querySelectorAll('main > section')).forEach(", consumer)
 
         for asset in (
-            "/standings.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
-            "/race-center-v7.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
-            "/race-center-consumer.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
+            "/standings.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
+            "/race-center-v7.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
+            "/race-center-consumer.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
         ):
             self.assertIn(asset, html)
 
@@ -1426,11 +1426,11 @@ class ControlCenter2026Contract(unittest.TestCase):
         body_start = html.index("<body")
         self.assertLess(head_end, body_start)
         for asset in (
-            "/standings.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
-            "/race-center-v5.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
-            "/race-center-v6.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
-            "/race-center-v7.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
-            "/race-center-consumer.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
+            "/standings.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
+            "/race-center-v5.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
+            "/race-center-v6.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
+            "/race-center-v7.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
+            "/race-center-consumer.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
         ):
             pos = html.index(asset)
             self.assertGreater(pos, 0)
@@ -1462,11 +1462,11 @@ class ControlCenter2026Contract(unittest.TestCase):
         security = self.read("utils/security.py")
 
         for asset in (
-            "/standings.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
-            "/race-center-v5.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
-            "/race-center-v6.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
-            "/race-center-v7.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
-            "/race-center-consumer.js?v={{PITMARK_VERSION}}-csp-root-fix-20260924",
+            "/standings.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
+            "/race-center-v5.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
+            "/race-center-v6.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
+            "/race-center-v7.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
+            "/race-center-consumer.js?v={{PITMARK_VERSION}}-directory-events-fix-20260924",
         ):
             self.assertIn(asset, html)
 
@@ -1476,6 +1476,58 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('connect-src \'self\'', security)
         self.assertIn('is_race_center = (', security)
 
+
+    def test_race_center_directories_events_and_submit_routes_are_resilient(self):
+        public_api = self.read("api/standings_public.py")
+        core = self.read("api/standings_public.js")
+        v7 = self.read("api/race_center_v7.js")
+        consumer = self.read("api/race_center_consumer.js")
+        events = self.read("services/racing_events.py")
+        main = self.read("main.py")
+        security = self.read("utils/security.py")
+
+        for token in (
+            '@router.get("/api/public/race-center/directory/{kind}"',
+            '"items": rows',
+            '@router.get("/submit-series"',
+            '"warming": bool(event_hub.get("warming"))',
+        ):
+            self.assertIn(token, public_api)
+
+        for token in (
+            "/api/public/race-center/directory/",
+            "Race Center directory load failed",
+            "Directory unavailable",
+        ):
+            self.assertIn(token, v7)
+
+        self.assertIn("'/submit-series'", consumer)
+
+        for token in (
+            "let eventWarmRetries=0;",
+            "Building the upcoming race slate",
+            "Refreshing upcoming races from official schedules",
+            "race-center-v7-events-20260924",
+        ):
+            self.assertIn(token, core)
+
+        for token in (
+            "workers = max(2, min(8, len(configs)))",
+            "pool.submit(_build_one, key, cfg)",
+            '"next": next_items[:48]',
+        ):
+            self.assertIn(token, events)
+
+        for token in (
+            "race_data_executor = ThreadPoolExecutor(",
+            "racing_events_sync_loop(race_data_executor)",
+            "grassroots_racing_sync_loop(race_data_executor)",
+            "upcoming=%s",
+        ):
+            self.assertIn(token, main)
+
+        self.assertIn('== "racecenter.pitmarkracing.com"', security)
+        self.assertIn('and not request.url.path.startswith("/api/")', security)
 
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")
