@@ -917,7 +917,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn('@router.get("/race-center-v6.js"', public_api)
 
         for token in (
-            "DRIVER_IDENTITY_RESOLVER_VERSION = 3",
+            "DRIVER_IDENTITY_RESOLVER_VERSION = 4",
             "class RaceCenterDriverIdentityCache(Base):",
             "def _driver_identity_cache_get(",
             "def _driver_identity_cache_set(",
@@ -1237,6 +1237,27 @@ class ControlCenter2026Contract(unittest.TestCase):
         js = self.read("api/standings_public.js")
         self.assertIn('"tracked_series_total": len({', api)
         self.assertIn("summary.tracked_series_total||summary.schedule_series_total||total", js)
+
+    def test_race_center_driver_photo_pipeline_uses_commons_for_all_drivers(self):
+        standings = self.read("services/racing_standings.py")
+        for token in (
+            'DRIVER_IDENTITY_RESOLVER_VERSION = 4',
+            'WIKIMEDIA_COMMONS_API_URL = "https://commons.wikimedia.org/w/api.php"',
+            'def _commons_driver_photo(driver_name: str)',
+            '"gsrnamespace": "6"',
+            '"photo_use_allowed": True',
+            'if not config:',
+            '"source_kind": "wikimedia_commons" if photo.get("photo_url") else "unresolved"',
+        ):
+            self.assertIn(token, standings)
+
+    def test_race_center_driver_photos_warm_in_background(self):
+        standings = self.read("services/racing_standings.py")
+        main = self.read("main.py")
+        self.assertIn("def warm_driver_identity_cache(", standings)
+        self.assertIn("limit: int = 48", standings)
+        self.assertIn("async def race_center_driver_photo_sync_loop()", main)
+        self.assertIn('name="race-center-driver-photos"', main)
 
     def test_race_center_v7_pwa_is_installable_and_mobile_ready(self):
         public_api = self.read("api/standings_public.py")

@@ -719,7 +719,7 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-DRIVER_IDENTITY_RESOLVER_VERSION = 3
+DRIVER_IDENTITY_RESOLVER_VERSION = 4
 
 
 class RaceCenterDriverIdentityCache(Base):
@@ -3489,6 +3489,7 @@ def get_series_roster(
 
 WIKIPEDIA_API_URL = "https://en.wikipedia.org/w/api.php"
 WIKIPEDIA_BASE_URL = "https://en.wikipedia.org/wiki/"
+WIKIMEDIA_COMMONS_API_URL = "https://commons.wikimedia.org/w/api.php"
 
 _WIKIPEDIA_TEAM_LABELS: dict[str, tuple[str, ...]] = {
     "nascar-cup": ("cup car team", "cup team"),
@@ -3876,6 +3877,114 @@ def _wikipedia_licensed_photo(page: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _licensed_image_payload(info: dict[str, Any], *, fallback_url: str | None = None) -> dict[str, Any]:
+    metadata = info.get("extmetadata") or {}
+    license_name = str((metadata.get("LicenseShortName") or {}).get("value") or "").strip()
+    normalized_license = license_name.lower()
+    allowed = (
+        normalized_license.startswith("cc by")
+        or normalized_license.startswith("cc0")
+        or normalized_license.startswith("public domain")
+        or normalized_license.startswith("pd-")
+    )
+    if not allowed:
+        return {}
+
+    artist_html = str((metadata.get("Artist") or {}).get("value") or "")
+    credit_html = str((metadata.get("Credit") or {}).get("value") or "")
+    artist = " ".join(BeautifulSoup(artist_html, "html.parser").get_text(" ", strip=True).split())
+    credit = " ".join(BeautifulSoup(credit_html, "html.parser").get_text(" ", strip=True).split())
+    attribution = artist or credit
+    photo_url = info.get("thumburl") or info.get("url")
+    source_url = info.get("descriptionurl") or fallback_url
+    if not photo_url:
+        return {}
+    return {
+        "photo_use_allowed": True,
+        "photo_url": photo_url,
+        "photo_source_url": source_url,
+        "photo_license": license_name or None,
+        "photo_attribution": attribution[:320] if attribution else None,
+    }
+
+
+def _commons_driver_photo(driver_name: str) -> dict[str, Any]:
+    clean_name = " ".join(str(driver_name or "").split()).strip()
+    target = _identity_key(clean_name)
+    if not target:
+        return {}
+
+    params = {
+        "action": "query",
+        "generator": "search",
+        "gsrsearch": f'"{clean_name}"',
+        "gsrnamespace": "6",
+        "gsrlimit": "16",
+        "prop": "imageinfo|categories",
+        "iiprop": "url|extmetadata",
+        "iiurlwidth": "720",
+        "cllimit": "50",
+        "format": "json",
+        "formatversion": "2",
+    }
+    with httpx.Client(
+        timeout=16.0,
+        follow_redirects=True,
+        headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+    ) as client:
+        response = client.get(WIKIMEDIA_COMMONS_API_URL, params=params)
+        response.raise_for_status()
+        pages = ((response.json() or {}).get("query") or {}).get("pages") or []
+
+    best: tuple[int, dict[str, Any]] | None = None
+    racing_terms = (
+        "racing driver", "race car driver", "nascar", "indycar", "formula",
+        "motorsport", "sprint car", "late model", "modified", "stock car",
+        "midget", "arca", "imsa", "motogp", "driver",
+    )
+    reject_terms = ("logo", "signature", "helmet", "car only", "vehicle only")
+
+    for page in pages:
+        title = " ".join(str(page.get("title") or "").split()).strip()
+        info = ((page.get("imageinfo") or [{}])[0]) if isinstance(page, dict) else {}
+        metadata = info.get("extmetadata") or {}
+        description_html = str((metadata.get("ImageDescription") or {}).get("value") or "")
+        description = " ".join(BeautifulSoup(description_html, "html.parser").get_text(" ", strip=True).split())
+        object_name = str((metadata.get("ObjectName") or {}).get("value") or "")
+        categories = " ".join(
+            str(item.get("title") or "")
+            for item in (page.get("categories") or [])
+            if isinstance(item, dict)
+        )
+        haystack = " ".join((title, description, object_name, categories)).casefold()
+        if any(term in haystack for term in reject_terms):
+            continue
+
+        title_key = _identity_key(re.sub(r"^File:", "", title, flags=re.IGNORECASE))
+        description_key = _identity_key(description)
+        score = 0
+        if target and target in title_key:
+            score += 80
+        if target and target in description_key:
+            score += 60
+        if any(term in haystack for term in racing_terms):
+            score += 25
+        if "portrait" in haystack or "headshot" in haystack:
+            score += 12
+        if "driver" in haystack:
+            score += 8
+        if score < 70:
+            continue
+
+        licensed = _licensed_image_payload(info)
+        if not licensed:
+            continue
+        if best is None or score > best[0]:
+            best = (score, licensed)
+
+    return best[1] if best else {}
+
+
 def _wikipedia_driver_identity(
     config: dict[str, Any],
     driver_name: str,
@@ -3891,6 +4000,24 @@ def _wikipedia_driver_identity(
     picked = _wikipedia_pick_page(driver_name)
     if not picked:
         log.info("Wikipedia driver page not found series=%s driver=%s", config.get("key"), driver_name)
+        try:
+            commons_photo = _commons_driver_photo(driver_name)
+        except Exception as exc:
+            log.info("Wikimedia Commons photo lookup failed driver=%s error=%s", driver_name, exc)
+            commons_photo = {}
+        if commons_photo:
+            result = {**commons_photo}
+            data = {_identity_key(driver_name): result}
+            _profile_metadata_cache_set(
+                cache_key,
+                data,
+                str(commons_photo.get("photo_source_url") or "") or None,
+            )
+            return {
+                **result,
+                "source_url": commons_photo.get("photo_source_url"),
+                "source_name": "Wikimedia Commons",
+            }
         return {}
     title, page_url = picked
 
@@ -3921,6 +4048,14 @@ def _wikipedia_driver_identity(
         photo = _wikipedia_licensed_photo(page)
     except Exception as exc:
         log.info("Wikipedia photo license lookup failed driver=%s error=%s", driver_name, exc)
+
+    if not photo.get("photo_use_allowed"):
+        try:
+            commons_photo = _commons_driver_photo(driver_name)
+            if commons_photo:
+                photo = commons_photo
+        except Exception as exc:
+            log.info("Wikimedia Commons fallback failed driver=%s error=%s", driver_name, exc)
 
     result = {
         "number": number,
@@ -4058,7 +4193,7 @@ def get_driver_identity(
     season = int(season or utcnow().year)
     config = next((item for item in SERIES if item["key"] == series_key), None)
     clean_name = " ".join(str(driver_name or "").split()).strip()
-    if not config or not clean_name:
+    if not clean_name:
         return {
             "verified": False,
             "resolved": False,
@@ -4070,6 +4205,45 @@ def get_driver_identity(
             "source_url": None,
             "identity_quality": "unavailable",
         }
+
+    if not config:
+        cached_identity = _driver_identity_cache_get(series_key, clean_name, season)
+        if cached_identity:
+            return cached_identity
+        try:
+            photo = _commons_driver_photo(clean_name)
+        except Exception as exc:
+            log.info("Generic Commons driver photo failed driver=%s error=%s", clean_name, exc)
+            photo = {}
+        result = {
+            "verified": False,
+            "resolved": bool(photo.get("photo_url")),
+            "series_key": series_key,
+            "driver_name": clean_name,
+            "number": None,
+            "team": None,
+            "manufacturer": None,
+            "bio": None,
+            "photo_url": photo.get("photo_url"),
+            "photo_use_allowed": bool(photo.get("photo_use_allowed")),
+            "photo_source_url": photo.get("photo_source_url"),
+            "photo_license": photo.get("photo_license"),
+            "photo_attribution": photo.get("photo_attribution"),
+            "field_sources": {},
+            "source_kind": "wikimedia_commons" if photo.get("photo_url") else "unresolved",
+            "source_name": "Wikimedia Commons" if photo.get("photo_url") else None,
+            "source_url": photo.get("photo_source_url"),
+            "official_source_url": None,
+            "secondary_source_url": photo.get("photo_source_url"),
+            "identity_quality": "photo" if photo.get("photo_url") else "unavailable",
+            "cached": False,
+            "updated_at": utcnow().isoformat(),
+        }
+        try:
+            _driver_identity_cache_set(result, season)
+        except Exception as exc:
+            log.info("Generic driver photo cache write failed driver=%s error=%s", clean_name, exc)
+        return result
 
     cached_identity = _driver_identity_cache_get(series_key, clean_name, season)
     if cached_identity:
@@ -4222,6 +4396,70 @@ def get_driver_identity(
             exc,
         )
     return result
+
+
+def warm_driver_identity_cache(
+    *,
+    limit: int = 48,
+    season: int | None = None,
+) -> dict[str, Any]:
+    """Proactively enrich current standings drivers so photos are ready before scroll."""
+    season = int(season or utcnow().year)
+    hub = get_standings_snapshot_hub(season=season)
+    candidates: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+
+    for series in hub.get("series") or []:
+        series_key = str(series.get("series_key") or "").strip()
+        if not series_key:
+            continue
+        for entry in series.get("entries") or []:
+            name = " ".join(str(entry.get("name") or "").split()).strip()
+            key = _identity_key(name)
+            if not name or not key:
+                continue
+            token = (series_key, key)
+            if token in seen:
+                continue
+            seen.add(token)
+            if entry.get("photo_use_allowed") and entry.get("photo_url"):
+                continue
+            cached = _driver_identity_cache_get(series_key, name, season)
+            if cached is not None:
+                continue
+            candidates.append((series_key, name))
+
+    selected = candidates[: max(0, min(int(limit or 0), 120))]
+    photo_count = 0
+    resolved_count = 0
+    errors = 0
+
+    def resolve(item: tuple[str, str]) -> dict[str, Any]:
+        series_key, name = item
+        return get_driver_identity(series_key, name, season=season)
+
+    if selected:
+        with ThreadPoolExecutor(max_workers=min(4, len(selected))) as pool:
+            futures = [pool.submit(resolve, item) for item in selected]
+            for future in as_completed(futures):
+                try:
+                    result = future.result()
+                except Exception:
+                    errors += 1
+                    continue
+                if result.get("resolved"):
+                    resolved_count += 1
+                if result.get("photo_use_allowed") and result.get("photo_url"):
+                    photo_count += 1
+
+    return {
+        "season": season,
+        "attempted": len(selected),
+        "photos": photo_count,
+        "resolved": resolved_count,
+        "remaining": max(0, len(candidates) - len(selected)),
+        "errors": errors,
+    }
 
 
 def clear_standings_cache() -> None:
