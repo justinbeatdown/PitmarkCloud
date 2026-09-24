@@ -3350,24 +3350,26 @@ def _hydrate_saved_identity(
     series_key: str,
     season: int,
     entries: list[dict[str, Any]],
+    cached_rows: dict[str, RaceCenterDriverIdentityCache] | None = None,
 ) -> list[dict[str, Any]]:
     """Merge persisted/verified identity into saved standings rows without remote I/O."""
     if not entries:
         return []
 
-    cached: dict[str, RaceCenterDriverIdentityCache] = {}
-    try:
-        with SessionLocal() as db:
-            rows = list(db.scalars(
-                select(RaceCenterDriverIdentityCache).where(
-                    RaceCenterDriverIdentityCache.series_key == series_key,
-                    RaceCenterDriverIdentityCache.season == season,
-                    RaceCenterDriverIdentityCache.resolver_version == DRIVER_IDENTITY_RESOLVER_VERSION,
-                )
-            ).all())
-            cached = {row.driver_key: row for row in rows}
-    except Exception as exc:
-        log.info("Saved identity hydration cache read failed series=%s error=%s", series_key, exc)
+    cached: dict[str, RaceCenterDriverIdentityCache] = cached_rows if cached_rows is not None else {}
+    if cached_rows is None:
+        try:
+            with SessionLocal() as db:
+                rows = list(db.scalars(
+                    select(RaceCenterDriverIdentityCache).where(
+                        RaceCenterDriverIdentityCache.series_key == series_key,
+                        RaceCenterDriverIdentityCache.season == season,
+                        RaceCenterDriverIdentityCache.resolver_version == DRIVER_IDENTITY_RESOLVER_VERSION,
+                    )
+                ).all())
+                cached = {row.driver_key: row for row in rows}
+        except Exception as exc:
+            log.info("Saved identity hydration cache read failed series=%s error=%s", series_key, exc)
 
     verified_fallback = (
         NASCAR_2026_IDENTITY_FALLBACK.get(series_key, {})
@@ -3441,18 +3443,70 @@ def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
         ):
             return copy.deepcopy(cached_value)
 
+    # Cold-start fallback: read the whole current-season snapshot set and
+    # persisted identity cache in two queries, then resolve each series in memory.
+    # The old path performed multiple Postgres round-trips per championship.
+    snapshots_by_series: dict[str, list[RacingStandingSnapshot]] = {}
+    identity_by_series: dict[str, dict[str, RaceCenterDriverIdentityCache]] = {}
+    bulk_loaded = False
+    try:
+        with SessionLocal() as db:
+            snapshot_rows = list(db.scalars(
+                select(RacingStandingSnapshot)
+                .where(RacingStandingSnapshot.season == season)
+                .order_by(
+                    RacingStandingSnapshot.series_key.asc(),
+                    RacingStandingSnapshot.fetched_at.desc(),
+                    RacingStandingSnapshot.id.desc(),
+                )
+            ).all())
+            identity_rows = list(db.scalars(
+                select(RaceCenterDriverIdentityCache).where(
+                    RaceCenterDriverIdentityCache.season == season,
+                    RaceCenterDriverIdentityCache.resolver_version == DRIVER_IDENTITY_RESOLVER_VERSION,
+                )
+            ).all())
+        for row in snapshot_rows:
+            snapshots_by_series.setdefault(str(row.series_key), []).append(row)
+        for row in identity_rows:
+            identity_by_series.setdefault(str(row.series_key), {})[str(row.driver_key)] = row
+        bulk_loaded = True
+    except Exception as exc:
+        log.info("Bulk saved standings read failed; using per-series fallback error=%s", exc)
+
     ordered: list[dict[str, Any]] = []
     for config in SERIES:
-        latest_row = _latest_valid_snapshot(config["key"], season)
-        snapshot = _decode_snapshot(latest_row)
+        latest_row: RacingStandingSnapshot | None = None
+        previous_row: RacingStandingSnapshot | None = None
+        snapshot: dict[str, Any] | None = None
+        previous: dict[str, Any] | None = None
+
+        if bulk_loaded:
+            for row in snapshots_by_series.get(config["key"], []):
+                candidate = _decode_snapshot(row)
+                if not candidate or not _standings_entries_plausible(candidate.get("entries") or []):
+                    continue
+                if latest_row is None:
+                    latest_row = row
+                    snapshot = candidate
+                    continue
+                if row.fingerprint != latest_row.fingerprint:
+                    previous_row = row
+                    previous = candidate
+                    break
+        else:
+            latest_row = _latest_valid_snapshot(config["key"], season)
+            snapshot = _decode_snapshot(latest_row)
+            if snapshot:
+                previous_row = _latest_valid_snapshot(
+                    config["key"],
+                    season,
+                    excluding=snapshot.get("fingerprint"),
+                )
+                previous = _decode_snapshot(previous_row)
+
         if snapshot:
             entries = snapshot.get("entries") or []
-            previous_row = _latest_valid_snapshot(
-                config["key"],
-                season,
-                excluding=snapshot.get("fingerprint"),
-            )
-            previous = _decode_snapshot(previous_row)
             fetched_at = latest_row.fetched_at if latest_row else None
             age_seconds = (now - fetched_at).total_seconds() if fetched_at else None
             fresh = age_seconds is not None and age_seconds <= 6 * 3600
@@ -3470,6 +3524,7 @@ def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
                         config["key"],
                         season,
                         _movement(entries, previous),
+                        cached_rows=identity_by_series.get(config["key"], {}) if bulk_loaded else None,
                     ),
                     "status": "live" if fresh else "stale",
                     "stale": not fresh,
@@ -3504,6 +3559,16 @@ def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
                 "status": "unavailable",
                 "stale": True,
                 "error": "No saved Pitmark snapshot yet.",
+                "series_logo_url": (
+                    None
+                    if bool(config.get("logo_disabled"))
+                    else (str(config.get("logo_url") or "").strip() or None)
+                ),
+                "series_logo_source_url": (
+                    None
+                    if bool(config.get("logo_disabled")) or not str(config.get("logo_url") or "").strip()
+                    else str(config.get("logo_source_url") or _series_url(config, season)).strip() or None
+                ),
             }
         )
 
