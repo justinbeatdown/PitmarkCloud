@@ -234,6 +234,7 @@ async def lifespan(app: FastAPI):
     loop.set_default_executor(executor)
 
     init_database()
+    # Trusted HiPole broadcast seats are seeded idempotently from Render env.
     hipole_codes = [
         value.strip()
         for value in (os.getenv("PRT_HIPOLE_EXTRA_CODES") or "").split(",")
