@@ -907,6 +907,17 @@ def search_people(
     """Public Race Center people search with optional viewer relationship context."""
     clean_query = " ".join(str(query or "").lower().split()).strip()
     safe_limit = max(1, min(int(limit or 24), 60))
+    # Older accounts may predate automatic profile creation. Make sure every
+    # Race Center account has a discoverable profile before searching.
+    with SessionLocal() as db:
+        all_user_ids = list(db.scalars(select(RaceCenterUser.id)).all())
+        profiled_ids = set(db.scalars(select(RaceCenterProfile.user_id)).all())
+    for missing_user_id in (user_id for user_id in all_user_ids if user_id not in profiled_ids):
+        try:
+            ensure_profile(int(missing_user_id))
+        except Exception:
+            pass
+
     with SessionLocal() as db:
         profiles = list(db.scalars(
             select(RaceCenterProfile).order_by(RaceCenterProfile.updated_at.desc())
@@ -963,8 +974,6 @@ def search_people(
 
         rows: list[dict] = []
         for profile in profiles:
-            if viewer_user_id and profile.user_id == viewer_user_id:
-                continue
             user = users.get(profile.user_id)
             identity = identities.get(profile.user_id)
             display_name = (user.display_name if user else "") or profile.handle
@@ -997,6 +1006,7 @@ def search_people(
                 "photo_url": f"/api/public/race-center/profile-photo/{profile.handle}",
                 "followers": follower_counts.get(profile.user_id, 0),
                 "viewer_follows": profile.user_id in viewer_following,
+                "is_viewer": bool(viewer_user_id and profile.user_id == viewer_user_id),
                 "shared_count": len(shared),
                 "shared": [{"kind": kind, "key": key} for kind, key in shared[:6]],
                 "staff": staff,
