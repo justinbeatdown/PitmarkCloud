@@ -592,7 +592,11 @@ def _floracing_broadcast_events() -> list[dict[str, Any]]:
                 if "/events/" not in href and "/live/" not in href:
                     continue
                 label = " ".join(anchor.get_text(" ", strip=True).split())
-                if not label or re.fullmatch(r"\d{1,2}:\d{2}\s*[AP]M\s+UTC", label, re.IGNORECASE):
+                if not label or "UTC" in label.upper():
+                    continue
+                # Flo also links the venue/location in each schedule row. Keep the
+                # event-title link and ignore obvious location-only anchors.
+                if " · " in label and re.search(r",\s*[A-Z]{2}(?:\b|$)", label):
                     continue
 
                 container = anchor
@@ -614,13 +618,10 @@ def _floracing_broadcast_events() -> list[dict[str, Any]]:
                     hour += 12
                 minute = int(time_match.group(2))
 
-                # Prefer a concise event label. Combined row links sometimes prepend
-                # the start time; trim that before using it as the event title.
-                clean_label = re.sub(r"^\s*\d{1,2}:\d{2}\s*[AP]M\s+UTC\s*", "", label, flags=re.IGNORECASE).strip()
-                if len(clean_label) < 4:
+                if len(label) < 4:
                     continue
                 event_url = urljoin(schedule_url, href)
-                add_event(day=day, title=clean_label, event_url=event_url, location=None, hour=hour, minute=minute)
+                add_event(day=day, title=label, event_url=event_url, location=None, hour=hour, minute=minute)
                 parsed_direct = True
         except Exception:
             parsed_direct = False
