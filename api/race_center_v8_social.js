@@ -30,12 +30,16 @@ function role(person){
   return staff.label||identity.official_label||identity.account_type||'fan';
 }
 function card(person){
+  var own=!!person.is_viewer;
+  var action=own
+    ? '<span class="v8-follow-button is-self" aria-label="This is your profile">You</span>'
+    : '<button class="v8-follow-button'+(person.viewer_follows?' is-following':'')+'" type="button" data-user-id="'+esc(person.id)+'" data-following="'+(person.viewer_follows?'1':'0')+'">'+(person.viewer_follows?'Following':'Follow')+'</button>';
   return '<article class="v8-person-card" data-person-id="'+esc(person.id)+'">'+
     '<a class="v8-person-main" href="/race-center/u/'+encodeURIComponent(String(person.handle||''))+'">'+
       avatar(person)+
       '<span class="v8-person-copy"><small>'+esc(String(role(person)).toUpperCase())+'</small><strong>'+esc(person.display_name||person.handle||'Race Center member')+'</strong><em>@'+esc(person.handle||'')+'</em><p>'+esc(person.bio||person.favorite_track||'Race Center member')+'</p></span>'+
     '</a>'+
-    '<footer><span>'+String(person.followers||0)+' follower'+(Number(person.followers||0)===1?'':'s')+'</span><button class="v8-follow-button'+(person.viewer_follows?' is-following':'')+'" type="button" data-user-id="'+esc(person.id)+'" data-following="'+(person.viewer_follows?'1':'0')+'">'+(person.viewer_follows?'Following':'Follow')+'</button></footer>'+
+    '<footer><span>'+String(person.followers||0)+' follower'+(Number(person.followers||0)===1?'':'s')+'</span>'+action+'</footer>'+
   '</article>';
 }
 function entityCard(item){
@@ -130,7 +134,7 @@ function communityPage(){
     searchPeople(q,48).then(function(payload){
       var people=payload.people||[],entities=payload.entities||[],total=people.length+entities.length,counts=payload.counts||{};
       $('#v8CommunityMeta').textContent=total+(total===1?' result':' results')+(q?' matching “'+q+'”':' to discover')+(!q&&counts.entities?' · '+counts.drivers+' drivers · '+counts.teams+' teams · '+counts.tracks+' tracks · '+counts.series+' series':'');
-      host.innerHTML=total?people.map(card).join('')+entities.map(entityCard).join(''):'<div class="v8-empty"><strong>No racing profile matched that search.</strong><span>Try a driver, team, track, series, handle or home track.</span></div>';
+      host.innerHTML=total?people.map(card).join('')+entities.map(entityCard).join(''):'<div class="v8-empty"><strong>No Race Center user or racing profile matched that search.</strong><span>Try a member name, handle, driver, team, track, series, or home track.</span></div>';
       wireFollow(host);
     }).catch(function(){host.innerHTML='<div class="v8-empty"><strong>Profiles are refreshing.</strong></div>';});
   }
