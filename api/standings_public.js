@@ -1915,6 +1915,20 @@ function bootRaceCenter(){
     renderAccount();
   });
 
+  safeBind('#deleteAccountButton','click',async()=>{
+    if(!confirm('Delete your Race Center account and associated account data? This cannot be undone.'))return;
+    if(!confirm('Final confirmation: permanently delete this Race Center account?'))return;
+    try{
+      await apiJson('/api/public/race-center/account',{method:'DELETE'});
+      state.account={authenticated:false,follows:[]};
+      renderAccount();
+      $('#accountDialog')?.close();
+      alert('Your Race Center account has been deleted.');
+    }catch(error){
+      alert(error.message||'Could not delete your Race Center account.');
+    }
+  });
+
   const signupForm=$('#signupForm');
   if(signupForm)signupForm.addEventListener('submit',async event=>{
     event.preventDefault();
