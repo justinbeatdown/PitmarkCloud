@@ -6,13 +6,38 @@
   html{scroll-padding-bottom:calc(var(--rc-mobile-nav-h) + env(safe-area-inset-bottom) + 12px)}
   body{padding-bottom:calc(var(--rc-mobile-nav-h) + env(safe-area-inset-bottom));overflow-x:hidden}
   .site-header{position:sticky!important;top:0!important;z-index:1000!important;height:auto!important;background:rgba(9,11,14,.95)!important;backdrop-filter:blur(16px)}
-  .header-inner{min-height:58px!important;padding:8px 12px!important;gap:8px!important}
-  .brand img{max-width:108px!important;height:34px!important;object-fit:contain}
-  .brand-product{font-size:11px!important;white-space:nowrap}
+  .header-inner{
+    width:calc(100% - 20px)!important;
+    min-height:58px!important;height:58px!important;
+    margin:0 auto!important;padding:6px 0!important;
+    display:flex!important;grid-template-columns:none!important;
+    align-items:center!important;justify-content:space-between!important;gap:10px!important
+  }
+  .brand{
+    flex:0 1 auto!important;min-width:0!important;
+    display:flex!important;align-items:center!important;justify-content:flex-start!important;
+    overflow:hidden!important
+  }
+  .brand img{
+    display:block!important;width:112px!important;max-width:112px!important;
+    height:38px!important;max-height:38px!important;object-fit:contain!important;
+    object-position:left center!important;flex:0 0 auto!important
+  }
+  .brand-product{display:none!important}
   .site-header nav{display:none!important}
-  .account-zone{margin-left:auto!important;gap:6px!important}
+  .account-zone{
+    position:static!important;inset:auto!important;
+    width:auto!important;min-width:0!important;max-width:130px!important;
+    margin:0!important;margin-left:auto!important;
+    display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:6px!important;
+    flex:0 0 auto!important
+  }
   .header-health{display:none!important}
-  .account-button{min-height:40px!important;padding:0 11px!important;font-size:10px!important}
+  .account-button{
+    width:auto!important;max-width:126px!important;min-height:38px!important;
+    padding:0 10px!important;font-size:10px!important;white-space:nowrap!important;
+    overflow:hidden!important;text-overflow:ellipsis!important
+  }
 
   main{width:100%!important;overflow:hidden}
   .hero,.race-pulse,.content-section,.consumer-home,.v7-race-day{
@@ -108,6 +133,9 @@
   .rc-install-banner .rc-install-close{background:transparent;color:#8f9aa6;padding:0 5px;font-size:18px}
 
   @media(max-width:480px){
+    .header-inner{width:calc(100% - 16px)!important;gap:6px!important}
+    .brand img{width:98px!important;max-width:98px!important;height:34px!important;max-height:34px!important}
+    .account-button{max-width:112px!important;padding:0 8px!important;font-size:9px!important}
     .pulse-grid{grid-template-columns:1fr!important}
     .hero-actions{grid-template-columns:1fr!important}
     .hero-board{grid-template-columns:1fr 1fr!important}
