@@ -340,6 +340,16 @@ def race_center_logout():
     return response
 
 
+@router.delete("/api/public/race-center/account", include_in_schema=False)
+def race_center_account_delete(request: Request):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-delete-account", 3, 3600)
+    race_center_accounts.delete_account(account.id)
+    response = JSONResponse({"ok": True, "message": "Race Center account deleted."})
+    response.delete_cookie(race_center_accounts.SESSION_COOKIE, path="/")
+    return response
+
+
 @router.put("/api/public/race-center/profile/photo", include_in_schema=False)
 async def race_center_profile_photo_upload(request: Request, photo: UploadFile = File(...)):
     account = _race_account_or_401(request)
