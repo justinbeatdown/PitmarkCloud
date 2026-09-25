@@ -541,19 +541,95 @@ def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _floracing_broadcast_events() -> list[dict[str, Any]]:
-    """Supplement Race Center's series schedules with FloRacing's public event board.
-
-    Series pages are good for season context, but many short-track/dirt events do not
-    expose a structured live state. FloRacing's event board publishes start times for
-    the broadcast itself, so use it as a race-night pulse without adding fake series.
-    """
+    """Supplement Race Center with FloRacing's public race-night schedule."""
     now = datetime.now(timezone.utc)
     collected: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
 
-    for day_offset in (-1, 0, 1):
+    def add_event(*, day, title: str, event_url: str, location: str | None, hour: int, minute: int):
+        title = " ".join(str(title or "").split()).strip()
+        if not title or title.casefold() in {"floracing 24/7", "pbr ridepass"}:
+            return
+        start = datetime(day.year, day.month, day.day, hour, minute, tzinfo=timezone.utc)
+        delta = now - start
+        state = "pre" if delta < timedelta(0) else ("in" if delta <= timedelta(hours=6) else "post")
+        if start < now - timedelta(hours=8) or start > now + timedelta(hours=30):
+            return
+        key = (start.isoformat(), title.casefold())
+        if key in seen:
+            return
+        seen.add(key)
+        collected.append({
+            "name": title,
+            "start": start.isoformat(),
+            "date_only": False,
+            "state": state,
+            "completed": state == "post",
+            "broadcast": "FloRacing",
+            "venue": location,
+            "location": location,
+            "source_url": event_url,
+            "event_url": event_url,
+        })
+
+    # Current UTC day plus the previous UTC day catches US evening events that
+    # are still running after midnight UTC.
+    for day_offset in (-1, 0):
         day = (now + timedelta(days=day_offset)).date()
         schedule_url = f"https://www.floracing.com/events?date={day.isoformat()}"
+        parsed_direct = False
+
+        try:
+            with httpx.Client(timeout=7.0, follow_redirects=True, headers={
+                "User-Agent": "Mozilla/5.0 (compatible; PitmarkRaceCenter/1.0; +https://pitmarkracing.com)",
+                "Accept-Language": "en-US,en;q=0.9",
+            }) as client:
+                response = client.get(schedule_url)
+                response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+            for anchor in soup.find_all("a", href=True):
+                href = str(anchor.get("href") or "")
+                if "/events/" not in href and "/live/" not in href:
+                    continue
+                label = " ".join(anchor.get_text(" ", strip=True).split())
+                if not label or re.fullmatch(r"\d{1,2}:\d{2}\s*[AP]M\s+UTC", label, re.IGNORECASE):
+                    continue
+
+                container = anchor
+                container_text = label
+                for _ in range(6):
+                    parent = getattr(container, "parent", None)
+                    if parent is None:
+                        break
+                    container = parent
+                    container_text = " ".join(container.get_text(" ", strip=True).split())
+                    if re.search(r"\b\d{1,2}:\d{2}\s*[AP]M\s+UTC\b", container_text, re.IGNORECASE):
+                        break
+
+                time_match = re.search(r"\b(\d{1,2}):(\d{2})\s*([AP]M)\s+UTC\b", container_text, re.IGNORECASE)
+                if not time_match:
+                    continue
+                hour = int(time_match.group(1)) % 12
+                if time_match.group(3).upper() == "PM":
+                    hour += 12
+                minute = int(time_match.group(2))
+
+                # Prefer a concise event label. Combined row links sometimes prepend
+                # the start time; trim that before using it as the event title.
+                clean_label = re.sub(r"^\s*\d{1,2}:\d{2}\s*[AP]M\s+UTC\s*", "", label, flags=re.IGNORECASE).strip()
+                if len(clean_label) < 4:
+                    continue
+                event_url = urljoin(schedule_url, href)
+                add_event(day=day, title=clean_label, event_url=event_url, location=None, hour=hour, minute=minute)
+                parsed_direct = True
+        except Exception:
+            parsed_direct = False
+
+        if parsed_direct:
+            continue
+
+        # Reader fallback: useful when Flo changes HTML, but not required for the
+        # live board to function because it can be rate-limited independently.
         try:
             text = _reader_markdown(schedule_url)
         except Exception:
@@ -565,60 +641,30 @@ def _floracing_broadcast_events() -> list[dict[str, Any]]:
             time_match = re.search(r"\b(\d{1,2}):(\d{2})\s*([AP]M)\s+UTC\b", raw_line, re.IGNORECASE)
             if not time_match:
                 continue
-
             links = re.findall(r"\[([^\]]+)\]\((https?://[^)]+)\)", raw_line)
             candidates = [
                 (label.strip(), url.strip())
                 for label, url in links
-                if "UTC" not in label.upper()
-                and label.strip()
-                and "customer support" not in label.casefold()
+                if "UTC" not in label.upper() and label.strip()
             ]
             if not candidates:
                 continue
-
             title, event_url = candidates[0]
-            if title.casefold() in {"floracing 24/7", "pbr ridepass"}:
-                continue
             location = candidates[1][0] if len(candidates) > 1 else None
-
             hour = int(time_match.group(1)) % 12
             if time_match.group(3).upper() == "PM":
                 hour += 12
-            minute = int(time_match.group(2))
-            start = datetime(day.year, day.month, day.day, hour, minute, tzinfo=timezone.utc)
-            delta = now - start
-            if delta < timedelta(0):
-                state = "pre"
-            elif delta <= timedelta(hours=6):
-                state = "in"
-            else:
-                state = "post"
-
-            # Keep only the useful race-night window so the live board stays focused.
-            if start < now - timedelta(hours=8) or start > now + timedelta(hours=30):
-                continue
-
-            key = (start.isoformat(), title.casefold())
-            if key in seen:
-                continue
-            seen.add(key)
-            collected.append({
-                "name": title,
-                "start": start.isoformat(),
-                "date_only": False,
-                "state": state,
-                "completed": state == "post",
-                "broadcast": "FloRacing",
-                "venue": location,
-                "location": location,
-                "source_url": event_url or schedule_url,
-                "event_url": event_url or schedule_url,
-            })
+            add_event(
+                day=day,
+                title=title,
+                event_url=event_url or schedule_url,
+                location=location,
+                hour=hour,
+                minute=int(time_match.group(2)),
+            )
 
     collected.sort(key=lambda item: item.get("start") or "")
     return collected
-
 
 def _floracing_broadcast_summaries() -> list[dict[str, Any]]:
     summaries: list[dict[str, Any]] = []
