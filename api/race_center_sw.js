@@ -1,4 +1,4 @@
-const CACHE='pitmark-race-center-shell-20260924-1';
+const CACHE='pitmark-race-center-shell-20260924-2';
 const SHELL=[
   '/race-center',
   '/race-center/drivers',
@@ -16,6 +16,13 @@ const SHELL=[
   '/race-center-v6.js',
   '/race-center-v7.js',
   '/race-center-consumer.js',
+  '/race-center-v8.css',
+  '/race-center-v8.js',
+  '/race-center-v8-social.js',
+  '/race-center-owner-hub.css',
+  '/race-center-owner-hub.js',
+  '/race-center-mobile.css',
+  '/race-center-app.js',
   '/prt-logo.png',
   '/race-center-icon-192.png',
   '/race-center-icon-512.png'
