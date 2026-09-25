@@ -4,7 +4,7 @@
   "description": "Your racing command center for drivers, series, tracks, teams, events, standings, schedules and My Racing.",
   "id": "/race-center",
   "start_url": "/race-center?source=pwa",
-  "scope": "/race-center/",
+  "scope": "/race-center",
   "display": "standalone",
   "display_override": [
     "window-controls-overlay",
@@ -53,5 +53,10 @@
       "short_name": "Events",
       "url": "/race-center/events?source=pwa"
     }
-  ]
+  ],
+  "prefer_related_applications": false,
+  "handle_links": "preferred",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
 }
