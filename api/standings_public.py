@@ -1025,6 +1025,16 @@ def public_race_center_privacy():
     return HTMLResponse(html, headers={"Cache-Control": "no-cache, no-store"})
 
 
+@router.get("/race-center-favicon.png", include_in_schema=False)
+def public_race_center_favicon():
+    path = ASSET_DIR / "pitmark_favicon.png"
+    return Response(
+        path.read_bytes(),
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
 @router.get("/race-center.webmanifest", include_in_schema=False)
 def public_race_center_manifest():
     return _asset("race-center.webmanifest", "application/manifest+json")
