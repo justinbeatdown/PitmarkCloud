@@ -104,6 +104,16 @@ def create_account(email: str, password: str, display_name: str = "") -> RaceCen
         return RaceCenterAccount(user.id, user.email, user.display_name, user.session_version)
 
 
+def delete_account(user_id: int) -> bool:
+    with SessionLocal() as db:
+        user = db.get(RaceCenterUser, user_id)
+        if user is None:
+            return False
+        db.delete(user)
+        db.commit()
+        return True
+
+
 def authenticate(email: str, password: str) -> RaceCenterAccount | None:
     try:
         clean_email = _clean_email(email)
