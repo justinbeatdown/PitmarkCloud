@@ -419,6 +419,57 @@ def create_early_access_invite(
 
 
 
+def ensure_early_access_invite_with_code(
+    *,
+    applicant_name: str,
+    email: str,
+    code: str,
+    discord: str = "",
+    notes: str = "",
+    expires_days: int = 30,
+) -> dict:
+    """Create a specific Early Access code once; safe to call on every startup."""
+    applicant_name = applicant_name.strip()
+    email = email.strip().lower()
+    discord = discord.strip()
+    notes = notes.strip()
+    expires_days = max(1, min(int(expires_days), 90))
+    normalized = _normalize_early_access_code(code)
+    if not normalized.startswith("PRT-EA-"):
+        raise ValueError("Early Access code must use the PRT-EA format.")
+    code_hash = _hash_early_access_code(normalized)
+    parts = normalized.split("-")
+    if len(parts) < 6:
+        raise ValueError("Early Access code format is invalid.")
+    hint = "-".join(parts[:3]) + "-••••-••••-" + parts[-1]
+
+    with SessionLocal() as db:
+        existing = db.scalar(select(PrtEarlyAccessInviteRow).where(PrtEarlyAccessInviteRow.code_hash == code_hash))
+        if existing is not None:
+            item = _early_access_dict(existing)
+            item["already_exists"] = True
+            return item
+
+        row = PrtEarlyAccessInviteRow(
+            applicant_name=applicant_name,
+            email=email,
+            discord=discord,
+            code_hash=code_hash,
+            code_hint=hint,
+            status="issued",
+            tester_status="invited",
+            notes=notes,
+            expires_at=(datetime.now(timezone.utc) + timedelta(days=expires_days)).isoformat(),
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        item = _early_access_dict(row)
+        item["already_exists"] = False
+        return item
+
+
+
 def reissue_early_access_invite_prehashed(
     invite_id: int,
     *,
