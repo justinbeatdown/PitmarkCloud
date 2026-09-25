@@ -540,6 +540,108 @@ def _official_page_schedule(config: dict[str, Any]) -> list[dict[str, Any]]:
     return found
 
 
+def _floracing_broadcast_events() -> list[dict[str, Any]]:
+    """Supplement Race Center's series schedules with FloRacing's public event board.
+
+    Series pages are good for season context, but many short-track/dirt events do not
+    expose a structured live state. FloRacing's event board publishes start times for
+    the broadcast itself, so use it as a race-night pulse without adding fake series.
+    """
+    now = datetime.now(timezone.utc)
+    collected: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+
+    for day_offset in (-1, 0, 1):
+        day = (now + timedelta(days=day_offset)).date()
+        schedule_url = f"https://www.floracing.com/events?date={day.isoformat()}"
+        try:
+            text = _reader_markdown(schedule_url)
+        except Exception:
+            continue
+
+        for raw_line in text.splitlines():
+            if "UTC" not in raw_line or "|" not in raw_line:
+                continue
+            time_match = re.search(r"\b(\d{1,2}):(\d{2})\s*([AP]M)\s+UTC\b", raw_line, re.IGNORECASE)
+            if not time_match:
+                continue
+
+            links = re.findall(r"\[([^\]]+)\]\((https?://[^)]+)\)", raw_line)
+            candidates = [
+                (label.strip(), url.strip())
+                for label, url in links
+                if "UTC" not in label.upper()
+                and label.strip()
+                and "customer support" not in label.casefold()
+            ]
+            if not candidates:
+                continue
+
+            title, event_url = candidates[0]
+            if title.casefold() in {"floracing 24/7", "pbr ridepass"}:
+                continue
+            location = candidates[1][0] if len(candidates) > 1 else None
+
+            hour = int(time_match.group(1)) % 12
+            if time_match.group(3).upper() == "PM":
+                hour += 12
+            minute = int(time_match.group(2))
+            start = datetime(day.year, day.month, day.day, hour, minute, tzinfo=timezone.utc)
+            delta = now - start
+            if delta < timedelta(0):
+                state = "pre"
+            elif delta <= timedelta(hours=6):
+                state = "in"
+            else:
+                state = "post"
+
+            # Keep only the useful race-night window so the live board stays focused.
+            if start < now - timedelta(hours=8) or start > now + timedelta(hours=30):
+                continue
+
+            key = (start.isoformat(), title.casefold())
+            if key in seen:
+                continue
+            seen.add(key)
+            collected.append({
+                "name": title,
+                "start": start.isoformat(),
+                "date_only": False,
+                "state": state,
+                "completed": state == "post",
+                "broadcast": "FloRacing",
+                "venue": location,
+                "location": location,
+                "source_url": event_url or schedule_url,
+                "event_url": event_url or schedule_url,
+            })
+
+    collected.sort(key=lambda item: item.get("start") or "")
+    return collected
+
+
+def _floracing_broadcast_summaries() -> list[dict[str, Any]]:
+    summaries: list[dict[str, Any]] = []
+    for event in _floracing_broadcast_events():
+        state = "live" if event.get("state") == "in" else ("next" if event.get("state") == "pre" else "recent")
+        safe_key = re.sub(r"[^a-z0-9]+", "-", str(event.get("name") or "").casefold()).strip("-")[:80] or "event"
+        summaries.append({
+            "state": state,
+            "event": event,
+            "events": [event],
+            "schedule_url": "https://www.floracing.com/events",
+            "watch_name": "FloRacing",
+            "watch_url": event.get("event_url") or "https://www.floracing.com/events",
+            "logo_url": None,
+            "logo_source_url": "https://www.floracing.com/events",
+            "series_key": f"floracing-{safe_key}",
+            "series_name": "FloRacing",
+            "group": "Live Broadcast",
+            "source_kind": "broadcast_schedule",
+        })
+    return summaries
+
+
 def _event_summary(events: list[dict[str, Any]], config: dict[str, Any]) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     live = next((e for e in events if e.get("state") == "in"), None)
@@ -640,11 +742,18 @@ def get_racing_event_hub(force: bool = False) -> dict[str, Any]:
                 _, item = _build_one_static(key, cfg)
                 by_series[key] = item
 
+    broadcast_summaries = _floracing_broadcast_summaries()
     live = [item for item in by_series.values() if item.get("state") == "live"]
+    live.extend(item for item in broadcast_summaries if item.get("state") == "live")
+
     next_items = [
         item for item in by_series.values()
         if item.get("state") == "next" and item.get("event", {}).get("start")
     ]
+    next_items.extend(
+        item for item in broadcast_summaries
+        if item.get("state") == "next" and item.get("event", {}).get("start")
+    )
     next_items.sort(key=lambda item: item["event"]["start"])
 
     value = {
