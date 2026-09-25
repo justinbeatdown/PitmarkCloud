@@ -955,6 +955,16 @@ def public_standings_js():
     return _asset("standings_public.js", "application/javascript")
 
 
+@router.get("/race-center-mobile.css", include_in_schema=False)
+def public_race_center_mobile_css():
+    return _asset("race_center_mobile.css", "text/css")
+
+
+@router.get("/race-center-app.js", include_in_schema=False)
+def public_race_center_app_js():
+    return _asset("race_center_app.js", "application/javascript")
+
+
 @router.get("/race-center-v5.js", include_in_schema=False)
 def public_race_center_v5_js():
     return _asset("race_center_v5.js", "application/javascript")
@@ -1006,7 +1016,7 @@ def public_race_center_icon_512():
 @router.get("/race-center-sw.js", include_in_schema=False)
 def public_race_center_service_worker():
     response = _asset("race_center_sw.js", "application/javascript")
-    response.headers["Service-Worker-Allowed"] = "/race-center/"
+    response.headers["Service-Worker-Allowed"] = "/race-center"
     return response
 
 
