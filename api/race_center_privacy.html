@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#090b0e">
+  <title>Race Center Privacy & Data — Pitmark Racing Co.</title>
+  <style>
+    :root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}body{margin:0;background:#090b0e;color:#eef2f5}
+    a{color:#ff7b3a}main{width:min(880px,calc(100% - 32px));margin:0 auto;padding:48px 0 80px}
+    .brand{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:42px}
+    .brand strong{font-size:18px}.brand a{text-decoration:none;font-size:13px}
+    .eyebrow{color:#ff6a22;font-size:11px;font-weight:900;letter-spacing:.12em}
+    h1{font-size:clamp(40px,8vw,72px);line-height:.94;margin:10px 0 18px}
+    h2{margin-top:34px;font-size:24px}p,li{color:#b9c2ca;line-height:1.65}
+    section{padding:24px;border:1px solid #28313a;border-radius:18px;background:#10151a;margin-top:16px}
+    ul{padding-left:20px}.delete{border-color:rgba(255,85,0,.5)}
+    button{min-height:44px;border:0;border-radius:10px;background:#ff5500;color:#101214;font-weight:900;padding:0 16px;cursor:pointer}
+    button:disabled{opacity:.55}.status{margin-top:12px;font-size:13px}
+    small{color:#7f8a94}
+  </style>
+</head>
+<body>
+<main>
+  <div class="brand"><strong>Pitmark Race Center</strong><a href="/race-center">← Back to Race Center</a></div>
+  <span class="eyebrow">PRIVACY & DATA</span>
+  <h1>Your Race Center data.</h1>
+  <p>Last updated September 24, 2026. This page describes the data used by Pitmark Race Center and gives account holders a web path to delete their account.</p>
+
+  <section>
+    <h2>Information you provide</h2>
+    <ul>
+      <li>Account information such as your email address and display name.</li>
+      <li>Profile information you choose to add, such as a handle, bio, favorite track, racing role, and profile photo.</li>
+      <li>Racing preferences and follows, including drivers, teams, tracks, and series you save.</li>
+      <li>Community content you choose to submit, such as posts, comments, reactions, driver claims, and owner-managed racing content.</li>
+    </ul>
+    <p>Passwords are stored using salted password hashes rather than as readable passwords. Race Center also uses a secure session cookie to keep signed-in sessions working.</p>
+  </section>
+
+  <section>
+    <h2>How the information is used</h2>
+    <p>Race Center uses this information to provide accounts, profiles, saved racing interests, community features, owner/driver claim workflows, personalization, security, moderation, and the operation of the service.</p>
+    <p>Race Center also displays racing information from public and official sources. Links to third-party racing, broadcast, series, track, and media sites are governed by those services' own policies.</p>
+  </section>
+
+  <section>
+    <h2>Public information</h2>
+    <p>If you create a public Race Center profile or publish community content, the profile fields and content intended for public display may be visible to other Race Center visitors. Your account email and password are not published on public profiles.</p>
+  </section>
+
+  <section id="delete-account" class="delete">
+    <span class="eyebrow">ACCOUNT DELETION</span>
+    <h2>Delete your Race Center account</h2>
+    <p>If you are signed in on this browser, you can permanently delete your Race Center account and associated account data here. This action cannot be undone.</p>
+    <button id="deleteAccount" type="button">Delete my Race Center account</button>
+    <p class="status" id="deleteStatus"></p>
+    <p>If you cannot sign in, you can request deletion by emailing <a href="mailto:justin@pitmarkracing.com?subject=Race%20Center%20Account%20Deletion">justin@pitmarkracing.com</a> from the email address associated with your Race Center account. Include “Race Center Account Deletion” in the subject.</p>
+  </section>
+
+  <section>
+    <h2>Questions</h2>
+    <p>Privacy or account questions can be sent to <a href="mailto:justin@pitmarkracing.com">justin@pitmarkracing.com</a>.</p>
+    <small>Pitmark Racing Co. · Race Center</small>
+  </section>
+</main>
+<script>
+(async()=>{
+  const button=document.getElementById('deleteAccount');
+  const status=document.getElementById('deleteStatus');
+  try{
+    const account=await fetch('/api/public/race-center/account',{credentials:'same-origin'}).then(r=>r.json());
+    if(!account.authenticated){
+      button.disabled=true;
+      status.textContent='You are not signed in on this browser. Sign in to Race Center first, or use the email deletion request below.';
+      return;
+    }
+    status.textContent='Signed in as '+(account.email||'your Race Center account')+'.';
+  }catch(_e){
+    button.disabled=true;
+    status.textContent='Account status could not be loaded. You can still use the email deletion request below.';
+  }
+  button.addEventListener('click',async()=>{
+    if(!confirm('Permanently delete your Race Center account and associated account data?'))return;
+    if(!confirm('Final confirmation. This cannot be undone.'))return;
+    button.disabled=true;
+    status.textContent='Deleting account…';
+    try{
+      const response=await fetch('/api/public/race-center/account',{method:'DELETE',credentials:'same-origin'});
+      if(!response.ok)throw new Error('Deletion failed');
+      status.textContent='Your Race Center account has been deleted.';
+    }catch(_e){
+      button.disabled=false;
+      status.textContent='We could not complete the deletion. Email justin@pitmarkracing.com for help.';
+    }
+  });
+})();
+</script>
+</body>
+</html>
