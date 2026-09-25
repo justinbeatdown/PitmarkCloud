@@ -15,7 +15,8 @@ from utils.security import SecurityHeadersMiddleware, security_summary
 from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_2026, control_center_v19, control_center_v195, control_access_v191, control_center_ui, control_native_ops, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, prt_testimonial_asset, early_access_admin, astra_director, standings_public, race_center_v8, racing_network, results_sweep
 from utils.config import settings
 from utils.logger import configure_logging
-from services import discord_gateway_service, prt_access_bans, prt_licensing_store, results_sweep as results_sweep_service
+from services import discord_gateway_service, prt_access_bans, prt_licensing_store, results_sweep as results_sweep_service, pitmark_mail
+from services.pitmark_mail_identities import send_message as send_pitmark_mail
 from services.database import init_database, database_status
 from services.founders_race_activation import backfill_hub_emails
 from services.autopilot_intelligence import scheduler_loop
@@ -257,6 +258,47 @@ async def lifespan(app: FastAPI):
             )
         except Exception:
             log.exception("HiPole trusted Early Access key #%s provisioning failed.", index)
+    try:
+        with pitmark_mail.SessionLocal() as db:
+            hipole_mail_sent = db.query(pitmark_mail.MailMessage).filter(
+                pitmark_mail.MailMessage.direction == "outbound",
+                pitmark_mail.MailMessage.text_body.contains("PRT-EA-FSBW-F55M-DA65-N4RC-HWWS"),
+            ).first()
+        if hipole_codes and hipole_mail_sent is None:
+            await asyncio.to_thread(
+                send_pitmark_mail,
+                to=["hi@hipole.com"],
+                subject="Re: PRT Early Access for HiPole iRacing Club?",
+                text="""Hi Yao,
+
+Absolutely — and yes, your understanding is correct: each PRT Early Access key binds to the first machine it is activated on.
+
+I’ve set HiPole up with two additional keys so you can cover the broadcast setup without needing another approval from me:
+
+Broadcast simulator:
+PRT-EA-FSBW-F55M-DA65-N4RC-HWWS
+
+Broadcast / OBS computer:
+PRT-EA-QPN7-4PPQ-SVYZ-C3ZQ-XNAP
+
+Your existing key can stay on the training simulator. These two are separate seats and can be activated the same way under Settings > Access & Licensing > PRT Early Access.
+
+I’ve also treated these as trusted HiPole access on our side, so there’s no additional application or manual approval step for these machines.
+
+No rush on feedback during the holiday — use it in your normal workflow whenever it makes sense, and anything you notice from the broadcast/production side will be extremely useful for us.
+
+Thanks,
+Justin Olson
+Founder & Owner | Pitmark Racing Co.
+
+Leave your mark.
+https://prt.pitmarkracing.com/prt""",
+                reply_to_message_id=616,
+                from_identity="justin",
+            )
+            log.info("Sent HiPole trusted-access key reply through Pitmark Mail.")
+    except Exception:
+        log.exception("Failed to send HiPole trusted-access key reply.")
     maintenance_invite_id = (os.getenv("PRT_ONE_TIME_REISSUE_INVITE_ID") or "").strip()
     maintenance_reissue_hash = (os.getenv("PRT_ONE_TIME_REISSUE_CODE_HASH") or "").strip()
     maintenance_reissue_hint = (os.getenv("PRT_ONE_TIME_REISSUE_CODE_HINT") or "").strip()
