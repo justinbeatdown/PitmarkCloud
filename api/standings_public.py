@@ -1019,6 +1019,12 @@ def public_race_center_assetlinks():
     )
 
 
+@router.get("/race-center/privacy", response_class=HTMLResponse, include_in_schema=False)
+def public_race_center_privacy():
+    html = (ASSET_DIR / "race_center_privacy.html").read_text(encoding="utf-8")
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache, no-store"})
+
+
 @router.get("/race-center.webmanifest", include_in_schema=False)
 def public_race_center_manifest():
     return _asset("race-center.webmanifest", "application/manifest+json")
