@@ -15,6 +15,52 @@ SEASON = 2026
 
 # Schedule/watch discovery is intentionally separate from standings. This lets
 # Pitmark cover support series that do not expose a usable public standings feed.
+# Source-backed broadcast fallback. This is deliberately independent of the
+# broadcaster scraper so a provider-side block cannot blank Race Center on race night.
+# Entries are short-lived race-weekend facts with the official event/source URL.
+BROADCAST_EVENT_FALLBACKS: list[dict[str, Any]] = [
+    {
+        "name": "2026 4-Crown Nationals at Eldora Speedway",
+        "start": "2026-09-24T21:45:00+00:00",
+        "end": "2026-09-27T04:00:00+00:00",
+        "venue": "Eldora Speedway",
+        "location": "Rossburg, OH",
+        "broadcast": "FloRacing",
+        "event_url": "https://www.floracing.com/events/14712298-2026-4-crown-nationals-at-eldora-speedway",
+        "source_url": "https://www.floracing.com/events/14712298-2026-4-crown-nationals-at-eldora-speedway/videos",
+    },
+    {
+        "name": "2026 Season Championship Night at Thunder Road Speedbowl",
+        "start": "2026-09-24T22:00:00+00:00",
+        "end": "2026-09-25T04:00:00+00:00",
+        "venue": "Thunder Road Speedbowl",
+        "location": "Barre, VT",
+        "broadcast": "FloRacing",
+        "event_url": "https://www.floracing.com/events/14870826-2026-season-championship-night-at-thunder-road-speedbowl",
+        "source_url": "https://www.floracing.com/events/14870826-2026-season-championship-night-at-thunder-road-speedbowl",
+    },
+    {
+        "name": "2026 Weekly Racing at Stafford Speedway",
+        "start": "2026-09-25T21:15:00+00:00",
+        "end": "2026-09-26T03:30:00+00:00",
+        "venue": "Stafford Speedway",
+        "location": "Stafford Springs, CT",
+        "broadcast": "FloRacing",
+        "event_url": "https://www.floracing.com/events",
+        "source_url": "https://www.floracing.com/live/223718-2026-weekly-racing-at-thunder-road-speedbowl",
+    },
+    {
+        "name": "2026 Lucas Oil Jackson 100 at Brownstown Speedway",
+        "start": "2026-09-25T22:15:00+00:00",
+        "end": "2026-09-26T04:30:00+00:00",
+        "venue": "Brownstown Speedway",
+        "location": "Brownstown, IN",
+        "broadcast": "FloRacing",
+        "event_url": "https://www.floracing.com/events",
+        "source_url": "https://www.floracing.com/events",
+    },
+]
+
 SERIES_EVENT_CONFIG: dict[str, dict[str, Any]] = {
     "nascar-cup": {"name":"NASCAR Cup Series","group":"NASCAR","espn_league":"nascar-premier","schedule_url":"https://www.nascar.com/nascar-cup-series/2026/schedule/","watch_name":"NASCAR TV Guide","watch_url":"https://www.nascar.com/tv-schedule/"},
     "nascar-oreilly": {"name":"NASCAR O'Reilly Auto Parts Series","group":"NASCAR","espn_league":"nascar-secondary","schedule_url":"https://www.nascar.com/nascar-oreilly-auto-parts-series/2026/schedule/","watch_name":"NASCAR TV Guide","watch_url":"https://www.nascar.com/tv-schedule/"},
@@ -669,7 +715,30 @@ def _floracing_broadcast_events() -> list[dict[str, Any]]:
 
 def _floracing_broadcast_summaries() -> list[dict[str, Any]]:
     summaries: list[dict[str, Any]] = []
-    for event in _floracing_broadcast_events():
+    now = datetime.now(timezone.utc)
+    discovered = _floracing_broadcast_events()
+    fallback_events: list[dict[str, Any]] = []
+    for raw in BROADCAST_EVENT_FALLBACKS:
+        try:
+            start = datetime.fromisoformat(str(raw["start"]))
+            end = datetime.fromisoformat(str(raw.get("end") or raw["start"]))
+        except Exception:
+            continue
+        if now < start - timedelta(hours=30) or now > end + timedelta(hours=3):
+            continue
+        state = "pre" if now < start else ("in" if now <= end else "post")
+        fallback_events.append({
+            **raw,
+            "date_only": False,
+            "state": state,
+            "completed": state == "post",
+        })
+
+    by_name = {str(event.get("name") or "").casefold(): event for event in fallback_events}
+    for event in discovered:
+        by_name[str(event.get("name") or "").casefold()] = event
+
+    for event in sorted(by_name.values(), key=lambda item: str(item.get("start") or "")):
         state = "live" if event.get("state") == "in" else ("next" if event.get("state") == "pre" else "recent")
         safe_key = re.sub(r"[^a-z0-9]+", "-", str(event.get("name") or "").casefold()).strip("-")[:80] or "event"
         summaries.append({
