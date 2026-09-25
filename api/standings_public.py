@@ -4,6 +4,7 @@ from pathlib import Path
 from io import BytesIO
 from datetime import datetime, timedelta, timezone
 import base64
+import os
 import threading
 import time
 
@@ -983,6 +984,29 @@ def public_race_center_v7_js():
 @router.get("/race-center-consumer.js", include_in_schema=False)
 def public_race_center_consumer_js():
     return _asset("race_center_consumer.js", "application/javascript")
+
+
+@router.get("/.well-known/assetlinks.json", include_in_schema=False)
+def public_race_center_assetlinks():
+    fingerprints = [
+        value.strip().upper()
+        for value in os.getenv("RACE_CENTER_ANDROID_SHA256", "").split(",")
+        if value.strip()
+    ]
+    payload = []
+    if fingerprints:
+        payload.append({
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+                "namespace": "android_app",
+                "package_name": "com.pitmarkracing.racecenter",
+                "sha256_cert_fingerprints": fingerprints,
+            },
+        })
+    return JSONResponse(
+        payload,
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
 
 @router.get("/race-center.webmanifest", include_in_schema=False)
