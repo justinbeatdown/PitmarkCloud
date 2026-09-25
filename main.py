@@ -234,6 +234,28 @@ async def lifespan(app: FastAPI):
     loop.set_default_executor(executor)
 
     init_database()
+    hipole_codes = [
+        value.strip()
+        for value in (os.getenv("PRT_HIPOLE_EXTRA_CODES") or "").split(",")
+        if value.strip()
+    ]
+    for index, code in enumerate(hipole_codes, start=1):
+        try:
+            result = await asyncio.to_thread(
+                prt_licensing_store.ensure_early_access_invite_with_code,
+                applicant_name="HiPole Broadcast Team",
+                email="hi@hipole.com",
+                code=code,
+                notes=f"Trusted HiPole broadcast device #{index}; auto-issued without manual approval",
+                expires_days=30,
+            )
+            log.info(
+                "HiPole trusted Early Access key #%s %s.",
+                index,
+                "already existed" if result.get("already_exists") else "was issued",
+            )
+        except Exception:
+            log.exception("HiPole trusted Early Access key #%s provisioning failed.", index)
     maintenance_invite_id = (os.getenv("PRT_ONE_TIME_REISSUE_INVITE_ID") or "").strip()
     maintenance_reissue_hash = (os.getenv("PRT_ONE_TIME_REISSUE_CODE_HASH") or "").strip()
     maintenance_reissue_hint = (os.getenv("PRT_ONE_TIME_REISSUE_CODE_HINT") or "").strip()
