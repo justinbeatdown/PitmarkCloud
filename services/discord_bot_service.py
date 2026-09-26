@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hmac
 import time
 from typing import Any
@@ -9,7 +10,7 @@ from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
 
 from utils.config import settings
-from services import guild_config_service, live_session_service, result_service
+from services import discord_live_network, guild_config_service, live_session_service, result_service
 
 DISCORD_API = "https://discord.com/api/v10"
 
@@ -72,6 +73,93 @@ def command_definitions() -> list[dict[str, Any]]:
         {"name": "driver", "description": "Show your linked Pitmark driver profile and recent stats.", "type": 1},
         {"name": "results", "description": "Show your recent Pitmark Racing Tools session results.", "type": 1},
         {"name": "racecard", "description": "Post your latest Pitmark post-race card in this channel.", "type": 1},
+        {"name": "live", "description": "Show races that are live now in Pitmark Race Center.", "type": 1},
+        {
+            "name": "upcoming",
+            "description": "Show upcoming races from Pitmark Race Center.",
+            "type": 1,
+            "options": [
+                {
+                    "name": "count",
+                    "description": "Number of upcoming events to show (1-10).",
+                    "type": 4,
+                    "required": False,
+                    "min_value": 1,
+                    "max_value": 10,
+                }
+            ],
+        },
+        {
+            "name": "racealerts",
+            "description": "Configure Pitmark Race Center live alerts for this server.",
+            "type": 1,
+            "options": [
+                {
+                    "name": "configure",
+                    "description": "Turn on automatic live-race alerts.",
+                    "type": 1,
+                    "options": [
+                        {
+                            "name": "channel",
+                            "description": "Channel where live-race alerts should post.",
+                            "type": 7,
+                            "required": True,
+                            "channel_types": [0, 5],
+                        },
+                        {
+                            "name": "series",
+                            "description": "Optional comma-separated series filters.",
+                            "type": 3,
+                            "required": False,
+                        },
+                        {
+                            "name": "tracks",
+                            "description": "Optional comma-separated track filters.",
+                            "type": 3,
+                            "required": False,
+                        },
+                    ],
+                },
+                {
+                    "name": "off",
+                    "description": "Turn off automatic live-race alerts.",
+                    "type": 1,
+                },
+                {
+                    "name": "submit",
+                    "description": "Submit a grassroots/community race that is live now.",
+                    "type": 1,
+                    "options": [
+                        {"name": "title", "description": "Race/event name.", "type": 3, "required": True},
+                        {"name": "series", "description": "Series or class name.", "type": 3, "required": False},
+                        {"name": "track", "description": "Track or venue.", "type": 3, "required": False},
+                        {"name": "watch-url", "description": "Where people can watch.", "type": 3, "required": False},
+                        {"name": "info-url", "description": "Official event/timing/results page.", "type": 3, "required": False},
+                        {
+                            "name": "duration",
+                            "description": "How many minutes to keep it live (30-720).",
+                            "type": 4,
+                            "required": False,
+                            "min_value": 30,
+                            "max_value": 720,
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            "name": "poll",
+            "description": "Create a Pitmark community poll.",
+            "type": 1,
+            "options": [
+                {"name": "question", "description": "Poll question.", "type": 3, "required": True},
+                {"name": "option-a", "description": "First option.", "type": 3, "required": True},
+                {"name": "option-b", "description": "Second option.", "type": 3, "required": True},
+                {"name": "option-c", "description": "Optional third option.", "type": 3, "required": False},
+                {"name": "option-d", "description": "Optional fourth option.", "type": 3, "required": False},
+                {"name": "option-e", "description": "Optional fifth option.", "type": 3, "required": False},
+            ],
+        },
     ]
 
 
@@ -293,7 +381,7 @@ async def handle_command(payload: dict[str, Any], linked_identity_lookup) -> dic
         if subcommand == "about":
             return _content(
                 "**Pitmark Racing Tools** — iRacing telemetry, overlays, track maps, analysis, race cards, setup tools and more.\n\n"
-                "Try `/session`, `/driver`, `/results`, `/racecard`, `/status`, `/download`, `/support`, or `/account`.\n"
+                "Try `/live`, `/upcoming`, `/session`, `/driver`, `/results`, `/racecard`, `/status`, `/download`, `/support`, or `/account`.\n"
                 "Server managers can use `/pitmark setup` to choose this server's app-sharing channel.\n"
                 "**Leave Your Mark.**"
             )
@@ -344,6 +432,101 @@ async def handle_command(payload: dict[str, Any], linked_identity_lookup) -> dic
             )
 
         return _content("Unknown Pitmark configuration action.", ephemeral=True)
+
+    if name == "live":
+        items = await asyncio.to_thread(discord_live_network.live_items)
+        return discord_live_network.live_response_payload(items)
+
+    if name == "upcoming":
+        options = list(data.get("options") or [])
+        count = int(_option_value(options, "count") or 8)
+        items = await asyncio.to_thread(discord_live_network.upcoming_items, count)
+        return discord_live_network.upcoming_response_payload(items)
+
+    if name == "racealerts":
+        guild_id = str(payload.get("guild_id") or "")
+        if not guild_id:
+            return _content("Race alerts can only be configured inside a Discord server.", ephemeral=True)
+        if not _member_can_manage_guild(payload):
+            return _content("You need **Manage Server** (or Administrator) to configure Race Center alerts.", ephemeral=True)
+        subcommand, suboptions = _pitmark_subcommand(data)
+        if subcommand == "off":
+            discord_live_network.set_alert_config(
+                guild_id,
+                enabled=False,
+                updated_by=discord_user_id,
+            )
+            return _content("🔕 Pitmark Race Center live alerts are off for this server.", ephemeral=True)
+        if subcommand == "configure":
+            channel_id = str(_option_value(suboptions, "channel") or "")
+            resolved = ((data.get("resolved") or {}).get("channels") or {}).get(channel_id) or {}
+            if not channel_id or (resolved and str(resolved.get("guild_id") or guild_id) != guild_id):
+                return _content("Choose a text channel from this server.", ephemeral=True)
+            channel_name = str(resolved.get("name") or channel_id)[:180]
+            guild_name = await _discord_guild_name(guild_id)
+            guild_config_service.configure(guild_id, guild_name, channel_id, channel_name, discord_user_id)
+            config = discord_live_network.set_alert_config(
+                guild_id,
+                enabled=True,
+                channel_id=channel_id,
+                series=_option_value(suboptions, "series"),
+                tracks=_option_value(suboptions, "tracks"),
+                updated_by=discord_user_id,
+            )
+            filters = []
+            if config.get("series"):
+                filters.append("Series: " + ", ".join(config["series"]))
+            if config.get("tracks"):
+                filters.append("Tracks: " + ", ".join(config["tracks"]))
+            filter_text = "\n" + "\n".join(filters) if filters else "\nAll Race Center live events are eligible."
+            return _content(
+                f"✅ **Race Center Live Network enabled.**\nAlerts: <#{channel_id}>{filter_text}\n"
+                "Use `/live` and `/upcoming` any time. Live events are deduplicated so the same race is not reposted.",
+                ephemeral=True,
+            )
+        if subcommand == "submit":
+            item = discord_live_network.add_manual_live_event(
+                title=str(_option_value(suboptions, "title") or "Community race"),
+                series=str(_option_value(suboptions, "series") or "Grassroots / Community"),
+                track=str(_option_value(suboptions, "track") or ""),
+                watch_url=str(_option_value(suboptions, "watch-url") or ""),
+                info_url=str(_option_value(suboptions, "info-url") or ""),
+                duration_minutes=int(_option_value(suboptions, "duration") or 180),
+                submitted_by=discord_user_id,
+            )
+            return {
+                "type": 4,
+                "data": {
+                    "content": "✅ Community live event added to the Pitmark Race Center Live Network.",
+                    "embeds": [discord_live_network.event_embed(item, live=True).to_dict()],
+                    "flags": 64,
+                },
+            }
+        return _content("Use `/racealerts configure`, `/racealerts off`, or `/racealerts submit`.", ephemeral=True)
+
+    if name == "poll":
+        guild_id = str(payload.get("guild_id") or "")
+        if not guild_id:
+            return _content("Polls can only be created inside a Discord server.", ephemeral=True)
+        if not _member_can_manage_guild(payload):
+            return _content("You need **Manage Server** (or Administrator) to create a Pitmark poll.", ephemeral=True)
+        options = list(data.get("options") or [])
+        poll_options = [
+            _option_value(options, "option-a"),
+            _option_value(options, "option-b"),
+            _option_value(options, "option-c"),
+            _option_value(options, "option-d"),
+            _option_value(options, "option-e"),
+        ]
+        try:
+            return discord_live_network.create_poll(
+                guild_id=guild_id,
+                user_id=discord_user_id,
+                question=str(_option_value(options, "question") or "Pitmark Poll"),
+                options=[str(value) for value in poll_options if value],
+            )
+        except ValueError as exc:
+            return _content(str(exc), ephemeral=True)
 
     if name == "status":
         return _content(
@@ -440,6 +623,15 @@ async def handle_command(payload: dict[str, Any], linked_identity_lookup) -> dic
         return _racecard_embed(latest, str(display))
 
     return _content("Unknown Pitmark command.", ephemeral=True)
+
+
+async def handle_interaction(payload: dict[str, Any]) -> dict[str, Any]:
+    data = payload.get("data") or {}
+    custom_id = str(data.get("custom_id") or "")
+    if custom_id.startswith("pitmark_poll:"):
+        user = ((payload.get("member") or {}).get("user") or payload.get("user") or {})
+        return discord_live_network.vote_poll(custom_id, str(user.get("id") or ""))
+    return _content("Unsupported Pitmark control.", ephemeral=True)
 
 
 def validate_admin_key(supplied: str | None) -> bool:

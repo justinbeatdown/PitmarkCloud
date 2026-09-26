@@ -99,8 +99,12 @@ async def interactions(request: Request) -> dict:
             payload, discord_service.find_link_by_discord_user_id
         )
 
-    # Buttons/selects and modal submissions used by Pitmark Support Desk/self-roles.
+    # Buttons/selects and modal submissions. Public Pitmark controls (such as
+    # poll voting) are routed before HQ-only controls.
     if interaction_type in {3, 5}:
+        custom_id = str((payload.get("data") or {}).get("custom_id") or "")
+        if custom_id.startswith("pitmark_poll:"):
+            return await discord_bot_service.handle_interaction(payload)
         return await discord_hq_service.handle_interaction(payload)
 
     return {"type": 4, "data": {"content": "Unsupported interaction.", "flags": 64}}

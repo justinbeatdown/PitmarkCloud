@@ -10,7 +10,7 @@ import httpx
 
 from utils.config import settings
 from services.discord_hq_common import log_named
-from services import discord_hq_moderation, discord_racing_culture_feed, prt_release_announcements
+from services import discord_bot_service, discord_hq_moderation, discord_live_network, discord_racing_culture_feed, prt_release_announcements
 
 log = logging.getLogger("pitmark.discord.gateway")
 DISCORD_API = "https://discord.com/api/v10"
@@ -279,7 +279,7 @@ async def _watch_racing_culture_feed() -> None:
 
 class PitmarkPresenceClient(discord.Client):
     async def on_ready(self) -> None:
-        global _release_watcher_task, _racing_culture_feed_task
+        global _release_watcher_task, _racing_culture_feed_task, _live_network_task
 
         await self.change_presence(
             status=discord.Status.online,
@@ -290,6 +290,12 @@ class PitmarkPresenceClient(discord.Client):
             self.user,
             getattr(self.user, "id", "unknown"),
         )
+
+        try:
+            registration = await discord_bot_service.register_commands()
+            log.info("Synced Pitmark public Discord commands: %s", registration.get("registered"))
+        except Exception:
+            log.exception("Failed to sync Pitmark public Discord slash commands.")
 
         if settings.prt_release_announcements_enabled and (
             _release_watcher_task is None or _release_watcher_task.done()
@@ -306,6 +312,38 @@ class PitmarkPresenceClient(discord.Client):
             _racing_culture_feed_task = asyncio.create_task(
                 _watch_racing_culture_feed(),
                 name="pitmark-racing-culture-feed",
+            )
+
+        hq_guild = next((item for item in self.guilds if _is_hq_guild(item)), None)
+        if hq_guild and not discord_live_network.has_alert_config(str(hq_guild.id)):
+            default_live_channel = next(
+                (
+                    channel
+                    for channel in hq_guild.channels
+                    if str(getattr(channel, "name", "") or "").lower() == "community-events"
+                    and callable(getattr(channel, "send", None))
+                ),
+                None,
+            )
+            if default_live_channel is not None:
+                try:
+                    discord_live_network.set_alert_config(
+                        str(hq_guild.id),
+                        enabled=True,
+                        channel_id=str(default_live_channel.id),
+                        updated_by="system",
+                    )
+                    log.info(
+                        "Enabled Race Center Live Network for Pitmark HQ in #%s.",
+                        default_live_channel.name,
+                    )
+                except Exception:
+                    log.exception("Failed to initialize Pitmark HQ Race Center live alerts.")
+
+        if _live_network_task is None or _live_network_task.done():
+            _live_network_task = asyncio.create_task(
+                discord_live_network.watch(self),
+                name="pitmark-race-center-live-network",
             )
 
         try:
@@ -453,6 +491,7 @@ _client: PitmarkPresenceClient | None = None
 _task: asyncio.Task | None = None
 _release_watcher_task: asyncio.Task | None = None
 _racing_culture_feed_task: asyncio.Task | None = None
+_live_network_task: asyncio.Task | None = None
 
 
 async def start() -> None:
@@ -486,7 +525,7 @@ async def start() -> None:
 
 
 async def stop() -> None:
-    global _client, _task, _release_watcher_task, _racing_culture_feed_task
+    global _client, _task, _release_watcher_task, _racing_culture_feed_task, _live_network_task
 
     if _release_watcher_task:
         if not _release_watcher_task.done():
@@ -509,6 +548,17 @@ async def stop() -> None:
         except Exception:
             pass
         _racing_culture_feed_task = None
+
+    if _live_network_task:
+        if not _live_network_task.done():
+            _live_network_task.cancel()
+        try:
+            await _live_network_task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            pass
+        _live_network_task = None
 
     if _client and not _client.is_closed():
         try:
