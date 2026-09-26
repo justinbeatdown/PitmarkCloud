@@ -314,6 +314,32 @@ class PitmarkPresenceClient(discord.Client):
                 name="pitmark-racing-culture-feed",
             )
 
+        hq_guild = next((item for item in self.guilds if _is_hq_guild(item)), None)
+        if hq_guild and not discord_live_network.has_alert_config(str(hq_guild.id)):
+            default_live_channel = next(
+                (
+                    channel
+                    for channel in hq_guild.channels
+                    if str(getattr(channel, "name", "") or "").lower() == "community-events"
+                    and callable(getattr(channel, "send", None))
+                ),
+                None,
+            )
+            if default_live_channel is not None:
+                try:
+                    discord_live_network.set_alert_config(
+                        str(hq_guild.id),
+                        enabled=True,
+                        channel_id=str(default_live_channel.id),
+                        updated_by="system",
+                    )
+                    log.info(
+                        "Enabled Race Center Live Network for Pitmark HQ in #%s.",
+                        default_live_channel.name,
+                    )
+                except Exception:
+                    log.exception("Failed to initialize Pitmark HQ Race Center live alerts.")
+
         if _live_network_task is None or _live_network_task.done():
             _live_network_task = asyncio.create_task(
                 discord_live_network.watch(self),
