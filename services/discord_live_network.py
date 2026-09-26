@@ -415,7 +415,7 @@ def time_token() -> str:
 
 def vote_poll(custom_id: str, user_id: str) -> dict[str, Any]:
     try:
-        _, _, poll_id, raw_index = custom_id.split(":", 3)
+        _, poll_id, raw_index = custom_id.split(":", 2)
         index = int(raw_index)
     except (ValueError, TypeError):
         return {"type": 4, "data": {"content": "That poll button is invalid.", "flags": 64}}
