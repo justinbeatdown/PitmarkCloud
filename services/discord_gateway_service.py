@@ -10,7 +10,7 @@ import httpx
 
 from utils.config import settings
 from services.discord_hq_common import log_named
-from services import discord_hq_moderation, discord_live_network, discord_racing_culture_feed, prt_release_announcements
+from services import discord_bot_service, discord_hq_moderation, discord_live_network, discord_racing_culture_feed, prt_release_announcements
 
 log = logging.getLogger("pitmark.discord.gateway")
 DISCORD_API = "https://discord.com/api/v10"
@@ -290,6 +290,12 @@ class PitmarkPresenceClient(discord.Client):
             self.user,
             getattr(self.user, "id", "unknown"),
         )
+
+        try:
+            registration = await discord_bot_service.register_commands()
+            log.info("Synced Pitmark public Discord commands: %s", registration.get("registered"))
+        except Exception:
+            log.exception("Failed to sync Pitmark public Discord slash commands.")
 
         if settings.prt_release_announcements_enabled and (
             _release_watcher_task is None or _release_watcher_task.done()
