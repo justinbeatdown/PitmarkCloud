@@ -10,7 +10,7 @@ import httpx
 
 from utils.config import settings
 from services.discord_hq_common import log_named
-from services import discord_hq_moderation, discord_racing_culture_feed, prt_release_announcements
+from services import discord_hq_moderation, discord_live_network, discord_racing_culture_feed, prt_release_announcements
 
 log = logging.getLogger("pitmark.discord.gateway")
 DISCORD_API = "https://discord.com/api/v10"
@@ -279,7 +279,7 @@ async def _watch_racing_culture_feed() -> None:
 
 class PitmarkPresenceClient(discord.Client):
     async def on_ready(self) -> None:
-        global _release_watcher_task, _racing_culture_feed_task
+        global _release_watcher_task, _racing_culture_feed_task, _live_network_task
 
         await self.change_presence(
             status=discord.Status.online,
@@ -306,6 +306,12 @@ class PitmarkPresenceClient(discord.Client):
             _racing_culture_feed_task = asyncio.create_task(
                 _watch_racing_culture_feed(),
                 name="pitmark-racing-culture-feed",
+            )
+
+        if _live_network_task is None or _live_network_task.done():
+            _live_network_task = asyncio.create_task(
+                discord_live_network.watch(self),
+                name="pitmark-race-center-live-network",
             )
 
         try:
@@ -453,6 +459,7 @@ _client: PitmarkPresenceClient | None = None
 _task: asyncio.Task | None = None
 _release_watcher_task: asyncio.Task | None = None
 _racing_culture_feed_task: asyncio.Task | None = None
+_live_network_task: asyncio.Task | None = None
 
 
 async def start() -> None:
@@ -486,7 +493,7 @@ async def start() -> None:
 
 
 async def stop() -> None:
-    global _client, _task, _release_watcher_task, _racing_culture_feed_task
+    global _client, _task, _release_watcher_task, _racing_culture_feed_task, _live_network_task
 
     if _release_watcher_task:
         if not _release_watcher_task.done():
@@ -509,6 +516,17 @@ async def stop() -> None:
         except Exception:
             pass
         _racing_culture_feed_task = None
+
+    if _live_network_task:
+        if not _live_network_task.done():
+            _live_network_task.cancel()
+        try:
+            await _live_network_task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            pass
+        _live_network_task = None
 
     if _client and not _client.is_closed():
         try:
