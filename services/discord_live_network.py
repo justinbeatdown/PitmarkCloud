@@ -40,6 +40,10 @@ def _csv_tokens(value: str | None) -> list[str]:
     ]
 
 
+def has_alert_config(guild_id: str) -> bool:
+    return persistent_store.get_runtime_state(f"{ALERT_PREFIX}{guild_id}") is not None
+
+
 def get_alert_config(guild_id: str) -> dict[str, Any]:
     raw = persistent_store.get_runtime_state(f"{ALERT_PREFIX}{guild_id}")
     value = _loads(raw, {})
