@@ -86,6 +86,11 @@ def prt_home():
     return _html("prt.html")
 
 
+@router.get("/prt/whats-new", response_class=HTMLResponse, include_in_schema=False)
+def prt_whats_new():
+    return _html("prt-whats-new.html")
+
+
 @router.get("/prt/support", response_class=HTMLResponse, include_in_schema=False)
 def prt_support():
     return _html("prt-support.html")
