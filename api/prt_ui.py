@@ -91,6 +91,11 @@ def prt_whats_new():
     return _html("prt-whats-new.html")
 
 
+@router.get("/prt-whats-new.css", include_in_schema=False)
+def prt_whats_new_css():
+    return FileResponse(ASSET_DIR / "prt-whats-new.css", media_type="text/css", headers={"Cache-Control": "no-cache"})
+
+
 @router.get("/prt/support", response_class=HTMLResponse, include_in_schema=False)
 def prt_support():
     return _html("prt-support.html")
