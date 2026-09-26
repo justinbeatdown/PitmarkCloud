@@ -2259,6 +2259,7 @@ def _official_metadata_nascar_driver_directory(
         number, team, manufacturer = _nascar_profile_identity(profile_url)
         return key, number, team, manufacturer
 
+    wanted_keys = {_identity_key(name) for name in (wanted_names or []) if _identity_key(name)}
     links: list[tuple[str, str]] = []
     wanted_name_by_key = {
         _identity_key(name): str(name or "").strip()
