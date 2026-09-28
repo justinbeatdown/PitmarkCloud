@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     discord_privileged_intents_enabled: bool = False
     discord_beta_tester_role_id: str = ""
     discord_beta_tester_role_name: str = "Beta Tester"
+    discord_beta_tester_role_sync_seconds: int = 60
     discord_live_network_poll_seconds: int = 120
     prt_release_announcements_enabled: bool = True
     prt_release_manifest_url: str = "https://prt.pitmarkracing.com/downloads/latest.json"
