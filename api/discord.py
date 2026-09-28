@@ -73,6 +73,12 @@ async def oauth_callback(request: Request, code: str = Query(..., min_length=1, 
             success=False,
         ), status_code=400)
 
+    try:
+        await discord_gateway_service.sync_beta_tester_role_for_discord_id(result.discord_user_id)
+    except Exception:
+        # OAuth success must not fail just because role synchronization had a transient Discord error.
+        pass
+
     display = safe_html(result.global_name or result.username or "your Discord account")
     return HTMLResponse(_oauth_page(
         title="Discord connected",
