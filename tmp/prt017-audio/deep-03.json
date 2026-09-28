@@ -1,0 +1,77 @@
+[
+  {
+    "file": "spotter-car-left.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/f62a96a9-5e5a-478f-8ec2-bbf40580e86c.mp3",
+    "transcript": "Car left."
+  },
+  {
+    "file": "spotter-car-right.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/7a62ba1e-1af2-4c12-8689-4d7fc973ef1d.mp3",
+    "transcript": "Car right."
+  },
+  {
+    "file": "spotter-clear-left.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/5571c0ab-ec99-4207-9d0c-eac7790d53d0.mp3",
+    "transcript": "Clear left."
+  },
+  {
+    "file": "spotter-clear-right.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/f53497c3-27fa-4051-9090-f6ea5afa088f.mp3",
+    "transcript": "Clear right."
+  },
+  {
+    "file": "spotter-three-wide.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/26c34a49-c46c-46a7-a3aa-9ae2bfca841b.mp3",
+    "transcript": "Three wide. You’re in the middle."
+  },
+  {
+    "file": "spotter-two-left.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/b32293f5-78b5-44e5-8ef5-2a98d0c3018a.mp3",
+    "transcript": "Two cars left."
+  },
+  {
+    "file": "spotter-two-right.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/fae8472b-ec8b-4fed-9d05-d990352660c9.mp3",
+    "transcript": "Two cars right."
+  },
+  {
+    "file": "spotter-still-left.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/ee6ed908-bb80-4edc-b7b8-9cac5c7759ed.mp3",
+    "transcript": "Still there. Left side."
+  },
+  {
+    "file": "spotter-still-right.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/0b6ab137-ef0c-4160-bbbf-14b1ab8cb2cc.mp3",
+    "transcript": "Still there. Right side."
+  },
+  {
+    "file": "spotter-car-behind.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/e41a3a83-a28d-4e55-a1cb-a5e0b0fa7ee3.mp3",
+    "transcript": "Car close behind."
+  },
+  {
+    "file": "spotter-all-clear.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/d9fff84a-f425-4f5f-84de-76cbb587e730.mp3",
+    "transcript": "All clear."
+  },
+  {
+    "file": "spotter-car-ahead-pitting.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/002d55e6-1e4d-49c3-9b7f-87154b7b3ccf.mp3",
+    "transcript": "Car ahead is pitting."
+  },
+  {
+    "file": "spotter-leader-pitting.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/6c980ddd-dcb3-42cb-9ca3-4733d62b761b.mp3",
+    "transcript": "Leader is on pit road."
+  },
+  {
+    "file": "spotter-off-track-ahead.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/91ce0a29-44ce-4799-a780-7e93a7d1a99b.mp3",
+    "transcript": "Car off track ahead. Stay alert."
+  },
+  {
+    "file": "spotter-closing-ahead.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/983dcc6f-0fb1-454c-8a05-bb6dafbf41da.mp3",
+    "transcript": "You’re closing on the car ahead. Keep the pressure on."
+  }
+]
