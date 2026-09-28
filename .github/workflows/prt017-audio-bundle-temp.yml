@@ -1,0 +1,60 @@
+name: PRT 0.17 Audio Bundle Temp
+
+on:
+  push:
+    branches:
+      - prt017-audio-build-temp
+    paths:
+      - ".github/workflows/prt017-audio-bundle-temp.yml"
+      - "tmp/prt017-audio/**"
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download generated Deep and Clear audio
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out/PitmarkEngineerDeep out/PitmarkEngineerClear
+
+          jq -s 'add' tmp/prt017-audio/deep-*.json > /tmp/deep.json
+          jq -s 'add' tmp/prt017-audio/clear-*.json > /tmp/clear.json
+
+          download_pack () {
+            manifest="$1"
+            dest="$2"
+            expected="$3"
+            jq -r '.[] | [.file,.url] | @tsv' "$manifest" |
+            while IFS=$'\t' read -r file url; do
+              echo "Downloading $file"
+              curl -L --fail --retry 4 --retry-delay 2 --connect-timeout 20 "$url" -o "$dest/$file"
+              test -s "$dest/$file"
+            done
+            count="$(find "$dest" -maxdepth 1 -type f -name '*.mp3' | wc -l | tr -d ' ')"
+            echo "$dest count=$count expected=$expected"
+            test "$count" = "$expected"
+            while IFS= read -r f; do
+              size="$(stat -c%s "$f")"
+              if [ "$size" -lt 1000 ]; then
+                echo "Audio file too small: $f ($size bytes)"
+                exit 1
+              fi
+            done < <(find "$dest" -maxdepth 1 -type f -name '*.mp3' -print)
+          }
+
+          download_pack /tmp/deep.json out/PitmarkEngineerDeep 106
+          download_pack /tmp/clear.json out/PitmarkEngineerClear 106
+
+          cp /tmp/deep.json out/deep-manifest.json
+          cp /tmp/clear.json out/clear-manifest.json
+
+      - name: Upload self-contained voice packs
+        uses: actions/upload-artifact@v4
+        with:
+          name: prt017-voice-packs
+          path: out
+          if-no-files-found: error
+          compression-level: 0
