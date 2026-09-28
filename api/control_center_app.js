@@ -1,5 +1,5 @@
-import { api, abortScope, clearCache } from './control-center-api.js?v=20260922publishfix1';
-import { DOMAIN_META, renderDomain } from './control-center-views.js?v=20260922publishfix1';
+import { api, abortScope, clearCache } from './control-center-api.js?v=20260927mobileperf1';
+import { DOMAIN_META, renderDomain } from './control-center-views.js?v=20260927mobileperf1';
 
 const VALID_DOMAINS = new Set(Object.keys(DOMAIN_META));
 const root = document.getElementById('pitmark-control');
@@ -374,8 +374,11 @@ function start() {
   state.domain = domainFromLocation();
   if (!location.hash) history.replaceState({ domain: state.domain }, '', `#${state.domain}`);
   setDocumentState(state.domain);
+  // Let the visible view own the critical path. The rail/mobile status is
+  // secondary and can hydrate just after first paint; api.hq() also shares the
+  // in-flight request when both paths overlap.
   renderCurrent(false);
-  bootstrapStatus();
+  requestAnimationFrame(() => setTimeout(bootstrapStatus, 0));
 }
 
 start();
