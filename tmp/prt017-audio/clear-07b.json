@@ -1,0 +1,47 @@
+[
+  {
+    "file": "pace-off-2.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/c870e5ac-1fe7-4adf-b4d5-77ede7a6472d.mp3",
+    "transcript": "That lap was off. Reset and go again."
+  },
+  {
+    "file": "pace-off-3.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/25faa3da-3f2e-467b-8bcf-851709c69caf.mp3",
+    "transcript": "A little slow that time. Stay calm and rebuild it."
+  },
+  {
+    "file": "position-gain-2.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/ba412646-e0b7-4343-8dc7-fc6e34578a42.mp3",
+    "transcript": "Nice move. That’s a position gained."
+  },
+  {
+    "file": "position-loss-2.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/b7f84811-2d92-4c04-8744-25aaa58e7ea4.mp3",
+    "transcript": "Position lost. Stay with them and get it back."
+  },
+  {
+    "file": "fuel-short-2.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/e3af877d-ffdb-4159-a3a1-bb766784dfd4.mp3",
+    "transcript": "We’re short on fuel. Plan on stopping."
+  },
+  {
+    "file": "fuel-tight-2.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/30d57358-7042-40c6-8312-509614780a21.mp3",
+    "transcript": "Fuel is close. Start saving where you can."
+  },
+  {
+    "file": "fuel-good-2.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/545090e6-2046-4a2e-bc9c-d3157cfe5637.mp3",
+    "transcript": "Fuel is healthy. We’re good to the end."
+  },
+  {
+    "file": "incident-2.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/1e520ac6-0faf-4ea0-971e-74e83e27c31e.mp3",
+    "transcript": "Incident ahead. Keep your head up."
+  },
+  {
+    "file": "pit-speed-warning-2.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/b33b4ec0-3eec-4ddd-b66f-60a89d8aa278.mp3",
+    "transcript": "Easy on pit road. Watch the speed."
+  }
+]
