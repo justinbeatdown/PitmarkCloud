@@ -1,0 +1,77 @@
+[
+  {
+    "file": "spotter-closing-behind.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/af4e2f72-9a94-462d-b887-7ae4f5a3d775.mp3",
+    "transcript": "Car behind is closing. Hit your marks."
+  },
+  {
+    "file": "race-halfway.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/6902da59-b9dc-4987-8c96-9d0dfb4e0ab7.mp3",
+    "transcript": "Halfway home. Keep digging."
+  },
+  {
+    "file": "race-ten-to-go.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/ed1f87b6-eb2a-46af-8d47-1b4e999ae650.mp3",
+    "transcript": "Ten laps to go."
+  },
+  {
+    "file": "race-five-to-go.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/1ae8b68b-3392-495b-9b32-c689846d2b26.mp3",
+    "transcript": "Five laps to go."
+  },
+  {
+    "file": "race-two-to-go.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/14c52b5f-b64a-49a0-9804-6baff5ac0549.mp3",
+    "transcript": "Two laps to go."
+  },
+  {
+    "file": "race-five-minutes.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/eba96f74-4c88-4422-b30c-58c253916a3c.mp3",
+    "transcript": "Five minutes remaining."
+  },
+  {
+    "file": "race-two-minutes.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/e3689642-daab-40ce-96a2-a6f825653e8d.mp3",
+    "transcript": "Two minutes remaining."
+  },
+  {
+    "file": "pit-speed-warning.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/f6695dfd-5f01-40c6-bff0-a3ada64a794c.mp3",
+    "transcript": "Watch your pit speed."
+  },
+  {
+    "file": "position-gain.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/9c26e4d4-1d7c-4152-8b53-cfd9f41f6058.mp3",
+    "transcript": "One spot gained. Keep going."
+  },
+  {
+    "file": "position-loss.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/080cd2d0-02fb-42d4-b431-2d68011d9523.mp3",
+    "transcript": "Lost a spot. Stay with them."
+  },
+  {
+    "file": "spotter-car-left-2.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/91810e4b-64b7-4aad-a943-0c05648ae168.mp3",
+    "transcript": "Left side."
+  },
+  {
+    "file": "spotter-car-left-3.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/429c4f5d-2c6d-4dea-8d52-cdddfe3ab5e6.mp3",
+    "transcript": "Car on your left."
+  },
+  {
+    "file": "spotter-car-right-2.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/69757d4c-e8b7-4aed-87e0-f95c772b80db.mp3",
+    "transcript": "Right side."
+  },
+  {
+    "file": "spotter-car-right-3.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/fd7829ef-1174-4e99-bb8d-3355dd7f3aff.mp3",
+    "transcript": "Car on your right."
+  },
+  {
+    "file": "spotter-clear-left-2.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/548afdbc-6573-46d7-af18-88e94051e287.mp3",
+    "transcript": "Left side clear."
+  }
+]
