@@ -1,0 +1,72 @@
+[
+  {
+    "file": "online.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/a1fc467b-cb6c-47ff-9ddb-f817f8938a81.mp3",
+    "transcript": "Radio check. Pitmark Engineer online."
+  },
+  {
+    "file": "voice-enabled.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/0e787fb1-e615-4d16-a9b9-5818bdc366b7.mp3",
+    "transcript": "Voice enabled. I’ll keep the calls short and useful."
+  },
+  {
+    "file": "pit-road.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/4b02ee79-eee4-4d01-8060-54c76713df6a.mp3",
+    "transcript": "Pit road. Confirm your service selections."
+  },
+  {
+    "file": "pit-exit.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/a6393fcf-dbe7-44cd-b007-8048b28372af.mp3",
+    "transcript": "Clear of pit road. Get back into rhythm."
+  },
+  {
+    "file": "incident.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/3720f1ad-6ecc-44e6-bcc0-22fa18da6d57.mp3",
+    "transcript": "New incident. Settle in and keep it clean."
+  },
+  {
+    "file": "fuel-short.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/a97a539b-67a9-4aeb-a01c-dd42f5bddb61.mp3",
+    "transcript": "Fuel is short. We’re going to need a stop."
+  },
+  {
+    "file": "fuel-tight.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/76f7ba1c-3629-4bbd-bca7-33d11d4e3a9a.mp3",
+    "transcript": "Fuel is tight. Start thinking about saving a little."
+  },
+  {
+    "file": "fuel-good.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/694a561e-fa11-4b88-b251-0199b544451c.mp3",
+    "transcript": "Fuel looks good. You’re covered to the finish."
+  },
+  {
+    "file": "pace-best.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/c1a338bd-48e8-44e0-b612-7f316d488ee1.mp3",
+    "transcript": "That’s your best lap. Nice work. Keep that rhythm."
+  },
+  {
+    "file": "pace-good.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/0327d8b1-3963-46f0-86c2-91b4388c8f17.mp3",
+    "transcript": "Good lap. You’re right on the pace."
+  },
+  {
+    "file": "pace-off.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/4795ea1f-1fbc-43c8-8778-eaafbca11982.mp3",
+    "transcript": "You’re off the pace. Reset, hit your marks, and build the lap back up."
+  },
+  {
+    "file": "flag-yellow.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/17a9b979-5549-4bf4-a4c6-40e13ac124f7.mp3",
+    "transcript": "Yellow, yellow. Back it down and stay alert."
+  },
+  {
+    "file": "flag-green.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/6003bfa6-9df4-45bf-b60f-949f355c0b8c.mp3",
+    "transcript": "Green, green, green."
+  },
+  {
+    "file": "flag-white.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/853fe427-aeba-4796-8028-7176cb156157.mp3",
+    "transcript": "White flag. One more lap."
+  }
+]
