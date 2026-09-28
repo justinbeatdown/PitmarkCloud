@@ -316,6 +316,29 @@ async def sync_beta_tester_role_for_discord_id(discord_user_id: str) -> bool:
         log.exception("Discord beta tester role sync failed for user %s.", discord_user_id)
     return False
 
+async def _watch_beta_tester_roles() -> None:
+    """Continuously reconcile active PRT Early Access testers into the Discord role."""
+    interval = max(30, int(settings.discord_beta_tester_role_sync_seconds or 60))
+    while True:
+        try:
+            invites = prt_licensing_store.list_early_access_invites(limit=500)
+            for access in invites:
+                if not _eligible_beta_tester(access):
+                    continue
+                device_id = str(access.get("bound_device_id") or "").strip()
+                if not device_id:
+                    continue
+                link = discord_service.link_status(device_id)
+                discord_user_id = str(link.get("discord_user_id") or "").strip()
+                if link.get("connected") and discord_user_id:
+                    await sync_beta_tester_role_for_discord_id(discord_user_id)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("PRT beta tester Discord role reconciliation failed.")
+
+        await asyncio.sleep(interval)
+
 def _bug_intake_embed() -> discord.Embed:
     embed = discord.Embed(
         title=BUG_INTAKE_TITLE,
@@ -394,7 +417,7 @@ async def _watch_racing_culture_feed() -> None:
 
 class PitmarkPresenceClient(discord.Client):
     async def on_ready(self) -> None:
-        global _release_watcher_task, _racing_culture_feed_task, _live_network_task
+        global _release_watcher_task, _racing_culture_feed_task, _live_network_task, _beta_tester_role_task
 
         await self.change_presence(
             status=discord.Status.online,
@@ -459,6 +482,11 @@ class PitmarkPresenceClient(discord.Client):
             _live_network_task = asyncio.create_task(
                 discord_live_network.watch(self),
                 name="pitmark-race-center-live-network",
+            )
+        if _beta_tester_role_task is None or _beta_tester_role_task.done():
+            _beta_tester_role_task = asyncio.create_task(
+                _watch_beta_tester_roles(),
+                name="pitmark-beta-tester-role-sync",
             )
 
         try:
@@ -608,6 +636,7 @@ _task: asyncio.Task | None = None
 _release_watcher_task: asyncio.Task | None = None
 _racing_culture_feed_task: asyncio.Task | None = None
 _live_network_task: asyncio.Task | None = None
+_beta_tester_role_task: asyncio.Task | None = None
 
 
 async def start() -> None:
@@ -641,7 +670,7 @@ async def start() -> None:
 
 
 async def stop() -> None:
-    global _client, _task, _release_watcher_task, _racing_culture_feed_task, _live_network_task
+    global _client, _task, _release_watcher_task, _racing_culture_feed_task, _live_network_task, _beta_tester_role_task
 
     if _release_watcher_task:
         if not _release_watcher_task.done():
@@ -675,6 +704,16 @@ async def stop() -> None:
         except Exception:
             pass
         _live_network_task = None
+    if _beta_tester_role_task:
+        if not _beta_tester_role_task.done():
+            _beta_tester_role_task.cancel()
+        try:
+            await _beta_tester_role_task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            pass
+        _beta_tester_role_task = None
 
     if _client and not _client.is_closed():
         try:
