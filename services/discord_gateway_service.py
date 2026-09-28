@@ -10,7 +10,7 @@ import httpx
 
 from utils.config import settings
 from services.discord_hq_common import log_named
-from services import discord_bot_service, discord_hq_moderation, discord_live_network, discord_racing_culture_feed, prt_release_announcements
+from services import discord_bot_service, discord_hq_moderation, discord_live_network, discord_racing_culture_feed, discord_service, prt_licensing_store, prt_release_announcements
 
 log = logging.getLogger("pitmark.discord.gateway")
 DISCORD_API = "https://discord.com/api/v10"
@@ -199,6 +199,94 @@ _flood_cooldowns: dict[tuple[int, int], float] = {}
 def _is_hq_guild(guild: discord.Guild | None) -> bool:
     configured_id = (settings.discord_hq_guild_id or settings.discord_guild_id or "").strip()
     return bool(guild and configured_id and str(guild.id) == configured_id)
+
+def _eligible_beta_tester(access: dict | None) -> bool:
+    if not access:
+        return False
+    return (
+        str(access.get("status") or "").strip().lower() == "redeemed"
+        and str(access.get("tester_status") or "").strip().lower() in {"active", "completed"}
+    )
+
+
+def _beta_tester_role(guild: discord.Guild) -> discord.Role | None:
+    configured_id = (settings.discord_beta_tester_role_id or "").strip()
+    if configured_id:
+        try:
+            role = guild.get_role(int(configured_id))
+        except ValueError:
+            role = None
+        if role is not None:
+            return role
+
+    role_name = (settings.discord_beta_tester_role_name or "Beta Tester").strip()
+    return discord.utils.get(guild.roles, name=role_name) if role_name else None
+
+
+async def _sync_beta_tester_role(member: discord.Member) -> bool:
+    if member.bot or not _is_hq_guild(member.guild):
+        return False
+
+    link = discord_service.find_link_by_discord_user_id(str(member.id))
+    if not link:
+        return False
+
+    access = prt_licensing_store.get_early_access_for_device(str(link.get("device_id") or ""))
+    if not _eligible_beta_tester(access):
+        return False
+
+    role = _beta_tester_role(member.guild)
+    if role is None:
+        log.warning(
+            "Beta Tester role not found in Pitmark HQ guild %s (configured role id=%r name=%r).",
+            member.guild.id,
+            settings.discord_beta_tester_role_id,
+            settings.discord_beta_tester_role_name,
+        )
+        return False
+
+    if role in member.roles:
+        return True
+
+    try:
+        await member.add_roles(role, reason="Verified PRT Early Access beta tester")
+        await _audit(
+            member.guild,
+            f"🧪 **BETA TESTER VERIFIED** • {member.mention} (`{member.id}`)\n"
+            f"Automatically assigned {role.mention} from PRT Early Access.",
+        )
+        log.info("Assigned Beta Tester role to Discord user %s.", member.id)
+        return True
+    except discord.Forbidden:
+        log.warning(
+            "Cannot assign Beta Tester role to %s; check Manage Roles permission and role hierarchy.",
+            member.id,
+        )
+    except discord.HTTPException:
+        log.exception("Discord rejected Beta Tester role assignment for user %s.", member.id)
+    return False
+
+
+async def sync_beta_tester_role_for_discord_id(discord_user_id: str) -> bool:
+    """Assign the tester role after Discord OAuth, even if the member was already in HQ."""
+    if not discord_user_id or _client is None or not _client.is_ready():
+        return False
+
+    guild = next((item for item in _client.guilds if _is_hq_guild(item)), None)
+    if guild is None:
+        return False
+
+    try:
+        member = guild.get_member(int(discord_user_id))
+        if member is None:
+            member = await guild.fetch_member(int(discord_user_id))
+    except (ValueError, discord.NotFound, discord.Forbidden):
+        return False
+    except discord.HTTPException:
+        log.exception("Failed to fetch Discord member %s for beta tester role sync.", discord_user_id)
+        return False
+
+    return await _sync_beta_tester_role(member)
 
 
 def _bug_intake_embed() -> discord.Embed:
@@ -400,6 +488,7 @@ class PitmarkPresenceClient(discord.Client):
     async def on_member_join(self, member: discord.Member) -> None:
         if not _is_hq_guild(member.guild):
             return
+        await _sync_beta_tester_role(member)
         age = datetime.now(timezone.utc) - member.created_at
         flags = []
         if member.bot:
