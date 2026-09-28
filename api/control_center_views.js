@@ -1,4 +1,4 @@
-import { api, clearCache } from './control-center-api.js?v=20260922publishfix1';
+import { api, clearCache } from './control-center-api.js?v=20260927mobileperf1';
 
 export const DOMAIN_META = Object.freeze({
   hq: { title: 'HQ', kicker: 'Corporate Operations', context: 'What matters, what moved, and what needs you.' },
@@ -50,11 +50,15 @@ function unwrap(module) { return module?.ok ? module.data : null; }
 function failure(module, fallback) { return module?.ok === false ? module.error : fallback; }
 
 async function renderHQ(root, ctx) {
-  const payload = await api.hq({ maxAge: ctx.force ? 0 : 15000 });
-  const [briefResult, opportunityResult] = await Promise.allSettled([
+  // Do not serialize the HQ request ahead of secondary reads. Mobile latency
+  // makes that extra round trip very noticeable, even when the server is fast.
+  const [hqResult, briefResult, opportunityResult] = await Promise.allSettled([
+    api.hq({ maxAge: ctx.force ? 0 : 15000 }),
     api.brief({ maxAge: ctx.force ? 0 : 15000 }),
     api.opportunities({ maxAge: ctx.force ? 0 : 60000 }),
   ]);
+  if (hqResult.status !== 'fulfilled') throw hqResult.reason;
+  const payload = hqResult.value;
   const brief = briefResult.status === 'fulfilled' ? briefResult.value : null;
   const recentOps = (opportunityResult.status === 'fulfilled' && Array.isArray(opportunityResult.value) ? opportunityResult.value : [])
     .filter(op => Number(op?.freshness?.age_hours ?? 9999) <= 96)
