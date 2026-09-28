@@ -261,3 +261,22 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @media(max-width:860px){
   .pm-results-desk{gap:10px}
 }
+
+
+/* Mobile performance pass — 2026-09-27
+   Keep the same visual language while reducing expensive compositor work and
+   letting the browser skip layout/paint for below-fold dashboard sections. */
+@media (max-width:860px){
+  .pm-topbar,.pm-mobile-nav{backdrop-filter:none;-webkit-backdrop-filter:none}
+  .pm-surface,.pm-brief,.pm-more-sheet,.pm-toast{box-shadow:none}
+  .pm-view{animation:none}
+  .pm-workspace{overscroll-behavior:auto;-webkit-overflow-scrolling:touch}
+  .pm-hq-lower,.pm-grid,.pm-panel,.pm-standings-group,.pm-results-archive{
+    content-visibility:auto;
+    contain-intrinsic-size:1px 420px;
+  }
+}
+@media (max-width:520px){
+  .pm-app{background:var(--pm-bg)}
+  .pm-metric-action:active{transform:none}
+}
