@@ -269,25 +269,52 @@ async def _sync_beta_tester_role(member: discord.Member) -> bool:
 
 async def sync_beta_tester_role_for_discord_id(discord_user_id: str) -> bool:
     """Assign the tester role after Discord OAuth, even if the member was already in HQ."""
-    if not discord_user_id or _client is None or not _client.is_ready():
+    if not discord_user_id or not settings.discord_bot_token:
         return False
 
-    guild = next((item for item in _client.guilds if _is_hq_guild(item)), None)
-    if guild is None:
+    link = discord_service.find_link_by_discord_user_id(str(discord_user_id))
+    if not link:
+        return False
+    access = prt_licensing_store.get_early_access_for_device(str(link.get("device_id") or ""))
+    if not _eligible_beta_tester(access):
         return False
 
+    guild_id = (settings.discord_hq_guild_id or settings.discord_guild_id or "").strip()
+    if not guild_id:
+        return False
+
+    headers = {"Authorization": f"Bot {settings.discord_bot_token}"}
+    role_id = (settings.discord_beta_tester_role_id or "").strip()
     try:
-        member = guild.get_member(int(discord_user_id))
-        if member is None:
-            member = await guild.fetch_member(int(discord_user_id))
-    except (ValueError, discord.NotFound, discord.Forbidden):
-        return False
-    except discord.HTTPException:
-        log.exception("Failed to fetch Discord member %s for beta tester role sync.", discord_user_id)
-        return False
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            if not role_id:
+                response = await client.get(f"{DISCORD_API}/guilds/{guild_id}/roles", headers=headers)
+                response.raise_for_status()
+                role_name = (settings.discord_beta_tester_role_name or "Beta Tester").strip()
+                role = next((item for item in response.json() if str(item.get("name") or "") == role_name), None)
+                if role is None:
+                    log.warning("Beta Tester role %r was not found in Pitmark HQ.", role_name)
+                    return False
+                role_id = str(role.get("id") or "")
 
-    return await _sync_beta_tester_role(member)
-
+            response = await client.put(
+                f"{DISCORD_API}/guilds/{guild_id}/members/{discord_user_id}/roles/{role_id}",
+                headers=headers,
+            )
+            if response.status_code == 404:
+                return False
+            response.raise_for_status()
+        log.info("Assigned Beta Tester role to Discord user %s after OAuth sync.", discord_user_id)
+        return True
+    except httpx.HTTPStatusError as exc:
+        log.warning(
+            "Discord beta tester role sync failed for user %s with status %s.",
+            discord_user_id,
+            exc.response.status_code,
+        )
+    except httpx.HTTPError:
+        log.exception("Discord beta tester role sync failed for user %s.", discord_user_id)
+    return False
 
 def _bug_intake_embed() -> discord.Embed:
     embed = discord.Embed(
