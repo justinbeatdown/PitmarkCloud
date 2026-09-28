@@ -1,0 +1,77 @@
+[
+  {
+    "file": "flag-checkered.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/a874d4d5-5483-4628-8552-56da1f17d26a.mp3",
+    "transcript": "Checkered flag. Nice work."
+  },
+  {
+    "file": "flag-black.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/ef205ff0-91e5-419e-9d37-a0c044550aab.mp3",
+    "transcript": "Black flag. Check race control."
+  },
+  {
+    "file": "flag-blue.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/fa900110-8328-481a-b575-52e99b551f4b.mp3",
+    "transcript": "Blue flag. Faster car coming."
+  },
+  {
+    "file": "flag-update.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/b0802112-659a-4174-adcb-954cdb017eb8.mp3",
+    "transcript": "Race control update. Check the flag."
+  },
+  {
+    "file": "pace-car-moving.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/f88726fc-5154-4ea8-b4ed-40ac86bf1131.mp3",
+    "transcript": "Pace car is moving. Close up and get in line."
+  },
+  {
+    "file": "pace-one-lap-to-green.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/59a24bf5-982a-4c07-a2a8-ca96ae588c69.mp3",
+    "transcript": "One lap to green. Get ready."
+  },
+  {
+    "file": "pace-car-in.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/035d7953-13d6-488f-917f-51f66030fb2c.mp3",
+    "transcript": "Pace car is in. Get ready for the green."
+  },
+  {
+    "file": "start-get-ready.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/fdb59cd2-cf15-4351-b2eb-7836496e46ca.mp3",
+    "transcript": "Get ready."
+  },
+  {
+    "file": "pit-box-coming.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/de4608c2-2818-48f8-bdda-32bc2eba8f06.mp3",
+    "transcript": "Pit box coming up."
+  },
+  {
+    "file": "pit-box-ten.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/6fb32fd5-5eeb-42eb-be54-99c7d76a018f.mp3",
+    "transcript": "Pit box in ten."
+  },
+  {
+    "file": "pit-box-five.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/55e2f34e-f677-4295-8fc2-002259b4a6de.mp3",
+    "transcript": "Five."
+  },
+  {
+    "file": "pit-box-three.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/474aa277-cd17-41f0-a6d9-9c709aad8daf.mp3",
+    "transcript": "Three."
+  },
+  {
+    "file": "pit-box-two.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/6bf3d274-2349-4827-8469-1a1907c4882d.mp3",
+    "transcript": "Two."
+  },
+  {
+    "file": "pit-box-one.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/9dbd59b6-9e8e-42d4-be2e-789fa1a45444.mp3",
+    "transcript": "One."
+  },
+  {
+    "file": "pit-box-stop.mp3",
+    "url": "https://storage.googleapis.com/adm--audio-playback--7d--public/mcp-preview/8080372b-b786-4bad-a4bc-4c2a71697445.mp3",
+    "transcript": "Stop."
+  }
+]
