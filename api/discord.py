@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 
-from services import device_auth_service, discord_service
+from services import device_auth_service, discord_gateway_service, discord_service
 from utils.security import enforce_rate_limit, safe_html, validate_device_id
 
 router = APIRouter()
