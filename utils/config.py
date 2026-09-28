@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     discord_flood_window_seconds: int = 10
     discord_flood_timeout_minutes: int = 10
     discord_privileged_intents_enabled: bool = False
+    discord_beta_tester_role_id: str = ""
+    discord_beta_tester_role_name: str = "Beta Tester"
     discord_live_network_poll_seconds: int = 120
     prt_release_announcements_enabled: bool = True
     prt_release_manifest_url: str = "https://prt.pitmarkracing.com/downloads/latest.json"
