@@ -33,6 +33,7 @@ const ENDPOINTS = Object.freeze({
 
 const activeScopes = new Map();
 const memoryCache = new Map();
+const inflightGets = new Map();
 
 export class ControlApiError extends Error {
   constructor(message, status = 0, payload = null) {
@@ -77,43 +78,65 @@ export async function request(url, options = {}) {
     if (cached && Date.now() - cached.at < maxAge) return structuredClone(cached.value);
   }
 
-  const controller = beginScope(scope);
-  const headers = new Headers(options.headers || {});
-  if (options.body !== undefined && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
-
-  let response;
-  try {
-    response = await fetch(url, {
-      method,
-      credentials: 'same-origin',
-      headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      signal: controller?.signal,
-    });
-  } catch (error) {
-    if (error?.name === 'AbortError') throw error;
-    throw new ControlApiError('Pitmark Cloud could not be reached.', 0, null);
-  } finally {
-    if (scope && activeScopes.get(scope) === controller) activeScopes.delete(scope);
+  // HQ bootstrap and the initial view request the same data at nearly the same
+  // time. On mobile that used to create two full network/database reads before
+  // either response could populate the cache. Share identical scope-less GETs
+  // while they are in flight, then let normal maxAge caching take over.
+  if (method === 'GET' && !scope) {
+    const existing = inflightGets.get(key);
+    if (existing) return structuredClone(await existing);
   }
 
-  if (response.status === 401 || response.status === 403) {
-    location.assign('/control');
-    throw new ControlApiError('Your Control Center session expired.', response.status, null);
-  }
+  const run = async () => {
+    const controller = beginScope(scope);
+    const headers = new Headers(options.headers || {});
+    if (options.body !== undefined && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
 
-  const text = await response.text();
-  let payload = null;
-  if (text) {
-    try { payload = JSON.parse(text); } catch { payload = text; }
-  }
-  if (!response.ok) {
-    const detail = payload?.detail || payload?.error || (typeof payload === 'string' ? payload : '') || `Request failed (${response.status})`;
-    throw new ControlApiError(String(detail), response.status, payload);
-  }
+    let response;
+    try {
+      response = await fetch(url, {
+        method,
+        credentials: 'same-origin',
+        headers,
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        signal: controller?.signal,
+      });
+    } catch (error) {
+      if (error?.name === 'AbortError') throw error;
+      throw new ControlApiError('Pitmark Cloud could not be reached.', 0, null);
+    } finally {
+      if (scope && activeScopes.get(scope) === controller) activeScopes.delete(scope);
+    }
 
-  if (method === 'GET' && maxAge > 0) memoryCache.set(key, { at: Date.now(), value: payload });
-  return payload;
+    if (response.status === 401 || response.status === 403) {
+      location.assign('/control');
+      throw new ControlApiError('Your Control Center session expired.', response.status, null);
+    }
+
+    const text = await response.text();
+    let payload = null;
+    if (text) {
+      try { payload = JSON.parse(text); } catch { payload = text; }
+    }
+    if (!response.ok) {
+      const detail = payload?.detail || payload?.error || (typeof payload === 'string' ? payload : '') || `Request failed (${response.status})`;
+      throw new ControlApiError(String(detail), response.status, payload);
+    }
+
+    if (method === 'GET' && maxAge > 0) memoryCache.set(key, { at: Date.now(), value: payload });
+    return payload;
+  };
+
+  if (method === 'GET' && !scope) {
+    const promise = run();
+    inflightGets.set(key, promise);
+    try {
+      return structuredClone(await promise);
+    } finally {
+      if (inflightGets.get(key) === promise) inflightGets.delete(key);
+    }
+  }
+  return run();
 }
 
 const query = (base, params = {}) => {
