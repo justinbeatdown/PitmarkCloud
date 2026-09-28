@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 
-from services import device_auth_service, discord_service
+from services import device_auth_service, discord_gateway_service, discord_service
 from utils.security import enforce_rate_limit, safe_html, validate_device_id
 
 router = APIRouter()
@@ -72,6 +72,12 @@ async def oauth_callback(request: Request, code: str = Query(..., min_length=1, 
             message=safe_html(result.error or "Discord could not be connected."),
             success=False,
         ), status_code=400)
+
+    try:
+        await discord_gateway_service.sync_beta_tester_role_for_discord_id(result.discord_user_id)
+    except Exception:
+        # OAuth success must not fail just because role synchronization had a transient Discord error.
+        pass
 
     display = safe_html(result.global_name or result.username or "your Discord account")
     return HTMLResponse(_oauth_page(

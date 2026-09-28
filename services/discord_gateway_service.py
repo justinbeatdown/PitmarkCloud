@@ -10,7 +10,7 @@ import httpx
 
 from utils.config import settings
 from services.discord_hq_common import log_named
-from services import discord_bot_service, discord_hq_moderation, discord_live_network, discord_racing_culture_feed, prt_release_announcements
+from services import discord_bot_service, discord_hq_moderation, discord_live_network, discord_racing_culture_feed, discord_service, prt_licensing_store, prt_release_announcements
 
 log = logging.getLogger("pitmark.discord.gateway")
 DISCORD_API = "https://discord.com/api/v10"
@@ -200,6 +200,144 @@ def _is_hq_guild(guild: discord.Guild | None) -> bool:
     configured_id = (settings.discord_hq_guild_id or settings.discord_guild_id or "").strip()
     return bool(guild and configured_id and str(guild.id) == configured_id)
 
+def _eligible_beta_tester(access: dict | None) -> bool:
+    if not access:
+        return False
+    return (
+        str(access.get("status") or "").strip().lower() == "redeemed"
+        and str(access.get("tester_status") or "").strip().lower() in {"active", "completed"}
+    )
+
+
+def _beta_tester_role(guild: discord.Guild) -> discord.Role | None:
+    configured_id = (settings.discord_beta_tester_role_id or "").strip()
+    if configured_id:
+        try:
+            role = guild.get_role(int(configured_id))
+        except ValueError:
+            role = None
+        if role is not None:
+            return role
+
+    role_name = (settings.discord_beta_tester_role_name or "Beta Tester").strip()
+    return discord.utils.get(guild.roles, name=role_name) if role_name else None
+
+
+async def _sync_beta_tester_role(member: discord.Member) -> bool:
+    if member.bot or not _is_hq_guild(member.guild):
+        return False
+
+    link = discord_service.find_link_by_discord_user_id(str(member.id))
+    if not link:
+        return False
+
+    access = prt_licensing_store.get_early_access_for_device(str(link.get("device_id") or ""))
+    if not _eligible_beta_tester(access):
+        return False
+
+    role = _beta_tester_role(member.guild)
+    if role is None:
+        log.warning(
+            "Beta Tester role not found in Pitmark HQ guild %s (configured role id=%r name=%r).",
+            member.guild.id,
+            settings.discord_beta_tester_role_id,
+            settings.discord_beta_tester_role_name,
+        )
+        return False
+
+    if role in member.roles:
+        return True
+
+    try:
+        await member.add_roles(role, reason="Verified PRT Early Access beta tester")
+        await _audit(
+            member.guild,
+            f"🧪 **BETA TESTER VERIFIED** • {member.mention} (`{member.id}`)\n"
+            f"Automatically assigned {role.mention} from PRT Early Access.",
+        )
+        log.info("Assigned Beta Tester role to Discord user %s.", member.id)
+        return True
+    except discord.Forbidden:
+        log.warning(
+            "Cannot assign Beta Tester role to %s; check Manage Roles permission and role hierarchy.",
+            member.id,
+        )
+    except discord.HTTPException:
+        log.exception("Discord rejected Beta Tester role assignment for user %s.", member.id)
+    return False
+
+
+async def sync_beta_tester_role_for_discord_id(discord_user_id: str) -> bool:
+    """Assign the tester role after Discord OAuth, even if the member was already in HQ."""
+    if not discord_user_id or not settings.discord_bot_token:
+        return False
+
+    link = discord_service.find_link_by_discord_user_id(str(discord_user_id))
+    if not link:
+        return False
+    access = prt_licensing_store.get_early_access_for_device(str(link.get("device_id") or ""))
+    if not _eligible_beta_tester(access):
+        return False
+
+    guild_id = (settings.discord_hq_guild_id or settings.discord_guild_id or "").strip()
+    if not guild_id:
+        return False
+
+    headers = {"Authorization": f"Bot {settings.discord_bot_token}"}
+    role_id = (settings.discord_beta_tester_role_id or "").strip()
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            if not role_id:
+                response = await client.get(f"{DISCORD_API}/guilds/{guild_id}/roles", headers=headers)
+                response.raise_for_status()
+                role_name = (settings.discord_beta_tester_role_name or "Beta Tester").strip()
+                role = next((item for item in response.json() if str(item.get("name") or "") == role_name), None)
+                if role is None:
+                    log.warning("Beta Tester role %r was not found in Pitmark HQ.", role_name)
+                    return False
+                role_id = str(role.get("id") or "")
+
+            response = await client.put(
+                f"{DISCORD_API}/guilds/{guild_id}/members/{discord_user_id}/roles/{role_id}",
+                headers=headers,
+            )
+            if response.status_code == 404:
+                return False
+            response.raise_for_status()
+        log.info("Assigned Beta Tester role to Discord user %s after OAuth sync.", discord_user_id)
+        return True
+    except httpx.HTTPStatusError as exc:
+        log.warning(
+            "Discord beta tester role sync failed for user %s with status %s.",
+            discord_user_id,
+            exc.response.status_code,
+        )
+    except httpx.HTTPError:
+        log.exception("Discord beta tester role sync failed for user %s.", discord_user_id)
+    return False
+
+async def _watch_beta_tester_roles() -> None:
+    """Continuously reconcile active PRT Early Access testers into the Discord role."""
+    interval = max(30, int(settings.discord_beta_tester_role_sync_seconds or 60))
+    while True:
+        try:
+            invites = prt_licensing_store.list_early_access_invites(limit=500)
+            for access in invites:
+                if not _eligible_beta_tester(access):
+                    continue
+                device_id = str(access.get("bound_device_id") or "").strip()
+                if not device_id:
+                    continue
+                link = discord_service.link_status(device_id)
+                discord_user_id = str(link.get("discord_user_id") or "").strip()
+                if link.get("connected") and discord_user_id:
+                    await sync_beta_tester_role_for_discord_id(discord_user_id)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("PRT beta tester Discord role reconciliation failed.")
+
+        await asyncio.sleep(interval)
 
 def _bug_intake_embed() -> discord.Embed:
     embed = discord.Embed(
@@ -279,7 +417,7 @@ async def _watch_racing_culture_feed() -> None:
 
 class PitmarkPresenceClient(discord.Client):
     async def on_ready(self) -> None:
-        global _release_watcher_task, _racing_culture_feed_task, _live_network_task
+        global _release_watcher_task, _racing_culture_feed_task, _live_network_task, _beta_tester_role_task
 
         await self.change_presence(
             status=discord.Status.online,
@@ -345,6 +483,11 @@ class PitmarkPresenceClient(discord.Client):
                 discord_live_network.watch(self),
                 name="pitmark-race-center-live-network",
             )
+        if _beta_tester_role_task is None or _beta_tester_role_task.done():
+            _beta_tester_role_task = asyncio.create_task(
+                _watch_beta_tester_roles(),
+                name="pitmark-beta-tester-role-sync",
+            )
 
         try:
             await _sync_official_links_message(str(getattr(self.user, "id", "")))
@@ -400,6 +543,7 @@ class PitmarkPresenceClient(discord.Client):
     async def on_member_join(self, member: discord.Member) -> None:
         if not _is_hq_guild(member.guild):
             return
+        await _sync_beta_tester_role(member)
         age = datetime.now(timezone.utc) - member.created_at
         flags = []
         if member.bot:
@@ -492,6 +636,7 @@ _task: asyncio.Task | None = None
 _release_watcher_task: asyncio.Task | None = None
 _racing_culture_feed_task: asyncio.Task | None = None
 _live_network_task: asyncio.Task | None = None
+_beta_tester_role_task: asyncio.Task | None = None
 
 
 async def start() -> None:
@@ -525,7 +670,7 @@ async def start() -> None:
 
 
 async def stop() -> None:
-    global _client, _task, _release_watcher_task, _racing_culture_feed_task, _live_network_task
+    global _client, _task, _release_watcher_task, _racing_culture_feed_task, _live_network_task, _beta_tester_role_task
 
     if _release_watcher_task:
         if not _release_watcher_task.done():
@@ -559,6 +704,16 @@ async def stop() -> None:
         except Exception:
             pass
         _live_network_task = None
+    if _beta_tester_role_task:
+        if not _beta_tester_role_task.done():
+            _beta_tester_role_task.cancel()
+        try:
+            await _beta_tester_role_task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            pass
+        _beta_tester_role_task = None
 
     if _client and not _client.is_closed():
         try:
