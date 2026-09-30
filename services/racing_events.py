@@ -61,6 +61,24 @@ BROADCAST_EVENT_FALLBACKS: list[dict[str, Any]] = [
     },
 ]
 
+TRUSTED_SOURCE_EVENT_SEEDS: list[dict[str, Any]] = [
+    {
+        "series_key": "powri-410-outlaw-sprints",
+        "series_name": "POWRi 410 Outlaw Sprints",
+        "group": "Grassroots / Dirt",
+        "name": "POWRi 410 Outlaw Sprints at Federated Auto Parts Raceway at I-55",
+        "start": "2026-10-03T00:00:00+00:00",
+        "date_only": True,
+        "venue": "Federated Auto Parts Raceway at I-55",
+        "location": None,
+        "broadcast": "Start2FinishTV",
+        "watch_url": "https://o6lahfnab.cc.rs6.net/tn.jsp?f=0010wUBRZyRMI44PdNLt31mAKimf6shENRwIi6M2HpnX9dGntQ4mopXbJoGzFdHV_OSssL_RFjR51X6N8qwajkxx00on7WmB3_OrkftxUwyr3UztxBPNwTTILN4To-G1emW6ffEeYFhXq2OPEhnU8HKL-25toS9puzJGBGzM6OjnrnkFBpcyFSxNw==&c=M3ohEJqqyN4T817l_9g2qU0b2HmEFrXtJABxcWSrY2ifQz7C1zhsaw==&ch=QofbdrDndUvQY72ymUET8COWvet2jzFWeBJXstzuEAwaHS502roYLg==",
+        "source_url": "https://o6lahfnab.cc.rs6.net/tn.jsp?f=0010wUBRZyRMI44PdNLt31mAKimf6shENRwIi6M2HpnX9dGntQ4mopXbJoGzFdHV_OSssL_RFjR51X6N8qwajkxx00on7WmB3_OrkftxUwyr3UztxBPNwTTILN4To-G1emW6ffEeYFhXq2OPEhnU8HKL-25toS9puzJGBGzM6OjnrnkFBpcyFSxNw==&c=M3ohEJqqyN4T817l_9g2qU0b2HmEFrXtJABxcWSrY2ifQz7C1zhsaw==&ch=QofbdrDndUvQY72ymUET8COWvet2jzFWeBJXstzuEAwaHS502roYLg==",
+        "source_name": "Start2FinishTV",
+        "classes": ["POWRi 410 Outlaw Sprints"],
+    },
+]
+
 SERIES_EVENT_CONFIG: dict[str, dict[str, Any]] = {
     "nascar-cup": {"name":"NASCAR Cup Series","group":"NASCAR","espn_league":"nascar-premier","schedule_url":"https://www.nascar.com/nascar-cup-series/2026/schedule/","watch_name":"NASCAR TV Guide","watch_url":"https://www.nascar.com/tv-schedule/"},
     "nascar-oreilly": {"name":"NASCAR O'Reilly Auto Parts Series","group":"NASCAR","espn_league":"nascar-secondary","schedule_url":"https://www.nascar.com/nascar-oreilly-auto-parts-series/2026/schedule/","watch_name":"NASCAR TV Guide","watch_url":"https://www.nascar.com/tv-schedule/"},
@@ -758,6 +776,78 @@ def _floracing_broadcast_summaries() -> list[dict[str, Any]]:
     return summaries
 
 
+def _trusted_source_event_summaries() -> list[dict[str, Any]]:
+    """Normalize approved source facts into Race Center event summaries.
+
+    These are factual, source-attributed seeds from approved Pitmark source
+    material. Missing time/location data stays missing rather than being
+    inferred. Date-only events remain date-only in the public payload.
+    """
+    now = datetime.now(timezone.utc)
+    grouped: dict[str, dict[str, Any]] = {}
+    for raw in TRUSTED_SOURCE_EVENT_SEEDS:
+        try:
+            start = datetime.fromisoformat(str(raw["start"]))
+        except Exception:
+            continue
+
+        # Keep a small recent window for context, but do not let stale source
+        # seeds live forever in Race Center.
+        if start < now - timedelta(days=3) or start > now + timedelta(days=45):
+            continue
+
+        event = {
+            "name": raw.get("name"),
+            "start": start.isoformat(),
+            "end": None,
+            "venue": raw.get("venue"),
+            "location": raw.get("location"),
+            "broadcast": raw.get("broadcast"),
+            "event_url": raw.get("watch_url") or raw.get("source_url"),
+            "source_url": raw.get("source_url"),
+            "source_name": raw.get("source_name"),
+            "classes": list(raw.get("classes") or []),
+            "date_only": bool(raw.get("date_only", False)),
+            "state": "pre" if start.date() >= now.date() else "post",
+            "completed": start.date() < now.date(),
+            "source_kind": "trusted_source",
+        }
+        key = str(raw.get("series_key") or "").strip() or re.sub(
+            r"[^a-z0-9]+", "-", str(raw.get("series_name") or raw.get("name") or "").casefold()
+        ).strip("-")
+        row = grouped.setdefault(key, {
+            "series_key": key,
+            "series_name": raw.get("series_name") or raw.get("name") or "Trusted source",
+            "group": raw.get("group") or "Grassroots / Local",
+            "events": [],
+            "source_name": raw.get("source_name"),
+            "source_kind": "trusted_source",
+        })
+        row["events"].append(event)
+
+    summaries: list[dict[str, Any]] = []
+    for row in grouped.values():
+        config = {
+            "name": row["series_name"],
+            "group": row["group"],
+            "schedule_url": None,
+            "watch_name": row.get("source_name"),
+            "watch_url": (row["events"][0].get("event_url") if row["events"] else None),
+            "logo_url": None,
+            "logo_source_url": None,
+        }
+        summary = _event_summary(row["events"], config)
+        summary.update({
+            "series_key": row["series_key"],
+            "series_name": row["series_name"],
+            "group": row["group"],
+            "source_kind": "trusted_source",
+            "source_name": row.get("source_name"),
+        })
+        summaries.append(summary)
+    return summaries
+
+
 def _event_summary(events: list[dict[str, Any]], config: dict[str, Any]) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     live = next((e for e in events if e.get("state") == "in"), None)
@@ -859,6 +949,10 @@ def get_racing_event_hub(force: bool = False) -> dict[str, Any]:
                 by_series[key] = item
 
     broadcast_summaries = _floracing_broadcast_summaries()
+    trusted_summaries = _trusted_source_event_summaries()
+    for item in trusted_summaries:
+        by_series.setdefault(str(item.get("series_key") or ""), item)
+
     live = [item for item in by_series.values() if item.get("state") == "live"]
     live.extend(item for item in broadcast_summaries if item.get("state") == "live")
 
