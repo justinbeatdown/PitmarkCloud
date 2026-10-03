@@ -173,6 +173,7 @@ export const api = Object.freeze({
   updatePost: (id, body) => request(`${ENDPOINTS.posts}/${encodeURIComponent(id)}`, { method: 'PATCH', body }),
   deletePost: (id) => request(`${ENDPOINTS.posts}/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   decidePost: (id, action, scheduledFor = null) => request(`${ENDPOINTS.posts}/${encodeURIComponent(id)}/decision`, { method: 'POST', body: { action, scheduled_for: scheduledFor } }),
+  bulkDecidePosts: (ids, action, scheduledFor = null) => request(`${ENDPOINTS.posts}/bulk-decision`, { method: 'POST', body: { ids, action, scheduled_for: scheduledFor } }),
   publishPost: (id) => request(`${ENDPOINTS.socialPublish}/${encodeURIComponent(id)}/publish`, { method: 'POST' }),
   socialPublishStatus: (options = {}) => request(ENDPOINTS.socialPublishStatus, { scope: 'social-publish-status', maxAge: 5000, ...options }),
   compose: (body) => request(ENDPOINTS.compose, { method: 'POST', body }),

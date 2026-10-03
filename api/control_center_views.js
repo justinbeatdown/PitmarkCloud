@@ -738,11 +738,16 @@ function selectedRows(rows,ctx){
   return rows.filter(row=>selected.has(String(row.id)));
 }
 
-async function runBulk(items,runner){
+async function runBulk(items,runner,concurrency=8){
   let ok=0;const errors=[];const failedIds=[];
-  for(const item of items){
-    try{await runner(item);ok+=1;}catch(error){errors.push(error?.message||'Unknown error');failedIds.push(String(item.id));}
-  }
+  const queue=[...items];
+  const workers=Array.from({length:Math.min(concurrency,queue.length)},async()=>{
+    while(queue.length){
+      const item=queue.shift();
+      try{await runner(item);ok+=1;}catch(error){errors.push(error?.message||'Unknown error');failedIds.push(String(item.id));}
+    }
+  });
+  await Promise.all(workers);
   return {ok,failed:errors.length,errors,failedIds};
 }
 
@@ -754,11 +759,13 @@ async function bulkContentAction(action,rows,ctx){
   if(action==='approve'){
     const eligible=selected.filter(row=>low(row.status)==='pending');
     if(!eligible.length){ctx.toast('None of the selected posts are waiting for approval.','bad');return;}
-    const result=await runBulk(eligible,row=>api.decidePost(row.id,'approve'));
+    ctx.toast(`Approving ${eligible.length} selected post${eligible.length===1?'':'s'}…`,'good');
+    const result=await api.bulkDecidePosts(eligible.map(row=>Number(row.id)),'approve');
     clearCache('/api/control/autopilot/posts');
     ctx.state.contentSelection=[];
     if(!['approval','generated'].includes(ctx.state.contentTab))ctx.state.contentTab='approved';
-    ctx.toast(result.failed?`${result.ok} approved; ${result.failed} failed.`:`${result.ok} post${result.ok===1?'':'s'} approved.`,result.failed?'bad':'good');
+    const missing=(result?.missing_ids||[]).length;
+    ctx.toast(missing?`${result.updated} approved; ${missing} missing.`:`${result.updated} post${result.updated===1?'':'s'} approved.`,missing?'bad':'good');
     ctx.refresh();
     return;
   }
@@ -767,10 +774,12 @@ async function bulkContentAction(action,rows,ctx){
     const eligible=selected.filter(row=>low(row.status)==='pending');
     if(!eligible.length){ctx.toast('None of the selected posts are waiting for a decision.','bad');return;}
     if(!window.confirm(`Deny ${eligible.length} selected post${eligible.length===1?'':'s'}?`))return;
-    const result=await runBulk(eligible,row=>api.decidePost(row.id,'reject'));
+    ctx.toast(`Denying ${eligible.length} selected post${eligible.length===1?'':'s'}…`,'good');
+    const result=await api.bulkDecidePosts(eligible.map(row=>Number(row.id)),'reject');
     clearCache('/api/control/autopilot/posts');
-    ctx.state.contentSelection=result.failedIds;
-    ctx.toast(result.failed?`${result.ok} denied; ${result.failed} failed.`:`${result.ok} post${result.ok===1?'':'s'} denied.`,result.failed?'bad':'good');
+    ctx.state.contentSelection=(result?.missing_ids||[]).map(String);
+    const missing=(result?.missing_ids||[]).length;
+    ctx.toast(missing?`${result.updated} denied; ${missing} missing.`:`${result.updated} post${result.updated===1?'':'s'} denied.`,missing?'bad':'good');
     ctx.refresh();
     return;
   }
@@ -843,10 +852,12 @@ function openBulkSchedule(rows,ctx){
       {label:'Schedule selected',tone:'primary',run:async()=>{
         const value=document.getElementById(inputId)?.value;
         if(!value){ctx.toast('Choose a date and time.','bad');return;}
-        const result=await runBulk(rows,row=>api.decidePost(row.id,'schedule',value));
+        ctx.toast(`Scheduling ${rows.length} selected post${rows.length===1?'':'s'}…`,'good');
+        const result=await api.bulkDecidePosts(rows.map(row=>Number(row.id)),'schedule',value);
         clearCache('/api/control/autopilot/posts');
-        ctx.state.contentSelection=result.failedIds;
-        ctx.toast(result.failed?`${result.ok} scheduled; ${result.failed} failed.`:`${result.ok} post${result.ok===1?'':'s'} scheduled.`,result.failed?'bad':'good');
+        ctx.state.contentSelection=(result?.missing_ids||[]).map(String);
+        const missing=(result?.missing_ids||[]).length;
+        ctx.toast(missing?`${result.updated} scheduled; ${missing} missing.`:`${result.updated} post${result.updated===1?'':'s'} scheduled.`,missing?'bad':'good');
         ctx.closeSheet();
         ctx.refresh();
       }}
