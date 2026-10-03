@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from io import BytesIO
+from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
@@ -88,7 +89,7 @@ def race_center_community_search(request: Request, q: str = "", limit: int = 24)
                     else ("grassroots" if item.get("grassroots") else "")
                 )
                 photo_url = (
-                    f"/api/public/race-center/driver-photo/{series_key}/{item.get('name')}"
+                    f"/api/public/race-center/driver-photo/{quote(str(series_key), safe='')}/{quote(str(item.get('name')), safe='')}"
                     if series_key and item.get("name")
                     else ""
                 )
