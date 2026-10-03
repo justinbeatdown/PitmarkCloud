@@ -346,10 +346,10 @@ async function renderContent(root,ctx){
       editorial=await api.blogDrafts();
     }else if(tab==='generated'){
       const [pending,approved,scheduled,published]=await Promise.all([
-        api.postsPage('pending',{limit:8}),
-        api.postsPage('approved',{limit:8}),
-        api.postsPage('scheduled',{limit:8}),
-        api.postsPage('published',{limit:8}),
+        api.postsPage('pending',{limit:pageLimit}),
+        api.postsPage('approved',{limit:pageLimit}),
+        api.postsPage('scheduled',{limit:pageLimit}),
+        api.postsPage('published',{limit:pageLimit}),
       ]);
       rows=[...(pending.items||[]),...(approved.items||[]),...(scheduled.items||[]),...(published.items||[])];
       pageMeta=pending;
@@ -458,7 +458,7 @@ function contentStatusText(row){
 
 function pipelineSection(title,eyebrow,items,selected,emptyText){
   if(!items.length) return panel(title,eyebrow,empty(emptyText));
-  return panel(title,eyebrow,`<div class="pm-row-list pm-content-row-list">${items.map(row=>`<div class="pm-content-select-row pm-content-status-${esc(low(row.status||'pending'))} ${selected.has(String(row.id))?'is-selected':''}">
+  return panel(title,eyebrow,`<div class="pm-content-scroll-pane"><div class="pm-row-list pm-content-row-list">${items.map(row=>`<div class="pm-content-select-row pm-content-status-${esc(low(row.status||'pending'))} ${selected.has(String(row.id))?'is-selected':''}">
     <label class="pm-content-check" title="Select post"><input type="checkbox" data-post-select value="${row.id}" ${selected.has(String(row.id))?'checked':''}><span aria-hidden="true"></span></label>
     <button class="pm-row" type="button" data-post-id="${row.id}">
       <div class="pm-row-main">
@@ -468,7 +468,7 @@ function pipelineSection(title,eyebrow,items,selected,emptyText){
       </div>
       <div class="pm-row-side"><strong class="pm-content-state-text">${esc(contentStatusText(row))}</strong><span>›</span></div>
     </button>
-  </div>`).join('')}</div>`,`<span class="pm-badge">${n(items.length)}</span>`);
+  </div>`).join('')}</div></div>`,`<span class="pm-badge">${n(items.length)}</span>`);
 }
 
 function renderContentPipeline(rows,selected=new Set(),totals={}){
