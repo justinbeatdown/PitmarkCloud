@@ -551,6 +551,44 @@ def posts(
         }
 
 
+@router.post('/autopilot/posts/bulk-decision')
+def bulk_decide(req: BulkDecision, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
+    auth(request, x_pitmark_admin_key)
+    allowed = {'approve', 'reject', 'schedule', 'archive'}
+    if req.action not in allowed:
+        raise HTTPException(400, f'action must be one of: {", ".join(sorted(allowed))}')
+    ids = list(dict.fromkeys(int(x) for x in req.ids if int(x) > 0))
+    if not ids:
+        raise HTTPException(400, 'ids must contain at least one post id')
+    if len(ids) > 500:
+        raise HTTPException(400, 'bulk actions are limited to 500 posts at a time')
+    if req.action == 'schedule' and not req.scheduled_for:
+        raise HTTPException(400, 'scheduled_for is required to schedule posts')
+    with SessionLocal() as db:
+        posts = list(db.scalars(select(SocialPost).where(SocialPost.id.in_(ids))).all())
+        found = {int(p.id) for p in posts}
+        missing = [post_id for post_id in ids if post_id not in found]
+        for p in posts:
+            if req.action == 'schedule':
+                p.status = 'scheduled'
+                p.scheduled_for = req.scheduled_for
+            elif req.action == 'approve':
+                p.status = 'approved'
+            elif req.action == 'reject':
+                p.status = 'rejected'
+            else:
+                p.status = 'archived'
+            p.updated_at = utcnow()
+        db.commit()
+        return {
+            'ok': True,
+            'updated': len(posts),
+            'updated_ids': [int(p.id) for p in posts],
+            'missing_ids': missing,
+            'action': req.action,
+        }
+
+
 @router.patch('/autopilot/posts/{post_id}')
 def update_post(post_id: int, req: PostUpdate, request: Request, x_pitmark_admin_key: str | None = Header(default=None)):
     auth(request, x_pitmark_admin_key)
