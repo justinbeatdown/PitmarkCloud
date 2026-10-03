@@ -507,9 +507,9 @@ def posts(
             if source.startswith('intelligence:'):
                 try:
                     oid = int(source.split(':',1)[1])
-                    meta = db.scalar(select(OpportunitySourceMeta).where(OpportunitySourceMeta.opportunity_id == oid))
-                    if meta and meta.published_at:
-                        published = meta.published_at if meta.published_at.tzinfo else meta.published_at.replace(tzinfo=timezone.utc)
+                    source_meta = db.scalar(select(OpportunitySourceMeta).where(OpportunitySourceMeta.opportunity_id == oid))
+                    if source_meta and source_meta.published_at:
+                        published = source_meta.published_at if source_meta.published_at.tzinfo else source_meta.published_at.replace(tzinfo=timezone.utc)
                         current = _source_freshness(published)
                         event_time = published
                         source_published_at = published.isoformat()
