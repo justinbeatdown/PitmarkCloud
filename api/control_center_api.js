@@ -75,16 +75,15 @@ export async function request(url, options = {}) {
   const key = cacheKey(url, method);
   if (method === 'GET' && maxAge > 0) {
     const cached = memoryCache.get(key);
-    if (cached && Date.now() - cached.at < maxAge) return structuredClone(cached.value);
+    if (cached && Date.now() - cached.at < maxAge) return cached.value;
   }
 
-  // HQ bootstrap and the initial view request the same data at nearly the same
-  // time. On mobile that used to create two full network/database reads before
-  // either response could populate the cache. Share identical scope-less GETs
-  // while they are in flight, then let normal maxAge caching take over.
-  if (method === 'GET' && !scope) {
+  // Any identical GET should share one network request, even if the caller uses
+  // a cancellation scope. Large Control Center payloads are treated as
+  // read-only, so avoid structuredClone() on every cache hit/navigation.
+  if (method === 'GET') {
     const existing = inflightGets.get(key);
-    if (existing) return structuredClone(await existing);
+    if (existing) return await existing;
   }
 
   const run = async () => {
@@ -127,11 +126,11 @@ export async function request(url, options = {}) {
     return payload;
   };
 
-  if (method === 'GET' && !scope) {
+  if (method === 'GET') {
     const promise = run();
     inflightGets.set(key, promise);
     try {
-      return structuredClone(await promise);
+      return await promise;
     } finally {
       if (inflightGets.get(key) === promise) inflightGets.delete(key);
     }
@@ -154,22 +153,22 @@ export const api = Object.freeze({
   // first render before anything reaches the screen.
   hq: (options = {}) => request(ENDPOINTS.hq, { maxAge: 15000, ...options }),
   intelligence: (days = 30, options = {}) => request(query(ENDPOINTS.intelligence, { days }), { scope: 'business-intelligence', maxAge: 30000, ...options }),
-  work: (view = 'now', options = {}) => request(query(ENDPOINTS.work, { view }), { scope: 'work', maxAge: 12000, ...options }),
+  work: (view = 'now', options = {}) => request(query(ENDPOINTS.work, { view }), { scope: `work:${view}`, maxAge: 30000, ...options }),
   updateWork: (rowNumber, body) => request(`${ENDPOINTS.work}/${encodeURIComponent(rowNumber)}`, { method: 'PATCH', body }),
   search: (q) => request(query(ENDPOINTS.search, { q }), { scope: 'search' }),
-  prtOverview: (options = {}) => request(ENDPOINTS.prtOverview, { scope: 'prt-overview', maxAge: 12000, ...options }),
-  prtTesters: (options = {}) => request(ENDPOINTS.prtTesters, { scope: 'prt-testers', maxAge: 12000, ...options }),
-  foundersRace: (options = {}) => request(ENDPOINTS.foundersRace, { scope: 'prt-race', maxAge: 12000, ...options }),
-  feedback: (status = '', options = {}) => request(query(ENDPOINTS.feedback, { status }), { scope: 'prt-feedback', maxAge: 12000, ...options }),
+  prtOverview: (options = {}) => request(ENDPOINTS.prtOverview, { scope: 'prt-overview', maxAge: 30000, ...options }),
+  prtTesters: (options = {}) => request(ENDPOINTS.prtTesters, { scope: 'prt-testers', maxAge: 30000, ...options }),
+  foundersRace: (options = {}) => request(ENDPOINTS.foundersRace, { scope: 'prt-race', maxAge: 30000, ...options }),
+  feedback: (status = '', options = {}) => request(query(ENDPOINTS.feedback, { status }), { scope: `prt-feedback:${status || 'all'}`, maxAge: 30000, ...options }),
   setApplicationStatus: (id, status) => request(`/api/control/ops/testers/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: { status } }),
   setFeedbackStatus: (id, status) => request(`/api/control/ops/feedback/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: { status } }),
   posts: (status = '', options = {}) => request(query(ENDPOINTS.posts, { status }), { scope: 'content-posts', maxAge: 8000, ...options }),
   postsPage: (status = '', options = {}) => request(query(ENDPOINTS.posts, {
     status,
-    limit: options.limit ?? 20,
+    limit: options.limit ?? 500,
     offset: options.offset ?? 0,
     meta: 1,
-  }), { scope: `content-posts:${status || 'working'}:${options.offset ?? 0}:${options.limit ?? 20}`, maxAge: 5000, ...options }),
+  }), { scope: `content-posts:${status || 'working'}:${options.offset ?? 0}:${options.limit ?? 500}`, maxAge: 15000, ...options }),
   savePost: (body) => request(ENDPOINTS.posts, { method: 'POST', body }),
   updatePost: (id, body) => request(`${ENDPOINTS.posts}/${encodeURIComponent(id)}`, { method: 'PATCH', body }),
   deletePost: (id) => request(`${ENDPOINTS.posts}/${encodeURIComponent(id)}`, { method: 'DELETE' }),
