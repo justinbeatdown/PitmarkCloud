@@ -3419,20 +3419,11 @@ def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
     season = int(season or utcnow().year)
     now = utcnow()
 
-    # The background sync already builds the exact public-safe standings shape.
-    # Reuse that in-memory snapshot instead of re-reading the same championship
-    # rows from Postgres on every page load.
+    # The background standings cache omits separately persisted driver photos.
+    # Cache the hydrated public snapshot briefly, so photo-worker updates appear
+    # without re-reading championship rows or doing remote I/O on every request.
+    live_snapshot = None
     with _cache_lock:
-        live_cached_at = _cache.get("at")
-        live_cached = _cache.get("value")
-        if (
-            live_cached_at
-            and live_cached
-            and int(live_cached.get("season") or 0) == season
-            and (now - live_cached_at).total_seconds() <= 6 * 3600
-        ):
-            return copy.deepcopy(live_cached)
-
         cached_at = _snapshot_cache.get("at")
         cached_value = _snapshot_cache.get("value")
         if (
@@ -3442,6 +3433,41 @@ def get_standings_snapshot_hub(*, season: int | None = None) -> dict[str, Any]:
             and (now - cached_at).total_seconds() < SNAPSHOT_CACHE_SECONDS
         ):
             return copy.deepcopy(cached_value)
+
+        live_cached_at = _cache.get("at")
+        live_cached = _cache.get("value")
+        if (
+            live_cached_at
+            and live_cached
+            and int(live_cached.get("season") or 0) == season
+            and (now - live_cached_at).total_seconds() <= 6 * 3600
+        ):
+            live_snapshot = copy.deepcopy(live_cached)
+
+    if live_snapshot is not None:
+        try:
+            with SessionLocal() as db:
+                identity_rows = list(db.scalars(
+                    select(RaceCenterDriverIdentityCache).where(
+                        RaceCenterDriverIdentityCache.season == season,
+                        RaceCenterDriverIdentityCache.resolver_version == DRIVER_IDENTITY_RESOLVER_VERSION,
+                    )
+                ).all())
+            saved_identity: dict[str, dict[str, RaceCenterDriverIdentityCache]] = {}
+            for row in identity_rows:
+                saved_identity.setdefault(str(row.series_key), {})[str(row.driver_key)] = row
+            for series in live_snapshot.get("series") or []:
+                key = str(series.get("series_key") or "")
+                series["entries"] = _hydrate_saved_identity(
+                    key, season, series.get("entries") or [],
+                    cached_rows=saved_identity.get(key, {}),
+                )
+        except Exception as exc:
+            log.warning("Warm standings identity hydration failed error=%s", exc)
+            return live_snapshot
+        with _cache_lock:
+            _snapshot_cache.update(at=now, season=season, value=copy.deepcopy(live_snapshot))
+        return live_snapshot
 
     # Cold-start fallback: read the whole current-season snapshot set and
     # persisted identity cache in two queries, then resolve each series in memory.

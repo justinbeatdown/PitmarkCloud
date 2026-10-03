@@ -1715,7 +1715,6 @@ class ControlCenter2026Contract(unittest.TestCase):
         for token in (
             "SNAPSHOT_CACHE_SECONDS = 90",
             'live_cached_at = _cache.get("at")',
-            'return copy.deepcopy(live_cached)',
             '_snapshot_cache["value"] = copy.deepcopy(value)',
             "snapshots_by_series:",
             "identity_by_series:",
