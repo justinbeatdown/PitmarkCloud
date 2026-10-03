@@ -330,7 +330,9 @@ function contentBulkBar(rows, selected){
     <strong><span data-selected-count>${rows.filter(row => selected.has(String(row.id))).length}</span> selected</strong>
     <div class="pm-bulk-actions">
       <button class="pm-button pm-button-ghost" type="button" data-bulk-action="edit">Edit</button>
-      <button class="pm-button pm-button-ghost" type="button" data-bulk-action="approve">Approve</button>
+      <button class="pm-button pm-button-primary" type="button" data-bulk-action="approve">Approve</button>
+      <button class="pm-button pm-button-danger" type="button" data-bulk-action="reject">Deny</button>
+      <button class="pm-button pm-button-ghost" type="button" data-bulk-action="schedule">Schedule</button>
       <button class="pm-button pm-button-primary" type="button" data-bulk-action="publish">Publish</button>
       <button class="pm-button pm-button-danger" type="button" data-bulk-action="delete">Delete</button>
     </div>
@@ -510,6 +512,7 @@ function renderContentPipeline(rows,selected=new Set(),totals={}){
   const approved=rows.filter(r=>low(r.status)==='approved');
   const scheduled=rows.filter(r=>low(r.status)==='scheduled');
   const published=rows.filter(r=>low(r.status)==='published');
+  const tools=contentBulkBar(rows,selected);
   return `<div class="pm-content-overview">
     <div class="pm-metric-strip">
       <button class="pm-metric pm-metric-action" type="button" data-content-tab="approval"><span>Needs approval</span><strong>${n(totals.pending ?? pending.length)}</strong><small>decision required</small><i>›</i></button>
@@ -518,6 +521,7 @@ function renderContentPipeline(rows,selected=new Set(),totals={}){
       <button class="pm-metric pm-metric-action" type="button" data-content-tab="published"><span>Published</span><strong>${n(totals.published ?? published.length)}</strong><small>live history</small><i>›</i></button>
     </div>
     <div class="pm-content-autonomy-note"><span class="pm-badge good">Low-risk auto scheduling active</span><p>Astra and Social Operations can schedule verified racing current-events, community engagement, and safe first-party Facebook, Instagram, and X content. Sensitive claims, offers, partner commitments, support/legal issues, and uncertain facts still stop for review.</p></div>
+    ${tools}
     <div class="pm-grid pm-grid-2 pm-content-pipeline-grid">
       ${pipelineSection('Needs Approval','Decision Queue',pending,selected,'Nothing is waiting for approval.')}
       ${pipelineSection('Scheduled','Publishing Queue',scheduled,selected,'Nothing is scheduled right now.')}
@@ -753,9 +757,28 @@ async function bulkContentAction(action,rows,ctx){
     const result=await runBulk(eligible,row=>api.decidePost(row.id,'approve'));
     clearCache('/api/control/autopilot/posts');
     ctx.state.contentSelection=[];
-    if(ctx.state.contentTab!=='approval')ctx.state.contentTab='approved';
+    if(!['approval','generated'].includes(ctx.state.contentTab))ctx.state.contentTab='approved';
     ctx.toast(result.failed?`${result.ok} approved; ${result.failed} failed.`:`${result.ok} post${result.ok===1?'':'s'} approved.`,result.failed?'bad':'good');
     ctx.refresh();
+    return;
+  }
+
+  if(action==='reject'){
+    const eligible=selected.filter(row=>low(row.status)==='pending');
+    if(!eligible.length){ctx.toast('None of the selected posts are waiting for a decision.','bad');return;}
+    if(!window.confirm(`Deny ${eligible.length} selected post${eligible.length===1?'':'s'}?`))return;
+    const result=await runBulk(eligible,row=>api.decidePost(row.id,'reject'));
+    clearCache('/api/control/autopilot/posts');
+    ctx.state.contentSelection=result.failedIds;
+    ctx.toast(result.failed?`${result.ok} denied; ${result.failed} failed.`:`${result.ok} post${result.ok===1?'':'s'} denied.`,result.failed?'bad':'good');
+    ctx.refresh();
+    return;
+  }
+
+  if(action==='schedule'){
+    const eligible=selected.filter(row=>['pending','approved'].includes(low(row.status)));
+    if(!eligible.length){ctx.toast('Select pending or approved posts to schedule.','bad');return;}
+    openBulkSchedule(eligible,ctx);
     return;
   }
 
@@ -804,6 +827,31 @@ async function bulkContentAction(action,rows,ctx){
     ctx.toast(result.failed?`${result.ok} deleted; ${result.failed} failed.`:`${result.ok} post${result.ok===1?'':'s'} deleted.`,result.failed?'bad':'good');
     ctx.refresh();
   }
+}
+
+function openBulkSchedule(rows,ctx){
+  const inputId='bulk-schedule-at';
+  ctx.openSheet({
+    kicker:'Bulk Schedule',
+    title:`Schedule ${rows.length} selected post${rows.length===1?'':'s'}`,
+    body:`<div class="pm-form">
+      <div class="pm-field"><label>Publish date & time</label><input class="pm-input" id="${inputId}" type="datetime-local" value="${esc(scheduleDefaultValue())}"></div>
+      <div class="pm-callout"><div><strong>One time for all selected posts</strong><p>Every selected pending or approved post will move to Scheduled at this date and time.</p></div></div>
+    </div>`,
+    actions:[
+      {label:'Cancel',tone:'ghost',run:ctx.closeSheet},
+      {label:'Schedule selected',tone:'primary',run:async()=>{
+        const value=document.getElementById(inputId)?.value;
+        if(!value){ctx.toast('Choose a date and time.','bad');return;}
+        const result=await runBulk(rows,row=>api.decidePost(row.id,'schedule',value));
+        clearCache('/api/control/autopilot/posts');
+        ctx.state.contentSelection=result.failedIds;
+        ctx.toast(result.failed?`${result.ok} scheduled; ${result.failed} failed.`:`${result.ok} post${result.ok===1?'':'s'} scheduled.`,result.failed?'bad':'good');
+        ctx.closeSheet();
+        ctx.refresh();
+      }}
+    ]
+  });
 }
 
 function openBulkEdit(rows,ctx){
