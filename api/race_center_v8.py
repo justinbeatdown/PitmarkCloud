@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from io import BytesIO
+from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
@@ -79,12 +80,25 @@ def race_center_community_search(request: Request, q: str = "", limit: int = 24)
                 url = f"/race-center/series/{item.get('key')}"
             if not matches(*searchable):
                 continue
+            photo_url = item.get("photo_url") or item.get("logo_url") or ""
+            if singular == "driver" and photo_url:
+                series_rows = item.get("series") or []
+                series_key = (
+                    (series_rows[0] or {}).get("series_key")
+                    if series_rows
+                    else ("grassroots" if item.get("grassroots") else "")
+                )
+                photo_url = (
+                    f"/api/public/race-center/driver-photo/{quote(str(series_key), safe='')}/{quote(str(item.get('name')), safe='')}"
+                    if series_key and item.get("name")
+                    else ""
+                )
             entities.append({
                 "entity_type": singular,
                 "key": item.get("key"),
                 "display_name": item.get("name") or item.get("short_name"),
                 "subtitle": subtitle,
-                "photo_url": item.get("photo_url") or item.get("logo_url") or "",
+                "photo_url": photo_url,
                 "profile_url": url,
                 "claimed": False,
                 "source_backed": True,
