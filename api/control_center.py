@@ -4,7 +4,7 @@ import hmac
 import json
 from fastapi import APIRouter, Header, HTTPException, Request, Response, BackgroundTasks
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from services.database import SessionLocal
 from services.control_center import SocialPost, ShieldEvent, OutreachContact, BlogDraft, ShopifyPublishRecord, AutopilotOpportunity, OpportunitySourceMeta, SecurityAuditEvent, classify, fingerprint, compose_fallback, serialize, utcnow
@@ -452,17 +452,40 @@ def save_post(req: SavePost, request: Request, x_pitmark_admin_key: str | None =
 
 
 @router.get('/autopilot/posts')
-def posts(request: Request, status: str | None = None, x_pitmark_admin_key: str | None = Header(default=None)):
+def posts(
+    request: Request,
+    status: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+    meta: bool = False,
+    x_pitmark_admin_key: str | None = Header(default=None),
+):
     auth(request, x_pitmark_admin_key)
     from datetime import datetime, timezone, timedelta
     with SessionLocal() as db:
-        q = select(SocialPost).order_by(SocialPost.created_at.desc())
+        filters = []
         if status:
-            q = q.where(SocialPost.status == status)
+            filters.append(SocialPost.status == status)
         else:
             # Working queue only. Rejected/archived records stay durable but never clutter the default view.
-            q = q.where(~SocialPost.status.in_(['rejected','archived']))
+            filters.append(~SocialPost.status.in_(['rejected','archived']))
+
+        q = select(SocialPost).where(*filters).order_by(SocialPost.created_at.desc())
+        safe_offset = max(0, int(offset or 0))
+        safe_limit = None if limit is None else max(1, min(int(limit), 1000))
+        if safe_offset:
+            q = q.offset(safe_offset)
+        if safe_limit is not None:
+            q = q.limit(safe_limit)
+
         rows = list(db.scalars(q).all())
+        total = int(db.scalar(select(func.count(SocialPost.id)).where(*filters)) or 0)
+        status_counts = {
+            str(state or 'pending'): int(count or 0)
+            for state, count in db.execute(
+                select(SocialPost.status, func.count(SocialPost.id)).group_by(SocialPost.status)
+            ).all()
+        } if meta else {}
         out = []
         published_cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
         for row in rows:
@@ -484,9 +507,9 @@ def posts(request: Request, status: str | None = None, x_pitmark_admin_key: str 
             if source.startswith('intelligence:'):
                 try:
                     oid = int(source.split(':',1)[1])
-                    meta = db.scalar(select(OpportunitySourceMeta).where(OpportunitySourceMeta.opportunity_id == oid))
-                    if meta and meta.published_at:
-                        published = meta.published_at if meta.published_at.tzinfo else meta.published_at.replace(tzinfo=timezone.utc)
+                    source_meta = db.scalar(select(OpportunitySourceMeta).where(OpportunitySourceMeta.opportunity_id == oid))
+                    if source_meta and source_meta.published_at:
+                        published = source_meta.published_at if source_meta.published_at.tzinfo else source_meta.published_at.replace(tzinfo=timezone.utc)
                         current = _source_freshness(published)
                         event_time = published
                         source_published_at = published.isoformat()
@@ -515,7 +538,17 @@ def posts(request: Request, status: str | None = None, x_pitmark_admin_key: str 
             raw = item.get('timeline_at') or item.get('created_at') or ''
             return raw
         out.sort(key=sort_key, reverse=True)
-        return out
+        if not meta:
+            return out
+        returned = len(out)
+        return {
+            'items': out,
+            'total': total,
+            'limit': safe_limit,
+            'offset': safe_offset,
+            'has_more': safe_limit is not None and (safe_offset + returned) < total,
+            'counts': status_counts,
+        }
 
 
 @router.patch('/autopilot/posts/{post_id}')

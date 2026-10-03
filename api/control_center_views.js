@@ -339,13 +339,40 @@ function contentBulkBar(rows, selected){
 
 async function renderContent(root,ctx){
   const tab=ctx.state.contentTab||'generated';
-  let rows=[];let editorial=[];let publishHealth=null;
+  const pageLimit=500;
+  let rows=[];let editorial=[];let publishHealth=null;let pageMeta=null;let pipelineTotals={};
   try{
-    if(tab==='editorial'){editorial=await api.blogDrafts();}
-    else if(tab==='generated'){rows=await api.posts();}
-    else if(tab==='approval'){rows=await api.posts('pending');}
-    else if(tab==='archived'){const [a,b]=await Promise.all([api.posts('archived'),api.posts('rejected')]);rows=[...a,...b];}
-    else{rows=await api.posts(tab);}
+    if(tab==='editorial'){
+      editorial=await api.blogDrafts();
+    }else if(tab==='generated'){
+      const [pending,approved,scheduled,published]=await Promise.all([
+        api.postsPage('pending',{limit:8}),
+        api.postsPage('approved',{limit:8}),
+        api.postsPage('scheduled',{limit:8}),
+        api.postsPage('published',{limit:8}),
+      ]);
+      rows=[...(pending.items||[]),...(approved.items||[]),...(scheduled.items||[]),...(published.items||[])];
+      pageMeta=pending;
+      pipelineTotals={
+        pending:Number(pending.total||0),
+        approved:Number(approved.total||0),
+        scheduled:Number(scheduled.total||0),
+        published:Number(published.total||0),
+      };
+    }else if(tab==='approval'){
+      pageMeta=await api.postsPage('pending',{limit:pageLimit});
+      rows=pageMeta.items||[];
+    }else if(tab==='archived'){
+      const [archived,rejected]=await Promise.all([
+        api.postsPage('archived',{limit:pageLimit}),
+        api.postsPage('rejected',{limit:pageLimit}),
+      ]);
+      rows=[...(archived.items||[]),...(rejected.items||[])];
+      pageMeta={...archived,total:Number(archived.total||0)+Number(rejected.total||0),has_more:Boolean(archived.has_more||rejected.has_more),counts:archived.counts||rejected.counts||{}};
+    }else{
+      pageMeta=await api.postsPage(tab,{limit:pageLimit});
+      rows=pageMeta.items||[];
+    }
     if(tab!=='editorial')publishHealth=await api.socialPublishStatus().catch(()=>null);
   }catch(e){root.innerHTML=moduleError('Content',e.message,'content');return;}
 
@@ -354,11 +381,16 @@ async function renderContent(root,ctx){
   for(const id of [...selected]) if(!visibleIds.has(id)) selected.delete(id);
   storeContentSelection(ctx,selected);
 
-  const counts=rows.reduce((acc,row)=>{const s=low(row.status||'pending');acc[s]=(acc[s]||0)+1;return acc;},{});
+  const counts=pageMeta?.counts||pipelineTotals||{};
   const labels={generated:'Pipeline',approval:'Needs Approval',approved:'Approved',scheduled:'Scheduled',published:'Published',archived:'Archived',editorial:'Editorial'};
-  const countFor=(key)=>key==='generated'?rows.length:key==='approval'?(counts.pending||0):(counts[key]||0);
+  const countFor=(key)=>{
+    if(key==='generated') return Number(counts.pending||0)+Number(counts.approved||0)+Number(counts.scheduled||0);
+    if(key==='approval') return Number(counts.pending||0);
+    if(key==='archived') return Number(counts.archived||0)+Number(counts.rejected||0);
+    return Number(counts[key]||0);
+  };
   const tabs=`<div class="pm-tabs pm-content-tabs">${CONTENT_TABS.map(key=>`<button class="pm-tab ${tab===key?'is-active':''}" type="button" data-content-tab="${key}"><span>${labels[key]||key}</span>${key!=='editorial'? `<b>${n(countFor(key))}</b>` : ''}</button>`).join('')}</div>`;
-  root.innerHTML=`${viewHeader('Social Manager','Content Pipeline','See exactly what needs approval, what is ready, what Astra scheduled, and what already published.',`<a class="pm-button pm-button-ghost" href="/control/native-ops?tab=social">Social Desk</a><button class="pm-button pm-button-primary" type="button" data-compose>New post</button>`)}${tab==='editorial'?'':contentPublishHealth(publishHealth,rows)}${tabs}${tab==='editorial'?renderEditorial(editorial):(tab==='generated'?renderContentPipeline(rows,selected):renderPosts(rows,tab,selected))}`;
+  root.innerHTML=`${viewHeader('Social Manager','Content Pipeline','See exactly what needs approval, what is ready, what Astra scheduled, and what already published.',`<a class="pm-button pm-button-ghost" href="/control/native-ops?tab=social">Social Desk</a><button class="pm-button pm-button-primary" type="button" data-compose>New post</button>`)}${tab==='editorial'?'':contentPublishHealth(publishHealth,rows)}${tabs}${tab==='editorial'?renderEditorial(editorial):(tab==='generated'?renderContentPipeline(rows,selected,pipelineTotals):renderPosts(rows,tab,selected,pageMeta))}`;
 
   root.onclick=(event)=>{
     const t=event.target.closest('[data-content-tab]');
@@ -366,6 +398,11 @@ async function renderContent(root,ctx){
       ctx.state.contentTab=t.dataset.contentTab;
       ctx.state.contentSelection=[];
       ctx.refresh();
+      return;
+    }
+    const quick=event.target.closest('[data-post-quick]');
+    if(quick){
+      quickPostDecision(Number(quick.dataset.id),quick.dataset.postQuick,ctx,quick.closest('.pm-content-select-row'));
       return;
     }
     if(event.target.closest('[data-compose]')){openComposer(ctx);return;}
@@ -434,48 +471,79 @@ function pipelineSection(title,eyebrow,items,selected,emptyText){
   </div>`).join('')}</div>`,`<span class="pm-badge">${n(items.length)}</span>`);
 }
 
-function renderContentPipeline(rows,selected=new Set()){
+function renderContentPipeline(rows,selected=new Set(),totals={}){
   const pending=rows.filter(r=>low(r.status)==='pending');
   const approved=rows.filter(r=>low(r.status)==='approved');
   const scheduled=rows.filter(r=>low(r.status)==='scheduled');
   const published=rows.filter(r=>low(r.status)==='published');
-  const tools=contentBulkBar(rows,selected);
   return `<div class="pm-content-overview">
     <div class="pm-metric-strip">
-      <button class="pm-metric pm-metric-action" type="button" data-content-tab="approval"><span>Needs approval</span><strong>${n(pending.length)}</strong><small>decision required</small><i>›</i></button>
-      <button class="pm-metric pm-metric-action" type="button" data-content-tab="approved"><span>Approved</span><strong>${n(approved.length)}</strong><small>ready to schedule/publish</small><i>›</i></button>
-      <button class="pm-metric pm-metric-action" type="button" data-content-tab="scheduled"><span>Scheduled</span><strong>${n(scheduled.length)}</strong><small>queued for publishing</small><i>›</i></button>
-      <button class="pm-metric pm-metric-action" type="button" data-content-tab="published"><span>Published</span><strong>${n(published.length)}</strong><small>recent live posts</small><i>›</i></button>
+      <button class="pm-metric pm-metric-action" type="button" data-content-tab="approval"><span>Needs approval</span><strong>${n(totals.pending ?? pending.length)}</strong><small>decision required</small><i>›</i></button>
+      <button class="pm-metric pm-metric-action" type="button" data-content-tab="approved"><span>Approved</span><strong>${n(totals.approved ?? approved.length)}</strong><small>ready to schedule/publish</small><i>›</i></button>
+      <button class="pm-metric pm-metric-action" type="button" data-content-tab="scheduled"><span>Scheduled</span><strong>${n(totals.scheduled ?? scheduled.length)}</strong><small>queued for publishing</small><i>›</i></button>
+      <button class="pm-metric pm-metric-action" type="button" data-content-tab="published"><span>Published</span><strong>${n(totals.published ?? published.length)}</strong><small>live history</small><i>›</i></button>
     </div>
     <div class="pm-content-autonomy-note"><span class="pm-badge good">Low-risk auto scheduling active</span><p>Astra and Social Operations can schedule verified racing current-events, community engagement, and safe first-party Facebook, Instagram, and X content. Sensitive claims, offers, partner commitments, support/legal issues, and uncertain facts still stop for review.</p></div>
-    ${tools}
     <div class="pm-grid pm-grid-2 pm-content-pipeline-grid">
-      ${pipelineSection('Needs Approval','Decision Queue',pending.slice(0,8),selected,'Nothing is waiting for approval.')}
-      ${pipelineSection('Scheduled','Publishing Queue',scheduled.slice(0,8),selected,'Nothing is scheduled right now.')}
-      ${pipelineSection('Approved & Ready','Ready Queue',approved.slice(0,8),selected,'No approved posts are waiting.')}
-      ${pipelineSection('Recently Published','Live History',published.slice(0,8),selected,'No recent published posts are in the working window.')}
+      ${pipelineSection('Needs Approval','Decision Queue',pending,selected,'Nothing is waiting for approval.')}
+      ${pipelineSection('Scheduled','Publishing Queue',scheduled,selected,'Nothing is scheduled right now.')}
+      ${pipelineSection('Approved & Ready','Ready Queue',approved,selected,'No approved posts are waiting.')}
+      ${pipelineSection('Recently Published','Live History',published,selected,'No recent published posts are in the working window.')}
     </div>
   </div>`;
 }
 
-function renderPosts(rows,tab,selected=new Set()){
+function renderPosts(rows,tab,selected=new Set(),meta=null){
   const tools=contentBulkBar(rows,selected);
   const title=tab==='approval'?'Needs Approval':tab==='approved'?'Approved & Ready':'Autopilot Posts';
-  return panel(title,'Generated Social',
-    `${tools}${rows.length?`<div class="pm-row-list pm-content-row-list">${rows.map(row=>`<div class="pm-content-select-row pm-content-status-${esc(low(row.status||'pending'))} ${selected.has(String(row.id))?'is-selected':''}">
+  const total=Number(meta?.total??rows.length);
+  const quick=(row)=>tab==='approval'?`<div class="pm-content-quick-actions"><button class="pm-button pm-button-primary" type="button" data-post-quick="approve" data-id="${row.id}">Approve</button><button class="pm-button pm-button-danger" type="button" data-post-quick="reject" data-id="${row.id}">Reject</button></div>`:'';
+  const list=rows.length?`<div class="pm-content-scroll-pane"><div class="pm-row-list pm-content-row-list">${rows.map(row=>`<div class="pm-content-select-row pm-content-status-${esc(low(row.status||'pending'))} ${selected.has(String(row.id))?'is-selected':''}">
       <label class="pm-content-check" title="Select post">
         <input type="checkbox" data-post-select value="${row.id}" ${selected.has(String(row.id))?'checked':''}>
         <span aria-hidden="true"></span>
       </label>
-      <button class="pm-row" type="button" data-post-id="${row.id}">
-        <div class="pm-row-main">
-          <div class="pm-row-meta"><span class="pm-badge orange">${esc(row.platform||'social')}</span>${statusBadge(row.status)}<span class="pm-badge">${esc(contentSourceLabel(row))}</span>${row.media_url?'<span class="pm-badge">Media</span>':''}</div>
-          <strong>${esc(row.title||compact(row.body,80)||'Generated post')}</strong>
-          <p>${esc(compact(row.body,170))}</p>
-        </div>
-        <div class="pm-row-side"><strong class="pm-content-state-text">${esc(contentStatusText(row))}</strong><span>›</span></div>
-      </button>
-    </div>`).join('')}</div>`:empty('No posts in this view.')}`);
+      <div class="pm-content-row-main">
+        <button class="pm-row" type="button" data-post-id="${row.id}">
+          <div class="pm-row-main">
+            <div class="pm-row-meta"><span class="pm-badge orange">${esc(row.platform||'social')}</span>${statusBadge(row.status)}<span class="pm-badge">${esc(contentSourceLabel(row))}</span>${row.media_url?'<span class="pm-badge">Media</span>':''}</div>
+            <strong>${esc(row.title||compact(row.body,80)||'Generated post')}</strong>
+            <p>${esc(compact(row.body,170))}</p>
+          </div>
+          <div class="pm-row-side"><strong class="pm-content-state-text">${esc(contentStatusText(row))}</strong><span>›</span></div>
+        </button>
+        ${quick(row)}
+      </div>
+    </div>`).join('')}</div></div>`:empty('No posts in this view.');
+  const footer=rows.length?`<div class="pm-content-queue-footer"><span>All ${n(total)} loaded</span></div>`:'';
+  return panel(title,'Generated Social',`${tools}${tab==='approval'&&total>20?`<div class="pm-content-queue-note"><strong>Fast review mode</strong><span>All ${n(total)} pending posts are loaded in the scrollable queue. Approve or reject directly; open a post only when you need to edit or inspect it.</span></div>`:''}${list}${footer}`,`<span class="pm-badge">${n(total)}</span>`);
+}
+
+async function quickPostDecision(id,action,ctx,rowEl){
+  try{
+    rowEl?.classList.add('is-processing');
+    await api.decidePost(id,action);
+    clearCache('/api/control/autopilot/posts');
+    ctx.state.contentSelection=(ctx.state.contentSelection||[]).filter(value=>String(value)!==String(id));
+    rowEl?.remove();
+    const approvalTab=document.querySelector('[data-content-tab="approval"] b');
+    if(approvalTab) approvalTab.textContent=String(Math.max(0,Number(approvalTab.textContent||0)-1));
+    const navBadge=document.getElementById('nav-content-count');
+    if(navBadge){
+      const next=Math.max(0,Number(navBadge.textContent||0)-1);
+      navBadge.textContent=String(next);
+      navBadge.hidden=next===0;
+    }
+    const footer=document.querySelector('.pm-content-queue-footer span');
+    if(footer){
+      const match=String(footer.textContent||'').match(/(\d+)/);
+      footer.textContent=`All ${Math.max(0,Number(match?.[1]||0)-1)} loaded`;
+    }
+    ctx.toast(action==='approve'?'Post approved.':'Post rejected.','good');
+  }catch(e){
+    rowEl?.classList.remove('is-processing');
+    ctx.toast(e.message,'bad');
+  }
 }
 
 function renderEditorial(rows){return panel('Editorial','Blog & News',rows.length?`<div class="pm-row-list">${rows.map(row=>`<button class="pm-row" type="button" data-blog-id="${row.id}"><div class="pm-row-main"><div class="pm-row-meta"><span class="pm-badge">${esc(row.content_type||'article')}</span>${statusBadge(row.status)}</div><strong>${esc(row.title)}</strong><p>${esc(compact(String(row.body_html||'').replace(/<[^>]+>/g,' '),150))}</p></div><div class="pm-row-side"><span class="pm-muted">${esc(age(row.updated_at||row.created_at))}</span><span>›</span></div></button>`).join('')}</div>`:empty('No editorial drafts found.'))}
@@ -532,7 +600,7 @@ function openPost(row,ctx){
   });
 }
 
-async function postDecision(id,action,ctx){try{await api.decidePost(id,action);clearCache('/api/control/autopilot/posts');if(action==='approve')ctx.state.contentTab='approved';ctx.toast(action==='approve'?'Post approved — ready to publish.':`Post ${action}d.`,'good');ctx.closeSheet();ctx.refresh();}catch(e){ctx.toast(e.message,'bad');}}
+async function postDecision(id,action,ctx){try{await api.decidePost(id,action);clearCache('/api/control/autopilot/posts');if(action==='approve'&&ctx.state.contentTab!=='approval')ctx.state.contentTab='approved';ctx.toast(action==='approve'?'Post approved — ready to publish.':`Post ${action}d.`,'good');ctx.closeSheet();ctx.refresh();}catch(e){ctx.toast(e.message,'bad');}}
 
 async function socialPublishHealth(){
   try{return await api.socialPublishStatus();}catch{return null;}
@@ -602,7 +670,7 @@ async function bulkContentAction(action,rows,ctx){
     const result=await runBulk(eligible,row=>api.decidePost(row.id,'approve'));
     clearCache('/api/control/autopilot/posts');
     ctx.state.contentSelection=[];
-    ctx.state.contentTab='approved';
+    if(ctx.state.contentTab!=='approval')ctx.state.contentTab='approved';
     ctx.toast(result.failed?`${result.ok} approved; ${result.failed} failed.`:`${result.ok} post${result.ok===1?'':'s'} approved.`,result.failed?'bad':'good');
     ctx.refresh();
     return;
