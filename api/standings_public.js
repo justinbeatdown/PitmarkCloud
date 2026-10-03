@@ -380,6 +380,7 @@ const identityText=row=>{
 };
 
 const driverProfileHref=(seriesKey,name)=>'/race-center/driver/'+encodeURIComponent(String(seriesKey||''))+'/'+encodeURIComponent(String(name||''));
+const driverPhotoHref=(seriesKey,name)=>'/api/public/race-center/driver-photo/'+encodeURIComponent(String(seriesKey||''))+'/'+encodeURIComponent(String(name||''));
 
 function driverDirectoryRows(){
   const rows=[];
@@ -446,7 +447,7 @@ function driverInitials(name){
 
 function driverPortrait(driver,large=false){
   if(driver.photo_url){
-    return '<img class="driver-photo'+(large?' is-large':'')+'" src="'+esc(driver.photo_url)+'" alt="'+esc(driver.name)+'" loading="lazy" decoding="async">';
+    return '<img class="driver-photo'+(large?' is-large':'')+'" src="'+esc(driverPhotoHref(driver.series_key,driver.name))+'" alt="'+esc(driver.name)+'" loading="lazy" decoding="async">';
   }
   return '<span class="driver-photo driver-photo-fallback'+(large?' is-large':'')+'">'+esc(driverInitials(driver.name))+'</span>';
 }
@@ -467,7 +468,7 @@ function applyDriverIdentityToCards(seriesKey,driverName,payload){
     if(payload.photo_use_allowed&&payload.photo_url&&currentPhoto){
       const img=document.createElement('img');
       img.className='driver-photo';
-      img.src=String(payload.photo_url);
+      img.src=driverPhotoHref(seriesKey,driverName);
       img.alt=String(driverName||'Driver');
       img.loading='lazy';
       img.decoding='async';
