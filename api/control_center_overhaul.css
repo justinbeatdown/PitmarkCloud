@@ -284,8 +284,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 /* Content approval queue performance + fast-review UX — 2026-10-02 */
 .pm-content-row-main{min-width:0;display:grid;gap:6px}
-.pm-content-quick-actions{display:flex;align-items:center;gap:6px;justify-content:flex-end;padding:0 2px 2px}
-.pm-content-quick-actions .pm-button{min-height:34px;padding:0 12px}
+.pm-content-quick-actions{display:flex;align-items:center;gap:6px;justify-content:flex-start;flex-wrap:wrap;padding:6px 2px 2px;border-top:1px solid rgba(255,255,255,.045)}
+.pm-content-quick-actions .pm-button{min-height:34px;padding:0 12px;min-width:72px}
 .pm-content-queue-note{display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:10px 12px;border:1px solid rgba(255,85,0,.16);border-radius:11px;background:rgba(255,85,0,.045)}
 .pm-content-queue-note strong{font-size:9px;white-space:nowrap;color:#ff9b6d}
 .pm-content-queue-note span{color:var(--pm-muted);font-size:9px;line-height:1.4}

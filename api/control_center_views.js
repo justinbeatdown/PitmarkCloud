@@ -405,6 +405,18 @@ async function renderContent(root,ctx){
       quickPostDecision(Number(quick.dataset.id),quick.dataset.postQuick,ctx,quick.closest('.pm-content-select-row'));
       return;
     }
+    const schedule=event.target.closest('[data-post-schedule]');
+    if(schedule){
+      const row=rows.find(item=>String(item.id)===String(schedule.dataset.id));
+      if(row) openSchedulePost(row,ctx,schedule.closest('.pm-content-select-row'));
+      return;
+    }
+    const explicitOpen=event.target.closest('[data-post-open]');
+    if(explicitOpen){
+      const row=rows.find(item=>String(item.id)===String(explicitOpen.dataset.id));
+      if(row) openPost(row,ctx);
+      return;
+    }
     if(event.target.closest('[data-compose]')){openComposer(ctx);return;}
     const action=event.target.closest('[data-bulk-action]');
     if(action){bulkContentAction(action.dataset.bulkAction,rows,ctx);return;}
@@ -456,18 +468,40 @@ function contentStatusText(row){
   return 'Needs approval';
 }
 
+function contentCardActions(row){
+  const status=low(row.status||'pending');
+  if(status==='pending'){
+    return `<div class="pm-content-quick-actions">
+      <button class="pm-button pm-button-primary" type="button" data-post-quick="approve" data-id="${row.id}">Approve</button>
+      <button class="pm-button pm-button-danger" type="button" data-post-quick="reject" data-id="${row.id}">Deny</button>
+      <button class="pm-button pm-button-ghost" type="button" data-post-schedule data-id="${row.id}">Schedule</button>
+      <button class="pm-button pm-button-ghost" type="button" data-post-open data-id="${row.id}">Edit</button>
+    </div>`;
+  }
+  if(status==='approved'){
+    return `<div class="pm-content-quick-actions"><button class="pm-button pm-button-ghost" type="button" data-post-schedule data-id="${row.id}">Schedule</button><button class="pm-button pm-button-ghost" type="button" data-post-open data-id="${row.id}">Edit</button></div>`;
+  }
+  if(status==='scheduled'){
+    return `<div class="pm-content-quick-actions"><button class="pm-button pm-button-ghost" type="button" data-post-open data-id="${row.id}">Edit</button></div>`;
+  }
+  return '';
+}
+
 function pipelineSection(title,eyebrow,items,selected,emptyText){
   if(!items.length) return panel(title,eyebrow,empty(emptyText));
-  return panel(title,eyebrow,`<div class="pm-content-scroll-pane"><div class="pm-row-list pm-content-row-list">${items.map(row=>`<div class="pm-content-select-row pm-content-status-${esc(low(row.status||'pending'))} ${selected.has(String(row.id))?'is-selected':''}">
+  return panel(title,eyebrow,`<div class="pm-content-scroll-pane"><div class="pm-row-list pm-content-row-list">${items.map(row=>`<div class="pm-content-select-row pm-content-status-${esc(low(row.status||'pending'))} ${selected.has(String(row.id))?'is-selected':''}" data-content-row-id="${row.id}">
     <label class="pm-content-check" title="Select post"><input type="checkbox" data-post-select value="${row.id}" ${selected.has(String(row.id))?'checked':''}><span aria-hidden="true"></span></label>
-    <button class="pm-row" type="button" data-post-id="${row.id}">
-      <div class="pm-row-main">
-        <div class="pm-row-meta"><span class="pm-badge orange">${esc(row.platform||'social')}</span>${statusBadge(row.status)}<span class="pm-badge">${esc(contentSourceLabel(row))}</span>${row.media_url?'<span class="pm-badge">Media</span>':''}</div>
-        <strong>${esc(row.title||compact(row.body,80)||'Generated post')}</strong>
-        <p>${esc(compact(row.body,170))}</p>
-      </div>
-      <div class="pm-row-side"><strong class="pm-content-state-text">${esc(contentStatusText(row))}</strong><span>›</span></div>
-    </button>
+    <div class="pm-content-row-main">
+      <button class="pm-row" type="button" data-post-id="${row.id}">
+        <div class="pm-row-main">
+          <div class="pm-row-meta"><span class="pm-badge orange">${esc(row.platform||'social')}</span>${statusBadge(row.status)}<span class="pm-badge">${esc(contentSourceLabel(row))}</span>${row.media_url?'<span class="pm-badge">Media</span>':''}</div>
+          <strong>${esc(row.title||compact(row.body,80)||'Generated post')}</strong>
+          <p>${esc(compact(row.body,170))}</p>
+        </div>
+        <div class="pm-row-side"><strong class="pm-content-state-text">${esc(contentStatusText(row))}</strong><span>›</span></div>
+      </button>
+      ${contentCardActions(row)}
+    </div>
   </div>`).join('')}</div></div>`,`<span class="pm-badge">${n(items.length)}</span>`);
 }
 
@@ -497,7 +531,7 @@ function renderPosts(rows,tab,selected=new Set(),meta=null){
   const tools=contentBulkBar(rows,selected);
   const title=tab==='approval'?'Needs Approval':tab==='approved'?'Approved & Ready':'Autopilot Posts';
   const total=Number(meta?.total??rows.length);
-  const quick=(row)=>tab==='approval'?`<div class="pm-content-quick-actions"><button class="pm-button pm-button-primary" type="button" data-post-quick="approve" data-id="${row.id}">Approve</button><button class="pm-button pm-button-danger" type="button" data-post-quick="reject" data-id="${row.id}">Reject</button></div>`:'';
+  const quick=(row)=>contentCardActions(row);
   const list=rows.length?`<div class="pm-content-scroll-pane"><div class="pm-row-list pm-content-row-list">${rows.map(row=>`<div class="pm-content-select-row pm-content-status-${esc(low(row.status||'pending'))} ${selected.has(String(row.id))?'is-selected':''}">
       <label class="pm-content-check" title="Select post">
         <input type="checkbox" data-post-select value="${row.id}" ${selected.has(String(row.id))?'checked':''}>
@@ -519,6 +553,61 @@ function renderPosts(rows,tab,selected=new Set(),meta=null){
   return panel(title,'Generated Social',`${tools}${tab==='approval'&&total>20?`<div class="pm-content-queue-note"><strong>Fast review mode</strong><span>All ${n(total)} pending posts are loaded in the scrollable queue. Approve or reject directly; open a post only when you need to edit or inspect it.</span></div>`:''}${list}${footer}`,`<span class="pm-badge">${n(total)}</span>`);
 }
 
+function adjustContentCount(status,delta){
+  document.querySelectorAll(`[data-content-tab="${status==='pending'?'approval':status}"] b`).forEach(node=>{
+    node.textContent=String(Math.max(0,Number(node.textContent||0)+delta));
+  });
+  document.querySelectorAll('.pm-metric').forEach(metric=>{
+    const label=low(metric.querySelector('span')?.textContent||'');
+    const matches=(status==='pending'&&label==='needs approval')||(status==='scheduled'&&label==='scheduled')||(status==='approved'&&label==='approved');
+    if(matches){
+      const value=metric.querySelector('strong');
+      if(value) value.textContent=String(Math.max(0,Number(value.textContent||0)+delta));
+    }
+  });
+  if(status==='pending'){
+    const navBadge=document.getElementById('nav-content-count');
+    if(navBadge){
+      const next=Math.max(0,Number(navBadge.textContent||0)+delta);
+      navBadge.textContent=String(next);
+      navBadge.hidden=next===0;
+    }
+  }
+}
+
+function scheduleDefaultValue(){
+  const d=new Date(Date.now()+60*60*1000);
+  d.setMinutes(Math.ceil(d.getMinutes()/15)*15,0,0);
+  const local=new Date(d.getTime()-d.getTimezoneOffset()*60000);
+  return local.toISOString().slice(0,16);
+}
+
+function openSchedulePost(row,ctx,rowEl){
+  const inputId=`schedule-post-${row.id}`;
+  ctx.openSheet({
+    kicker:`${row.platform||'Social'} · Schedule`,
+    title:row.title||'Schedule post',
+    body:`<div class="pm-form"><div class="pm-field"><label>Publish date & time</label><input class="pm-input" id="${inputId}" type="datetime-local" value="${esc(scheduleDefaultValue())}"></div><div class="pm-detail-block"><h4>Post</h4><p>${esc(compact(row.body,300))}</p></div></div>`,
+    actions:[
+      {label:'Cancel',tone:'ghost',run:()=>ctx.closeSheet()},
+      {label:'Schedule',tone:'primary',run:async()=>{
+        const value=document.getElementById(inputId)?.value;
+        if(!value){ctx.toast('Choose a date and time.','bad');return;}
+        try{
+          await api.decidePost(row.id,'schedule',value);
+          clearCache('/api/control/autopilot/posts');
+          rowEl?.remove();
+          adjustContentCount(low(row.status||'pending'),-1);
+          adjustContentCount('scheduled',1);
+          ctx.state.contentSelection=(ctx.state.contentSelection||[]).filter(item=>String(item)!==String(row.id));
+          ctx.closeSheet();
+          ctx.toast('Post scheduled.','good');
+        }catch(error){ctx.toast(error.message,'bad');}
+      }}
+    ]
+  });
+}
+
 async function quickPostDecision(id,action,ctx,rowEl){
   try{
     rowEl?.classList.add('is-processing');
@@ -526,14 +615,8 @@ async function quickPostDecision(id,action,ctx,rowEl){
     clearCache('/api/control/autopilot/posts');
     ctx.state.contentSelection=(ctx.state.contentSelection||[]).filter(value=>String(value)!==String(id));
     rowEl?.remove();
-    const approvalTab=document.querySelector('[data-content-tab="approval"] b');
-    if(approvalTab) approvalTab.textContent=String(Math.max(0,Number(approvalTab.textContent||0)-1));
-    const navBadge=document.getElementById('nav-content-count');
-    if(navBadge){
-      const next=Math.max(0,Number(navBadge.textContent||0)-1);
-      navBadge.textContent=String(next);
-      navBadge.hidden=next===0;
-    }
+    adjustContentCount('pending',-1);
+    if(action==='approve') adjustContentCount('approved',1);
     const footer=document.querySelector('.pm-content-queue-footer span');
     if(footer){
       const match=String(footer.textContent||'').match(/(\d+)/);
