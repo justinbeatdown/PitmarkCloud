@@ -339,7 +339,7 @@ function contentBulkBar(rows, selected){
 
 async function renderContent(root,ctx){
   const tab=ctx.state.contentTab||'generated';
-  const pageLimit=Math.max(10,Math.min(Number(ctx.state.contentLimit||20),100));
+  const pageLimit=500;
   let rows=[];let editorial=[];let publishHealth=null;let pageMeta=null;let pipelineTotals={};
   try{
     if(tab==='editorial'){
@@ -397,19 +397,12 @@ async function renderContent(root,ctx){
     if(t){
       ctx.state.contentTab=t.dataset.contentTab;
       ctx.state.contentSelection=[];
-      ctx.state.contentLimit=20;
-      ctx.refresh();
-      return;
-    }
-    const more=event.target.closest('[data-content-more]');
-    if(more){
-      ctx.state.contentLimit=Math.min(100,pageLimit+20);
       ctx.refresh();
       return;
     }
     const quick=event.target.closest('[data-post-quick]');
     if(quick){
-      quickPostDecision(Number(quick.dataset.id),quick.dataset.postQuick,ctx);
+      quickPostDecision(Number(quick.dataset.id),quick.dataset.postQuick,ctx,quick.closest('.pm-content-select-row'));
       return;
     }
     if(event.target.closest('[data-compose]')){openComposer(ctx);return;}
@@ -505,7 +498,7 @@ function renderPosts(rows,tab,selected=new Set(),meta=null){
   const title=tab==='approval'?'Needs Approval':tab==='approved'?'Approved & Ready':'Autopilot Posts';
   const total=Number(meta?.total??rows.length);
   const quick=(row)=>tab==='approval'?`<div class="pm-content-quick-actions"><button class="pm-button pm-button-primary" type="button" data-post-quick="approve" data-id="${row.id}">Approve</button><button class="pm-button pm-button-danger" type="button" data-post-quick="reject" data-id="${row.id}">Reject</button></div>`:'';
-  const list=rows.length?`<div class="pm-row-list pm-content-row-list">${rows.map(row=>`<div class="pm-content-select-row pm-content-status-${esc(low(row.status||'pending'))} ${selected.has(String(row.id))?'is-selected':''}">
+  const list=rows.length?`<div class="pm-content-scroll-pane"><div class="pm-row-list pm-content-row-list">${rows.map(row=>`<div class="pm-content-select-row pm-content-status-${esc(low(row.status||'pending'))} ${selected.has(String(row.id))?'is-selected':''}">
       <label class="pm-content-check" title="Select post">
         <input type="checkbox" data-post-select value="${row.id}" ${selected.has(String(row.id))?'checked':''}>
         <span aria-hidden="true"></span>
@@ -521,19 +514,36 @@ function renderPosts(rows,tab,selected=new Set(),meta=null){
         </button>
         ${quick(row)}
       </div>
-    </div>`).join('')}</div>`:empty('No posts in this view.');
-  const more=meta?.has_more?`<div class="pm-content-load-more"><button class="pm-button pm-button-ghost" type="button" data-content-more>Load 20 more</button><span>Showing ${n(rows.length)} of ${n(total)}</span></div>`:(rows.length?`<div class="pm-content-load-more is-complete"><span>Showing ${n(rows.length)} of ${n(total)}</span></div>`:'');
-  return panel(title,'Generated Social',`${tools}${tab==='approval'&&total>20?`<div class="pm-content-queue-note"><strong>Fast review mode</strong><span>Approve or reject directly from the queue. Open a post only when you need to edit or inspect it.</span></div>`:''}${list}${more}`,`<span class="pm-badge">${n(total)}</span>`);
+    </div>`).join('')}</div></div>`:empty('No posts in this view.');
+  const footer=rows.length?`<div class="pm-content-queue-footer"><span>All ${n(total)} loaded</span></div>`:'';
+  return panel(title,'Generated Social',`${tools}${tab==='approval'&&total>20?`<div class="pm-content-queue-note"><strong>Fast review mode</strong><span>All ${n(total)} pending posts are loaded in the scrollable queue. Approve or reject directly; open a post only when you need to edit or inspect it.</span></div>`:''}${list}${footer}`,`<span class="pm-badge">${n(total)}</span>`);
 }
 
-async function quickPostDecision(id,action,ctx){
+async function quickPostDecision(id,action,ctx,rowEl){
   try{
+    rowEl?.classList.add('is-processing');
     await api.decidePost(id,action);
     clearCache('/api/control/autopilot/posts');
     ctx.state.contentSelection=(ctx.state.contentSelection||[]).filter(value=>String(value)!==String(id));
+    rowEl?.remove();
+    const approvalTab=document.querySelector('[data-content-tab="approval"] b');
+    if(approvalTab) approvalTab.textContent=String(Math.max(0,Number(approvalTab.textContent||0)-1));
+    const navBadge=document.getElementById('nav-content-count');
+    if(navBadge){
+      const next=Math.max(0,Number(navBadge.textContent||0)-1);
+      navBadge.textContent=String(next);
+      navBadge.hidden=next===0;
+    }
+    const footer=document.querySelector('.pm-content-queue-footer span');
+    if(footer){
+      const match=String(footer.textContent||'').match(/(\d+)/);
+      footer.textContent=`All ${Math.max(0,Number(match?.[1]||0)-1)} loaded`;
+    }
     ctx.toast(action==='approve'?'Post approved.':'Post rejected.','good');
-    ctx.refresh(true);
-  }catch(e){ctx.toast(e.message,'bad');}
+  }catch(e){
+    rowEl?.classList.remove('is-processing');
+    ctx.toast(e.message,'bad');
+  }
 }
 
 function renderEditorial(rows){return panel('Editorial','Blog & News',rows.length?`<div class="pm-row-list">${rows.map(row=>`<button class="pm-row" type="button" data-blog-id="${row.id}"><div class="pm-row-main"><div class="pm-row-meta"><span class="pm-badge">${esc(row.content_type||'article')}</span>${statusBadge(row.status)}</div><strong>${esc(row.title)}</strong><p>${esc(compact(String(row.body_html||'').replace(/<[^>]+>/g,' '),150))}</p></div><div class="pm-row-side"><span class="pm-muted">${esc(age(row.updated_at||row.created_at))}</span><span>›</span></div></button>`).join('')}</div>`:empty('No editorial drafts found.'))}
