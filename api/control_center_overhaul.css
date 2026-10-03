@@ -280,3 +280,22 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .pm-app{background:var(--pm-bg)}
   .pm-metric-action:active{transform:none}
 }
+
+
+/* Content approval queue performance + fast-review UX — 2026-10-02 */
+.pm-content-row-main{min-width:0;display:grid;gap:6px}
+.pm-content-quick-actions{display:flex;align-items:center;gap:6px;justify-content:flex-end;padding:0 2px 2px}
+.pm-content-quick-actions .pm-button{min-height:34px;padding:0 12px}
+.pm-content-queue-note{display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:10px 12px;border:1px solid rgba(255,85,0,.16);border-radius:11px;background:rgba(255,85,0,.045)}
+.pm-content-queue-note strong{font-size:9px;white-space:nowrap;color:#ff9b6d}
+.pm-content-queue-note span{color:var(--pm-muted);font-size:9px;line-height:1.4}
+.pm-content-load-more{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 4px 2px;color:var(--pm-muted);font-size:9px}
+.pm-content-load-more.is-complete{justify-content:flex-end;padding-top:10px}
+@media (max-width:760px){
+  .pm-content-quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:0}
+  .pm-content-quick-actions .pm-button{min-height:44px;width:100%}
+  .pm-content-queue-note{align-items:flex-start;flex-direction:column;gap:4px}
+  .pm-content-load-more{position:sticky;bottom:calc(66px + env(safe-area-inset-bottom));z-index:3;margin:8px -4px -4px;padding:10px;border:1px solid var(--pm-line);border-radius:12px;background:rgba(13,16,20,.97)}
+  .pm-content-load-more .pm-button{min-height:44px;flex:1}
+  .pm-content-load-more.is-complete{position:static;border:0;background:transparent;justify-content:flex-end}
+}
