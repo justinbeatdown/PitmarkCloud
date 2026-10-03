@@ -1227,6 +1227,85 @@ def race_center_driver_photo(series_key: str, driver_name: str):
     )
 
 
+@router.get("/api/public/race-center/driver-profile-data/{series_key}/{driver_name:path}", include_in_schema=False)
+def race_center_driver_profile_data(series_key: str, driver_name: str):
+    clean_name = " ".join(str(driver_name or "").split()).strip()
+    wanted = race_center_entities.identity_key(clean_name)
+    if not series_key or not wanted:
+        raise HTTPException(status_code=404, detail="Driver profile not found")
+
+    payload = get_standings_snapshot_hub()
+    event_hub = get_racing_event_hub()
+    event_series = event_hub.get("series") or {}
+    appearances = []
+
+    for series in payload.get("series") or []:
+        key = str(series.get("series_key") or "")
+        safe_entries = [dict(raw_entry) for raw_entry in (series.get("entries") or [])]
+        roster = get_series_roster(
+            key,
+            safe_entries,
+            season=int(series.get("season") or payload.get("season") or 2026),
+        )
+        matching_entries = [
+            row for row in safe_entries
+            if race_center_entities.identity_key(str(row.get("name") or "")) == wanted
+        ]
+        matching_roster = [
+            row for row in roster
+            if race_center_entities.identity_key(str(row.get("name") or "")) == wanted
+        ]
+        if not matching_entries and not matching_roster:
+            continue
+
+        identity_verified = bool(series.get("metadata_verified"))
+        snapshot_logo = str(series.get("series_logo_url") or "").strip()
+        snapshot_logo_source = str(series.get("series_logo_source_url") or "").strip()
+        logo_info = (
+            {"url": snapshot_logo, "source_url": snapshot_logo_source}
+            if snapshot_logo and snapshot_logo_source
+            else get_series_logo_info(key)
+        )
+        event_info = event_series.get(key) or {}
+        appearances.append({
+            "series_key": key,
+            "series_name": series.get("series_name"),
+            "short_name": series.get("short_name"),
+            "group": series.get("group"),
+            "season": series.get("season"),
+            "official_url": series.get("official_url"),
+            "source_name": series.get("source_name"),
+            "provider_url": series.get("provider_url"),
+            "metadata_source_url": series.get("metadata_source_url") if identity_verified else None,
+            "metadata_verified": identity_verified,
+            "series_logo": f"/standings-logo/{key}",
+            "series_logo_direct": "/race-center-assets/arca.webp" if key == "arca-menards" else (logo_info.get("url") if logo_info else None),
+            "series_logo_source_url": logo_info.get("source_url") if logo_info else None,
+            "fetched_at": series.get("fetched_at"),
+            "status": series.get("status"),
+            "stale": bool(series.get("stale")),
+            "event_state": event_info.get("state"),
+            "current_event": event_info.get("event"),
+            "schedule_url": event_info.get("schedule_url"),
+            "watch_name": event_info.get("watch_name"),
+            "watch_url": event_info.get("watch_url"),
+            "entries": matching_entries,
+            "roster": matching_roster,
+        })
+
+    primary = next((row for row in appearances if str(row.get("series_key")) == str(series_key)), None)
+    if not primary:
+        raise HTTPException(status_code=404, detail="Driver is not available in this series")
+
+    return {
+        "season": payload.get("season"),
+        "generated_at": payload.get("generated_at"),
+        "series": appearances,
+        "profile_series_key": series_key,
+        "driver_name": clean_name,
+    }
+
+
 @router.get("/api/public/standings", include_in_schema=False)
 def public_standings_data():
     payload = get_standings_snapshot_hub()
