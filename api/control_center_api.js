@@ -164,6 +164,12 @@ export const api = Object.freeze({
   setApplicationStatus: (id, status) => request(`/api/control/ops/testers/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: { status } }),
   setFeedbackStatus: (id, status) => request(`/api/control/ops/feedback/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: { status } }),
   posts: (status = '', options = {}) => request(query(ENDPOINTS.posts, { status }), { scope: 'content-posts', maxAge: 8000, ...options }),
+  postsPage: (status = '', options = {}) => request(query(ENDPOINTS.posts, {
+    status,
+    limit: options.limit ?? 20,
+    offset: options.offset ?? 0,
+    meta: 1,
+  }), { scope: `content-posts:${status || 'working'}:${options.offset ?? 0}:${options.limit ?? 20}`, maxAge: 5000, ...options }),
   savePost: (body) => request(ENDPOINTS.posts, { method: 'POST', body }),
   updatePost: (id, body) => request(`${ENDPOINTS.posts}/${encodeURIComponent(id)}`, { method: 'PATCH', body }),
   deletePost: (id) => request(`${ENDPOINTS.posts}/${encodeURIComponent(id)}`, { method: 'DELETE' }),
