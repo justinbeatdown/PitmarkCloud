@@ -106,6 +106,11 @@
     return new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(date);
   }
 
+  function driverPhotoUrl(item){
+    const series=(item?.series&&item.series[0]&&item.series[0].series_key)||(item?.grassroots?'grassroots':'');
+    return item?.photo_url?'/api/public/race-center/driver-photo/'+encodeURIComponent(String(series||''))+'/'+encodeURIComponent(String(item?.name||'')):'';
+  }
+
   function consumerMedia(url,title){
     const src=String(url||'').trim();
     if(!src)return '<span class="consumer-media consumer-media-fallback" aria-hidden="true"></span>';
@@ -309,7 +314,7 @@
           'MY DRIVER',(item.number?'#'+item.number+' · ':'')+item.name,
           [item.team,(item.series||[])[0]?.series_name].filter(Boolean).join(' · '),
           href('driver',item),
-          item.photo_url
+          driverPhotoUrl(item)
         ))
       ];
       following.innerHTML=followRows.length?followRows.join(''):emptyState('Make Race Center yours','Follow a few drivers, series or tracks and this becomes your personal racing front page.','#','Customize My Racing');
