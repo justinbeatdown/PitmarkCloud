@@ -472,7 +472,7 @@ def posts(
 
         q = select(SocialPost).where(*filters).order_by(SocialPost.created_at.desc())
         safe_offset = max(0, int(offset or 0))
-        safe_limit = None if limit is None else max(1, min(int(limit), 100))
+        safe_limit = None if limit is None else max(1, min(int(limit), 1000))
         if safe_offset:
             q = q.offset(safe_offset)
         if safe_limit is not None:
