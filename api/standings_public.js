@@ -1709,6 +1709,38 @@ function setLoadError(message){
 let eventWarmRetries=0;
 let eventWarmTimer=null;
 
+async function loadDriverProfileFast(){
+  if(state.view!=='driver')return;
+  const route=currentDriverRoute();
+  const host=$('#driverProfileContent');
+  if(!route||!host)return;
+  try{
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),7000);
+    const response=await fetch('/api/public/race-center/driver-profile-data/'+encodeURIComponent(route.series_key)+'/'+encodeURIComponent(route.name),{
+      headers:{Accept:'application/json'},
+      cache:'no-store',
+      signal:controller.signal
+    });
+    clearTimeout(timeout);
+    if(!response.ok)throw new Error('Driver profile unavailable');
+    const payload=await response.json();
+    if(state.view!=='driver')return;
+    state.payload={
+      ...(state.payload||{}),
+      season:payload.season,
+      generated_at:payload.generated_at,
+      series:Array.isArray(payload.series)?payload.series:[]
+    };
+    renderDriverProfile();
+    bindLogoErrors();
+  }catch(error){
+    if(!state.payload&&host){
+      host.innerHTML='<div class="loading-card">'+esc(error?.name==='AbortError'?'Driver profile is taking too long to load. Retrying with the full Race Center feed…':'Driver profile is still loading from the main Race Center feed…')+'</div>';
+    }
+  }
+}
+
 async function load(){
   try{
     const controller=new AbortController();
@@ -1770,6 +1802,7 @@ function bootRaceCenter(){
       status.innerHTML='<i></i> Refreshing live board';
     }
   }
+  if(state.view==='driver')loadDriverProfileFast();
   load();
   syncAccount();
   bindMySeriesScroller();
