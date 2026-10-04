@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from utils.security import SecurityHeadersMiddleware, security_summary
 
-from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_2026, control_center_v19, control_center_v195, control_access_v191, control_center_ui, control_native_ops, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, prt_testimonial_asset, early_access_admin, astra_director, standings_public, race_center_v8, racing_network, results_sweep
+from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_2026, control_center_v19, control_center_v195, control_access_v191, control_center_ui, control_native_ops, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, prt_testimonial_asset, early_access_admin, astra_director, standings_public, race_center_v8, racing_network, results_sweep, prl
 from utils.config import settings
 from utils.logger import configure_logging
 from services import discord_gateway_service, prt_access_bans, prt_licensing_store, results_sweep as results_sweep_service, pitmark_mail
@@ -517,6 +517,7 @@ app.include_router(results_sweep.router, prefix="/api/control/results-sweep", ta
 app.include_router(results_sweep.public_router, prefix="/api/results-sweep", tags=["public-results-sweep-media"])
 app.include_router(prt_testimonial_asset.router)
 app.include_router(early_access_admin.router)
+app.include_router(prl.router, tags=["prl"])
 
 
 def _dashboard_root_target(request: Request) -> str | None:
