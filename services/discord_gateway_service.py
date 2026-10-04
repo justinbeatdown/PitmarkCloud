@@ -68,6 +68,7 @@ def _official_links_payload(guild_id: str, support_channel_id: str | None) -> di
                     "Everything official, in one place — no mystery downloads, no random DMs, no sketchy mirrors.\n\n"
                     "🏁 **Pitmark Racing Co.**\nhttps://pitmarkracing.com/\n\n"
                     "📰 **Racing News & Culture**\nhttps://pitmarkracing.com/blogs/racing-culture\n\n"
+                    "🏁 **Pitmark Race Center**\nhttps://pitmarkracing.com/pages/race-center\n\n"
                     "🧰 **Pitmark Racing Tools**\nhttps://prt.pitmarkracing.com/\n\n"
                     "🧪 **PRT Early Access**\nhttps://prt.pitmarkracing.com/prt/apply\n\n"
                     "🔗 **Pitmark Links Hub**\nhttps://links.pitmarkracing.com/links\n\n"
@@ -107,6 +108,7 @@ def _official_links_payload(guild_id: str, support_channel_id: str | None) -> di
             {
                 "type": 1,
                 "components": [
+                    _link_button("Race Center", "https://pitmarkracing.com/pages/race-center", "🏁"),
                     _link_button("Racing Culture", "https://pitmarkracing.com/blogs/racing-culture", "📰"),
                     _link_button("Discord", "https://discord.gg/jP6fQuW7dr", "💬"),
                 ],
