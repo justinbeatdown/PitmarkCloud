@@ -352,6 +352,11 @@ def _public_cards(
                         "inline": False,
                     },
                     {
+                        "name": "🏁 Pitmark Race Center",
+                        "value": "https://pitmarkracing.com/pages/race-center",
+                        "inline": False,
+                    },
+                    {
                         "name": "🏎️ Pitmark Racing Tools",
                         "value": "https://prt.pitmarkracing.com",
                         "inline": False,
@@ -368,6 +373,7 @@ def _public_cards(
                     "type": 1,
                     "components": [
                         _button("Pitmark Website", "https://pitmarkracing.com", "🏁"),
+                        _button("Race Center", "https://pitmarkracing.com/pages/race-center", "🏁"),
                         _button("Racing Tools", "https://prt.pitmarkracing.com", "🏎️"),
                         _button("Support Desk", _channel_url(guild_id, support), "🛟"),
                     ],
