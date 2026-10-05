@@ -29,6 +29,7 @@ HANDBOOK_URL = "/prl/docs/driver-handbook.pdf?v=4"
 RULES_URL = "/prl/docs/competition-rulebook.pdf?v=4"
 OPERATIONS_URL = "https://docs.google.com/spreadsheets/d/1A8SxUR2DlsRPjzhAZxboCBxWcpjdF8L4jaX-6VEc4nU/edit"
 PRL_LOGO_URL = "https://cdn.shopify.com/s/files/1/1067/3913/8641/files/prl-logo.png?v=1791152433"
+PRL_HERO_URL = "https://cdn.shopify.com/s/files/1/1067/3913/8641/files/prl-hero-cars-right.png?v=1791170928"
 RACE_NIGHT_URL = "/prl/docs/race-night-guide.pdf?v=4"
 CONTACT_EMAIL = "contact@pitmarkracing.com"
 DISCORD_URL = "/prl/discord"
@@ -120,7 +121,7 @@ a{{color:inherit;text-decoration:none}} .wrap{{max-width:1180px;margin:auto;padd
 header{{border-bottom:1px solid var(--line);position:sticky;top:0;background:#090909ed;backdrop-filter:blur(10px);z-index:10}}
 nav{{height:72px;display:flex;align-items:center;justify-content:space-between;gap:20px}}
 .brand{{display:flex;align-items:center;gap:12px;font-weight:900;letter-spacing:.08em}} .brand img{{height:46px;width:auto;display:block}} .brand-copy{{display:none}} .hero-logo{{width:min(760px,92%);height:auto;display:block;margin:0 0 24px;filter:drop-shadow(0 10px 25px #000)}}
-.links{{display:flex;gap:18px;font-size:13px;font-weight:700}} .hero{{padding:72px 0 48px;background:radial-gradient(circle at 80% 0,#4a1800 0,transparent 32%),linear-gradient(135deg,#0b0b0b,#111)}}
+.links{{display:flex;gap:18px;font-size:13px;font-weight:700}} .hero{{position:relative;overflow:hidden;padding:72px 0 48px;background:linear-gradient(90deg,rgba(9,9,9,.98) 0%,rgba(9,9,9,.92) 38%,rgba(9,9,9,.55) 63%,rgba(9,9,9,.18) 100%),url('{PRL_HERO_URL}') right center/54% 100% no-repeat,linear-gradient(135deg,#0b0b0b,#111)}} .hero:after{{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.18))}} .hero .wrap{{position:relative;z-index:1}}
 .eyebrow{{color:var(--orange);font-weight:900;letter-spacing:.18em;font-size:12px}} h1{{font-size:clamp(48px,8vw,104px);line-height:.86;margin:18px 0;text-transform:uppercase;letter-spacing:-.04em;font-style:italic}}
 h1 span{{color:var(--orange)}} .lede{{font-size:20px;line-height:1.5;color:#d0d0d0;max-width:760px}} .cta{{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}}
 .btn{{padding:14px 20px;border:1px solid var(--orange);font-weight:900;text-transform:uppercase;font-size:13px}} .btn.primary{{background:var(--orange);color:#050505}}
@@ -130,7 +131,7 @@ section{{padding:52px 0}} h2{{font-size:34px;text-transform:uppercase;font-style
 .rnum{{font-weight:900;color:var(--orange);font-size:18px}} .round strong{{display:block}} .round span{{display:block;color:var(--muted);font-size:12px;margin-top:4px}} .round em{{font-style:normal;color:#cfcfcf;font-size:11px;font-weight:900;text-transform:uppercase;text-align:right}}
 .cards{{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}} .card{{background:var(--panel);border:1px solid var(--line);padding:24px}} .card h3{{margin-top:0;text-transform:uppercase}} .card p{{color:var(--muted);line-height:1.55}}
 footer{{border-top:1px solid var(--line);padding:30px 0 50px;color:var(--muted);font-size:12px}}
-@media(max-width:800px){{.links{{display:none}}.stats{{grid-template-columns:repeat(2,1fr)}}.grid,.cards{{grid-template-columns:1fr}}.round{{grid-template-columns:55px 1fr}}.round em{{grid-column:2;text-align:left}}}}
+@media(max-width:800px){{.links{{display:none}}.hero{{background:linear-gradient(180deg,rgba(9,9,9,.72) 0%,rgba(9,9,9,.94) 72%,#090909 100%),url('{PRL_HERO_URL}') center top/cover no-repeat;padding-top:56px}}.hero-logo{{width:min(620px,96%)}}.stats{{grid-template-columns:repeat(2,1fr)}}.grid,.cards{{grid-template-columns:1fr}}.round{{grid-template-columns:55px 1fr}}.round em{{grid-column:2;text-align:left}}}}
 </style>
 </head><body>
 <header><div class='wrap'><nav><a class='brand' href='/prl'><img src='{PRL_LOGO_URL}' alt='Pitmark Racing League'><span class='brand-copy'>Pitmark Racing League</span></a><div class='links'><a href='#schedule'>Schedule</a><a href='#resources'>Driver Resources</a><a href='https://pitmarkracing.com/pages/race-center'>Race Center</a><a href='{REGISTRATION_URL}'>Register</a><a href='/prl/staff'>Officials</a><a href='{DISCORD_URL}'>Discord</a><a href='#contact'>Contact</a></div></nav></div></header>
