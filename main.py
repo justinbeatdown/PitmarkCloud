@@ -563,8 +563,17 @@ def _race_center_custom_host(request: Request) -> bool:
     return host == "racecenter.pitmarkracing.com"
 
 
+def _prl_custom_host(request: Request) -> bool:
+    host = (request.url.hostname or "").lower().rstrip(".")
+    return host == "prl.pitmarkracing.com"
+
+
 @app.get("/")
 async def root(request: Request):
+    if _prl_custom_host(request):
+        # Serve PRL directly at prl.pitmarkracing.com without requiring /prl.
+        return prl.prl_landing()
+
     if _race_center_custom_host(request):
         # Serve Race Center directly at racecenter.pitmarkracing.com with no
         # /race-center landing-path baggage.
