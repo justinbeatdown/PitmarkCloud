@@ -25,11 +25,11 @@ SCHEDULE = [
 ]
 
 REGISTRATION_URL = "https://docs.google.com/forms/d/e/1FAIpQLSc1AcvdYOZ1YRoyRe8yEdBmd1tttvIq1Put8Zk0gsJCKUoGjw/viewform"
-HANDBOOK_URL = "/prl/docs/driver-handbook.pdf"
-RULES_URL = "/prl/docs/competition-rulebook.pdf"
+HANDBOOK_URL = "/prl/docs/driver-handbook.pdf?v=4"
+RULES_URL = "/prl/docs/competition-rulebook.pdf?v=4"
 OPERATIONS_URL = "https://docs.google.com/spreadsheets/d/1A8SxUR2DlsRPjzhAZxboCBxWcpjdF8L4jaX-6VEc4nU/edit"
 PRL_LOGO_URL = "https://cdn.shopify.com/s/files/1/1067/3913/8641/files/prl-logo.png?v=1791152433"
-RACE_NIGHT_URL = "/prl/docs/race-night-guide.pdf"
+RACE_NIGHT_URL = "/prl/docs/race-night-guide.pdf?v=4"
 CONTACT_EMAIL = "contact@pitmarkracing.com"
 DISCORD_URL = "/prl/discord"
 _DISCORD_INVITE_CACHE: str | None = None
