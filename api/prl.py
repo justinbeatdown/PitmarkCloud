@@ -22,10 +22,12 @@ SCHEDULE = [
 ]
 
 REGISTRATION_URL = "https://docs.google.com/forms/d/e/1FAIpQLSc1AcvdYOZ1YRoyRe8yEdBmd1tttvIq1Put8Zk0gsJCKUoGjw/viewform"
-HANDBOOK_URL = "https://docs.google.com/document/d/1S1_dZU9DRbCcjHEaRx-Ka1vvzxnOXWmF8ni4gMd_jf4/edit"
-RULES_URL = "https://docs.google.com/document/d/1J46VOhEeb6nL54ryv01Um34yMmQ0fjE2uqdUDCK1yeY/edit"
+HANDBOOK_URL = "/prl/docs/driver-handbook.pdf"
+RULES_URL = "/prl/docs/competition-rulebook.pdf"
 OPERATIONS_URL = "https://docs.google.com/spreadsheets/d/1A8SxUR2DlsRPjzhAZxboCBxWcpjdF8L4jaX-6VEc4nU/edit"
 PRL_LOGO_URL = "https://cdn.shopify.com/s/files/1/1067/3913/8641/files/prl-logo.png?v=1791152433"
+RACE_NIGHT_URL = "/prl/docs/race-night-guide.pdf"
+CONTACT_EMAIL = "contact@pitmarkracing.com"
 
 @router.get("/api/prl/schedule")
 def prl_schedule():
@@ -67,12 +69,12 @@ footer{{border-top:1px solid var(--line);padding:30px 0 50px;color:var(--muted);
 @media(max-width:800px){{.links{{display:none}}.stats{{grid-template-columns:repeat(2,1fr)}}.grid,.cards{{grid-template-columns:1fr}}.round{{grid-template-columns:55px 1fr}}.round em{{grid-column:2;text-align:left}}}}
 </style>
 </head><body>
-<header><div class='wrap'><nav><a class='brand' href='/prl'><img src='{PRL_LOGO_URL}' alt='Pitmark Racing League'><span class='brand-copy'>Pitmark Racing League</span></a><div class='links'><a href='#schedule'>Schedule</a><a href='{RULES_URL}'>Rules</a><a href='https://pitmarkracing.com/pages/race-center'>Race Center</a><a href='{REGISTRATION_URL}'>Register</a></div></nav></div></header>
+<header><div class='wrap'><nav><a class='brand' href='/prl'><img src='{PRL_LOGO_URL}' alt='Pitmark Racing League'><span class='brand-copy'>Pitmark Racing League</span></a><div class='links'><a href='#schedule'>Schedule</a><a href='#resources'>Driver Resources</a><a href='https://pitmarkracing.com/pages/race-center'>Race Center</a><a href='{REGISTRATION_URL}'>Register</a><a href='#contact'>Contact</a></div></nav></div></header>
 <main>
 <section class='hero'><div class='wrap'><div class='eyebrow'>2027 INAUGURAL ARCA CHAMPIONSHIP</div><img class='hero-logo' src='{PRL_LOGO_URL}' alt='Pitmark Racing League'><h1 style='font-size:clamp(42px,6vw,82px)'>INAUGURAL <span>SEASON</span></h1><p class='lede'>15 rounds. Fixed-setup ARCA racing. Alternating Wednesday and Tuesday nights built around real life — with Race Center coverage, PRT integration, and a four-race Chase for the championship.</p><div class='cta'><a class='btn primary' href='{REGISTRATION_URL}'>Register to Race</a><a class='btn' href='#schedule'>View Schedule</a><a class='btn' href='https://pitmarkracing.com/pages/race-center'>Race Center</a></div><div class='stats'><div class='stat'><b>15</b><span>Rounds</span></div><div class='stat'><b>11</b><span>Regular Season</span></div><div class='stat'><b>8</b><span>Chase Drivers</span></div><div class='stat'><b>4</b><span>Chase Races</span></div></div></div></section>
 <section id='schedule'><div class='wrap'><h2>Season Schedule</h2><p class='sub'>Race window: 8:00 PM ET. Regular season ends at Talladega; the four-race Chase closes at Homestead-Miami.</p><div class='grid'>{schedule_cards}</div></div></section>
 <section><div class='wrap'><h2>Built Into Pitmark</h2><div class='cards'><div class='card'><h3>Race Center</h3><p>Schedule, driver profiles, results, standings, Chase tracking, race recaps and league stories in the same Pitmark racing ecosystem.</p></div><div class='card'><h3>PRT</h3><p>PRT serves as PRL's race-technology platform for controlled testing, post-race intelligence and future Race Autopsy features.</p></div><div class='card'><h3>Partners</h3><p>Race entitlements, awards, Chase branding, digital inventory and broadcast-ready integrations without giving up ownership of Pitmark.</p></div></div></div></section>
-<section><div class='wrap'><h2>League Documents</h2><div class='cta'><a class='btn' href='{HANDBOOK_URL}'>League Handbook</a><a class='btn' href='{RULES_URL}'>Sporting Regulations</a><a class='btn' href='{OPERATIONS_URL}'>Master Operations</a></div></div></section>
+<section id='resources'><div class='wrap'><h2>Driver Resources</h2><p class='sub'>Public, driver-facing documents for the 2027 inaugural season.</p><div class='cards'><div class='card'><h3>Driver Handbook</h3><p>Season format, race-night flow, Chase system, points basics, conduct expectations and the full schedule.</p><a class='btn' href='{HANDBOOK_URL}' target='_blank' rel='noopener'>Open PDF</a></div><div class='card'><h3>Competition Rulebook</h3><p>The on-track rules competitors need: starts, restarts, blocking, contact, pit road, protests and penalties.</p><a class='btn' href='{RULES_URL}' target='_blank' rel='noopener'>Open PDF</a></div><div class='card'><h3>Race Night Guide</h3><p>A one-page quick reference for timeline, session settings and the five things every PRL driver should remember.</p><a class='btn' href='{RACE_NIGHT_URL}' target='_blank' rel='noopener'>Open PDF</a></div></div></div></section><section id='contact'><div class='wrap'><h2>Contact PRL</h2><p class='sub'>Questions about registration, rules, race-night support, partnerships or the league in general?</p><div class='card'><h3>Email</h3><p><a href='mailto:{CONTACT_EMAIL}' style='color:var(--orange);font-weight:900'>{CONTACT_EMAIL}</a></p><p>Use this address for driver support, registration questions, rule clarifications and partnership inquiries.</p></div></div></section>
 </main>
-<footer><div class='wrap'>Pitmark Racing League · A Pitmark Racing Co. property · Leave Your Mark.</div></footer>
+<footer><div class='wrap'>Pitmark Racing League · A Pitmark Racing Co. property · <a href='mailto:{CONTACT_EMAIL}'>{CONTACT_EMAIL}</a> · Leave Your Mark.</div></footer>
 </body></html>""")
