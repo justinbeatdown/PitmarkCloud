@@ -15,7 +15,7 @@ from utils.security import SecurityHeadersMiddleware, security_summary
 from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_2026, control_center_v19, control_center_v195, control_access_v191, control_center_ui, control_native_ops, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, prt_testimonial_asset, early_access_admin, astra_director, standings_public, race_center_v8, racing_network, results_sweep, prl, prl_public_docs
 from utils.config import settings
 from utils.logger import configure_logging
-from services import discord_gateway_service, prt_access_bans, prt_licensing_store, results_sweep as results_sweep_service, pitmark_mail
+from services import discord_gateway_service, discord_hq_content, prt_access_bans, prt_licensing_store, results_sweep as results_sweep_service, pitmark_mail
 from services.pitmark_mail_identities import send_message as send_pitmark_mail
 from services.database import init_database, database_status
 from services.founders_race_activation import backfill_hub_emails
@@ -195,6 +195,19 @@ async def racing_standings_sync_loop() -> None:
         await asyncio.sleep(interval)
 
 
+async def prl_recruitment_discord_sync_loop() -> None:
+    """Ensure the Pitmark Discord has the current PRL officials recruiting post."""
+    await asyncio.sleep(90)
+    guild_id = str(getattr(settings, "discord_hq_guild_id", "") or "").strip()
+    if not guild_id:
+        return
+    try:
+        result = await discord_hq_content.sync_prl_recruitment_post(guild_id)
+        log.info("PRL Discord recruitment sync: %s", result)
+    except Exception as exc:
+        log.warning("PRL Discord recruitment sync failed: %s", exc)
+
+
 async def results_sweep_loop() -> None:
     """Run Pitmark's inbox-independent weekend results coverage sweep."""
     interval = _env_int("PITMARK_RESULTS_SWEEP_POLL_SECONDS", 900, 300, 3600)
@@ -354,6 +367,7 @@ https://prt.pitmarkracing.com/prt""",
         asyncio.create_task(social_operator_loop(), name="social-operator"),
         asyncio.create_task(gmail_sync_loop(), name="gmail-shield"),
         asyncio.create_task(runtime_maintenance_loop(), name="runtime-memory-maintenance"),
+        asyncio.create_task(prl_recruitment_discord_sync_loop(), name="prl-recruitment-discord"),
         asyncio.create_task(racing_standings_sync_loop(), name="racing-standings"),
         asyncio.create_task(race_center_driver_photo_sync_loop(), name="race-center-driver-photos"),
         asyncio.create_task(racing_events_sync_loop(race_data_executor), name="race-center-events"),
