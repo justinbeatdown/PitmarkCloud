@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
+from services.discord_hq_common import DISCORD_API, discord_request, list_channels
+from utils.config import settings
+
 router = APIRouter()
 
 SCHEDULE = [
@@ -28,6 +31,66 @@ OPERATIONS_URL = "https://docs.google.com/spreadsheets/d/1A8SxUR2DlsRPjzhAZxboCB
 PRL_LOGO_URL = "https://cdn.shopify.com/s/files/1/1067/3913/8641/files/prl-logo.png?v=1791152433"
 RACE_NIGHT_URL = "/prl/docs/race-night-guide.pdf"
 CONTACT_EMAIL = "contact@pitmarkracing.com"
+DISCORD_URL = "/prl/discord"
+_DISCORD_INVITE_CACHE: str | None = None
+
+async def _prl_discord_invite() -> str | None:
+    global _DISCORD_INVITE_CACHE
+    if _DISCORD_INVITE_CACHE:
+        return _DISCORD_INVITE_CACHE
+
+    guild_id = str(getattr(settings, "discord_hq_guild_id", "") or "").strip()
+    if not guild_id:
+        return None
+
+    try:
+        response = await discord_request("GET", f"{DISCORD_API}/guilds/{guild_id}/invites")
+        invites = list(response.json() or [])
+        for invite in invites:
+            code = str(invite.get("code") or "").strip()
+            max_age = int(invite.get("max_age") or 0)
+            max_uses = int(invite.get("max_uses") or 0)
+            if code and max_age == 0 and max_uses == 0:
+                _DISCORD_INVITE_CACHE = f"https://discord.gg/{code}"
+                return _DISCORD_INVITE_CACHE
+
+        channels = await list_channels(guild_id)
+        target = next(
+            (
+                ch for ch in channels
+                if int(ch.get("type", -1)) == 0
+                and str(ch.get("name") or "") in {"welcome", "pitmark-chat"}
+            ),
+            None,
+        )
+        if target is None:
+            target = next((ch for ch in channels if int(ch.get("type", -1)) == 0), None)
+        if target is None:
+            return None
+
+        created = await discord_request(
+            "POST",
+            f"{DISCORD_API}/channels/{target['id']}/invites",
+            reason="PRL public website permanent invite",
+            json={"max_age": 0, "max_uses": 0, "temporary": False, "unique": False},
+        )
+        code = str((created.json() or {}).get("code") or "").strip()
+        if not code:
+            return None
+        _DISCORD_INVITE_CACHE = f"https://discord.gg/{code}"
+        return _DISCORD_INVITE_CACHE
+    except Exception:
+        return None
+
+
+@router.get("/prl/discord", include_in_schema=False)
+@router.get("/discord", include_in_schema=False)
+async def prl_discord_redirect():
+    invite = await _prl_discord_invite()
+    if invite:
+        return RedirectResponse(url=invite, status_code=302)
+    return RedirectResponse(url="/prl#contact", status_code=302)
+
 
 @router.get("/api/prl/schedule")
 def prl_schedule():
@@ -69,12 +132,13 @@ footer{{border-top:1px solid var(--line);padding:30px 0 50px;color:var(--muted);
 @media(max-width:800px){{.links{{display:none}}.stats{{grid-template-columns:repeat(2,1fr)}}.grid,.cards{{grid-template-columns:1fr}}.round{{grid-template-columns:55px 1fr}}.round em{{grid-column:2;text-align:left}}}}
 </style>
 </head><body>
-<header><div class='wrap'><nav><a class='brand' href='/prl'><img src='{PRL_LOGO_URL}' alt='Pitmark Racing League'><span class='brand-copy'>Pitmark Racing League</span></a><div class='links'><a href='#schedule'>Schedule</a><a href='#resources'>Driver Resources</a><a href='https://pitmarkracing.com/pages/race-center'>Race Center</a><a href='{REGISTRATION_URL}'>Register</a><a href='#contact'>Contact</a></div></nav></div></header>
+<header><div class='wrap'><nav><a class='brand' href='/prl'><img src='{PRL_LOGO_URL}' alt='Pitmark Racing League'><span class='brand-copy'>Pitmark Racing League</span></a><div class='links'><a href='#schedule'>Schedule</a><a href='#resources'>Driver Resources</a><a href='https://pitmarkracing.com/pages/race-center'>Race Center</a><a href='{REGISTRATION_URL}'>Register</a><a href='{DISCORD_URL}'>Discord</a><a href='#contact'>Contact</a></div></nav></div></header>
 <main>
-<section class='hero'><div class='wrap'><div class='eyebrow'>2027 INAUGURAL ARCA CHAMPIONSHIP</div><img class='hero-logo' src='{PRL_LOGO_URL}' alt='Pitmark Racing League'><h1 style='font-size:clamp(42px,6vw,82px)'>INAUGURAL <span>SEASON</span></h1><p class='lede'>15 rounds. Fixed-setup ARCA racing. Alternating Wednesday and Tuesday nights built around real life — with Race Center coverage, PRT integration, and a four-race Chase for the championship.</p><div class='cta'><a class='btn primary' href='{REGISTRATION_URL}'>Register to Race</a><a class='btn' href='#schedule'>View Schedule</a><a class='btn' href='https://pitmarkracing.com/pages/race-center'>Race Center</a></div><div class='stats'><div class='stat'><b>15</b><span>Rounds</span></div><div class='stat'><b>11</b><span>Regular Season</span></div><div class='stat'><b>8</b><span>Chase Drivers</span></div><div class='stat'><b>4</b><span>Chase Races</span></div></div></div></section>
+<section class='hero'><div class='wrap'><div class='eyebrow'>2027 INAUGURAL ARCA CHAMPIONSHIP</div><img class='hero-logo' src='{PRL_LOGO_URL}' alt='Pitmark Racing League'><h1 style='font-size:clamp(42px,6vw,82px)'>INAUGURAL <span>SEASON</span></h1><p class='lede'>15 rounds. Fixed-setup ARCA racing. Alternating Wednesday and Tuesday nights built around real life — with Race Center coverage, PRT integration, and a four-race Chase for the championship.</p><div class='cta'><a class='btn primary' href='{REGISTRATION_URL}'>Register to Race</a><a class='btn' href='{DISCORD_URL}'>Join Pitmark Discord</a><a class='btn' href='#schedule'>View Schedule</a><a class='btn' href='https://pitmarkracing.com/pages/race-center'>Race Center</a></div><div class='stats'><div class='stat'><b>15</b><span>Rounds</span></div><div class='stat'><b>11</b><span>Regular Season</span></div><div class='stat'><b>8</b><span>Chase Drivers</span></div><div class='stat'><b>4</b><span>Chase Races</span></div></div></div></section>
 <section id='schedule'><div class='wrap'><h2>Season Schedule</h2><p class='sub'>Race window: 8:00 PM ET. Regular season ends at Talladega; the four-race Chase closes at Homestead-Miami.</p><div class='grid'>{schedule_cards}</div></div></section>
 <section><div class='wrap'><h2>Built Into Pitmark</h2><div class='cards'><div class='card'><h3>Race Center</h3><p>Schedule, driver profiles, results, standings, Chase tracking, race recaps and league stories in the same Pitmark racing ecosystem.</p></div><div class='card'><h3>PRT</h3><p>PRT serves as PRL's race-technology platform for controlled testing, post-race intelligence and future Race Autopsy features.</p></div><div class='card'><h3>Partners</h3><p>Race entitlements, awards, Chase branding, digital inventory and broadcast-ready integrations without giving up ownership of Pitmark.</p></div></div></div></section>
-<section id='resources'><div class='wrap'><h2>Driver Resources</h2><p class='sub'>Public, driver-facing documents for the 2027 inaugural season.</p><div class='cards'><div class='card'><h3>Driver Handbook</h3><p>Season format, race-night flow, Chase system, points basics, conduct expectations and the full schedule.</p><a class='btn' href='{HANDBOOK_URL}' target='_blank' rel='noopener'>Open PDF</a></div><div class='card'><h3>Competition Rulebook</h3><p>The on-track rules competitors need: starts, restarts, blocking, contact, pit road, protests and penalties.</p><a class='btn' href='{RULES_URL}' target='_blank' rel='noopener'>Open PDF</a></div><div class='card'><h3>Race Night Guide</h3><p>A one-page quick reference for timeline, session settings and the five things every PRL driver should remember.</p><a class='btn' href='{RACE_NIGHT_URL}' target='_blank' rel='noopener'>Open PDF</a></div></div></div></section><section id='contact'><div class='wrap'><h2>Contact PRL</h2><p class='sub'>Questions about registration, rules, race-night support, partnerships or the league in general?</p><div class='card'><h3>Email</h3><p><a href='mailto:{CONTACT_EMAIL}' style='color:var(--orange);font-weight:900'>{CONTACT_EMAIL}</a></p><p>Use this address for driver support, registration questions, rule clarifications and partnership inquiries.</p></div></div></section>
+<section><div class='wrap'><h2>League Community</h2><p class='sub'>PRL lives inside the Pitmark Racing Co. Discord. Drivers meetings, check-in, league announcements, race-week discussion, support and community conversation all run through the same server.</p><div class='card'><h3>Pitmark Discord</h3><p>Registered drivers should join the server before their first race night so they do not miss check-in, drivers meetings, schedule updates or Race Control notices.</p><a class='btn primary' href='{DISCORD_URL}'>Join the Pitmark Discord</a></div></div></section>
+<section id='resources'><div class='wrap'><h2>Driver Resources</h2><p class='sub'>Public, driver-facing documents for the 2027 inaugural season.</p><div class='cards'><div class='card'><h3>Driver Handbook</h3><p>Season format, race-night flow, Chase system, points basics, conduct expectations and the full schedule.</p><a class='btn' href='{HANDBOOK_URL}' target='_blank' rel='noopener'>Open PDF</a></div><div class='card'><h3>Competition Rulebook</h3><p>The on-track rules competitors need: starts, restarts, blocking, contact, pit road, protests and penalties.</p><a class='btn' href='{RULES_URL}' target='_blank' rel='noopener'>Open PDF</a></div><div class='card'><h3>Race Night Guide</h3><p>A one-page quick reference for timeline, session settings and the five things every PRL driver should remember.</p><a class='btn' href='{RACE_NIGHT_URL}' target='_blank' rel='noopener'>Open PDF</a></div></div></div></section><section id='contact'><div class='wrap'><h2>Contact PRL</h2><p class='sub'>Questions about registration, rules, race-night support, partnerships or the league in general?</p><div class='card'><h3>Email</h3><p><a href='mailto:{CONTACT_EMAIL}' style='color:var(--orange);font-weight:900'>{CONTACT_EMAIL}</a></p><p>Use this address for driver support, registration questions, rule clarifications and partnership inquiries. For day-to-day league activity, join the <a href='{DISCORD_URL}' style='color:var(--orange);font-weight:900'>Pitmark Discord</a>.</p></div></div></section>
 </main>
-<footer><div class='wrap'>Pitmark Racing League · A Pitmark Racing Co. property · <a href='mailto:{CONTACT_EMAIL}'>{CONTACT_EMAIL}</a> · Leave Your Mark.</div></footer>
+<footer><div class='wrap'>Pitmark Racing League · A Pitmark Racing Co. property · <a href='{DISCORD_URL}'>Pitmark Discord</a> · <a href='mailto:{CONTACT_EMAIL}'>{CONTACT_EMAIL}</a> · Leave Your Mark.</div></footer>
 </body></html>""")
