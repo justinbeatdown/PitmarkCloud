@@ -123,7 +123,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 + image_src
                 + "font-src 'self'"
             )
-        elif request.url.path.startswith("/prl"):
+        elif (
+            request.url.path.startswith("/prl")
+            or (request.url.hostname or "").lower().rstrip(".") == "prl.pitmarkracing.com"
+        ):
             # PRL is a public server-rendered league page. It currently uses
             # inline CSS only; scripts remain disabled and external resources
             # are blocked except same-origin/HTTPS images.
