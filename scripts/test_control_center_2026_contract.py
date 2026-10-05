@@ -427,7 +427,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("fetch('/api/public/standings", public_js)
         self.assertIn("AbortController", public_js)
         self.assertIn("bootRaceCenter", public_js)
-        self.assertIn("<small>V8</small>", public_html)
+        self.assertIn("<span class="brand-product"><strong>Race Center</strong></span>", public_html)
         self.assertIn('class="race-pulse home-race-pulse"', public_html)
         self.assertIn('id="pulseLive"', public_html)
         self.assertIn('id="favoritesFilter"', public_html)
@@ -916,7 +916,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             'id="leaderStrip"',
             'id="standingsBoard"',
             '/race-center-v6.js',
-            '<small>V8</small>',
+            '<span class="brand-product"><strong>Race Center</strong></span>',
         ):
             self.assertIn(token, public_html)
         self.assertNotIn('id="v5Home"', public_html)
@@ -1056,7 +1056,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         service_worker = self.read("api/race_center_sw.js")
 
         for token in (
-            '<small>V8</small>',
+            '<span class="brand-product"><strong>Race Center</strong></span>',
             'data-race-view="tracks"',
             'data-race-view="events"',
             'id="v7RaceDay"',
@@ -1378,7 +1378,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             'class="mobile-dock consumer-mobile-dock"',
             'data-consumer-action="search"',
             'data-consumer-action="profile"',
-            '/race-center-consumer.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924',
+            '/race-center-consumer.js?v={{PITMARK_VERSION}}-media-fallback-fix-20260924',
         ):
             self.assertIn(token, html)
 
@@ -1491,9 +1491,9 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Array.from(document.querySelectorAll('main > section')).forEach(", consumer)
 
         for asset in (
-            "/standings.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
+            "/standings.js?v={{PITMARK_VERSION}}-community-router-20260924",
             "/race-center-v7.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
-            "/race-center-consumer.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
+            "/race-center-consumer.js?v={{PITMARK_VERSION}}-media-fallback-fix-20260924",
         ):
             self.assertIn(asset, html)
 
@@ -1506,11 +1506,11 @@ class ControlCenter2026Contract(unittest.TestCase):
         body_start = html.index("<body")
         self.assertLess(head_end, body_start)
         for asset in (
-            "/standings.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
+            "/standings.js?v={{PITMARK_VERSION}}-community-router-20260924",
             "/race-center-v5.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
             "/race-center-v6.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
             "/race-center-v7.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
-            "/race-center-consumer.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
+            "/race-center-consumer.js?v={{PITMARK_VERSION}}-media-fallback-fix-20260924",
         ):
             pos = html.index(asset)
             self.assertGreater(pos, 0)
@@ -1542,11 +1542,11 @@ class ControlCenter2026Contract(unittest.TestCase):
         security = self.read("utils/security.py")
 
         for asset in (
-            "/standings.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
+            "/standings.js?v={{PITMARK_VERSION}}-community-router-20260924",
             "/race-center-v5.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
             "/race-center-v6.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
             "/race-center-v7.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
-            "/race-center-consumer.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
+            "/race-center-consumer.js?v={{PITMARK_VERSION}}-media-fallback-fix-20260924",
         ):
             self.assertIn(asset, html)
 
@@ -1673,7 +1673,7 @@ class ControlCenter2026Contract(unittest.TestCase):
             self.assertIn(token, v7_js)
 
         self.assertIn("Race Center V7 PWA install surface", css)
-        self.assertIn('"scope": "/race-center/"', manifest)
+        self.assertIn('"scope": "/race-center"', manifest)
         self.assertIn('"src": "/race-center-icon-192.png"', manifest)
         self.assertIn('"src": "/race-center-icon-512.png"', manifest)
         self.assertIn("pitmark-race-center-v7-shell-4", service_worker)
