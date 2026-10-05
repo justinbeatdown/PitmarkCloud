@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import io
 import textwrap
-from functools import lru_cache
+from pathlib import Path
+import time
 
 import httpx
 from fastapi import APIRouter
@@ -52,15 +53,61 @@ def _font(size: int, bold: bool = False):
             continue
     return ImageFont.load_default()
 
-@lru_cache(maxsize=1)
-def _logo() -> Image.Image | None:
-    try:
-        with httpx.Client(timeout=6.0, follow_redirects=True) as client:
-            r = client.get(LOGO_URL)
-            r.raise_for_status()
-        return Image.open(io.BytesIO(r.content)).convert("RGBA")
-    except Exception:
-        return None
+_LOGO_CACHE = Path("/tmp/prl-logo.png")
+_LOGO_MEMORY: Image.Image | None = None
+
+def _logo() -> Image.Image:
+    """Return the official PRL logo, caching only successful loads.
+
+    The previous implementation cached a failed CDN request as None forever,
+    which caused every PDF on that instance to fall back to plain "PRL" text.
+    This version retries, persists a successful copy locally, and never caches
+    failure.
+    """
+    global _LOGO_MEMORY
+
+    if _LOGO_MEMORY is not None:
+        return _LOGO_MEMORY.copy()
+
+    if _LOGO_CACHE.exists():
+        try:
+            loaded = Image.open(_LOGO_CACHE).convert("RGBA")
+            loaded.load()
+            _LOGO_MEMORY = loaded
+            return loaded.copy()
+        except Exception:
+            try:
+                _LOGO_CACHE.unlink()
+            except OSError:
+                pass
+
+    headers = {
+        "User-Agent": "PitmarkCloud/PRL-PDF",
+        "Accept": "image/avif,image/webp,image/png,image/*,*/*;q=0.8",
+    }
+    last_error: Exception | None = None
+    for attempt in range(4):
+        try:
+            with httpx.Client(timeout=15.0, follow_redirects=True, headers=headers) as client:
+                r = client.get(LOGO_URL)
+                r.raise_for_status()
+            loaded = Image.open(io.BytesIO(r.content)).convert("RGBA")
+            loaded.load()
+            # Verify we received an actual image large enough to be the PRL mark.
+            if loaded.width < 200 or loaded.height < 100:
+                raise ValueError(f"PRL logo response too small: {loaded.size}")
+            try:
+                _LOGO_CACHE.write_bytes(r.content)
+            except OSError:
+                pass
+            _LOGO_MEMORY = loaded
+            return loaded.copy()
+        except Exception as exc:
+            last_error = exc
+            if attempt < 3:
+                time.sleep(0.35 * (attempt + 1))
+
+    raise RuntimeError(f"Official PRL logo could not be loaded: {last_error}")
 
 class PdfDoc:
     def __init__(self, title: str, subtitle: str):
@@ -81,16 +128,12 @@ class PdfDoc:
         self.img = Image.new("RGB", (1275, 1650), WHITE)
         self.draw = ImageDraw.Draw(self.img)
         lg = _logo()
-        if lg:
-            crop = lg.crop(lg.getbbox())
-            maxw, maxh = 500, 205
-            scale = min(maxw / crop.width, maxh / crop.height)
-            crop = crop.resize((int(crop.width*scale), int(crop.height*scale)), Image.Resampling.LANCZOS)
-            self.img.paste(crop, ((1275-crop.width)//2, 45), crop)
-            self.y = 265
-        else:
-            self.draw.text((80, 60), "PRL", font=_font(70, True), fill=ORANGE)
-            self.y = 160
+        crop = lg.crop(lg.getbbox())
+        maxw, maxh = 500, 205
+        scale = min(maxw / crop.width, maxh / crop.height)
+        crop = crop.resize((int(crop.width*scale), int(crop.height*scale)), Image.Resampling.LANCZOS)
+        self.img.paste(crop, ((1275-crop.width)//2, 45), crop)
+        self.y = 265
         if first:
             self.center(self.title.upper(), 42, ORANGE, True, after=10)
             self.center(self.subtitle, 22, BLACK, True, after=8)
@@ -255,6 +298,6 @@ def prl_public_pdf(document: str):
         media_type="application/pdf",
         headers={
             "Content-Disposition": f'inline; filename="{filename}"',
-            "Cache-Control": "public, max-age=300",
+            "Cache-Control": "no-cache, max-age=0, must-revalidate",
         },
     )
