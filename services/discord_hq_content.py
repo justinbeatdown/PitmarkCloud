@@ -11,6 +11,8 @@ from services.discord_hq_common import (
 )
 
 MANAGED_PANEL_PREFIX = "Pitmark • "
+PRL_STAFF_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSeBN4_1P_-zJg1ahZ5AnIQ87yuGCyCgy2ISAnwTtcJHqW62kQ/viewform"
+PRL_STAFF_PAGE_URL = "https://prl.pitmarkracing.com/prl/staff"
 
 LEGACY_SEED_PREFIXES = (
     "🏁 **Welcome to Pitmark Racing Co.**",
@@ -946,4 +948,89 @@ async def sync_server_content(guild_id: str) -> dict[str, Any]:
         "forum_channels_styled": forums,
         "legacy_seed_messages_removed": legacy_removed,
         "welcome_screen_synced": welcome_screen,
+    }
+
+
+async def sync_prl_recruitment_post(guild_id: str) -> dict[str, Any]:
+    """Post/update one managed PRL officials recruitment announcement."""
+    channels_list = await list_channels(guild_id)
+    channels = {
+        str(channel.get("name") or ""): channel
+        for channel in channels_list
+        if _channel_type(channel) in {0, 5}
+    }
+    target = channels.get("announcements") or channels.get("community-events") or channels.get("racing-chat")
+    if not target:
+        return {"posted": False, "reason": "No suitable public channel found."}
+
+    embed = _embed(
+        "",
+        (
+            "**Pitmark Racing League is recruiting volunteer/community Race Control and stewards "
+            "for the 2027 inaugural ARCA season.**\n\n"
+            "We're looking for calm, consistent people who understand iRacing racecraft and want "
+            "to help build a professional league from the beginning. Formal stewarding experience "
+            "is welcome, but it is not required."
+        ),
+        fields=[
+            {
+                "name": "🏁 Roles",
+                "value": (
+                    "• Live Race Control\n"
+                    "• Live incident review / second set of eyes\n"
+                    "• Post-race stewarding / protest review\n"
+                    "• Backup / substitute official\n"
+                    "• Administrative / scoring support"
+                ),
+                "inline": False,
+            },
+            {
+                "name": "🕗 Schedule",
+                "value": (
+                    "PRL races alternate Tuesday and Wednesday nights. "
+                    "Race window begins at **8:00 PM ET**; officials should usually be available "
+                    "around **7:30–10:00 PM ET**."
+                ),
+                "inline": False,
+            },
+            {
+                "name": "💵 Compensation",
+                "value": (
+                    "Season 1 is currently a **volunteer/community role**. We know experienced "
+                    "officials often work paid events, so people who normally require paid work "
+                    "are still welcome to reach out."
+                ),
+                "inline": False,
+            },
+            {
+                "name": "✅ What PRL already has",
+                "value": (
+                    "A public competition rulebook, penalty guidelines, protest procedures, "
+                    "race-night operating flow, league website, Pitmark Discord, Race Center and PRT support."
+                ),
+                "inline": False,
+            },
+        ],
+        footer="Pitmark Racing League • 2027 Inaugural Season • Leave Your Mark.",
+    )
+    components = [
+        {
+            "type": 1,
+            "components": [
+                _button("Apply to Help", PRL_STAFF_FORM_URL, "📝"),
+                _button("PRL Staff Openings", PRL_STAFF_PAGE_URL, "🏁"),
+            ],
+        }
+    ]
+    message_id = await _upsert_panel(
+        target,
+        key="🏁 PRL RACE CONTROL / STEWARD RECRUITING",
+        embed=embed,
+        components=components,
+        pin=False,
+    )
+    return {
+        "posted": True,
+        "channel_id": str(target["id"]),
+        "message_id": message_id,
     }
