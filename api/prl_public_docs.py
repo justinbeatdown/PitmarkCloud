@@ -19,6 +19,7 @@ LIGHT = (245, 245, 245)
 WHITE = (255, 255, 255)
 CONTACT = "contact@pitmarkracing.com"
 SITE = "prl.pitmarkracing.com"
+DISCORD = "https://prl.pitmarkracing.com/discord"
 LOGO_URL = "https://cdn.shopify.com/s/files/1/1067/3913/8641/files/prl-logo.png?v=1791152433"
 
 SCHEDULE = [
@@ -82,25 +83,28 @@ class PdfDoc:
         lg = _logo()
         if lg:
             crop = lg.crop(lg.getbbox())
-            maxw, maxh = 420, 175
+            maxw, maxh = 500, 205
             scale = min(maxw / crop.width, maxh / crop.height)
             crop = crop.resize((int(crop.width*scale), int(crop.height*scale)), Image.Resampling.LANCZOS)
             self.img.paste(crop, ((1275-crop.width)//2, 45), crop)
-            self.y = 235
+            self.y = 265
         else:
             self.draw.text((80, 60), "PRL", font=_font(70, True), fill=ORANGE)
             self.y = 160
         if first:
             self.center(self.title.upper(), 42, ORANGE, True, after=10)
             self.center(self.subtitle, 22, BLACK, True, after=8)
-            self.center(f"Official PRL Contact: {CONTACT}  •  {SITE}", 17, GRAY, False, after=24)
+            self.center(f"Official PRL Contact: {CONTACT}", 17, GRAY, False, after=5)
+            self.center(f"{SITE}  •  Pitmark Discord: {DISCORD}", 16, GRAY, False, after=24)
             self.draw.line((70, self.y, 1205, self.y), fill=ORANGE, width=5)
             self.y += 28
         else:
             self.y += 10
 
     def _footer(self):
-        self.draw.text((1035, 1605), f"PRL  •  {self.page_no}", font=_font(15), fill=GRAY)
+        self.draw.line((70, 1588, 1205, 1588), fill=ORANGE, width=3)
+        self.draw.text((75, 1602), f"{SITE}  •  {CONTACT}", font=_font(14), fill=GRAY)
+        self.draw.text((1090, 1602), f"PRL  •  {self.page_no}", font=_font(14, True), fill=GRAY)
 
     def center(self, text, size, color=BLACK, bold=False, after=12):
         f=_font(size,bold); box=self.draw.textbbox((0,0),text,font=f)
@@ -161,7 +165,7 @@ def _driver_handbook() -> bytes:
     d=PdfDoc("PRL Driver Handbook","2027 Inaugural ARCA Championship • Driver-Facing Guide")
     d.callout("Welcome to PRL","Pitmark Racing League is built for drivers who want organized, competitive racing without turning every week into a second job. Season 1 uses fixed-setup ARCA cars, realistic race lengths, a rotating Tuesday/Wednesday calendar, and a four-race Chase.")
     d.heading("What You Need to Race")
-    for x in ["An active iRacing membership and an eligible current ARCA car.","The tracks for the rounds you plan to enter.","A completed PRL registration form and membership in the Pitmark Discord.","A working microphone is strongly recommended for drivers meetings.","Respect for the league rules, Race Control, and other competitors."]: d.bullet(x)
+    for x in ["An active iRacing membership and an eligible current ARCA car.","The tracks for the rounds you plan to enter.","A completed PRL registration form and membership in the Pitmark Discord. Join at prl.pitmarkracing.com/discord.","A working microphone is strongly recommended for drivers meetings.","Respect for the league rules, Race Control, and other competitors."]: d.bullet(x)
     d.heading("Race Night at a Glance")
     for x in ["7:00 PM ET - Practice server opens.","7:40 PM ET - Driver check-in closes.","7:45 PM ET - Drivers meeting.","7:50 PM ET - Lone qualifying.","7:55 PM ET - Warmup.","8:00 PM ET - Race window begins."]: d.bullet(x)
     d.callout("Race Length Philosophy","PRL races are intentionally longer than typical quick league sprints. Most events are designed to feel like a proper ARCA feature, generally around 75-100 minutes depending on cautions and track type.")
@@ -182,7 +186,7 @@ def _driver_handbook() -> bytes:
     for rnd,date,track,dist,note in SCHEDULE:
         d.bullet(f"{rnd} • {date} • {track} • {dist}" + (f" • {note}" if note else ""))
     d.heading("Questions & Support")
-    d.para(f"For registration help, league questions, accessibility needs, sponsor inquiries, or general support, email {CONTACT}.")
+    d.para(f"For registration help, league questions, accessibility needs, sponsor inquiries, or general support, email {CONTACT}. Join the league community at {DISCORD}.")
     return d.finish()
 
 def _competition_rulebook() -> bytes:
@@ -215,7 +219,7 @@ def _competition_rulebook() -> bytes:
     d.heading("15. Rule Changes")
     d.para("Material competitive changes are announced before the next points race and are not applied retroactively.")
     d.heading("Contact")
-    d.para(f"Questions or rule clarifications before race night: {CONTACT}.")
+    d.para(f"Questions or rule clarifications before race night: {CONTACT}. League announcements and driver communication live in the Pitmark Discord: {DISCORD}.")
     return d.finish()
 
 def _race_night_guide() -> bytes:
@@ -230,7 +234,7 @@ def _race_night_guide() -> bytes:
     d.heading("After the Race")
     for x in ["Results are provisional immediately after the finish.","Protest window closes 24 hours after the checkered flag.","Official results and penalties are targeted within 48 hours.","Updated standings and Chase status follow official results."]: d.bullet(x)
     d.heading("Need Help?")
-    d.para(f"Email {CONTACT} or use the PRL support channels in the Pitmark Discord. Website: {SITE}")
+    d.para(f"Email {CONTACT} or use the PRL support channels in the Pitmark Discord. Join: {DISCORD}  •  Website: {SITE}")
     return d.finish()
 
 DOCS = {
@@ -251,6 +255,6 @@ def prl_public_pdf(document: str):
         media_type="application/pdf",
         headers={
             "Content-Disposition": f'inline; filename="{filename}"',
-            "Cache-Control": "public, max-age=3600",
+            "Cache-Control": "public, max-age=300",
         },
     )
