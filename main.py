@@ -105,6 +105,7 @@ async def gmail_sync_loop() -> None:
 
 async def racing_events_sync_loop(executor: ThreadPoolExecutor | None = None) -> None:
     interval = _env_int("PITMARK_RACING_EVENTS_SYNC_SECONDS", 600, 300, 3600)
+    await asyncio.sleep(_env_int("PITMARK_RACING_EVENTS_START_DELAY_SECONDS", 45, 15, 600))
     while True:
         try:
             from services.racing_events import get_racing_event_hub
@@ -126,6 +127,7 @@ async def racing_events_sync_loop(executor: ThreadPoolExecutor | None = None) ->
 
 async def grassroots_racing_sync_loop(executor: ThreadPoolExecutor | None = None) -> None:
     interval = _env_int("PITMARK_GRASSROOTS_SYNC_SECONDS", 21600, 1800, 43200)
+    await asyncio.sleep(_env_int("PITMARK_GRASSROOTS_START_DELAY_SECONDS", 240, 30, 1800))
     while True:
         try:
             from services.grassroots_racing import get_grassroots_catalog
@@ -155,6 +157,7 @@ async def grassroots_racing_sync_loop(executor: ThreadPoolExecutor | None = None
 
 async def race_center_driver_photo_sync_loop() -> None:
     interval = _env_int("PITMARK_DRIVER_PHOTO_SYNC_SECONDS", 3600, 1800, 21600)
+    await asyncio.sleep(_env_int("PITMARK_DRIVER_PHOTO_START_DELAY_SECONDS", 180, 30, 1800))
     while True:
         try:
             from services.racing_standings import warm_driver_identity_cache
@@ -174,6 +177,7 @@ async def race_center_driver_photo_sync_loop() -> None:
 
 async def racing_standings_sync_loop() -> None:
     interval = _env_int("PITMARK_STANDINGS_SYNC_SECONDS", 14400, 1800, 43200)
+    await asyncio.sleep(_env_int("PITMARK_STANDINGS_START_DELAY_SECONDS", 120, 30, 1800))
     while True:
         try:
             from services.racing_standings import get_standings_hub
@@ -194,6 +198,8 @@ async def racing_standings_sync_loop() -> None:
 async def results_sweep_loop() -> None:
     """Run Pitmark's inbox-independent weekend results coverage sweep."""
     interval = _env_int("PITMARK_RESULTS_SWEEP_POLL_SECONDS", 900, 300, 3600)
+    # Avoid competing with app warm-up, standings and driver-identity hydration.
+    await asyncio.sleep(_env_int("PITMARK_RESULTS_SWEEP_START_DELAY_SECONDS", 300, 60, 1800))
     while True:
         retry_seconds = interval
         try:
