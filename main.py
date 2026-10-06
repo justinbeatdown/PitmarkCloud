@@ -7,9 +7,11 @@ import hmac
 import json
 import logging
 import os
+import time
+from collections import deque
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
+from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse, PlainTextResponse
 from utils.security import SecurityHeadersMiddleware, security_summary
 
 from api import device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_2026, control_center_v19, control_center_v195, control_access_v191, control_center_ui, control_native_ops, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, prt_testimonial_asset, early_access_admin, astra_director, standings_public, race_center_v8, racing_network, results_sweep, prl, prl_public_docs
@@ -404,6 +406,115 @@ app = FastAPI(
 )
 
 app.add_middleware(SecurityHeadersMiddleware)
+
+# Keep public Race Center pages discoverable while preventing social crawlers
+# from recursively fanning out through expensive JSON/data endpoints.
+_META_CRAWLER_TOKENS = (
+    "facebookexternalhit",
+    "facebot",
+    "meta-externalagent",
+    "meta-externalfetcher",
+    "facebookcatalog",
+)
+_META_REQUEST_WINDOW_SECONDS = 60
+_META_REQUEST_LIMIT = 90
+_meta_request_times: deque[float] = deque()
+
+
+def _is_meta_crawler(request: Request) -> bool:
+    user_agent = (request.headers.get("user-agent") or "").casefold()
+    return any(token in user_agent for token in _META_CRAWLER_TOKENS)
+
+
+@app.get("/robots.txt", include_in_schema=False)
+async def robots_txt():
+    # Search engines can index Race Center's public pages, but no crawler needs
+    # to walk internal APIs, Control Center, or combinatorial compare URLs.
+    body = """User-agent: *
+Disallow: /api/
+Disallow: /control
+Disallow: /race-center/compare
+
+User-agent: facebookexternalhit
+Disallow: /api/
+Disallow: /race-center/compare
+
+User-agent: Facebot
+Disallow: /api/
+Disallow: /race-center/compare
+
+User-agent: meta-externalagent
+Disallow: /api/
+Disallow: /race-center/compare
+
+User-agent: meta-externalfetcher
+Disallow: /api/
+Disallow: /race-center/compare
+"""
+    return PlainTextResponse(
+        body,
+        headers={"Cache-Control": "public, max-age=3600, s-maxage=3600"},
+    )
+
+
+@app.middleware("http")
+async def race_center_crawler_guard(request: Request, call_next):
+    path = request.url.path
+    is_meta = _is_meta_crawler(request)
+
+    if is_meta:
+        # Meta only needs the public HTML for previews/indexing. The JSON graph,
+        # driver hydration and image proxy endpoints are the expensive fan-out
+        # that caused thousands of Render requests.
+        if path.startswith("/api/public/race-center/") or path == "/api/public/standings":
+            return JSONResponse(
+                {"detail": "Crawler access to Race Center data endpoints is limited."},
+                status_code=429,
+                headers={"Retry-After": "300", "Cache-Control": "public, max-age=300"},
+            )
+
+        if path.startswith("/race-center") or path.startswith("/standings-logo/"):
+            now = time.monotonic()
+            while _meta_request_times and now - _meta_request_times[0] >= _META_REQUEST_WINDOW_SECONDS:
+                _meta_request_times.popleft()
+            if len(_meta_request_times) >= _META_REQUEST_LIMIT:
+                return PlainTextResponse(
+                    "Too many crawler requests.",
+                    status_code=429,
+                    headers={"Retry-After": "60", "Cache-Control": "public, max-age=60"},
+                )
+            _meta_request_times.append(now)
+
+    response = await call_next(request)
+
+    # Public Race Center HTML can be briefly cached by shared proxies/CDNs.
+    # Versioned/static assets are safe to retain much longer.
+    if request.method.upper() == "GET" and response.status_code == 200:
+        if path.startswith((
+            "/race-center-v8.js",
+            "/race-center-v8.css",
+            "/race-center-v8-social.js",
+            "/race-center-mobile.css",
+            "/race-center-app.js",
+            "/race-center-consumer.js",
+            "/race-center-profile.js",
+            "/standings.css",
+            "/standings.js",
+            "/race-center-icon-",
+            "/race-center-assets/",
+            "/standings-logo/",
+        )):
+            response.headers["Cache-Control"] = "public, max-age=86400, s-maxage=604800, stale-while-revalidate=604800"
+        elif path.startswith("/race-center"):
+            response.headers["Cache-Control"] = "public, max-age=120, s-maxage=900, stale-while-revalidate=3600"
+        elif (
+            path == "/api/public/standings"
+            or path.startswith("/api/public/race-center/driver-profile-data/")
+            or path.startswith("/api/public/race-center/driver-photo/")
+        ):
+            response.headers["Cache-Control"] = "public, max-age=120, s-maxage=900, stale-while-revalidate=3600"
+
+    return response
 
 
 async def _prt_access_identity(request: Request) -> tuple[str, str]:
