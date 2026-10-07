@@ -13,6 +13,7 @@ from services.first_party_auto_schedule import auto_schedule_verified_first_part
 from services.discord_racing_culture_feed import sync_racing_culture_feed
 from services.social_daily_campaign import ensure_daily_campaign
 from services.social_daily_package import generate_daily_package
+from services.social_autonomy import auto_schedule_pending_social
 from utils.config import settings
 
 log = logging.getLogger("pitmark.autopilot.multiplatform")
@@ -126,6 +127,21 @@ async def scheduler_loop():
             await asyncio.to_thread(backfill_platform_variants)
         except Exception:
             log.exception("Autopilot multiplatform backfill failed")
+
+        # Pitmark social is autonomous by default: safe low-risk automatic posts move
+        # straight from pending into the publishing schedule. Only sensitive, stale,
+        # unsupported, or quality-gate failures remain for human attention.
+        try:
+            autonomous = await asyncio.to_thread(auto_schedule_pending_social)
+            if autonomous.get("scheduled") or autonomous.get("held") or autonomous.get("archived"):
+                log.info(
+                    "Social autonomy: scheduled=%s held=%s archived=%s",
+                    autonomous.get("scheduled", 0),
+                    autonomous.get("held", 0),
+                    autonomous.get("archived", 0),
+                )
+        except Exception:
+            log.exception("Autonomous social scheduling failed")
 
         # First-party Autopilot watches Pitmark itself: product drops, PRT releases,
         # published blogs, partnership/street-team changes, and useful milestones.
