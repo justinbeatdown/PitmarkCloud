@@ -160,7 +160,6 @@ def visual_prompt(*, campaign: dict, headline: str, beat: str, aspect: str) -> s
         "generated image; the official Pitmark logo is overlaid later by code. "
         "Do not render readable text in the image. Leave strong text-safe negative space for an exact "
         f"headline overlay and branding. Headline that will be overlaid later: {headline}. "
-         "
         "Aim for the credibility of a sharp trackside photojournalist mixed with an independent racing magazine: "
         "natural or believable track lighting, tactile asphalt/rubber/metal/garage texture, candid human energy, "
         "purposeful composition, restrained cinematic contrast, and real-world imperfections. The image should "
