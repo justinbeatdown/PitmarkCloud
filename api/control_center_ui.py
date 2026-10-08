@@ -80,6 +80,14 @@ def control(request: Request):
 
 @router.get('/control-reset', response_class=HTMLResponse, include_in_schema=False)
 def control_reset(request: Request):
+    # Installed PWAs may keep the old /control-reset launch URL permanently.
+    # Run retirement cleanup once per browser, not on every phone launch.
+    if request.cookies.get('pitmark_control_reset_done') == 'v3' and request.query_params.get('force') != '1':
+        return RedirectResponse(
+            url='/control',
+            status_code=302,
+            headers={'Cache-Control': 'no-store, max-age=0'},
+        )
     html = """<!doctype html>
 <html lang="en">
 <head>
@@ -98,7 +106,7 @@ def control_reset(request: Request):
 </main>
 </body>
 </html>"""
-    return HTMLResponse(
+    response = HTMLResponse(
         html,
         headers={
             'Cache-Control': 'no-store, max-age=0',
@@ -106,6 +114,12 @@ def control_reset(request: Request):
             'Clear-Site-Data': '"cache"',
         },
     )
+    response.set_cookie(
+        'pitmark_control_reset_done', 'v3',
+        max_age=60 * 60 * 24 * 365,
+        httponly=True, samesite='lax', path='/',
+    )
+    return response
 
 
 @router.get('/control-reset.js', include_in_schema=False)
