@@ -49,16 +49,30 @@ const workRow = (item) => `<button class="pm-row" type="button" data-open-work="
 function unwrap(module) { return module?.ok ? module.data : null; }
 function failure(module, fallback) { return module?.ok === false ? module.error : fallback; }
 
+let hqRenderSequence = 0;
+
 async function renderHQ(root, ctx) {
-  // Do not serialize the HQ request ahead of secondary reads. Mobile latency
-  // makes that extra round trip very noticeable, even when the server is fast.
-  const [hqResult, briefResult, opportunityResult] = await Promise.allSettled([
-    api.hq({ maxAge: ctx.force ? 0 : 15000 }),
+  const sequence = ++hqRenderSequence;
+  // The HQ overview is essential; the brief and discovery feed are enhancements.
+  // Do not block first paint on either secondary request over a mobile network.
+  const supplementary = Promise.allSettled([
     api.brief({ maxAge: ctx.force ? 0 : 15000 }),
     api.opportunities({ maxAge: ctx.force ? 0 : 60000 }),
   ]);
-  if (hqResult.status !== 'fulfilled') throw hqResult.reason;
-  const payload = hqResult.value;
+  const payload = await api.hq({ maxAge: ctx.force ? 0 : 15000 });
+  const early = await Promise.race([
+    supplementary.then(values => ({ ready: true, values })),
+    new Promise(resolve => setTimeout(() => resolve({ ready: false }), 350)),
+  ]);
+  const [briefResult, opportunityResult] = early.ready
+    ? early.values
+    : [{ status: 'pending' }, { status: 'pending' }];
+  if (!early.ready) {
+    supplementary.then(() => {
+      // Hydrate the optional sections only if this HQ view is still current.
+      if (ctx.state.domain === 'hq' && root.isConnected && sequence === hqRenderSequence) ctx.refresh(false);
+    });
+  }
   const brief = briefResult.status === 'fulfilled' ? briefResult.value : null;
   const recentOps = (opportunityResult.status === 'fulfilled' && Array.isArray(opportunityResult.value) ? opportunityResult.value : [])
     .filter(op => Number(op?.freshness?.age_hours ?? 9999) <= 96)

@@ -69,8 +69,13 @@ def _guarded_html(filename: str, *, guard: bool) -> HTMLResponse:
 
 @router.get('/control', response_class=HTMLResponse, include_in_schema=False)
 def control(request: Request):
-    filename = 'control_center.html' if user_from_request(request) else 'control_login.html'
-    return _guarded_html(filename, guard=filename == 'control_center.html')
+    if user_from_request(request):
+        return _guarded_html('control_center.html', guard=True)
+    # Serve the lightweight sign-in on phones instead of the image-heavy desktop login.
+    user_agent = (request.headers.get('user-agent') or '').lower()
+    if any(marker in user_agent for marker in ('iphone', 'ipad', 'ipod', 'android', 'mobile')):
+        return _guarded_html('control_mobile_login.html', guard=False)
+    return _guarded_html('control_login.html', guard=False)
 
 
 @router.get('/control-reset', response_class=HTMLResponse, include_in_schema=False)
@@ -167,16 +172,15 @@ def control_native_ops_css():
 
 @router.get('/control/mobile', include_in_schema=False)
 def control_mobile(request: Request):
-    # The old mobile product contained the retired Comms/Mail surface. Authenticated
-    # users are forced through the recovery route so stale PWA/cache state cannot
-    # keep resurrecting it. Unauthenticated users still get the mobile login.
-    if user_from_request(request):
-        return RedirectResponse(
-            url='/control-reset?source=mobile-retired-20260918',
-            status_code=302,
-            headers={'Cache-Control': 'no-store, max-age=0', 'Pragma': 'no-cache'},
-        )
-    return _guarded_html('control_mobile_login.html', guard=False)
+    # Retired mobile entry points should resolve to the current app, not clear
+    # all caches and storage on every authenticated launch.
+    if not user_from_request(request):
+        return _guarded_html('control_mobile_login.html', guard=False)
+    return RedirectResponse(
+        url='/control',
+        status_code=302,
+        headers={'Cache-Control': 'no-store, max-age=0'},
+    )
 
 
 def _text_asset(filename: str, media_type: str, *, cache: str = 'no-store') -> Response:
