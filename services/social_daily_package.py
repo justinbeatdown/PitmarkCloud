@@ -31,7 +31,7 @@ log = logging.getLogger("pitmark.social.daily_package")
 
 COPY_PLATFORMS = ("facebook", "instagram", "x", "discord", "tiktok_reels")
 QUEUE_PLATFORMS = ("facebook", "instagram", "x", "discord")
-IG_OUTPUT_SIZE = (1080, 1350)
+IG_OUTPUT_SIZE = (1080, 1080)
 VERTICAL_OUTPUT_SIZE = (1080, 1920)
 
 _PLATFORM_SLOTS = {
@@ -160,7 +160,7 @@ def visual_prompt(*, campaign: dict, headline: str, beat: str, aspect: str) -> s
         "generated image; the official Pitmark logo is overlaid later by code. "
         "Do not render readable text in the image. Leave strong text-safe negative space for an exact "
         f"headline overlay and branding. Headline that will be overlaid later: {headline}. "
-        "PITMARK VISUAL DIRECTION: premium grassroots motorsports editorial, not generic AI racing art. "
+         "
         "Aim for the credibility of a sharp trackside photojournalist mixed with an independent racing magazine: "
         "natural or believable track lighting, tactile asphalt/rubber/metal/garage texture, candid human energy, "
         "purposeful composition, restrained cinematic contrast, and real-world imperfections. The image should "
@@ -171,6 +171,13 @@ def visual_prompt(*, campaign: dict, headline: str, beat: str, aspect: str) -> s
         "AI-looking spectacle. If a person is visible, keep anatomy believable and avoid making an invented face "
         "the hero of the frame. If a car is visible, prioritize mechanically plausible proportions and details. "
         "Composition must remain readable on a phone and must leave the headline/logo areas uncluttered. "
+        "DESIGN MUST MATCH THE ESTABLISHED PITMARK SOCIAL POSTER STYLE: bold high-contrast, gritty "
+        "black/orange/white racing editorial, visceral action-led full-bleed real motorsport photography, "
+        "deep black shadows, punchy Pitmark orange #FF5500 graphic accents, subtle dirty textures "
+        "and layered editorial depth; NEVER plain stock photos, washed-out grey templates, repeated "
+        "pit-garage backgrounds, generic motivational ad layouts or copy-pasted compositions. "
+        "Each slide must use a different story-relevant scene and camera angle. "
+        
         + _campaign_context(campaign)
     )
 
@@ -179,13 +186,14 @@ def build_slide_plan(campaign: dict) -> dict:
     title = _headline(campaign.get("title"))
     summary = _clean(campaign.get("summary"), 500)
     url = (campaign.get("url") or "").strip()
+    # All slides must refer to the specific same story. Generic placeholders are not publishable.
     ig = [
-        {"headline": title, "beat": "Opening hook: establish the campaign topic with the strongest relevant racing atmosphere."},
-        {"headline": "Why Racers Care", "beat": f"Show the human racing-community consequence behind this topic. {summary}"},
-        {"headline": "What You Need to Know", "beat": f"Editorial detail frame grounded only in this supplied context: {summary}"},
-        {"headline": "From the Racing Community", "beat": "Connect the verified topic to grassroots motorsports, sim racing, race teams, fans, tracks, garages, or leagues without inventing specifics."},
-        {"headline": "Who Should See This?", "beat": "Create a useful discussion/discovery frame that naturally gives racers a reason to tag or share with somebody relevant."},
-        {"headline": "Follow the Next Story", "beat": f"Closing frame that positions Pitmark as ongoing grassroots racing coverage without making unsupported promises. Public destination: {url or 'Pitmark links/site'}."},
+        {"headline": title, "beat": f"Story-specific cover showing the actual subject/context: {summary}"},
+        {"headline": _headline(f"Why {title} Matters"), "beat": f"Grounded impact of this exact story: {summary}"},
+        {"headline": _headline(f"Inside: {title}"), "beat": f"Grounded details of this exact story: {summary}"},
+        {"headline": _headline(f"The Story Behind {title}"), "beat": f"Show unique verified context of this specific story: {summary}"},
+        {"headline": _headline(f"What Comes Next: {title}"), "beat": f"Discuss only supported next steps or open questions: {summary}"},
+        {"headline": _headline(f"More on {title}"), "beat": f"Closing slide for the same specific story; destination: {url or 'Pitmark website'}"},
     ]
     vertical = [
         {"headline": title, "beat": "Vertical opening hook with immediate racing energy and central subject safety."},
