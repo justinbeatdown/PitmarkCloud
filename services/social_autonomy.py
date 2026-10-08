@@ -8,7 +8,6 @@ from sqlalchemy import select
 from services.autonomy_control import effective_mode
 from services.control_center import AutopilotOpportunity, OpportunitySourceMeta, SocialPost, utcnow
 from services.database import SessionLocal
-from services.social_asset_pool import choose_asset, sync_shopify_images
 from services.social_pacing import pacing_decision
 from services.social_quality_gate import assess_automatic_post_quality
 from utils.config import settings
@@ -81,25 +80,6 @@ def _archive_if_stale(post: SocialPost, meta: OpportunitySourceMeta | None, now:
     return False
 
 
-def _ensure_instagram_media(post: SocialPost) -> None:
-    if post.platform != "instagram" or (post.media_url or "").strip():
-        return
-    # Daily Campaign Instagram rows are a six-slide carousel package. The current
-    # publisher cannot preserve that package as a carousel yet, so leave those out
-    # of unattended single-image publishing.
-    if str(post.source or "").startswith("dailycampaign:"):
-        return
-    asset = choose_asset(body=post.body, content_type=post.content_type, platform="instagram")
-    if not asset:
-        try:
-            sync_shopify_images()
-        except Exception:
-            return
-        asset = choose_asset(body=post.body, content_type=post.content_type, platform="instagram")
-    if asset:
-        post.media_url = str(asset.get("url") or "").strip() or None
-
-
 def auto_schedule_pending_social(limit: int = 60) -> dict:
     """Turn safe automatic backlog into scheduled work without a human approval click.
 
@@ -146,7 +126,9 @@ def auto_schedule_pending_social(limit: int = 60) -> dict:
                 held += 1
                 continue
 
-            _ensure_instagram_media(post)
+            # Never fill an unattended post with a loosely matched or randomly
+            # selected asset. Only media explicitly assigned by its source may
+            # pass the automatic Instagram quality gate below.
             quality = assess_automatic_post_quality(
                 platform=post.platform,
                 title=post.title,

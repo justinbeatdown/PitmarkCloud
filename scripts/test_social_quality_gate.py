@@ -67,6 +67,25 @@ class SocialQualityGateTests(unittest.TestCase):
         )
         self.assertTrue(result["ok"])
 
+    def test_autonomous_instagram_cannot_choose_unrelated_pool_image(self):
+        # The legacy pool selector randomly selected from loosely matching
+        # candidates. Unattended Instagram publishing must use source-bound
+        # media, not guessed assets.
+        autonomy = (ROOT / "services" / "social_autonomy.py").read_text(encoding="utf-8")
+        self.assertNotIn("choose_asset(", autonomy)
+        self.assertNotIn("sync_shopify_images(", autonomy)
+        self.assertIn("Only media explicitly assigned by its source", autonomy)
+
+        result = assess_automatic_post_quality(
+            platform="instagram",
+            title="B&G Motorsports profile",
+            body="Our latest B&G Motorsports story follows the family team and its season.",
+            source="operator:growth-loop",
+            media_url=None,
+        )
+        self.assertFalse(result["ok"])
+        self.assertTrue(any("image" in reason for reason in result["reasons"]))
+
     def test_daily_art_does_not_expose_internal_blog_publish_label(self):
         text = (ROOT / "services" / "social_daily_package.py").read_text(encoding="utf-8")
         self.assertIn('"blog_publish": "RACING CULTURE"', text)

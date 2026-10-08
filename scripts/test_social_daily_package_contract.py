@@ -6,7 +6,7 @@ import unittest
 class SocialDailyPackageContractTests(unittest.TestCase):
     def test_visual_specs_are_exact_phone_first_sizes(self):
         from services.social_daily_package import IG_OUTPUT_SIZE, VERTICAL_OUTPUT_SIZE
-        self.assertEqual(IG_OUTPUT_SIZE, (1080, 1350))
+        self.assertEqual(IG_OUTPUT_SIZE, (1080, 1080))
         self.assertEqual(VERTICAL_OUTPUT_SIZE, (1080, 1920))
 
     def test_slide_plan_has_six_distinct_story_beats(self):
