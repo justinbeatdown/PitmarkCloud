@@ -93,5 +93,22 @@ def assess_automatic_post_quality(
 
     if platform_name == "instagram" and not str(media_url or "").strip():
         reasons.append("automatic Instagram post has no assigned campaign/source image")
+    # An assigned image URL alone does not verify that it depicts this story.
+    # Hold reactive Instagram image posts until image provenance is verifiable.
+    # Other autonomous posts continue through the normal schedule.
+    if platform_name == "instagram" and str(source or "").startswith("intelligence:"):
+        reasons.append("reactive Instagram image-to-story match is unverified")
+
+    if clean_title:
+        anchors = _title_anchors(clean_title)
+        overlap = anchors & _tokens(clean_body)
+        if len(anchors) >= 3 and len(overlap) < 2:
+            reasons.append("caption does not sufficiently match the headline")
+
+    if clean_title.lower() in {
+        "what you need to know", "follow the next story",
+        "who should see this?", "pitmark racing",
+    }:
+        reasons.append("generic placeholder headline")
 
     return {"ok": not reasons, "reasons": reasons}
