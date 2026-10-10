@@ -1,2 +1,20 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#ff5500"><link rel="icon" type="image/png" sizes="32x32" href="/control-favicon.png"><link rel="shortcut icon" href="/favicon.ico">
-<title>Pitmark Mobile Login</title><link rel="manifest" href="/control.webmanifest"><link rel="stylesheet" href="/control-mobile.css"><script src="/control-mobile-login.js" defer></script></head><body class="mlogin"><main class="mlogin-card"><img src="/control-logo-badge.png" alt="Pitmark"><p>PRIVATE OPERATIONS</p><h1>PITMARK <span>CONTROL MOBILE</span></h1><label>Username<input id="mu" autocomplete="username" value="admin"></label><label>Password<input id="mp" type="password" autocomplete="current-password"></label><button id="mlogin" class="m-orange full">Login</button><div id="merr"></div><a href="/control">Desktop Control Center</a></main></body></html>
+<title>Pitmark Mobile Login</title><link rel="manifest" href="/control.webmanifest"><link rel="stylesheet" href="/control-mobile.css"><style>
+:root{color-scheme:dark;--orange:#ff5500}
+*,*::before,*::after{box-sizing:border-box}
+html{min-height:100%;background:#07090b}
+body.mlogin{margin:0;min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:clamp(16px,5vw,32px);background:radial-gradient(circle at 50% 0,rgba(255,85,0,.16),transparent 50%),#07090b;color:#f7f7f7;font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+.mlogin-card{width:100%;max-width:420px;padding:clamp(22px,5vw,34px);background:#11151a;border:1px solid #343a40;border-radius:18px;box-shadow:0 24px 80px #0009}
+.mlogin-card>img{display:block;width:116px;max-width:44%;height:116px;max-height:116px;object-fit:contain;margin:0 auto 18px}
+.mlogin-card>p{margin:0 0 8px;color:var(--orange);font-size:11px;font-weight:850;letter-spacing:.16em}
+.mlogin-card h1{margin:0 0 22px;font-size:clamp(25px,6vw,32px);font-style:italic;line-height:1.08;letter-spacing:-.035em}
+.mlogin-card h1 span{display:block;color:var(--orange)}
+.mlogin-card label{display:block;margin:14px 0 0;color:#c0c7ce;font-size:12px;font-weight:750}
+.mlogin-card input{display:block;width:100%;min-width:0;min-height:48px;margin-top:7px;padding:12px 13px;border:1px solid #4b535b;border-radius:10px;background:#090c0f;color:#fff;font:inherit;font-size:16px}
+.mlogin-card input:focus-visible,.mlogin-card button:focus-visible,.mlogin-card a:focus-visible{outline:2px solid #ff873f;outline-offset:2px}
+.mlogin-card button{width:100%;min-height:48px;margin-top:20px;border:1px solid #ff7836;border-radius:10px;background:#ff5500;color:#fff;font:inherit;font-size:14px;font-weight:850;cursor:pointer}
+.mlogin-card button:disabled{opacity:.55;cursor:not-allowed}
+#merr{min-height:20px;margin-top:12px;color:#ff9292;font-size:12px;overflow-wrap:anywhere}
+.mlogin-card a{display:block;margin-top:12px;text-align:center;color:#b8c0c7;font-size:12px}
+@media(max-height:620px){body.mlogin{display:block}.mlogin-card{margin:0 auto}.mlogin-card>img{width:80px;height:80px}}
+</style><script src="/control-mobile-login.js" defer></script></head><body class="mlogin"><main class="mlogin-card"><img src="/control-logo-badge.png" alt="Pitmark"><p>PRIVATE OPERATIONS</p><h1>PITMARK <span>CONTROL MOBILE</span></h1><label>Username<input id="mu" autocomplete="username" value="admin"></label><label>Password<input id="mp" type="password" autocomplete="current-password"></label><button id="mlogin" class="m-orange full">Login</button><div id="merr"></div><a href="/control">Desktop Control Center</a></main></body></html>
