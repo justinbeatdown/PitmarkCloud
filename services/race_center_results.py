@@ -101,11 +101,11 @@ def upsert_verified(payload):
         if e is None:
             e = ResultEvent(key=key)
             db.add(e)
-            db.flush()
         for field in ("track","series","event_name","source_url","source_name","status"):
             setattr(e, field, payload[field])
         e.race_date = payload["race_date"]
         e.updated_at = datetime.now(timezone.utc)
+        db.flush()
         # Replace complete source snapshot atomically; avoids retaining stale withdrawn results.
         for s in list(e.sessions):
             db.delete(s)
