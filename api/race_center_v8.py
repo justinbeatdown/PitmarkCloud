@@ -465,3 +465,8 @@ def race_center_owner_hub_css():
         media_type="text/css",
         headers={"Cache-Control": "no-store, max-age=0"},
     )
+
+
+# Native first-party verified finishing-order APIs and results page.
+from api import race_center_results as _race_center_results
+router.include_router(_race_center_results.router)
