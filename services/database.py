@@ -124,6 +124,7 @@ def init_database() -> None:
     from services import race_center_accounts  # noqa: F401
     from services import race_center_entities  # noqa: F401
     from services import race_center_owner_hub  # noqa: F401
+    from services import race_center_results  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     if not settings.database_url:
