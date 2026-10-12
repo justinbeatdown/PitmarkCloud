@@ -400,3 +400,11 @@ textarea {
   .actions { align-items: stretch; flex-direction: column; }
   .btn { width: 100%; }
 }
+
+/* Original Media + Partner Kit: approved official logo assets */
+.media-logo-grid { margin-top: 22px; }
+.media-logo-grid .media-card { display:flex; flex-direction:column; align-items:flex-start; gap: 10px; }
+.media-logo-preview { display:flex; align-items:center; justify-content:center; width:100%; min-height:205px; padding:22px; border-radius:14px; border:1px solid rgba(255,255,255,.16); background:#08090b; overflow:hidden; }
+.media-logo-preview img { display:block; max-width:100%; width:auto; height:auto; max-height:170px; object-fit:contain; }
+.media-logo-grid .btn { margin-top:auto; }
+.media-logo-source { display:inline-block; color:var(--orange-soft); font-weight:700; overflow-wrap:anywhere; }
