@@ -74,6 +74,18 @@ def pitmark_media_round_logo():
     from fastapi.responses import FileResponse
     return FileResponse(ASSET_DIR / "pitmark_favicon.png", media_type="image/png")
 
+@router.get("/media-kit/download/wide-logo.png", include_in_schema=False)
+def download_pitmark_wide_logo():
+    from fastapi.responses import FileResponse
+    return FileResponse(ASSET_DIR / "pitmark_logo_wide.png", media_type="image/png", filename="Pitmark_Racing_Co_Wide_Logo.png")
+
+
+@router.get("/media-kit/download/round-logo.png", include_in_schema=False)
+def download_pitmark_round_logo():
+    from fastapi.responses import FileResponse
+    return FileResponse(ASSET_DIR / "pitmark_favicon.png", media_type="image/png", filename="Pitmark_Racing_Co_Round_Mark.png")
+
+
 @router.get("/links", response_class=HTMLResponse, include_in_schema=False)
 def pitmark_links():
     return _html("links.html")
