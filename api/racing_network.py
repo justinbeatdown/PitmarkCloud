@@ -103,6 +103,27 @@ _MEDIA_KIT_PAGE = """<!doctype html>
     </div>
   </section>
 
+  <section class="panel media-panel" id="official-logos">
+    <div class="panel-head"><div><div class="eyebrow">OFFICIAL PITMARK ASSETS</div><h2>Logo downloads &amp; brand resources.</h2></div><p>Use Pitmark's official marks for articles, partnership announcements and coverage. Please preserve the original proportions and colors.</p></div>
+    <div class="media-grid media-logo-grid">
+      <article class="media-card">
+        <div class="eyebrow">WIDE LOGO</div><h2>Primary wordmark</h2>
+        <div class="media-logo-preview"><img src="/pitmark-media-logo-wide.png" alt="Official wide Pitmark Racing Co. logo" loading="lazy"></div>
+        <p>Official horizontal Pitmark logo.</p>
+        <a class="btn" href="/media-kit/download/wide-logo.png" download="Pitmark_Racing_Co_Wide_Logo.png">Download PNG ↓</a>
+        <a class="media-logo-source" href="https://drive.google.com/file/d/1yDNFlJXfEnXHlJSJQ9bQ4EGOPdOWfppv/view" target="_blank" rel="noopener noreferrer">Original high-resolution logo ↗</a>
+      </article>
+      <article class="media-card">
+        <div class="eyebrow">ROUND LOGO</div><h2>Pitmark emblem</h2>
+        <div class="media-logo-preview"><img src="/pitmark-media-logo-round.png" alt="Official round Pitmark Racing Co. emblem" loading="lazy"></div>
+        <p>Round emblem for profiles, articles and partner materials.</p>
+        <a class="btn" href="/media-kit/download/round-logo.png" download="Pitmark_Racing_Co_Round_Mark.png">Download PNG ↓</a>
+        <a class="media-logo-source" href="https://drive.google.com/file/d/1wPnNr4jedFYyphOL3m3tavBjIpVcFfTX/view" target="_blank" rel="noopener noreferrer">Original high-resolution logo ↗</a>
+      </article>
+    </div>
+    <p class="fine">More official social banners and production graphics: <a href="https://drive.google.com/drive/folders/10ga0uxtHF0yBhuwHZ2C2-PWcG-w1lM79" target="_blank" rel="noopener noreferrer">Pitmark media assets ↗</a>. Brand orange: #FF5500. Tagline: Leave your mark.</p>
+  </section>
+
   <div id="work-with-pitmark" class="anchor-target" aria-hidden="true"></div>
   <section class="panel media-panel partnership-intake">
     <div class="panel-head">
