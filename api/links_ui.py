@@ -58,6 +58,15 @@ def _campaign_traffic_type(request: Request) -> str:
 
 
 
+@router.get("/media-kit.css", include_in_schema=False)
+def pitmark_media_kit_css():
+    return Response(
+        (ASSET_DIR / "media_kit.css").read_text(encoding="utf-8"),
+        media_type="text/css",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @router.get("/media-kit", response_class=HTMLResponse, include_in_schema=False)
 def pitmark_media_kit():
     return _html("media_kit.html")
