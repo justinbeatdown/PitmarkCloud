@@ -56,6 +56,24 @@ def _campaign_traffic_type(request: Request) -> str:
     return "preview" if any(token in user_agent for token in _PREVIEW_BOT_TOKENS) else "visit"
 
 
+
+
+@router.get("/media-kit", response_class=HTMLResponse, include_in_schema=False)
+def pitmark_media_kit():
+    return _html("media_kit.html")
+
+
+@router.get("/pitmark-media-logo-wide.png", include_in_schema=False)
+def pitmark_media_wide_logo():
+    from fastapi.responses import FileResponse
+    return FileResponse(ASSET_DIR / "pitmark_logo_wide.png", media_type="image/png")
+
+
+@router.get("/pitmark-media-logo-round.png", include_in_schema=False)
+def pitmark_media_round_logo():
+    from fastapi.responses import FileResponse
+    return FileResponse(ASSET_DIR / "pitmark_favicon.png", media_type="image/png")
+
 @router.get("/links", response_class=HTMLResponse, include_in_schema=False)
 def pitmark_links():
     return _html("links.html")
