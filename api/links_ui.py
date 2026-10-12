@@ -67,11 +67,6 @@ def pitmark_media_kit_css():
     )
 
 
-@router.get("/media-kit", response_class=HTMLResponse, include_in_schema=False)
-def pitmark_media_kit():
-    return _html("media_kit.html")
-
-
 @router.get("/pitmark-media-logo-wide.png", include_in_schema=False)
 def pitmark_media_wide_logo():
     from fastapi.responses import FileResponse
