@@ -3,7 +3,10 @@
 These unclaimed racing identities are curated from first-party interviews
 provided directly to Pitmark by the Matthews Racing family.
 """
-import re\n\ndef identity_key(value):\n    return re.sub(r'[^a-z0-9]+', '', str(value).lower())
+import re
+
+def identity_key(value):
+    return re.sub(r'[^a-z0-9]+', '', str(value).lower())
 
 FEATURE_URL = "https://pitmarkracing.com/blogs/racing-culture/matthews-racing-noah-tyler-vmcra-family-feature-2026"
 
