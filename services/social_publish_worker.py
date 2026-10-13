@@ -133,10 +133,47 @@ def _recover_missing_title_regression(db, now: datetime) -> int:
     return recovered
 
 
+def archive_stale_pending_posts(db, now: datetime) -> int:
+    """Keep the approval queue current without deleting evidence or publishing drafts.
+
+    Automatic discovery and campaigns expire after 72 hours pending; manually
+    created drafts receive 30 days. Scheduled/published/approved posts are not
+    affected, and the original record remains in the database as archived.
+    """
+    auto_cutoff = now - timedelta(hours=72)
+    manual_cutoff = now - timedelta(days=30)
+    rows = list(db.scalars(
+        select(SocialPost)
+        .where(SocialPost.status == "pending")
+        .order_by(SocialPost.id.asc())
+        .limit(1000)
+    ).all())
+    archived = 0
+    for post in rows:
+        created = post.created_at
+        if not created:
+            continue
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        cutoff = auto_cutoff if _automatic_social_source(post.source) else manual_cutoff
+        if created.astimezone(timezone.utc) >= cutoff:
+            continue
+        post.status = "archived"
+        post.scheduled_for = None
+        post.updated_at = utcnow()
+        archived += 1
+        log.info("Archived stale pending social post %s source=%s", post.id, post.source)
+    if archived:
+        db.commit()
+        log.warning("Archived %s stale pending social posts", archived)
+    return archived
+
+
 def publish_due_posts() -> int:
     now = datetime.now(timezone.utc)
     published = 0
     with SessionLocal() as db:
+        archive_stale_pending_posts(db, now)
         _recover_missing_title_regression(db, now)
         rows = list(db.scalars(select(SocialPost).where(SocialPost.status == "scheduled", SocialPost.platform.in_(["facebook", "instagram", "x"])).order_by(SocialPost.id.asc())).all())
         for post in rows:
