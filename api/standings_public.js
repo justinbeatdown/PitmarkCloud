@@ -1741,30 +1741,65 @@ async function loadDriverProfileFast(){
   }
 }
 
-// Editorially verified grassroots profiles belong in the same driver feed as all other drivers.
+// Reconcile source-backed graph identities with the standings-driven directory.
+// Keep standings authoritative for results; graph supplies identities that have no standings feed.
 async function mergeEditorialRaceCenterDrivers(){
   if(!state.payload)return;
   try{
-    const response=await fetch('/api/public/race-center/graph?v=matthews-directory-20261012',{cache:'no-store'});
-    if(!response.ok)return;
+    const response=await fetch('/api/public/race-center/graph?v=unified-driver-directory-20261012',{cache:'no-store'});
+    if(!response.ok)throw new Error('Race Center graph unavailable');
     const graph=await response.json();
-    const names=new Set(['Noah Matthews','Tyler Matthews']);
-    const drivers=(graph.drivers||[]).filter(d=>names.has(d.name)&&d.team==='Matthews Racing'&&(d.series||[]).some(s=>s.series_key==='vmcra'));
-    if(!drivers.length)return;
     const seriesList=state.payload.series||(state.payload.series=[]);
-    let vmcra=seriesList.find(s=>s.series_key==='vmcra');
-    if(!vmcra){
-      vmcra={series_key:'vmcra',series_name:'Virginia Mini Cup Racing Association',short_name:'VMCRA',group:'GRASSROOTS',season:2026,entries:[],roster:[],status:'editorial',official_url:'https://pitmarkracing.com/blogs/racing-culture/matthews-racing-noah-tyler-vmcra-family-feature-2026'};
-      seriesList.push(vmcra);
+    const bySeries=new Map(seriesList.map(s=>[String(s.series_key||''),s]));
+    const alreadyKnown=new Set();
+    seriesList.forEach(s=>[...(s.entries||[]),...(s.roster||[])].forEach(row=>{
+      if(row.name)alreadyKnown.add(driverIdentityKey(row.name));
+    }));
+    let added=0;
+    for(const d of graph.drivers||[]){
+      if(!d||!d.name||!d.key)continue;
+      // Do not conflate same-name racers: only merge supplemental identities
+      // for drivers absent from the core standings directory.
+      const identity=driverIdentityKey(d.name);
+      if(alreadyKnown.has(identity))continue;
+      const affiliations=(d.series||[]).filter(x=>x&&x.series_key);
+      if(!affiliations.length)continue;
+      const preferred=affiliations.find(x=>x.series_key==='vmcra')||affiliations[0];
+      const key=String(preferred.series_key);
+      let series=bySeries.get(key);
+      if(!series){
+        const meta=(graph.series||[]).find(x=>x.key===key)||{};
+        series={
+          series_key:key,
+          series_name:meta.name||preferred.series_name||key,
+          short_name:meta.short_name||preferred.series_name||key,
+          group:meta.group||'GRASSROOTS',
+          season:meta.season||graph.season||new Date().getFullYear(),
+          entries:[],roster:[],status:meta.status||'editorial',
+          official_url:meta.official_url||preferred.official_url||'',
+          schedule_url:meta.schedule_url||'',
+          fetched_at:graph.generated_at||null
+        };
+        seriesList.push(series);
+        bySeries.set(key,series);
+      }
+      const rows=series.entries||(series.entries=[]);
+      if(rows.some(x=>driverIdentityKey(x.name)===identity))continue;
+      rows.push({
+        name:d.name,number:d.number||'',team:d.team||'',
+        manufacturer:d.manufacturer||'',position:null,points:null,
+        wins:null,starts:null,photo_url:'',photo_use_allowed:false,
+        editorial_bio:d.bio||'',source_urls:d.source_urls||[],
+        comparison_ready:false
+      });
+      alreadyKnown.add(identity);
+      added++;
     }
-    vmcra.entries=vmcra.entries||[];
-    for(const d of drivers){
-      const exists=[...vmcra.entries,...(vmcra.roster||[])].some(x=>driverIdentityKey(x.name)===driverIdentityKey(d.name));
-      if(!exists)vmcra.entries.push({name:d.name,number:d.number||'',team:'Matthews Racing',manufacturer:'',position:null,points:null,wins:null,starts:null,photo_url:'',photo_use_allowed:false});
+    if(added){
+      if(state.view==='drivers')renderDrivers();
+      if(state.view==='driver')renderDriverProfile();
     }
-    if(state.view==='drivers')renderDrivers();
-    if(state.view==='driver'&&currentDriverRoute()?.series_key==='vmcra')renderDriverProfile();
-  }catch(error){console.error('Editorial driver feed merge failed',error);}
+  }catch(error){console.error('Race Center driver directory reconciliation failed',error);}
 }
 
 async function load(){
