@@ -154,10 +154,60 @@ function enhanceEventStage(){
   }).catch(function(){});
 }
 
+
+function editorialMatthews(){
+  const people=['Noah Matthews','Tyler Matthews'];
+  const path=decodeURIComponent(location.pathname);
+  const person=people.find(n=>path.toLowerCase().endsWith('/'+n.toLowerCase()));
+  if(view==='driver'&&person){
+    const host=$('#driverProfileContent');
+    if(!host)return;
+    const draw=async()=>{
+      try{
+        const g=await graph();
+        const d=(g.drivers||[]).find(x=>x.name===person&&x.team==='Matthews Racing');
+        if(!d)return;
+        const team=(g.teams||[]).find(x=>x.key==='matthews-racing');
+        const bio=d.bio||'Matthews Racing driver competing in the Virginia Mini Cup Racing Association.';
+        const headline=d.name==='Noah Matthews'?'2023 VMCRA Rookie of the Year':'2025 VMCRA Rookie of the Year';
+        const series=d.series||[];
+        const hero='<article class="driver-profile-hero driver-profile-hero-rich"><div class="driver-profile-photo"><div class="driver-portrait-placeholder" style="display:grid;place-items:center;min-height:240px;font-weight:800;font-size:4rem">'+esc(d.name.split(' ').map(x=>x[0]).join(''))+'</div></div><div class="driver-profile-copy"><span class="eyebrow">GRASSROOTS · VMCRA</span><h2>'+esc(d.name)+'</h2><p>'+esc([d.number?'#'+d.number:'',d.team,'Mini Cup'].filter(Boolean).join(' · '))+'</p><div class="driver-profile-actions"><a class="button primary" href="/race-center/team/matthews-racing">Matthews Racing →</a><a class="button" href="/race-center/series/vmcra">VMCRA →</a><a class="button" href="/race-center/drivers">All drivers</a></div></div><div class="driver-profile-stat-grid"><div class="driver-stat-tile"><span>DRIVER MILESTONE</span><strong>'+esc(headline)+'</strong></div></div></article>';
+        const links='<div class="driver-profile-layout"><div class="driver-profile-main"><section class="driver-detail-card driver-about-card"><span class="eyebrow">ABOUT THE DRIVER</span><h3>'+esc(d.name)+'</h3><p>'+esc(bio)+'</p></section><section class="driver-detail-card"><span class="eyebrow">RACING EXPERIENCE</span><h3>Virginia Mini Cup Racing Association</h3><p>Matthews Racing · Mini Cup competition. Results and championship statistics will be added when verified by the series.</p><a href="/race-center/series/vmcra">Explore VMCRA →</a></section><section class="driver-detail-card"><span class="eyebrow">PITMARK RACING CULTURE</span><h3>The Matthews Racing family story</h3><p>Learn about Noah, Tyler and the family behind Matthews Racing.</p><a href="https://pitmarkracing.com/blogs/racing-culture/matthews-racing-noah-tyler-vmcra-family-feature-2026" target="_blank" rel="noopener">Read the feature ↗</a></section></div><aside class="driver-profile-aside"><section class="driver-detail-card"><span class="eyebrow">TEAM</span><h3>Matthews Racing</h3><p>'+esc((team?.drivers||[]).map(x=>x.name).join(' · '))+'</p><a href="/race-center/team/matthews-racing">Team profile →</a></section><section class="driver-detail-card"><span class="eyebrow">SERIES</span><h3>VMCRA</h3><p>Virginia Mini Cup Racing Association</p><a href="/race-center/series/vmcra">Series profile →</a></section><section class="driver-detail-card"><span class="eyebrow">PROFILE STATUS</span><p>Unclaimed driver identity · Source-backed Pitmark editorial coverage</p></section></aside></div>';
+        const markup=hero+links;
+        if(host.dataset.matthewsRendered==='1'&&host.innerHTML===markup)return;
+        host.dataset.matthewsRendered='1';host.innerHTML=markup;
+      }catch(e){console.error('Matthews driver profile load failed',e);}
+    };
+    draw();
+    let pending=false;
+    const observer=new MutationObserver(()=>{if(pending)return;pending=true;requestAnimationFrame(()=>{pending=false;if(host.dataset.matthewsRendered==='1'&&!host.querySelector('.driver-about-card'))draw();});});
+    observer.observe(host,{childList:true});
+    setTimeout(()=>observer.disconnect(),12000);
+  }
+  if(view==='drivers'){
+    const input=$('#driverSearch'),grid=$('#driversGrid'),counter=$('#driverResultCount');
+    if(!grid||!input)return;
+    let drivers=[];
+    const sync=()=>{
+      if(!drivers.length)return;
+      const q=String(input.value||'').trim().toLowerCase();
+      grid.querySelectorAll('[data-matthews-editorial]').forEach(x=>x.remove());
+      const matching=drivers.filter(x=>[x.name,x.team,'VMCRA','Virginia Mini Cup Racing Association'].join(' ').toLowerCase().includes(q));
+      const cards=matching.map(d=>'<article class="driver-directory-card" data-matthews-editorial="1"><a class="driver-directory-main" href="/race-center/driver/vmcra/'+encodeURIComponent(d.name)+'"><div class="driver-portrait-placeholder" style="display:grid;place-items:center;width:80px;height:80px;font-weight:800">'+esc(d.name.split(' ').map(x=>x[0]).join(''))+'</div><div><span class="driver-number">'+esc(d.number?'#'+d.number:'VMCRA')+'</span><strong>'+esc(d.name)+'</strong><small>Matthews Racing · Mini Cup</small><em>VMCRA</em></div></a></article>').join('');
+      grid.insertAdjacentHTML('afterbegin',cards);
+      if(counter&&matching.length){const raw=parseInt(counter.textContent,10);if(Number.isFinite(raw))counter.textContent=(raw+matching.length)+' driver profiles';}
+    };
+    graph().then(g=>{drivers=(g.drivers||[]).filter(x=>x.team==='Matthews Racing'&&['Noah Matthews','Tyler Matthews'].includes(x.name));sync();}).catch(()=>{});
+    input.addEventListener('input',()=>setTimeout(sync,0));
+    let running=false;
+    new MutationObserver(()=>{if(running||!drivers.length)return;const count=grid.querySelectorAll('[data-matthews-editorial]').length;if(count===0){running=true;sync();running=false;}}).observe(grid,{childList:true});
+  }
+}
+
 function init(){
   document.body.classList.add('race-center-v8');ensureHome();
   if(view==='hub'){renderStories();renderGrassroots();setTimeout(patchLocal,800);}
-  renderLive();storyPage();setTimeout(enhanceEventStage,700);setTimeout(enhanceProfileCoverage,1100);setTimeout(enhanceProfileCoverage,2600);setTimeout(images,250);setTimeout(images,1400);
+  editorialMatthews();renderLive();storyPage();setTimeout(enhanceEventStage,700);setTimeout(enhanceProfileCoverage,1100);setTimeout(enhanceProfileCoverage,2600);setTimeout(images,250);setTimeout(images,1400);
   new MutationObserver(images).observe(document.body,{childList:true,subtree:true});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
