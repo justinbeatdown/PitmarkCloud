@@ -1741,6 +1741,32 @@ async function loadDriverProfileFast(){
   }
 }
 
+// Editorially verified grassroots profiles belong in the same driver feed as all other drivers.
+async function mergeEditorialRaceCenterDrivers(){
+  if(!state.payload)return;
+  try{
+    const response=await fetch('/api/public/race-center/graph?v=matthews-directory-20261012',{cache:'no-store'});
+    if(!response.ok)return;
+    const graph=await response.json();
+    const names=new Set(['Noah Matthews','Tyler Matthews']);
+    const drivers=(graph.drivers||[]).filter(d=>names.has(d.name)&&d.team==='Matthews Racing'&&(d.series||[]).some(s=>s.series_key==='vmcra'));
+    if(!drivers.length)return;
+    const seriesList=state.payload.series||(state.payload.series=[]);
+    let vmcra=seriesList.find(s=>s.series_key==='vmcra');
+    if(!vmcra){
+      vmcra={series_key:'vmcra',series_name:'Virginia Mini Cup Racing Association',short_name:'VMCRA',group:'GRASSROOTS',season:2026,entries:[],roster:[],status:'editorial',official_url:'https://pitmarkracing.com/blogs/racing-culture/matthews-racing-noah-tyler-vmcra-family-feature-2026'};
+      seriesList.push(vmcra);
+    }
+    vmcra.entries=vmcra.entries||[];
+    for(const d of drivers){
+      const exists=[...vmcra.entries,...(vmcra.roster||[])].some(x=>driverIdentityKey(x.name)===driverIdentityKey(d.name));
+      if(!exists)vmcra.entries.push({name:d.name,number:d.number||'',team:'Matthews Racing',manufacturer:'',position:null,points:null,wins:null,starts:null,photo_url:'',photo_use_allowed:false});
+    }
+    if(state.view==='drivers')renderDrivers();
+    if(state.view==='driver'&&currentDriverRoute()?.series_key==='vmcra')renderDriverProfile();
+  }catch(error){console.error('Editorial driver feed merge failed',error);}
+}
+
 async function load(){
   try{
     const controller=new AbortController();
@@ -1755,6 +1781,7 @@ async function load(){
     state.payload=await response.json();
     saveCachedPayload(state.payload);
     render();
+    mergeEditorialRaceCenterDrivers();
 
     if(state.payload?.events?.warming&&eventWarmRetries<6){
       eventWarmRetries++;
@@ -1796,6 +1823,7 @@ function bootRaceCenter(){
   if(cached){
     state.payload=cached;
     render();
+    mergeEditorialRaceCenterDrivers();
     const status=$('#headerStatus');
     if(status){
       status.className='header-health warn';
