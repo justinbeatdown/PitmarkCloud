@@ -437,6 +437,9 @@ def race_center_entity_directory(kind: str):
         "teams": "teams",
         "event": "events",
         "events": "events",
+        "driver": "drivers",
+        "drivers": "drivers",
+        "series": "series",
     }
     collection = collection_map.get(clean)
     if not collection:
