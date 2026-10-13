@@ -184,7 +184,7 @@ function editorialMatthews(){
     observer.observe(host,{childList:true});
     setTimeout(()=>observer.disconnect(),12000);
   }
-  if(view==='drivers'){
+  if(view==='drivers' && !window.RACE_CENTER_V7){
     const input=$('#driverSearch'),grid=$('#driversGrid'),counter=$('#driverResultCount');
     if(!grid||!input)return;
     let drivers=[];
