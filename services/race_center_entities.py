@@ -481,6 +481,10 @@ def _build_entity_graph_impl(force: bool = False) -> dict[str, Any]:
             if source_url and source_url not in source_urls:
                 source_urls.append(source_url)
 
+    # First-party editorial grassroots additions (unclaimed identities).
+    from services.race_center_editorial_seed import add_matthews_vmcra
+    add_matthews_vmcra(series_items, drivers, teams)
+
     for driver in drivers.values():
         driver_series = {str(row.get("series_key") or "") for row in driver.get("series") or []}
         driver["stats"] = {
