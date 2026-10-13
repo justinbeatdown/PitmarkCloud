@@ -891,9 +891,7 @@ function renderDriverProfile(){
   const identitySourceUrl=officialIdentity?.status==='ready'
     ?String(officialIdentity.secondary_source_url||officialIdentity.source_url||'')
     :'';
-  const identityBio=officialIdentity?.status==='ready'
-    ?String(officialIdentity.bio||'').trim()
-    :'';
+  const identityBio=(officialIdentity?.status==='ready' ? String(officialIdentity.bio||'').trim() : '') || String(row.editorial_bio||'').trim();
   const photoSourceUrl=officialIdentity?.status==='ready'
     ?String(officialIdentity.photo_source_url||'')
     :'';
@@ -925,7 +923,7 @@ function renderDriverProfile(){
   }).join('');
 
   const sourceLinks=[
-    series.official_url?'<a href="'+esc(series.official_url)+'" target="_blank" rel="noopener"><span>Official series standings</span><strong>Open source ↗</strong></a>':'',
+    series.official_url?'<a href="'+esc(series.official_url)+'" target="_blank" rel="noopener"><span>'+esc(series.status==='editorial'?'Editorial source':'Official series standings')+'</span><strong>Open source ↗</strong></a>':'',
     series.metadata_source_url?'<a href="'+esc(series.metadata_source_url)+'" target="_blank" rel="noopener"><span>Official driver identity source</span><strong>Open source ↗</strong></a>':'',
     identitySourceUrl&&officialIdentity?.source_kind!=='official'
       ?'<a href="'+esc(identitySourceUrl)+'" target="_blank" rel="noopener"><span>'+esc(identitySourceName||'Trusted secondary identity source')+'</span><strong>Open source ↗</strong></a>'
@@ -947,7 +945,7 @@ function renderDriverProfile(){
         '<div class="driver-profile-actions">'+
           '<button class="button '+(followed?'':'primary')+'" type="button" data-driver-follow="'+esc(primary.key)+'" data-driver-label="'+esc(primary.name)+'" data-driver-series="'+esc(primary.series_key)+'">'+(followed?'★ Following':'☆ Follow driver')+'</button>'+
           '<button class="button" type="button" data-driver-claim="'+esc(primary.key)+'" data-driver-name="'+esc(primary.name)+'" data-driver-series="'+esc(primary.series_key)+'">Claim this profile</button>'+
-          '<a class="button" href="'+esc(series.official_url||'/race-center/standings')+'" '+(series.official_url?'target="_blank" rel="noopener"':'')+'>Official standings'+(series.official_url?' ↗':'')+'</a>'+
+          '<a class="button" href="'+esc(series.official_url||'/race-center/standings')+'" '+(series.official_url?'target="_blank" rel="noopener"':'')+'>'+(series.status==='editorial'?'Read source':'Official standings')+(series.official_url?' ↗':'')+'</a>'+
         '</div>'+
       '</div>'+
       '<div class="driver-profile-stat-grid">'+stats+'</div>'+
