@@ -187,7 +187,7 @@
       status.className = 'form-status success';
       status.innerHTML = result.duplicate
         ? 'We already have a recent application for that email. No need to submit again — watch your email/Discord for Pitmark follow-up.'
-        : 'Application received. If accepted, Pitmark will send your Early Access activation code and setup instructions. <a href="https://discord.gg/jP6fQuW7dr" target="_blank" rel="noopener noreferrer">Join the PRT Discord</a> while you wait.';
+        : (result.auto_approved ? 'You’re accepted! Your PRT Early Access activation code and setup instructions are on their way by email. ' : 'Application received. Pitmark will follow up by email with your access details. ') + '<a href="https://discord.gg/jP6fQuW7dr" target="_blank" rel="noopener noreferrer">Join the PRT Discord</a>.';
       submit.textContent = 'APPLICATION RECEIVED';
     } catch (error) {
       status.className = 'form-status error';
