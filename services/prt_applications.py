@@ -229,11 +229,67 @@ def submit_application(
         # remains visible in Control Center for manual follow-up.
         notification_sent = False
 
+    # Auto-onboard only freshly submitted, validated applications.
+    # Owner notifications above are preserved even when onboarding fails.
+    onboarding_sent = False
+    onboarding_error = ""
+    try:
+        from api.early_access_admin import _acceptance_message
+        from services.pitmark_mail_identities import send_message as send_acceptance
+        from services.prt_licensing_store import create_early_access_invite, list_early_access_invites
+
+        # The plaintext of existing codes is deliberately not retained.
+        # Never issue another code for an already-invited email address.
+        active_invite = any(
+            (invite.get("email") or "").strip().lower() == clean_email
+            and (invite.get("status") or "").strip().lower() not in {"revoked", "expired"}
+            for invite in list_early_access_invites(limit=500)
+        )
+        if active_invite:
+            onboarding_error = "existing_invite"
+        else:
+            invite = create_early_access_invite(
+                applicant_name=clean_name,
+                email=clean_email,
+                discord=_clean(discord_username, 100),
+                notes=f"Auto-approved Quick Apply application #{row.id}",
+                expires_days=14,
+            )
+            send_acceptance(
+                to=[clean_email],
+                subject="You’re In — Welcome to PRT Early Access 🏁",
+                text=_acceptance_message(clean_name, invite["code"], row.placement),
+                from_identity="justin",
+            )
+            onboarding_sent = True
+    except Exception:
+        import logging
+        logging.getLogger("pitmark.prt_applications").exception(
+            "PRT auto-onboarding failed for application #%s", row.id
+        )
+        onboarding_error = "delivery_failed"
+
+    # A failed send remains visible for manual follow-up rather than being
+    # falsely marked as accepted. Successful sends update the native queue.
+    if onboarding_sent:
+        try:
+            from services.prt_application_admin import set_application_status
+            set_application_status(row.id, "accepted")
+        except Exception:
+            import logging
+            logging.getLogger("pitmark.prt_applications").exception(
+                "PRT status update failed after onboarding #%s", row.id
+            )
+            onboarding_error = "status_update_failed"
+
     return {
         "ok": True,
         "duplicate": False,
         "application_id": row.id,
         "notification_sent": notification_sent,
+        "auto_approved": onboarding_sent and not onboarding_error,
+        "onboarding_sent": onboarding_sent,
+        "onboarding_error": onboarding_error,
     }
 
 
