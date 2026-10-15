@@ -92,3 +92,34 @@ def pacing_decision(
                 return False, "recent manual post suppresses automated post"
 
     return True, "ok"
+
+
+def facebook_publish_decision(db, candidate_post: SocialPost, now: datetime) -> tuple[bool, str]:
+    """Final outbound gate. Count *actual* publishes, not planned records.
+
+    Scheduling rules alone cannot protect against preexisting queues or direct
+    writes to scheduled status. This must run immediately before Meta is called.
+    """
+    zone = _zone()
+    today = now.astimezone(zone).date()
+    published = list(db.scalars(select(SocialPost).where(
+        SocialPost.platform == "facebook",
+        SocialPost.status == "published",
+    )).all())
+    today_rows = []
+    for post in published:
+        when = _parse_dt(post.updated_at) or _parse_dt(post.created_at)
+        if when and when.astimezone(zone).date() == today:
+            today_rows.append(when)
+
+    source = str(candidate_post.source or "")
+    priority = source.startswith(("firstparty:", "dailycampaign:")) or source == "control_center:priority"
+    cap = BUSY_DAY_CAP if priority else DEFAULT_DAILY_CAP
+    if len(today_rows) >= cap:
+        return False, f"daily published Facebook cap reached ({len(today_rows)}/{cap})"
+    if today_rows:
+        latest = max(today_rows)
+        gap = (now - latest).total_seconds()
+        if gap < DEFAULT_MIN_GAP_MINUTES * 60:
+            return False, f"minimum published-post spacing not met ({DEFAULT_MIN_GAP_MINUTES}m)"
+    return True, "ok"
