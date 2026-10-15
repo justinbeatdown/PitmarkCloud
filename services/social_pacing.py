@@ -8,11 +8,11 @@ from sqlalchemy import select
 from services.control_center import SocialPost
 from utils.config import settings
 
-AUTOMATED_SOURCE_PREFIXES = ("dailycampaign:", "firstparty:", "operator:")
+AUTOMATED_SOURCE_PREFIXES = ("dailycampaign:", "firstparty:", "operator:", "intelligence:")
 ACTIVE_STATUSES = ("scheduled", "published")
-DEFAULT_DAILY_CAP = 3
-BUSY_DAY_CAP = 5
-DEFAULT_MIN_GAP_MINUTES = 120
+DEFAULT_DAILY_CAP = 2
+BUSY_DAY_CAP = 3
+DEFAULT_MIN_GAP_MINUTES = 180
 
 
 def _zone() -> ZoneInfo:
@@ -66,7 +66,7 @@ def pacing_decision(
     min_gap_minutes: int = DEFAULT_MIN_GAP_MINUTES,
 ) -> tuple[bool, str]:
     rows = platform_day_rows(db, platform, candidate)
-    cap = BUSY_DAY_CAP if priority else DEFAULT_DAILY_CAP
+    cap = DEFAULT_DAILY_CAP if platform.strip().lower() == "facebook" else (BUSY_DAY_CAP if priority else DEFAULT_DAILY_CAP)
     if len(rows) >= cap:
         return False, f"daily platform cap reached ({len(rows)}/{cap})"
 
