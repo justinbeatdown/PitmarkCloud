@@ -14,6 +14,7 @@ from services.meta_publish_service import facebook_configured, instagram_configu
 from services.x_publish_service import configured as x_configured, publish_x_post
 from services.social_asset_pool import choose_asset, mark_used, sync_shopify_images
 from services.social_quality_gate import assess_automatic_post_quality
+from services.social_pacing import facebook_publish_decision
 from utils.config import settings
 
 log = logging.getLogger(__name__)
@@ -236,6 +237,11 @@ def publish_due_posts() -> int:
                             continue
                 except (ValueError, TypeError):
                     pass
+            if platform == "facebook":
+                allowed, reason = facebook_publish_decision(db, post, now)
+                if not allowed:
+                    log.warning("FACEBOOK_PACING_BLOCKED post=%s source=%s reason=%s", post.id, post.source, reason)
+                    continue
             try:
                 if platform == "facebook":
                     publish_facebook_post(post.body)
