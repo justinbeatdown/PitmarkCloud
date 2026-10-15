@@ -10,9 +10,9 @@ from utils.config import settings
 
 AUTOMATED_SOURCE_PREFIXES = ("dailycampaign:", "firstparty:", "operator:")
 ACTIVE_STATUSES = ("scheduled", "published")
-DEFAULT_DAILY_CAP = 2
-BUSY_DAY_CAP = 3
-DEFAULT_MIN_GAP_MINUTES = 180
+DEFAULT_DAILY_CAP = 3
+BUSY_DAY_CAP = 5
+DEFAULT_MIN_GAP_MINUTES = 120
 
 
 def _zone() -> ZoneInfo:
@@ -66,9 +66,7 @@ def pacing_decision(
     min_gap_minutes: int = DEFAULT_MIN_GAP_MINUTES,
 ) -> tuple[bool, str]:
     rows = platform_day_rows(db, platform, candidate)
-    # Facebook is intentionally conservative: breaking-news priority may reorder
-    # the queue, but must not raise the daily automated-post allowance.
-    cap = DEFAULT_DAILY_CAP if platform.strip().lower() == "facebook" else (BUSY_DAY_CAP if priority else DEFAULT_DAILY_CAP)
+    cap = BUSY_DAY_CAP if priority else DEFAULT_DAILY_CAP
     if len(rows) >= cap:
         return False, f"daily platform cap reached ({len(rows)}/{cap})"
 
