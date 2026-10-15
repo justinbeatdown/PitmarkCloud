@@ -66,7 +66,9 @@ def pacing_decision(
     min_gap_minutes: int = DEFAULT_MIN_GAP_MINUTES,
 ) -> tuple[bool, str]:
     rows = platform_day_rows(db, platform, candidate)
-    cap = BUSY_DAY_CAP if priority else DEFAULT_DAILY_CAP
+    # Facebook is intentionally conservative: breaking-news priority may reorder
+    # the queue, but must not raise the daily automated-post allowance.
+    cap = DEFAULT_DAILY_CAP if platform.strip().lower() == "facebook" else (BUSY_DAY_CAP if priority else DEFAULT_DAILY_CAP)
     if len(rows) >= cap:
         return False, f"daily platform cap reached ({len(rows)}/{cap})"
 
