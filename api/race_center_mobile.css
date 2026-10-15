@@ -35,7 +35,7 @@
   .header-health{display:none!important}
   .account-button{
     width:auto!important;max-width:126px!important;min-height:38px!important;
-    padding:0 10px!important;font-size:10px!important;white-space:nowrap!important;
+    padding:0 10px!important;font-size:12px!important;white-space:nowrap!important;
     overflow:hidden!important;text-overflow:ellipsis!important
   }
 
@@ -114,7 +114,7 @@
   }
   .rc-mobile-nav a{
     min-width:0;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:3px;border-radius:10px;color:#8e9baa;text-decoration:none;font-size:8px;font-weight:900;letter-spacing:.03em
+    gap:3px;border-radius:10px;color:#8e9baa;text-decoration:none;font-size:11px;font-weight:800;letter-spacing:0
   }
   .rc-mobile-nav a span:first-child{font-size:18px;line-height:1}
   .rc-mobile-nav a[aria-current="page"]{color:#fff;background:rgba(255,85,0,.11)}
@@ -135,7 +135,7 @@
   @media(max-width:480px){
     .header-inner{width:calc(100% - 16px)!important;gap:6px!important}
     .brand img{width:98px!important;max-width:98px!important;height:34px!important;max-height:34px!important}
-    .account-button{max-width:112px!important;padding:0 8px!important;font-size:9px!important}
+    .account-button{max-width:112px!important;padding:0 8px!important;font-size:11px!important}
     .pulse-grid{grid-template-columns:1fr!important}
     .hero-actions{grid-template-columns:1fr!important}
     .hero-board{grid-template-columns:1fr 1fr!important}
@@ -147,3 +147,7 @@
   .rc-install-banner{display:none!important}
   body{overscroll-behavior-y:none}
 }
+
+/* Accessible interactive affordances and reduced-motion support. */
+.rc-mobile-nav a:focus-visible,.rc-install-banner button:focus-visible{outline:3px solid #ff8a48;outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.rc-mobile-nav *,.rc-install-banner *{transition:none!important;animation:none!important}}
