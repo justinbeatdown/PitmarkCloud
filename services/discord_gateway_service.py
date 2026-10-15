@@ -321,9 +321,13 @@ async def sync_beta_tester_role_for_discord_id(discord_user_id: str) -> bool:
 async def _watch_beta_tester_roles() -> None:
     """Continuously reconcile active PRT Early Access testers into the Discord role."""
     interval = max(30, int(settings.discord_beta_tester_role_sync_seconds or 60))
+    # Successful role assignments are idempotent, so avoid repeating them on every poll.
+    # This cache is process-local; restarts reconcile again, deliberately at a safe pace.
+    confirmed_ids: set[str] = set()
     while True:
         try:
             invites = prt_licensing_store.list_early_access_invites(limit=500)
+            eligible_ids: set[str] = set()
             for access in invites:
                 if not _eligible_beta_tester(access):
                     continue
@@ -332,8 +336,16 @@ async def _watch_beta_tester_roles() -> None:
                     continue
                 link = discord_service.link_status(device_id)
                 discord_user_id = str(link.get("discord_user_id") or "").strip()
-                if link.get("connected") and discord_user_id:
-                    await sync_beta_tester_role_for_discord_id(discord_user_id)
+                if not (link.get("connected") and discord_user_id):
+                    continue
+                eligible_ids.add(discord_user_id)
+                if discord_user_id in confirmed_ids:
+                    continue
+                if await sync_beta_tester_role_for_discord_id(discord_user_id):
+                    confirmed_ids.add(discord_user_id)
+                # Respect Discord's API capacity, including on process restart.
+                await asyncio.sleep(1.0)
+            confirmed_ids.intersection_update(eligible_ids)
         except asyncio.CancelledError:
             raise
         except Exception:
