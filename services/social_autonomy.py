@@ -147,7 +147,7 @@ def auto_schedule_pending_social(limit: int = 60) -> dict:
                 db,
                 platform=post.platform,
                 candidate=candidate,
-                priority=str(post.source or "").startswith("intelligence:"),
+                priority=str(post.source or "").startswith(("firstparty:", "dailycampaign:")),
             )
             if not allowed:
                 log.info("Autonomous social held post %s for pacing: %s", post.id, reason)
