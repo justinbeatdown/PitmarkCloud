@@ -59,7 +59,8 @@
       }
     });
 
-    const dismissed = Number(localStorage.getItem('rc-install-dismissed-at') || 0);
+    let dismissed = 0;
+    try { dismissed = Number(localStorage.getItem('rc-install-dismissed-at') || 0); } catch (_e) { /* Storage may be disabled. */ }
     if (!dismissed || Date.now() - dismissed > 7*24*60*60*1000) {
       if (/iphone|ipad|ipod/i.test(navigator.userAgent)) banner.classList.add('is-visible');
     }
