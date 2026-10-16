@@ -270,6 +270,15 @@ def prt_v2_css():
     )
 
 
+@router.get("/prt-trackside.css", include_in_schema=False)
+def prt_trackside_css():
+    return Response(
+        (ASSET_DIR / "prt-trackside.css").read_text(encoding="utf-8"),
+        media_type="text/css",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @router.get("/prt.js", include_in_schema=False)
 def prt_js():
     return Response(
