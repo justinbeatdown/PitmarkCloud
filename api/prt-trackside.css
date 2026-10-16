@@ -11,7 +11,7 @@ body.prt-v2{background:#070808;color:#f5f5f1}
 .prt-v2 .v2-hero-copy{position:relative;z-index:2}
 .prt-v2 .v2-kicker{font-size:12px;letter-spacing:2.5px;color:#ff783e}
 .prt-v2 .v2-hero h1{max-width:none;font:italic 900 clamp(38px,5vw,92px)/1.09 Impact,"Arial Narrow",sans-serif;letter-spacing:-.018em;transform:none;text-shadow:none;white-space:nowrap;text-wrap:nowrap}
-.prt-v2 .v2-hero h1 em{display:block;color:#ff5500;text-shadow:none;white-space:nowrap}
+.prt-v2 .v2-hero h1 em{display:inline-block;color:#ff5500;text-shadow:none;white-space:nowrap}
 .prt-v2 .v3-hero-stamp{margin:30px 0 14px;background:transparent;border-left:0;border-top:2px solid #ff5500;padding:14px 0 0;letter-spacing:2.7px}
 .prt-v2 .v2-lead{font-size:clamp(16px,1.35vw,21px);line-height:1.5;max-width:53ch;color:#e0e1dc}
 .prt-v2 .v2-actions{gap:10px;margin-top:27px}
