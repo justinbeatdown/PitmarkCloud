@@ -112,9 +112,10 @@ def facebook_publish_decision(db, candidate_post: SocialPost, now: datetime) -> 
         if when and when.astimezone(zone).date() == today:
             today_rows.append(when)
 
-    source = str(candidate_post.source or "")
-    priority = source.startswith(("firstparty:", "dailycampaign:")) or source == "control_center:priority"
-    cap = BUSY_DAY_CAP if priority else DEFAULT_DAILY_CAP
+    # Absolute outbound ceiling: campaign priority must NEVER raise the hard cap.
+    # This is a safety gate for Control Center-originated publishes; Metricool
+    # publications must also be accounted for by the coordinator.
+    cap = BUSY_DAY_CAP
     if len(today_rows) >= cap:
         return False, f"daily published Facebook cap reached ({len(today_rows)}/{cap})"
     if today_rows:
