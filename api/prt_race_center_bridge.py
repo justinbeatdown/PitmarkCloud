@@ -120,7 +120,7 @@ def _account(request: Request):
     return account
 
 
-def _bearer(request: Request, for_upload: bool = False) -> int:
+def _device(request: Request, for_upload: bool = False) -> PrtDevice:
     header = request.headers.get("authorization", "")
     if not header.startswith("Bearer prt_"):
         raise HTTPException(status_code=401, detail="Connect PRT to Race Center first")
@@ -134,7 +134,12 @@ def _bearer(request: Request, for_upload: bool = False) -> int:
             raise HTTPException(status_code=401, detail="Race Center connection expired or disconnected")
         if for_upload and not token.can_upload_private_history:
             raise HTTPException(status_code=403, detail="Private history upload was not authorized when this device was linked")
-        return token.user_id
+        db.expunge(token)
+        return token
+
+
+def _bearer(request: Request, for_upload: bool = False) -> int:
+    return _device(request, for_upload).user_id
 
 
 @router.post("/api/public/race-center/prt/link/start")
@@ -196,12 +201,13 @@ def prt_link_token(body: PairPoll):
 
 @router.get("/api/public/race-center/prt/device")
 def prt_device(request: Request):
-    user_id = _bearer(request)
+    device = _device(request)
+    user_id = device.user_id
     with SessionLocal() as db:
         count = db.scalar(select(func.count(PrtSession.id)).where(PrtSession.user_id == user_id))
     profile = race_center_accounts.ensure_profile(user_id)
     return {"connected": True, "handle": profile["handle"], "session_count": count,
-            "visibility": "private"}
+            "can_upload_private_history": device.can_upload_private_history, "visibility": "private"}
 
 
 @router.put("/api/public/race-center/prt/sessions")
@@ -226,6 +232,17 @@ def prt_upload_sessions(request: Request, body: SessionBatch):
         total = db.scalar(select(func.count(PrtSession.id)).where(PrtSession.user_id == user_id))
     return {"ok": True, "imported": imported, "session_count": total,
             "visibility": "private"}
+
+
+@router.post("/api/public/race-center/prt/device/revoke")
+def prt_revoke_this_device(request: Request):
+    device = _device(request)
+    with SessionLocal() as db:
+        persisted = db.get(PrtDevice, device.id)
+        if persisted:
+            persisted.revoked = True
+            db.commit()
+    return {"ok": True}
 
 
 @router.get("/api/public/race-center/prt/my-sessions")
