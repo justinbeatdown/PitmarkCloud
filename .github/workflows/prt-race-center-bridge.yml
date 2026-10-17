@@ -22,5 +22,5 @@ jobs:
           python-version: '3.12'
       - run: python tests/test_prt_race_center_bridge_contract.py
       - run: pip install fastapi sqlalchemy pydantic-settings httpx
-      - run: python tests/test_prt_bridge_import_smoke.py
+      - run: PYTHONPATH=. python tests/test_prt_bridge_import_smoke.py
       - run: node --check api/race_center_profile.js
