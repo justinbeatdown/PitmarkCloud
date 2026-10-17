@@ -254,6 +254,22 @@ def prt_my_sessions(request: Request):
         return {"sessions": [json.loads(r.data_json) for r in records], "visibility": "private"}
 
 
+@router.get("/api/public/race-center/prt/my-summary")
+def prt_my_summary(request: Request):
+    user = _account(request)
+    with SessionLocal() as db:
+        rows = db.scalars(select(PrtSession).where(PrtSession.user_id == user.id)).all()
+        data = [json.loads(row.data_json) for row in rows]
+    finished = [row for row in data if int(row.get("finishing_position") or 0) > 0]
+    return {
+        "private": True, "sessions": len(data),
+        "laps": sum(int(row.get("laps") or 0) for row in data),
+        "wins": sum(int(row.get("finishing_position") or 0) == 1 for row in finished),
+        "top_fives": sum(int(row.get("finishing_position") or 0) <= 5 for row in finished),
+        "best_lap": min((float(row.get("best_lap") or 0) for row in data if float(row.get("best_lap") or 0) > 0), default=0),
+    }
+
+
 @router.post("/api/public/race-center/prt/unlink")
 def prt_unlink(request: Request):
     _same_site(request)
