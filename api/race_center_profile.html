@@ -6,6 +6,7 @@
   <title>Race Center Profile — Pitmark Racing Co.</title>
   <meta name="theme-color" content="#090b0e">
   <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-v7-profile-20260923">
+  <link rel="stylesheet" href="/race-center-prt-profile.css?v=20261017">
 </head>
 <body data-view="profile" data-profile-handle="{{PROFILE_HANDLE}}">
   <header class="site-header">
@@ -70,13 +71,24 @@
       </div>
     </section>
 
-    <section class="profile-racing-card" id="profilePrtPrivateStats" hidden>
-      <div class="section-head">
-        <div><span class="eyebrow">PRT CONNECTED</span><h2>My private sim racing history</h2></div>
-        <p>Only you can see these imported statistics. They are not public profile claims.</p>
+    <section class="profile-racing-card prt-private-panel" id="profilePrtPrivateStats" hidden aria-label="Your private PRT racing dashboard">
+      <span id="prt-history"></span>
+      <div class="prt-topbar">
+        <div>
+          <span class="eyebrow">PRT + RACE CENTER</span>
+          <h2>My PRT racing history</h2>
+          <p class="prt-private-notice">Your recorded iRacing results in one place. This section is visible only when you're signed in to your own account.</p>
+        </div>
+        <span class="prt-privacy-pill">Private to you</span>
       </div>
-      <div id="profilePrtPrivateSummary" class="profile-followed-racing"></div>
-      <p><a href="/race-center/prt-connect">Manage PRT devices and imported history</a></p>
+      <p class="prt-status" id="profilePrtStatus" role="status" aria-live="polite">Checking your PRT connection…</p>
+      <div id="profilePrtPrivateSummary"></div>
+      <h3 class="prt-history-title" id="profilePrtRecentTitle">Recent races</h3>
+      <div id="profilePrtRecentRaces" class="prt-races"></div>
+      <div class="prt-actions">
+        <a href="/race-center/prt-connect">Manage PRT connection</a>
+        <a href="/race-center?account=1">Edit my racer profile</a>
+      </div>
     </section>
 
     <section class="profile-racing-card">
@@ -116,6 +128,6 @@
       </div>
     </div>
   </footer>
-  <script src="/race-center-profile.js?v={{PITMARK_VERSION}}-profile-v7-20260923" defer></script>
+  <script src="/race-center-profile.js?v={{PITMARK_VERSION}}-prt-dashboard-20261017" defer></script>
 </body>
 </html>
