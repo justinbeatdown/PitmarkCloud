@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'api/prt_race_center_bridge.py'
+      - 'api/prt_connect.css'
+      - 'api/prt_connect.js'
+      - 'tests/test_prt_connect_csp_contract.py'
       - 'api/race_center_profile.*'
       - 'main.py'
       - 'tests/test_prt_race_center_bridge_contract.py'
@@ -10,6 +13,9 @@ on:
   push:
     paths:
       - 'api/prt_race_center_bridge.py'
+      - 'api/prt_connect.css'
+      - 'api/prt_connect.js'
+      - 'tests/test_prt_connect_csp_contract.py'
       - 'main.py'
       - 'tests/test_prt_race_center_bridge_contract.py'
 jobs:
@@ -21,6 +27,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: python tests/test_prt_race_center_bridge_contract.py
+      - run: python tests/test_prt_connect_csp_contract.py
+      - run: node --check api/prt_connect.js
       - run: pip install -r requirements.txt
       - run: PYTHONPATH=. python tests/test_prt_bridge_import_smoke.py
       - run: node --check api/race_center_profile.js

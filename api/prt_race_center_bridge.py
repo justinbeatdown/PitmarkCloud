@@ -13,9 +13,10 @@ import re
 import secrets
 import time
 from urllib.parse import urlparse
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text, UniqueConstraint, delete, func, select
 from sqlalchemy.orm import Mapped, mapped_column
@@ -290,27 +291,88 @@ def prt_delete_history(request: Request):
     return {"ok": True}
 
 
+@router.get("/prt-connect.css", include_in_schema=False)
+def prt_connect_css():
+    return Response(
+        Path(__file__).with_name("prt_connect.css").read_text(encoding="utf-8"),
+        media_type="text/css", headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.get("/prt-connect.js", include_in_schema=False)
+def prt_connect_js():
+    return Response(
+        Path(__file__).with_name("prt_connect.js").read_text(encoding="utf-8"),
+        media_type="application/javascript", headers={"Cache-Control": "no-store"},
+    )
+
+
 @router.get("/race-center/prt-connect", response_class=HTMLResponse)
 def prt_connect_page(request: Request, code: str = ""):
     account = race_center_accounts.account_from_request(request)
-    clean = html.escape(re.sub(r"[^A-Z0-9]", "", (code or "").upper())[:8], quote=True)
-    account_label = html.escape(account.display_name or account.email, quote=True) if account else ""
-    signed = bool(account)
-    form = (
-        '<p>Signed in as <b>' + account_label + '</b></p>'
-        '<label>Code shown in PRT <input id="code" maxlength="8" value="' + clean + '"></label>'
-        '<p><label><input id="consent" type="checkbox"> Allow PRT to upload my selected race history as private data.</label></p>'
-        '<button id="approve">Approve this computer</button><p id="feedback" role="status"></p>'
-        '<h2>Manage PRT devices</h2><p>Disconnect from any computer and delete previously imported private history.</p>'
-        '<button id="unlink" type="button">Disconnect all PRT devices</button> '
-        '<button id="erase" type="button">Delete imported history</button>'
-        '<p id="historyStatus" role="status"></p>'
-        '<script>async function managePrt(method,path){const r=await fetch(path,{method,credentials:"same-origin"});const x=await r.json();if(!r.ok)throw Error(x.detail||"Request failed");return x;}'
-        'document.getElementById("unlink").onclick=async()=>{if(!confirm("Disconnect all PRT computers?"))return;try{await managePrt("POST","/api/public/race-center/prt/unlink");document.getElementById("historyStatus").textContent="Devices disconnected.";}catch(e){document.getElementById("historyStatus").textContent=e.message;}};'
-        'document.getElementById("erase").onclick=async()=>{if(!confirm("Permanently delete imported PRT racing history?"))return;try{await managePrt("DELETE","/api/public/race-center/prt/my-sessions");document.getElementById("historyStatus").textContent="Imported history deleted.";}catch(e){document.getElementById("historyStatus").textContent=e.message;}};</script>'
-        '<script>document.getElementById("approve").onclick=async()=>{const b=document.getElementById("approve");b.disabled=true;try{const r=await fetch("/api/public/race-center/prt/link/approve",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:document.getElementById("code").value,consent_private_history:document.getElementById("consent").checked})});const j=await r.json();document.getElementById("feedback").textContent=r.ok?"PRT connected. Return to the desktop app.":(j.detail||"Connection failed.");}catch(e){document.getElementById("feedback").textContent="Connection failed. Try again.";}finally{b.disabled=false;}};</script>'
-    ) if signed else (
-        '<p>Sign in to your Race Center account, then return to this page to approve PRT.</p>'
-        '<a href="/race-center">Sign in / create a Race Center account</a>'
-    )
-    return HTMLResponse('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Connect PRT — Race Center</title><style>body{font:16px system-ui;background:#0a0d10;color:#fff;max-width:590px;margin:48px auto;padding:22px}h1{color:#ff5500}input,button{font:inherit;padding:12px;background:#181d23;border:1px solid #535860;color:white}button{background:#ff5500;color:#100900;font-weight:bold;cursor:pointer}p{line-height:1.5}</style><h1>Connect PRT to Race Center</h1><p>Approve only the PRT application running on your computer. Race sessions remain private unless you later choose to publish them. You can revoke this device and delete your history.</p>' + form + '</html>')
+    clean_code = html.escape(re.sub(r"[^A-Z0-9]", "", (code or "").upper())[:8], quote=True)
+    if account:
+        account_label = html.escape(account.display_name or account.email, quote=True)
+        content = f"""
+            <section class="panel highlight" aria-labelledby="pair-title">
+              <div class="step">Step 2 of 2 · Approve your computer</div>
+              <h2 id="pair-title">Link this PRT installation</h2>
+              <div class="identity">Signed in as <strong>{account_label}</strong></div>
+              <label class="field-label" for="code">Pairing code shown in PRT</label>
+              <input class="code" id="code" name="code" value="{clean_code}"
+                maxlength="8" autocomplete="off" spellcheck="false" aria-describedby="code-help">
+              <p class="helper" id="code-help">
+                Use the eight-character code currently shown on your PRT Profile screen.
+                Codes expire after 10 minutes; start a new connection in PRT if needed.
+              </p>
+              <label class="checkrow" for="consent">
+                <input id="consent" type="checkbox">
+                <span><strong>Allow private racing-history uploads</strong>
+                <span class="helper"> — optional. Your imported sessions stay visible only to you,
+                not the public Race Center feed.</span></span>
+              </label>
+              <div class="actions"><button type="button" class="primary" id="approve">Approve this computer</button></div>
+              <p class="status" id="feedback" role="status" aria-live="polite"></p>
+            </section>
+            <section class="panel secondary" aria-labelledby="manage-title">
+              <h2 id="manage-title">Manage connected PRT computers</h2>
+              <p class="helper">Disconnect all desktop devices without deleting your account,
+                or permanently remove the racing history you previously uploaded.</p>
+              <div class="actions">
+                <button type="button" id="unlink">Disconnect all PRT computers</button>
+                <button type="button" class="danger" id="erase">Delete imported history</button>
+              </div>
+              <p class="status" id="historyStatus" role="status" aria-live="polite"></p>
+            </section>"""
+    else:
+        content = """
+            <section class="panel highlight">
+              <div class="step">Step 1 of 2 · Sign in</div>
+              <h2>Sign in to approve PRT</h2>
+              <p class="helper">Sign in or create a Race Center account first, then reopen
+              the pairing link shown in PRT to approve this computer.</p>
+              <div class="actions"><a class="button" href="/race-center">Sign in / create account</a></div>
+            </section>"""
+    markup = f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#080b0f">
+<title>Connect PRT · Pitmark Race Center</title>
+<link rel="stylesheet" href="/prt-connect.css?v=2">
+<script src="/prt-connect.js?v=2" defer></script>
+</head>
+<body>
+<main class="shell">
+<a class="brand" href="/race-center"><span class="brand-mark" aria-hidden="true">P</span> PITMARK · RACE CENTER</a>
+<span class="eyebrow">PRT + Race Center</span>
+<h1>Connect your racing profile.</h1>
+<p class="lead">Securely link Pitmark Racing Tools to your Race Center account.
+You control whether PRT can upload race history, and imported records remain
+private unless you explicitly publish them later.</p>
+{content}
+</main>
+</body>
+</html>"""
+    return HTMLResponse(markup, headers={"Cache-Control": "no-store"})
