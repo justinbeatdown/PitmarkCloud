@@ -16,7 +16,7 @@ from urllib.parse import urlparse
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, Response, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text, UniqueConstraint, delete, func, select
 from sqlalchemy.orm import Mapped, mapped_column
@@ -260,10 +260,15 @@ def prt_my_summary(request: Request):
     user = _account(request)
     with SessionLocal() as db:
         rows = db.scalars(select(PrtSession).where(PrtSession.user_id == user.id)).all()
+        device_count = db.scalar(select(func.count(PrtDevice.id)).where(
+            PrtDevice.user_id == user.id,
+            PrtDevice.revoked.is_(False),
+            PrtDevice.expires_at > time.time(),
+        )) or 0
         data = [json.loads(row.data_json) for row in rows]
     finished = [row for row in data if int(row.get("finishing_position") or 0) > 0]
     return {
-        "private": True, "sessions": len(data),
+        "private": True, "sessions": len(data), "connected_devices": int(device_count),
         "laps": sum(int(row.get("laps") or 0) for row in data),
         "wins": sum(int(row.get("finishing_position") or 0) == 1 for row in finished),
         "top_fives": sum(int(row.get("finishing_position") or 0) <= 5 for row in finished),
@@ -289,6 +294,20 @@ def prt_delete_history(request: Request):
         db.execute(delete(PrtSession).where(PrtSession.user_id == user.id))
         db.commit()
     return {"ok": True}
+
+
+@router.get("/race-center/me", include_in_schema=False)
+def race_center_my_profile(request: Request):
+    """Stable, bookmarkable route to the signed-in user's own profile."""
+    account = race_center_accounts.account_from_request(request)
+    if not account:
+        return RedirectResponse(url="/race-center", status_code=303)
+    profile = race_center_accounts.ensure_profile(account.id)
+    return RedirectResponse(
+        url="/race-center/u/" + profile["handle"] + "#prt-history",
+        status_code=303,
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.get("/prt-connect.css", include_in_schema=False)
