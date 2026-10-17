@@ -427,7 +427,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("fetch('/api/public/standings", public_js)
         self.assertIn("AbortController", public_js)
         self.assertIn("bootRaceCenter", public_js)
-        self.assertIn("<span class="brand-product"><strong>Race Center</strong></span>", public_html)
+        self.assertIn('<span class="brand-product"><strong>Race Center</strong></span>', public_html)
         self.assertIn('class="race-pulse home-race-pulse"', public_html)
         self.assertIn('id="pulseLive"', public_html)
         self.assertIn('id="favoritesFilter"', public_html)

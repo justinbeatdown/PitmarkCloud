@@ -1,0 +1,26 @@
+name: PRT Race Center pairing validation
+on:
+  pull_request:
+    paths:
+      - 'api/prt_race_center_bridge.py'
+      - 'api/race_center_profile.*'
+      - 'main.py'
+      - 'tests/test_prt_race_center_bridge_contract.py'
+      - '.github/workflows/prt-race-center-bridge.yml'
+  push:
+    paths:
+      - 'api/prt_race_center_bridge.py'
+      - 'main.py'
+      - 'tests/test_prt_race_center_bridge_contract.py'
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python tests/test_prt_race_center_bridge_contract.py
+      - run: pip install -r requirements.txt
+      - run: PYTHONPATH=. python tests/test_prt_bridge_import_smoke.py
+      - run: node --check api/race_center_profile.js

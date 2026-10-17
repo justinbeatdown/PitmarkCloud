@@ -190,6 +190,26 @@ async function load(){
     wall=wallPayload.posts||[];
     renderProfile();
     renderWall();
+    const ownPrt = Boolean(account.authenticated && account.profile && account.profile.handle === profile.handle);
+    const box = $('#profilePrtPrivateStats');
+    if (box) box.hidden = !ownPrt;
+    if (ownPrt) {
+      try {
+        const stats = await apiJson('/api/public/race-center/prt/my-summary');
+        const host = $('#profilePrtPrivateSummary');
+        if (host) {
+          host.textContent = '';
+          const b = document.createElement('div');
+          b.className = 'loading-card';
+          b.textContent = stats.sessions + ' sessions · ' + stats.laps + ' laps · ' + stats.wins +
+            ' wins · ' + stats.top_fives + ' top-five finishes · private';
+          host.appendChild(b);
+        }
+      } catch (error) {
+        const host = $('#profilePrtPrivateSummary');
+        if (host) host.textContent = 'PRT history unavailable. Connect PRT to Race Center to import your race data.';
+      }
+    }
     $('#profileAccountButton').textContent=account.authenticated?(account.display_name||account.email||'My Race Center'):'My Race Center';
     document.title=(profile.display_name||profile.handle)+' — Pitmark Race Center';
   }catch(error){
