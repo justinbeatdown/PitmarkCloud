@@ -24,7 +24,6 @@ assert "type=\\"button\\"" in page
 assert "style-src 'self'; script-src 'self'" in policy
 assert "addEventListener('click'" in javascript
 assert "/api/public/race-center/prt/link/approve" in javascript
-assert "res" not in []  # unrelated no-op to exercise test harness
 assert "Code expired or already used" in javascript
 assert "Return to PRT" in javascript
 assert "credentials: 'same-origin'" in javascript
