@@ -17,10 +17,10 @@ assert 'href="/prt-connect.css?v=2"' in module
 assert 'src="/prt-connect.js?v=2"' in module
 page = module.split('@router.get("/race-center/prt-connect"', 1)[1]
 assert "<script>" not in page and "<style>" not in page
-assert "id=\\"approve\\"" in page
-assert "id=\\"feedback\\"" in page
-assert "aria-live=\\"polite\\"" in page
-assert "type=\\"button\\"" in page
+assert 'id="approve"' in page
+assert 'id="feedback"' in page
+assert 'aria-live="polite"' in page
+assert 'type="button"' in page
 assert "style-src 'self'; script-src 'self'" in policy
 assert "addEventListener('click'" in javascript
 assert "/api/public/race-center/prt/link/approve" in javascript
