@@ -301,6 +301,13 @@ def prt_connect_page(request: Request, code: str = ""):
         '<label>Code shown in PRT <input id="code" maxlength="8" value="' + clean + '"></label>'
         '<p><label><input id="consent" type="checkbox"> Allow PRT to upload my selected race history as private data.</label></p>'
         '<button id="approve">Approve this computer</button><p id="feedback" role="status"></p>'
+        '<h2>Manage PRT devices</h2><p>Disconnect from any computer and delete previously imported private history.</p>'
+        '<button id="unlink" type="button">Disconnect all PRT devices</button> '
+        '<button id="erase" type="button">Delete imported history</button>'
+        '<p id="historyStatus" role="status"></p>'
+        '<script>async function managePrt(method,path){const r=await fetch(path,{method,credentials:"same-origin"});const x=await r.json();if(!r.ok)throw Error(x.detail||"Request failed");return x;}'
+        'document.getElementById("unlink").onclick=async()=>{if(!confirm("Disconnect all PRT computers?"))return;try{await managePrt("POST","/api/public/race-center/prt/unlink");document.getElementById("historyStatus").textContent="Devices disconnected.";}catch(e){document.getElementById("historyStatus").textContent=e.message;}};'
+        'document.getElementById("erase").onclick=async()=>{if(!confirm("Permanently delete imported PRT racing history?"))return;try{await managePrt("DELETE","/api/public/race-center/prt/my-sessions");document.getElementById("historyStatus").textContent="Imported history deleted.";}catch(e){document.getElementById("historyStatus").textContent=e.message;}};</script>'
         '<script>document.getElementById("approve").onclick=async()=>{const b=document.getElementById("approve");b.disabled=true;try{const r=await fetch("/api/public/race-center/prt/link/approve",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:document.getElementById("code").value,consent_private_history:document.getElementById("consent").checked})});const j=await r.json();document.getElementById("feedback").textContent=r.ok?"PRT connected. Return to the desktop app.":(j.detail||"Connection failed.");}catch(e){document.getElementById("feedback").textContent="Connection failed. Try again.";}finally{b.disabled=false;}};</script>'
     ) if signed else (
         '<p>Sign in to your Race Center account, then return to this page to approve PRT.</p>'
