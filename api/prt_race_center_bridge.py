@@ -48,6 +48,7 @@ class PrtDevice(Base):
     token_digest: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     expires_at: Mapped[float] = mapped_column(Float)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    can_upload_private_history: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class PrtSession(Base):
@@ -61,7 +62,7 @@ class PrtSession(Base):
 
 class LinkApproval(BaseModel):
     code: str = Field(min_length=6, max_length=12)
-    consent_private_history: bool = True
+    consent_private_history: bool = False
 
 
 class PairPoll(BaseModel):
@@ -119,7 +120,7 @@ def _account(request: Request):
     return account
 
 
-def _bearer(request: Request) -> int:
+def _bearer(request: Request, for_upload: bool = False) -> int:
     header = request.headers.get("authorization", "")
     if not header.startswith("Bearer prt_"):
         raise HTTPException(status_code=401, detail="Connect PRT to Race Center first")
@@ -131,6 +132,8 @@ def _bearer(request: Request) -> int:
         ))
         if not token:
             raise HTTPException(status_code=401, detail="Race Center connection expired or disconnected")
+        if for_upload and not token.can_upload_private_history:
+            raise HTTPException(status_code=403, detail="Private history upload was not authorized when this device was linked")
         return token.user_id
 
 
@@ -182,7 +185,8 @@ def prt_link_token(body: PairPoll):
         token = db.scalar(select(PrtDevice).where(PrtDevice.token_digest == _digest(value)))
         if token is None:
             db.add(PrtDevice(user_id=pair.user_id, token_digest=_digest(value),
-                             expires_at=time.time() + DEVICE_TTL))
+                             expires_at=time.time() + DEVICE_TTL,
+                             can_upload_private_history=pair.consent_private_history))
             db.commit()
         elif token.revoked:
             raise HTTPException(status_code=401, detail="This device was disconnected")
@@ -202,7 +206,7 @@ def prt_device(request: Request):
 
 @router.put("/api/public/race-center/prt/sessions")
 def prt_upload_sessions(request: Request, body: SessionBatch):
-    user_id = _bearer(request)
+    user_id = _bearer(request, for_upload=True)
     imported = 0
     with SessionLocal() as db:
         for item in body.sessions:
@@ -262,7 +266,7 @@ def prt_connect_page(request: Request, code: str = ""):
     form = (
         '<p>Signed in as <b>' + account_label + '</b></p>'
         '<label>Code shown in PRT <input id="code" maxlength="8" value="' + clean + '"></label>'
-        '<p><label><input id="consent" type="checkbox" checked> Allow PRT to upload my selected race history as private data.</label></p>'
+        '<p><label><input id="consent" type="checkbox"> Allow PRT to upload my selected race history as private data.</label></p>'
         '<button id="approve">Approve this computer</button><p id="feedback" role="status"></p>'
         '<script>document.getElementById("approve").onclick=async()=>{const b=document.getElementById("approve");b.disabled=true;try{const r=await fetch("/api/public/race-center/prt/link/approve",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:document.getElementById("code").value,consent_private_history:document.getElementById("consent").checked})});const j=await r.json();document.getElementById("feedback").textContent=r.ok?"PRT connected. Return to the desktop app.":(j.detail||"Connection failed.");}catch(e){document.getElementById("feedback").textContent="Connection failed. Try again.";}finally{b.disabled=false;}};</script>'
     ) if signed else (
