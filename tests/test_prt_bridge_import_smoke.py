@@ -1,5 +1,7 @@
 """Import and model registration smoke test on the actual FastAPI/SQLAlchemy stack."""
 import os
+from pathlib import Path
+Path("data").mkdir(exist_ok=True)
 os.environ["PITMARK_SIGNING_SECRET"] = "x" * 48
 os.environ["DATABASE_URL"] = "sqlite:///./data/prt-bridge-ci.sqlite3"
 
