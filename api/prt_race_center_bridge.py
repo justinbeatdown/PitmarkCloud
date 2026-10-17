@@ -310,6 +310,14 @@ def race_center_my_profile(request: Request):
     )
 
 
+@router.get("/race-center-prt-profile.css", include_in_schema=False)
+def prt_private_profile_css():
+    return Response(
+        Path(__file__).with_name("race_center_prt_profile.css").read_text(encoding="utf-8"),
+        media_type="text/css", headers={"Cache-Control": "no-store"},
+    )
+
+
 @router.get("/prt-connect.css", include_in_schema=False)
 def prt_connect_css():
     return Response(
