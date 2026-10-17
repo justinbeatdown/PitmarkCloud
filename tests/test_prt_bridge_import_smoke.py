@@ -12,7 +12,7 @@ from api import prt_race_center_bridge
 app = FastAPI()
 app.include_router(prt_race_center_bridge.router)
 Base.metadata.create_all(bind=engine)
-paths = {route.path for route in app.routes if hasattr(route, "path")}
+paths = {route.path for route in prt_race_center_bridge.router.routes if hasattr(route, "path")}
 assert "/api/public/race-center/prt/link/start" in paths
 assert "/api/public/race-center/prt/link/token" in paths
 assert "/api/public/race-center/prt/sessions" in paths
