@@ -358,7 +358,7 @@ def prt_connect_page(request: Request, code: str = ""):
                 <span class="helper"> — optional. Your imported sessions stay visible only to you,
                 not the public Race Center feed.</span></span>
               </label>
-              <div class="actions"><button type="button" class="primary" id="approve">Approve this computer</button></div>
+              <div class="actions"><button type="button" class="primary" id="approve">Approve this computer</button><a class="button" id="viewMyProfile" href="/race-center/me">Open my racer profile</a></div>
               <p class="status" id="feedback" role="status" aria-live="polite"></p>
             </section>
             <section class="panel secondary" aria-labelledby="manage-title">
