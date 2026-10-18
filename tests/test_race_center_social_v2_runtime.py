@@ -96,4 +96,15 @@ with TemporaryDirectory() as tmp:
     media=browser.get("/api/public/race-center/feed/"+str(mine["id"])+"/media")
     assert media.status_code==200 and media.content==example
     assert media.headers["X-Content-Type-Options"]=="nosniff"
+    chunk=browser.get("/api/public/race-center/feed/"+str(mine["id"])+"/media",headers={"Range":"bytes=0-7"})
+    assert chunk.status_code==206 and chunk.content==example[:8],chunk.text
+    assert chunk.headers["Content-Range"]==f"bytes 0-7/{len(example)}"
+    assert browser.get("/api/public/race-center/feed/"+str(mine["id"])+"/media",
+                       headers={"Range":"bytes=999999-"}).status_code==416
+    small_mp4=b"\\x00\\x00\\x00\\x18ftypisom"+b"\\x00"*48
+    small_mp4=small_mp4.replace(b"\\\\x00",b"\\x00")
+    assert social.save_media(outsider.id,series_post["id"],small_mp4,"video/mp4")["type"]=="video"
+    clip=browser.get("/api/public/race-center/feed/"+str(series_post["id"])+"/media",
+                     headers={"Range":"bytes=8-11"})
+    assert clip.status_code==206 and clip.content==b"isom"
     print("Following vs Discover, actor notifications, replies, media, reports and auth PASS")
