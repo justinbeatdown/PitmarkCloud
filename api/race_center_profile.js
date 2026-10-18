@@ -298,6 +298,154 @@ async function renderPrtOwnerDashboard(){
   }
 }
 
+
+function prtFormatDate(value){
+  const d=new Date(String(value||''));
+  return Number.isNaN(d.getTime())?'—':d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+}
+
+function prtRenderRaceRows(records,append=false){
+  const host=$('#profilePrtRecentRaces');
+  if(!host)return;
+  let table=host.querySelector('table');
+  if(!table||!append){
+    host.replaceChildren();
+    table=document.createElement('table');
+    const head=document.createElement('thead');
+    const row=document.createElement('tr');
+    ['Date','Track / Car','Start','Finish','Laps','Best lap','Incidents'].forEach(text=>{
+      const th=document.createElement('th');th.scope='col';th.textContent=text;row.appendChild(th);
+    });
+    head.appendChild(row);
+    table.append(head,document.createElement('tbody'));
+    host.appendChild(table);
+  }
+  const body=table.querySelector('tbody');
+  (records||[]).forEach(race=>{
+    const row=document.createElement('tr');
+    const date=document.createElement('td');date.textContent=prtFormatDate(race.date);
+    const car=document.createElement('td');
+    car.textContent=String(race.track||'Unknown track');
+    const sub=document.createElement('small');
+    sub.textContent=[race.car,race.series].filter(Boolean).join(' · ')||'Car not recorded';
+    car.appendChild(sub);
+    const start=document.createElement('td');start.textContent=Number(race.starting_position)>0?'P'+race.starting_position:'—';
+    const finish=document.createElement('td');finish.textContent=Number(race.finishing_position)>0?'P'+race.finishing_position:'—';
+    const laps=document.createElement('td');laps.textContent=String(Number(race.laps)||0);
+    const best=document.createElement('td');best.textContent=prtLapTime(race.best_lap);
+    const incidents=document.createElement('td');incidents.textContent=String(Number(race.incidents)||0);
+    row.append(date,car,start,finish,laps,best,incidents);
+    body.appendChild(row);
+  });
+}
+
+async function renderPrtVisitorDashboard(){
+  const panel=$('#profilePrtPrivateStats');
+  const status=$('#profilePrtStatus');
+  const metrics=$('#profilePrtPrivateSummary');
+  const races=$('#profilePrtRecentRaces');
+  const more=$('#prtLoadMoreSlot');
+  if(!panel||!status||!metrics||!races||!more||!profile)return;
+  panel.hidden=true;
+  try{
+    const endpoint='/api/public/race-center/prt/public/'+encodeURIComponent(profile.handle);
+    const first=await apiJson(endpoint+'?limit=25&offset=0');
+    if(!first.public)return;
+    panel.hidden=false;
+    $('#prtHistoryHeading').textContent='PRT racing history';
+    $('#prtHistoryDescription').textContent='Recorded iRacing results and performance shared by this driver.';
+    $('#prtPrivacyPill').textContent='Shared by driver';
+    $('#prtPrivacyPill').classList.add('is-public');
+    $('#prtPublicSharingControls').hidden=true;
+    $('#prtOwnerActions').hidden=true;
+    const summary=first.summary||{};
+    status.textContent=Number(summary.sessions||0).toLocaleString()+' races shared from PRT';
+    const grid=document.createElement('div');grid.className='prt-metrics';
+    const items=[
+      ['Races',Number(summary.sessions||0).toLocaleString()],
+      ['Laps completed',Number(summary.laps||0).toLocaleString()],
+      ['Wins',Number(summary.wins||0).toLocaleString()],
+      ['Top-5 finishes',Number(summary.top_fives||0).toLocaleString()],
+      ['Fastest recorded lap',prtLapTime(summary.best_lap)]
+    ];
+    items.forEach(([title,value])=>grid.appendChild(prtMetric(title,value)));
+    metrics.replaceChildren(grid);
+    if(!Number(summary.sessions||0)){
+      races.replaceChildren();
+      const empty=document.createElement('div');empty.className='prt-empty';
+      empty.textContent='This driver has shared their profile, but has not imported racing results yet.';
+      races.appendChild(empty);return;
+    }
+    prtRenderRaceRows(first.sessions,false);
+    let next=first.next_offset;
+    const addMore=()=>{
+      more.replaceChildren();
+      if(next===null||next===undefined)return;
+      const button=document.createElement('button');
+      button.type='button';button.className='prt-load-more';
+      button.textContent='Load more races';
+      more.appendChild(button);
+      button.addEventListener('click',async()=>{
+        button.disabled=true;button.textContent='Loading…';
+        try{
+          const batch=await apiJson(endpoint+'?limit=25&offset='+encodeURIComponent(String(next)));
+          if(!batch.public){
+            panel.hidden=true;more.replaceChildren();return;
+          }
+          prtRenderRaceRows(batch.sessions,true);
+          next=batch.next_offset;
+          addMore();
+        }catch(error){
+          button.disabled=false;button.textContent='Try loading again';
+        }
+      });
+    };
+    addMore();
+  }catch(error){
+    // Keep private by default on authorization or network problems.
+    panel.hidden=true;
+  }
+}
+
+async function prtOwnerSharingControls(){
+  const controls=$('#prtPublicSharingControls');
+  const input=$('#prtPublicSharingChoice');
+  const save=$('#prtSaveSharing');
+  const message=$('#prtSharingFeedback');
+  const pill=$('#prtPrivacyPill');
+  if(!controls||!input||!save||!message||!pill)return;
+  controls.hidden=false;
+  try{
+    const data=await apiJson('/api/public/race-center/prt/sharing');
+    input.checked=Boolean(data.public);
+    pill.textContent=data.public?'Public racing history':'Private to you';
+    pill.classList.toggle('is-public',Boolean(data.public));
+  }catch(error){
+    controls.hidden=true;
+    return;
+  }
+  save.addEventListener('click',async()=>{
+    const wasDisabled=save.disabled;
+    if(wasDisabled)return;
+    save.disabled=true;
+    message.textContent='Updating racing-history visibility…';
+    message.classList.remove('error');
+    try{
+      const result=await apiJson('/api/public/race-center/prt/sharing',{
+        method:'PUT',body:JSON.stringify({public:Boolean(input.checked)})
+      });
+      pill.textContent=result.public?'Public racing history':'Private to you';
+      pill.classList.toggle('is-public',Boolean(result.public));
+      message.textContent=result.public?
+        'Your imported races and lap times are now visible to Race Center visitors.':
+        'Your imported race history is now private.';
+    }catch(error){
+      message.textContent=error.message||'Visibility update failed.';
+      message.classList.add('error');
+    }finally{save.disabled=false;}
+  });
+}
+
 async function load(){
   try{
     [account,profile]=await Promise.all([
@@ -311,7 +459,12 @@ async function load(){
     const ownPrt = Boolean(account.authenticated && account.profile && account.profile.handle === profile.handle);
     const box=$('#profilePrtPrivateStats');
     if(box)box.hidden=!ownPrt;
-    if(ownPrt)await renderPrtOwnerDashboard();
+    if(ownPrt){
+      await renderPrtOwnerDashboard();
+      await prtOwnerSharingControls();
+    }else{
+      await renderPrtVisitorDashboard();
+    }
     $('#profileAccountButton').textContent=account.authenticated?(account.display_name||account.email||'My Race Center'):'My Race Center';
     document.title=(profile.display_name||profile.handle)+' — Pitmark Race Center';
   }catch(error){
