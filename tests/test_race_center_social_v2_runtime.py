@@ -101,8 +101,7 @@ with TemporaryDirectory() as tmp:
     assert chunk.headers["Content-Range"]==f"bytes 0-7/{len(example)}"
     assert browser.get("/api/public/race-center/feed/"+str(mine["id"])+"/media",
                        headers={"Range":"bytes=999999-"}).status_code==416
-    small_mp4=b"\\x00\\x00\\x00\\x18ftypisom"+b"\\x00"*48
-    small_mp4=small_mp4.replace(b"\\\\x00",b"\\x00")
+    small_mp4=bytes([0,0,0,24])+b"ftypisom"+bytes(48)
     assert social.save_media(outsider.id,series_post["id"],small_mp4,"video/mp4")["type"]=="video"
     clip=browser.get("/api/public/race-center/feed/"+str(series_post["id"])+"/media",
                      headers={"Range":"bytes=8-11"})
