@@ -180,6 +180,124 @@ async function prepareProfilePhoto(file){
   return new File([blob],base+'.'+extension,{type:blob.type||'image/jpeg'});
 }
 
+
+function prtLapTime(seconds){
+  const value=Number(seconds||0);
+  if(!Number.isFinite(value)||value<=0)return '—';
+  const minutes=Math.floor(value/60);
+  const remaining=(value%60).toFixed(3).padStart(6,'0');
+  return minutes>0 ? minutes+':'+remaining : remaining+'s';
+}
+
+function prtMetric(label,value){
+  const card=document.createElement('div');
+  card.className='prt-metric';
+  const figure=document.createElement('strong');
+  figure.textContent=String(value);
+  const title=document.createElement('span');
+  title.textContent=label;
+  card.append(figure,title);
+  return card;
+}
+
+async function renderPrtOwnerDashboard(){
+  const panel=$('#profilePrtPrivateStats');
+  const status=$('#profilePrtStatus');
+  const metricHost=$('#profilePrtPrivateSummary');
+  const recentHost=$('#profilePrtRecentRaces');
+  if(!panel||!status||!metricHost||!recentHost)return;
+  panel.hidden=false;
+  status.textContent='Loading your private PRT race history…';
+  metricHost.replaceChildren();
+  recentHost.replaceChildren();
+  try{
+    const [summary,history]=await Promise.all([
+      apiJson('/api/public/race-center/prt/my-summary'),
+      apiJson('/api/public/race-center/prt/my-sessions')
+    ]);
+    if(summary.private!==true||history.visibility!=='private')
+      throw new Error('The server did not confirm private access to these records.');
+    const devices=Number(summary.connected_devices||0);
+    const total=Number(summary.sessions||0);
+    const dot=document.createElement('span');
+    dot.className='prt-status-dot'+(devices>0?' online':'');
+    dot.setAttribute('aria-hidden','true');
+    const statusText=document.createElement('span');
+    statusText.textContent=(devices>0
+      ? devices+' connected PRT computer'+(devices===1?'':'s')
+      : 'No connected PRT computers')+' · '+total+' private race'+(total===1?'':'s')+' imported';
+    status.replaceChildren(dot,statusText);
+
+    const grid=document.createElement('div');
+    grid.className='prt-metrics';
+    const stats=[
+      ['Imported races',total.toLocaleString()],
+      ['Laps completed',Number(summary.laps||0).toLocaleString()],
+      ['Wins',Number(summary.wins||0).toLocaleString()],
+      ['Top-5 finishes',Number(summary.top_fives||0).toLocaleString()],
+      ['Fastest recorded lap',prtLapTime(summary.best_lap)],
+      ['Connected computers',devices.toLocaleString()]
+    ];
+    stats.forEach(([label,value])=>grid.appendChild(prtMetric(label,value)));
+    metricHost.appendChild(grid);
+
+    const records=Array.isArray(history.sessions)?history.sessions.slice():[];
+    records.sort((a,b)=>{
+      const left=Date.parse(String(a.date||'')),right=Date.parse(String(b.date||''));
+      return (Number.isFinite(right)?right:0)-(Number.isFinite(left)?left:0);
+    });
+    if(records.length===0){
+      const empty=document.createElement('div');
+      empty.className='prt-empty';
+      const heading=document.createElement('strong');
+      heading.textContent='Your Race Center profile is ready. Now bring in your races.';
+      const p=document.createElement('p');
+      p.textContent=devices>0
+        ? 'Pairing a computer only grants access. Open PRT → Profile → Sync Now to upload completed race history. Enable Auto-sync there to keep new races coming in.'
+        : 'Open PRT → Profile → Connect to Race Center. Approve your computer, then choose Sync Now to upload completed race history.';
+      empty.append(heading,p);
+      recentHost.appendChild(empty);
+    }else{
+      const table=document.createElement('table');
+      const thead=document.createElement('thead');
+      const hr=document.createElement('tr');
+      ['Date','Track / Car','Finish','Laps','Incidents'].forEach(value=>{
+        const th=document.createElement('th');th.scope='col';th.textContent=value;hr.appendChild(th);
+      });
+      thead.appendChild(hr);
+      const tbody=document.createElement('tbody');
+      records.slice(0,15).forEach(race=>{
+        const tr=document.createElement('tr');
+        const dt=new Date(race.date||'');
+        const dateCell=document.createElement('td');
+        dateCell.textContent=Number.isNaN(dt.getTime())?'—':dt.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+        const trackCell=document.createElement('td');
+        trackCell.textContent=String(race.track||'Unknown track');
+        const sub=document.createElement('small');
+        sub.textContent=[race.car,race.series].filter(Boolean).join(' · ')||'Car not recorded';
+        trackCell.appendChild(sub);
+        const finishCell=document.createElement('td');
+        finishCell.textContent=Number(race.finishing_position)>0?'P'+race.finishing_position:'—';
+        const lapsCell=document.createElement('td');lapsCell.textContent=String(Number(race.laps)||0);
+        const incidentCell=document.createElement('td');incidentCell.textContent=String(Number(race.incidents)||0);
+        tr.append(dateCell,trackCell,finishCell,lapsCell,incidentCell);
+        tbody.appendChild(tr);
+      });
+      table.append(thead,tbody);
+      recentHost.appendChild(table);
+    }
+    if(location.hash==='#prt-history')requestAnimationFrame(()=>panel.scrollIntoView({block:'start'}));
+  }catch(error){
+    status.textContent='PRT racing history is temporarily unavailable.';
+    const errorBox=document.createElement('div');
+    errorBox.className='prt-empty';
+    const p=document.createElement('p');
+    p.textContent=error.message||'Please refresh and try again.';
+    errorBox.appendChild(p);
+    recentHost.appendChild(errorBox);
+  }
+}
+
 async function load(){
   try{
     [account,profile]=await Promise.all([
@@ -191,25 +309,9 @@ async function load(){
     renderProfile();
     renderWall();
     const ownPrt = Boolean(account.authenticated && account.profile && account.profile.handle === profile.handle);
-    const box = $('#profilePrtPrivateStats');
-    if (box) box.hidden = !ownPrt;
-    if (ownPrt) {
-      try {
-        const stats = await apiJson('/api/public/race-center/prt/my-summary');
-        const host = $('#profilePrtPrivateSummary');
-        if (host) {
-          host.textContent = '';
-          const b = document.createElement('div');
-          b.className = 'loading-card';
-          b.textContent = stats.sessions + ' sessions · ' + stats.laps + ' laps · ' + stats.wins +
-            ' wins · ' + stats.top_fives + ' top-five finishes · private';
-          host.appendChild(b);
-        }
-      } catch (error) {
-        const host = $('#profilePrtPrivateSummary');
-        if (host) host.textContent = 'PRT history unavailable. Connect PRT to Race Center to import your race data.';
-      }
-    }
+    const box=$('#profilePrtPrivateStats');
+    if(box)box.hidden=!ownPrt;
+    if(ownPrt)await renderPrtOwnerDashboard();
     $('#profileAccountButton').textContent=account.authenticated?(account.display_name||account.email||'My Race Center'):'My Race Center';
     document.title=(profile.display_name||profile.handle)+' — Pitmark Race Center';
   }catch(error){

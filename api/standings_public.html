@@ -58,6 +58,7 @@
         <a href="https://pitmarkracing.com" target="_blank" rel="noopener">Pitmark ↗</a>
       </nav>
       <div class="account-zone">
+        <a class="account-button" id="myRacerProfileShortcut" href="/race-center/me" hidden>My Profile</a>
         <button class="account-button" id="accountButton" type="button">My Race Center</button>
         <span class="header-health" id="headerStatus"><i></i> Loading data</span>
       </div>
@@ -592,7 +593,7 @@
           <div class="full profile-actions"><button class="button primary" type="submit">Save Profile</button><span id="profileMessage"></span></div>
         </form>
         <div class="account-profile-actions">
-          <a class="button" id="viewPublicProfile" href="/race-center">View my public profile</a>
+          <a class="button primary" id="viewPublicProfile" href="/race-center/me">My racer profile + PRT history</a>
           <a class="button" href="/race-center/privacy">Privacy & data</a>
           <button class="button" id="logoutButton" type="button">Sign Out</button>
           <button class="button danger-button" id="deleteAccountButton" type="button">Delete Account</button>

@@ -7,6 +7,10 @@ on:
       - 'api/prt_connect.js'
       - 'tests/test_prt_connect_csp_contract.py'
       - 'api/race_center_profile.*'
+      - 'api/race_center_prt_profile.css'
+      - 'api/standings_public.html'
+      - 'api/standings_public.js'
+      - 'tests/test_prt_racer_profile_dashboard_contract.py'
       - 'main.py'
       - 'tests/test_prt_race_center_bridge_contract.py'
       - '.github/workflows/prt-race-center-bridge.yml'
@@ -28,6 +32,8 @@ jobs:
           python-version: '3.12'
       - run: python tests/test_prt_race_center_bridge_contract.py
       - run: python tests/test_prt_connect_csp_contract.py
+      - run: python tests/test_prt_racer_profile_dashboard_contract.py
+      - run: node --check api/standings_public.js
       - run: node --check api/prt_connect.js
       - run: pip install -r requirements.txt
       - run: PYTHONPATH=. python tests/test_prt_bridge_import_smoke.py

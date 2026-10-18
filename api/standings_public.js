@@ -112,6 +112,8 @@ function renderAccount(){
     :'My Race Center';
   loggedOut.hidden=authed;
   loggedIn.hidden=!authed;
+  const quickProfile=$('#myRacerProfileShortcut');
+  if(quickProfile)quickProfile.hidden=!authed;
   if(authed){
     const follows=state.account.follows||[];
     $('#accountWelcome').textContent=`Welcome${state.account.display_name?' back, '+state.account.display_name:''}.`;
@@ -133,6 +135,10 @@ async function syncAccount(){
   }
   renderAccount();
   if(state.payload)render();
+  if(new URLSearchParams(location.search).get('account')==='1'){
+    const dialog=$('#accountDialog');
+    if(dialog && !dialog.open)dialog.showModal();
+  }
 }
 
 async function cloudFollow(kind,key,label='',seriesKey=''){
