@@ -31,5 +31,5 @@ assert "@router.get(\"/api/public/race-center/people/{handle}/connections\"" in 
 assert 'public_profile_connections(' in accounts
 assert '"email":' not in accounts.split("def public_profile_connections(",1)[1].split("def discover_people(",1)[0]
 assert '[hidden]' in css
-assert 'social-stats-owner-20261018' in page
+assert 'real-social-avatars-20261018' in page
 print("Owner-only controls and clickable social statistics contracts PASS")

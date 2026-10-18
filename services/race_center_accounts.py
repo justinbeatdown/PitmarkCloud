@@ -627,6 +627,7 @@ def list_posts(
                 "author": {
                     "display_name": (user.display_name if user else "") or (profile.handle if profile else "Racer"),
                     "handle": profile.handle if profile else "",
+                    "photo_url": "/api/public/race-center/profile-photo/" + profile.handle if profile else "",
                 },
             })
         out = []
@@ -642,6 +643,7 @@ def list_posts(
                 "author": {
                     "display_name": (user.display_name if user else "") or (profile.handle if profile else "Racer"),
                     "handle": profile.handle if profile else "",
+                    "photo_url": "/api/public/race-center/profile-photo/" + profile.handle if profile else "",
                 },
                 "owner": bool(viewer_user_id and post.user_id == viewer_user_id),
                 "reactions": counts.get(post.id, {}),

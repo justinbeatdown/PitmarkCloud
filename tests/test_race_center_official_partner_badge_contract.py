@@ -27,7 +27,7 @@ assert "official.kind==='partner'" in profile_js
 assert "partnerBadge.hidden=!isPartner" in profile_js
 assert ".pitmark-partner-badge" in css
 assert "rgba(55,177,255,.63)" in css
-assert "social-stats-owner-20261018" in profile_html
+assert "real-social-avatars-20261018" in profile_html
 assert 'class="pitmark-partner-logo" src="/prt-logo.png"' in profile_html
 
 # Crucial: authorization checks staff only, and the partner never appears
