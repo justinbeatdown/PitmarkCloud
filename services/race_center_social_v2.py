@@ -15,6 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from services.database import Base, SessionLocal
 from services import race_center_accounts as accounts
 from services import race_center_entities
+from services import race_center_owner_hub
 
 log=logging.getLogger("pitmark.race_center.social")
 MAX_IMAGE=5*1024*1024
@@ -231,7 +232,13 @@ def get_feed(user_id:int|None,mode:str="following",limit:int=30,offset:int=0):
                     })
         except Exception:
             log.exception("Unable to load following series race activity")
-    return {"mode":mode,"posts":posts,"activities":activity[:16],
+    updates=[]
+    if mode=="following" and follows and offset==0:
+        try:
+            updates=race_center_owner_hub.followed_updates(follows,limit=25)
+        except Exception:
+            log.exception("Unable to read followed entity-owned news")
+    return {"mode":mode,"posts":posts,"updates":updates,"activities":activity[:16],
             "next_offset":offset+len(posts) if len(posts)>=limit else None,
             "follows":{"people":len(accounts.followed_user_ids(user_id)) if user_id else 0,
                        "series":len(series),"drivers":len(drivers)}}
