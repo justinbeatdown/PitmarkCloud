@@ -833,3 +833,6 @@ body[data-view="profile"] .profile-wall-post .profile-reply-button{
 body[data-view="profile"] .profile-wall-post .profile-reply-context{
   display:block;flex-basis:100%;font-size:11px;color:#ffb28b;
 }
+
+body[data-view="profile"] #profileSocialAlerts[hidden]{display:none!important}
+body[data-view="profile"] #profileSocialAlerts:not([hidden]){border-color:rgba(255,85,0,.3)!important}
