@@ -418,13 +418,14 @@ def race_center_profile_wall(request: Request, handle: str, limit: int = 40):
     )
     if not profile:
         raise HTTPException(status_code=404, detail="Race Center profile not found.")
-    return {
-        "posts": race_center_accounts.list_posts(
-            viewer_user_id=viewer.id if viewer else None,
-            author_user_id=int(profile["id"]),
-            limit=limit,
-        )
-    }
+    posts=race_center_accounts.list_posts(
+        viewer_user_id=viewer.id if viewer else None,
+        author_user_id=int(profile["id"]),
+        limit=limit,
+    )
+    race_center_social_v2.attach_media(posts)
+    race_center_social_v2.enrich_replies(posts)
+    return {"posts":posts}
 
 
 @router.post("/api/public/race-center/driver-claims", include_in_schema=False)
