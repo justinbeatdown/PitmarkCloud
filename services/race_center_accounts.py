@@ -252,6 +252,26 @@ class RaceCenterProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class RaceCenterOfficialBadge(Base):
+    """Server-approved public distinction, separate from privileged staff access."""
+    __tablename__ = "race_center_official_badges"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("race_center_users.id", ondelete="CASCADE"), primary_key=True
+    )
+    kind: Mapped[str] = mapped_column(String(30), nullable=False)
+    label: Mapped[str] = mapped_column(String(80), nullable=False)
+    subtitle: Mapped[str] = mapped_column(String(120), nullable=False)
+
+
+class RaceCenterBadgeSeed(Base):
+    """Prevents a renamed/reassigned handle from transferring an official badge."""
+    __tablename__ = "race_center_official_badge_seeds"
+
+    seed_key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    recipient_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
 class RaceCenterProfilePhoto(Base):
     __tablename__ = "race_center_profile_photos"
 
@@ -337,6 +357,54 @@ def _pitmark_staff_identity(email: str) -> dict:
     return dict(PITMARK_STAFF_ACCOUNTS.get((email or "").strip().lower()) or {})
 
 
+def _official_badge(db, user_id: int) -> dict:
+    badge = db.get(RaceCenterOfficialBadge, user_id)
+    if not badge:
+        return {}
+    return {
+        "kind": badge.kind,
+        "label": badge.label,
+        "subtitle": badge.subtitle,
+    }
+
+
+def seed_tim_official_partner_badge() -> bool:
+    """One-time server-owned grant to the already-existing Tim Chappell account.
+
+    The account is identified by *both* its current unique handle and display
+    name, then recorded using its immutable database user ID. Even if Tim
+    changes his handle, or somebody later claims it, the badge will not move.
+    No account profile field can mint or transfer this role.
+    """
+    seed_key = "pitmark-tim-chappell-partner-20261018"
+    with SessionLocal() as db:
+        previous = db.get(RaceCenterBadgeSeed, seed_key)
+        if previous is not None:
+            return previous.recipient_user_id is not None
+        profile = db.scalar(select(RaceCenterProfile).where(
+            RaceCenterProfile.handle == "timmyneutron020"
+        ))
+        recipient_id = None
+        if profile:
+            user = db.get(RaceCenterUser, profile.user_id)
+            if user and (user.display_name or "").strip().casefold() == "tim chappell":
+                recipient_id = user.id
+                if db.get(RaceCenterOfficialBadge, user.id) is None:
+                    db.add(RaceCenterOfficialBadge(
+                        user_id=user.id,
+                        kind="partner",
+                        label="Official Partner",
+                        subtitle="Pitmark Racing Co.",
+                    ))
+        # Record the attempt once. A later handle reassignment cannot grant
+        # the distinction to another account on application restart.
+        db.add(RaceCenterBadgeSeed(
+            seed_key=seed_key, recipient_user_id=recipient_id
+        ))
+        db.commit()
+        return recipient_id is not None
+
+
 def _base_handle(account: RaceCenterAccount) -> str:
     source = (account.display_name or account.email.split("@", 1)[0] or "racer").lower()
     source = re.sub(r"[^a-z0-9_]+", "_", source).strip("_")
@@ -371,6 +439,7 @@ def ensure_profile(user_id: int) -> dict:
             "account_type": identity.account_type if identity else "fan",
             "photo_url": f"/api/public/race-center/profile-photo/{profile.handle}",
             "staff": _pitmark_staff_identity(user.email),
+            "official_badge": _official_badge(db, user.id),
         }
 
 
@@ -814,6 +883,7 @@ def public_profile_by_handle(handle: str, viewer_user_id: int | None = None) -> 
                 "external_url": identity.external_url if identity else "",
             },
             "staff": _pitmark_staff_identity(user.email),
+            "official_badge": _official_badge(db, user.id),
             "followers": int(follower_count),
             "following": int(following_count),
             "viewer_follows": viewer_follows,
@@ -878,6 +948,7 @@ def discover_people(user_id: int, limit: int = 12) -> list[dict]:
                 "followers": int(followers),
                 "photo_url": f"/api/public/race-center/profile-photo/{profile.handle}",
                 "staff": _pitmark_staff_identity(user.email if user else ""),
+                "official_badge": _official_badge(db, profile.user_id),
                 "identity": {
                     "account_type": identity.account_type if identity else "fan",
                     "verification_status": identity.verification_status if identity else "unverified",
