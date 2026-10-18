@@ -909,6 +909,57 @@ def public_profile_by_handle(handle: str, viewer_user_id: int | None = None) -> 
         }
 
 
+def public_profile_connections(
+    handle: str, kind: str, *, limit: int = 30, offset: int = 0
+) -> dict | None:
+    """Public people lists. Never expose email, session, or device fields."""
+    if kind not in {"followers", "following"}:
+        raise ValueError("Unknown connection type.")
+    if not 1 <= limit <= 50 or not 0 <= offset <= 100000:
+        raise ValueError("Invalid people page.")
+    with SessionLocal() as db:
+        owner = db.scalar(select(RaceCenterProfile).where(
+            RaceCenterProfile.handle == str(handle or "").strip().lower()
+        ))
+        if owner is None:
+            return None
+        if kind == "followers":
+            base = select(RaceCenterConnection).where(
+                RaceCenterConnection.followed_user_id == owner.user_id
+            )
+        else:
+            base = select(RaceCenterConnection).where(
+                RaceCenterConnection.follower_user_id == owner.user_id
+            )
+        total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
+        rows = db.scalars(
+            base.order_by(RaceCenterConnection.created_at.desc(), RaceCenterConnection.id.desc())
+            .offset(offset).limit(limit)
+        ).all()
+        people = []
+        for row in rows:
+            person_id = row.follower_user_id if kind == "followers" else row.followed_user_id
+            person = db.get(RaceCenterUser, person_id)
+            p = db.get(RaceCenterProfile, person_id)
+            if person is None or p is None:
+                continue
+            identity = db.get(RaceCenterIdentity, person_id)
+            people.append({
+                "handle": p.handle,
+                "display_name": person.display_name or p.handle,
+                "photo_url": "/api/public/race-center/profile-photo/" + p.handle,
+                "account_type": identity.account_type if identity else "fan",
+                "official_badge": _official_badge(db, person_id),
+            })
+        next_offset = offset + len(rows)
+        return {
+            "kind": kind,
+            "total": int(total),
+            "people": people,
+            "next_offset": next_offset if next_offset < total else None,
+        }
+
+
 def discover_people(user_id: int, limit: int = 12) -> list[dict]:
     """Rank people by shared series/driver follows; no hidden demographic profiling."""
     with SessionLocal() as db:
