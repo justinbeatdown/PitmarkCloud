@@ -90,3 +90,10 @@ textarea::placeholder{color:#8496a4}textarea:focus,select:focus{border-color:#ff
 @media(max-width:890px){.rc-social-layout{grid-template-columns:1fr}.rc-social-side{display:none}.rc-social-head-inner{gap:10px}.rc-social-header nav a{font-size:11px;padding:7px}}
 @media(max-width:670px){body{padding-bottom:68px}.rc-social-head-inner{padding:8px 12px;min-height:60px}.rc-social-logo img{width:95px}.rc-social-logo span{display:none}.rc-social-header nav{position:fixed;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(5,1fr);padding:7px 5px calc(7px + env(safe-area-inset-bottom));gap:1px;background:rgba(9,13,17,.98);border-top:1px solid #40505b;z-index:95}.rc-social-header nav a{font-size:10px;padding:10px 2px;text-align:center}.rc-social-header-actions button,.rc-social-header-actions a{font-size:10px;padding:7px}.rc-social-shell{padding:24px 12px 60px}.rc-composer,.rc-post,.rc-racing-activity{padding:16px;border-radius:14px}.rc-compose-tools{gap:8px}.rc-post-limit{flex:1 0 100%}.rc-activity-grid{grid-template-columns:1fr}.rc-post-head-actions{justify-content:start}.rc-post-head{gap:8px}.rc-social-tabs button{min-height:43px}.rc-post-body{font-size:14px}.rc-comment.is-reply{margin-left:13px}.rc-social-intro p{font-size:13px}.rc-social-dialog{max-height:80vh}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+
+/* Verified entity-owner posts in the personalized feed. */
+.rc-entity-update{border-color:rgba(75,148,194,.45);background:linear-gradient(150deg,rgba(34,86,117,.10),#11191f 32%)}
+.rc-entity-identity{display:flex;flex-direction:column;gap:6px}
+.rc-entity-identity strong{font-size:17px;letter-spacing:-.025em}
+.rc-entity-open{display:inline-flex;border:1px solid #40505c;background:#17252e;color:#bfdbed;padding:9px 13px;border-radius:9px;font-weight:850;font-size:12px}
+.rc-entity-open:hover{border-color:#ff9056}
