@@ -601,3 +601,45 @@ body[data-view="profile"] .pitmark-staff-badge.pitmark-partner-badge small{
     width:42px;height:42px;flex-basis:42px;font-size:23px
   }
 }
+
+
+/* Official Pitmark artwork for the blue Partner designation. */
+body[data-view="profile"] .pitmark-partner-badge img.pitmark-partner-logo{
+  width:112px!important;
+  height:48px!important;
+  flex:0 0 112px!important;
+  object-fit:contain!important;
+  padding:0!important;
+  filter:drop-shadow(0 1px 9px rgba(54,172,248,.25));
+}
+/* A hidden control must remain hidden even when a shared card class adds display. */
+body[data-view="profile"] #followerEmailSection[hidden],
+body[data-view="profile"] #profilePrtPrivateStats[hidden],
+body[data-view="profile"] #profileFollowerNotifications[hidden],
+body[data-view="profile"] #prtPublicSharingControls[hidden],
+body[data-view="profile"] #profilePhotoUpload[hidden],
+body[data-view="profile"] #profileEditButton[hidden],
+body[data-view="profile"] #profileWallComposer[hidden],
+body[data-view="profile"] #profileStaffAdminLink[hidden]{
+  display:none!important;
+}
+body[data-view="profile"] #profileStaffAdminLink:not([hidden]){
+  border-color:rgba(255,85,0,.5)!important;
+  background:rgba(255,85,0,.12)!important;
+  color:#ffbb96!important;
+}
+@media(max-width:760px){
+  body[data-view="profile"] .pitmark-partner-badge img.pitmark-partner-logo{
+    width:98px!important;height:43px!important;flex-basis:98px!important;
+  }
+}
+
+
+/* Staff navigation is client-visible only after server-provided role resolution;
+   the hidden state must win against generic account-button display rules. */
+#raceStaffAdminShortcut[hidden],#profileStaffAdminLink[hidden]{display:none!important}
+#raceStaffAdminShortcut:not([hidden]){
+  border-color:rgba(255,85,0,.52)!important;
+  background:rgba(255,85,0,.13)!important;
+  color:#ffbc98!important;
+}

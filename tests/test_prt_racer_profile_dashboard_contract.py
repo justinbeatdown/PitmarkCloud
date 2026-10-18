@@ -23,7 +23,7 @@ assert "quickProfile.hidden=!authed" in home_js
 assert 'id="profilePrtPrivateStats" hidden' in page
 assert 'id="profilePrtRecentRaces"' in page
 assert '/race-center-prt-profile.css' in page
-assert 'const ownPrt = Boolean(account.authenticated && account.profile && account.profile.handle === profile.handle)' in profile
+assert 'const ownPrt = Boolean(account.authenticated && Number(account.id)===Number(profile.id))' in profile
 assert 'await renderPrtOwnerDashboard()' in profile
 assert 'await renderPrtVisitorDashboard()' in profile
 assert '/api/public/race-center/prt/sharing' in profile

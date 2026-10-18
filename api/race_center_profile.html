@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#090b0e">
   <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-v7-profile-20260923">
   <link rel="stylesheet" href="/race-center-prt-profile.css?v=20261017-public-20261018">
-  <link rel="stylesheet" href="/race-center-refined.css?v={{PITMARK_VERSION}}-partner-badge-20261018">
+  <link rel="stylesheet" href="/race-center-refined.css?v={{PITMARK_VERSION}}-staff-owner-logo-20261018">
 </head>
 <body data-view="profile" data-profile-handle="{{PROFILE_HANDLE}}">
   <header class="site-header">
@@ -40,6 +40,7 @@
         </details>
       </nav>
       <div class="account-zone profile-account-zone">
+        <a class="profile-header-link" id="profileStaffAdminLink" href="/race-center/admin" hidden>Staff Admin</a>
         <a class="profile-header-link" id="profileAccountButton" href="/race-center/me">My Profile</a>
         <span class="header-health good profile-header-context"><i></i> Profile</span>
       </div>
@@ -65,7 +66,7 @@
           <div class="profile-badge-stack">
             <span class="pitmark-staff-badge" id="pitmarkStaffBadge" hidden><img src="/prt-logo.png" alt=""><span><b>Pitmark Staff</b><small>Official</small></span></span>
             <span class="pitmark-staff-badge pitmark-partner-badge" id="pitmarkPartnerBadge" hidden>
-              <i class="pitmark-partner-symbol" aria-hidden="true">P</i>
+              <img class="pitmark-partner-logo" src="/prt-logo.png" alt="">
               <span><b>Official Partner</b><small>Pitmark Racing Co.</small></span>
             </span>
             <span class="profile-verified" id="publicProfileVerified" hidden>✓ Verified</span>
@@ -175,6 +176,6 @@
       </div>
     </div>
   </footer>
-  <script src="/race-center-profile.js?v={{PITMARK_VERSION}}-official-partner-20261018" defer></script>
+  <script src="/race-center-profile.js?v={{PITMARK_VERSION}}-staff-owner-logo-20261018" defer></script>
 </body>
 </html>
