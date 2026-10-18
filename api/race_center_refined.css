@@ -633,3 +633,13 @@ body[data-view="profile"] #profileStaffAdminLink:not([hidden]){
     width:98px!important;height:43px!important;flex-basis:98px!important;
   }
 }
+
+
+/* Staff navigation is client-visible only after server-provided role resolution;
+   the hidden state must win against generic account-button display rules. */
+#raceStaffAdminShortcut[hidden],#profileStaffAdminLink[hidden]{display:none!important}
+#raceStaffAdminShortcut:not([hidden]){
+  border-color:rgba(255,85,0,.52)!important;
+  background:rgba(255,85,0,.13)!important;
+  color:#ffbc98!important;
+}
