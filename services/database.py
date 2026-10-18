@@ -127,6 +127,13 @@ def init_database() -> None:
     from services import race_center_owner_hub  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    # Attach trusted public partner recognition to Tim's immutable account ID.
+    # No user-editable profile fields can give an account administrative rights.
+    try:
+        if not race_center_accounts.seed_tim_official_partner_badge():
+            log.warning("Official partner seed skipped: expected Tim profile identity not found")
+    except Exception:
+        log.exception("Could not register official Race Center partner badge")
     if not settings.database_url:
         log.warning(
             "DATABASE_URL is not configured. Using local SQLite fallback; this is NOT persistent on Render."
