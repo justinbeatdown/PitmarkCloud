@@ -178,6 +178,20 @@ function renderWall(openCommentsFor=null){
     body.className='profile-post-body';
     body.textContent=String(post.body||'');
 
+    let attachment=null;
+    if(post.media?.url){
+      attachment=document.createElement(post.media.type==='video'?'video':'img');
+      attachment.className='profile-post-attachment';
+      attachment.src=String(post.media.url);
+      if(post.media.type==='video'){
+        attachment.controls=true;
+        attachment.preload='metadata';
+        attachment.playsInline=true;
+      }else{
+        attachment.loading='lazy';
+        attachment.alt='Image shared with this racing post';
+      }
+    }
     const actions=document.createElement('footer');
     actions.className='profile-post-interactions';
     for(const [reaction,emoji,label] of [['checkered','🏁','Race flag'],['fire','🔥','Fire']]){
@@ -238,13 +252,31 @@ function renderWall(openCommentsFor=null){
       messageBody.textContent=String(comment.body||'');
       textWrap.append(authorName,messageBody);
       line.appendChild(textWrap);
+      if(comment.parent_comment_id){
+        line.classList.add('is-reply');
+      }
+      const reply=document.createElement('button');
+      reply.type='button';
+      reply.className='profile-reply-button';
+      reply.textContent='Reply';
+      reply.addEventListener('click',()=>{
+        if(!account.authenticated){location.href='/race-center?account=1';return;}
+        replyTarget=Number(comment.id);
+        replyNotice.textContent='Replying to '+String(who.display_name||who.handle||'racer');
+        comments.open=true;
+        input.focus();
+      });
+      textWrap.appendChild(reply);
       thread.appendChild(line);
     });
     comments.appendChild(thread);
     const form=document.createElement('form');
     form.className='profile-comment-form';
     const input=document.createElement('textarea');
-    input.rows=2;input.maxLength=280;
+    input.rows=2;input.maxLength=600;
+    const replyNotice=document.createElement('span');
+    replyNotice.className='profile-reply-context';
+    let replyTarget=null;
     input.placeholder=account.authenticated?'Write a comment…':'Sign in to comment…';
     input.setAttribute('aria-label','Comment on post');
     const send=document.createElement('button');
@@ -252,7 +284,7 @@ function renderWall(openCommentsFor=null){
     const message=document.createElement('span');
     message.className='profile-post-feedback';
     message.setAttribute('role','status');
-    form.append(input,send,message);
+    form.append(replyNotice,input,send,message);
     form.addEventListener('submit',async event=>{
       event.preventDefault();
       if(!account.authenticated){location.href='/race-center?account=1';return;}
@@ -261,7 +293,7 @@ function renderWall(openCommentsFor=null){
       send.disabled=true;message.textContent='Posting…';
       try{
         await apiJson('/api/public/race-center/feed/'+encodeURIComponent(String(post.id))+'/comments',{
-          method:'POST',body:JSON.stringify({body:content})
+          method:'POST',body:JSON.stringify({body:content,...(replyTarget?{parent_comment_id:replyTarget}:{})})
         });
         await refreshProfileWall(post.id);
       }catch(error){
@@ -274,7 +306,9 @@ function renderWall(openCommentsFor=null){
     const feedback=document.createElement('p');
     feedback.className='profile-post-feedback';
     feedback.setAttribute('role','status');
-    article.append(header,body,actions,feedback);
+    article.append(header,body);
+    if(attachment)article.appendChild(attachment);
+    article.append(actions,feedback);
     host.appendChild(article);
   });
 }
