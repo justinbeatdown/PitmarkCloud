@@ -65,3 +65,28 @@ body[data-view="profile"] .public-profile-main .profile-racing-card.prt-private-
 .prt-actions a:first-child{border-color:#ff5500;background:#ff5500;color:#160a03}
 .prt-actions a:hover{filter:brightness(1.1)}
 @media(max-width:700px){.prt-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.prt-metric{padding:12px}}
+
+
+/* Race Center profile header: normal navigation control, not a floating purple name badge. */
+body[data-view="profile"] .profile-header-link{
+  display:inline-flex;align-items:center;justify-content:center;min-height:35px;
+  padding:8px 13px;border:1px solid #374550;border-radius:9px;
+  color:#f4f6f8;background:#141c23;font:800 12px/1.2 "Segoe UI",Arial,sans-serif;
+  white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s;
+}
+body[data-view="profile"] .profile-header-link:hover{background:#202d38;border-color:#ff5500;color:#fff}
+body[data-view="profile"] .profile-follow-feedback{color:#b2d0c3;font-size:12px;line-height:1.4;align-self:center}
+body[data-view="profile"] #profileFollowButton:disabled{opacity:.65;cursor:wait}
+.profile-email-notifications{
+  margin:18px 0 12px;background:#0c1116;
+  border:1px solid #334351;border-radius:13px;padding:17px;color:#dce6ee;font-size:13px;
+}
+.profile-email-notifications[hidden]{display:none!important}
+.profile-email-notifications strong{font-size:14px;color:#fff}
+.profile-email-notifications p{color:#a3b2c1;line-height:1.55}
+.profile-email-notifications label{display:flex;align-items:center;gap:10px;margin:11px 0 14px;cursor:pointer;font-weight:700}
+.profile-email-notifications input{accent-color:#ff5500;width:18px;height:18px}
+.profile-email-notifications button{background:#ff5500;border:1px solid #ff5500;color:#130700;
+  font-size:12px;font-weight:800;border-radius:8px;padding:10px 14px;cursor:pointer}
+.profile-email-notifications button:disabled{opacity:.55;cursor:default}
+#profileFollowerEmailStatus{min-height:16px;margin:11px 0 0}
