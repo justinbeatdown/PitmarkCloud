@@ -20,6 +20,7 @@ from services.grassroots_racing import get_grassroots_catalog
 from services import race_center_accounts
 from services import race_center_entities
 from services import race_center_follower_notifications
+from services import race_center_social_v2
 from utils.config import settings
 from utils.security import enforce_rate_limit
 
@@ -180,6 +181,27 @@ class RacePostCreate(BaseModel):
     body: str = Field(min_length=1, max_length=600)
     series_key: str = Field(default="", max_length=120)
     driver_key: str = Field(default="", max_length=220)
+
+
+class RaceSocialReplyCreate(BaseModel):
+    body: str = Field(min_length=1,max_length=600)
+    parent_comment_id: int | None = Field(default=None,gt=0)
+
+
+class RaceSocialNotificationRead(BaseModel):
+    ids: list[int] | None = None
+
+
+class RaceSocialReportCreate(BaseModel):
+    target_type: str
+    target_id: int = Field(gt=0)
+    reason: str
+    details: str = Field(default="", max_length=1000)
+
+
+class RaceSocialReportReview(BaseModel):
+    action: str
+    note: str = Field(default="",max_length=1000)
 
 
 class RaceReactionChange(BaseModel):
@@ -778,6 +800,111 @@ def race_center_profile_update(request: Request, body: RaceProfileChange):
     return {"ok": True, "profile": profile}
 
 
+def _social_same_origin(request: Request):
+    origin = request.headers.get("origin", "")
+    if origin:
+        from urllib.parse import urlparse
+        parsed = urlparse(origin)
+        if parsed.scheme not in {"https", "http"} or parsed.netloc.lower() != request.url.netloc.lower():
+            raise HTTPException(status_code=403, detail="Untrusted social request origin.")
+
+
+@router.get("/race-center/social", response_class=HTMLResponse, include_in_schema=False)
+def public_race_center_social():
+    return HTMLResponse(
+        (ASSET_DIR/"race_center_social.html").read_text(encoding="utf-8"),
+        headers={"Cache-Control":"no-cache, no-store, must-revalidate"}
+    )
+
+
+@router.get("/race-center-social.css", include_in_schema=False)
+def race_center_social_css():
+    return _asset("race_center_social.css","text/css")
+
+
+@router.get("/race-center-social.js", include_in_schema=False)
+def race_center_social_js():
+    return _asset("race_center_social.js","application/javascript")
+
+
+@router.get("/api/public/race-center/social/timeline", include_in_schema=False)
+def race_center_social_timeline(request: Request, mode: str = "following", limit: int = 25, offset: int = 0):
+    account = race_center_accounts.account_from_request(request)
+    if mode not in {"following","discover"} or not 1<=limit<=50 or not 0<=offset<=100000:
+        raise HTTPException(status_code=422,detail="Invalid timeline query.")
+    if mode=="following" and account is None:
+        raise HTTPException(status_code=401,detail="Sign in to open your Following feed.")
+    return race_center_social_v2.get_feed(account.id if account else None,mode,limit,offset)
+
+
+@router.get("/api/public/race-center/social/notifications", include_in_schema=False)
+def race_center_social_notifications(request: Request,limit:int=40):
+    account=_race_account_or_401(request)
+    if not 1<=limit<=60:raise HTTPException(status_code=422,detail="Invalid page size.")
+    return race_center_social_v2.list_notifications(account.id,limit)
+
+
+@router.post("/api/public/race-center/social/notifications/read", include_in_schema=False)
+def race_center_social_notifications_read(request:Request,body:RaceSocialNotificationRead):
+    _social_same_origin(request)
+    account=_race_account_or_401(request)
+    enforce_rate_limit(request,"rc-social-notifications-read",60,300)
+    return race_center_social_v2.mark_notifications_read(account.id,body.ids)
+
+
+@router.post("/api/public/race-center/feed/{post_id}/media", include_in_schema=False)
+async def race_center_social_media_upload(request:Request,post_id:int,media:UploadFile=File(...)):
+    _social_same_origin(request)
+    account=_race_account_or_401(request)
+    enforce_rate_limit(request,"rc-social-media",12,300)
+    content=await media.read(race_center_social_v2.MAX_VIDEO+1)
+    if len(content)>race_center_social_v2.MAX_VIDEO:
+        raise HTTPException(status_code=413,detail="Video exceeds 12 MB limit.")
+    try:
+        return race_center_social_v2.save_media(account.id,post_id,content,media.content_type or "")
+    except ValueError as exc:
+        raise HTTPException(status_code=400,detail=str(exc))
+
+
+@router.get("/api/public/race-center/feed/{post_id}/media", include_in_schema=False)
+def race_center_social_media_get(post_id:int):
+    media=race_center_social_v2.media_for_post(post_id)
+    if media is None:raise HTTPException(status_code=404,detail="Media not found.")
+    data,mime=media
+    return Response(data,media_type=mime,headers={
+        "X-Content-Type-Options":"nosniff","Cache-Control":"public, max-age=300"
+    })
+
+
+@router.post("/api/public/race-center/social/report", include_in_schema=False)
+def race_center_social_report(request:Request,body:RaceSocialReportCreate):
+    _social_same_origin(request)
+    account=_race_account_or_401(request)
+    enforce_rate_limit(request,"rc-social-report",8,300)
+    try:
+        return race_center_social_v2.submit_report(account.id,body.target_type,body.target_id,
+                                                   body.reason,body.details)
+    except ValueError as exc:
+        raise HTTPException(status_code=400,detail=str(exc))
+
+
+@router.get("/api/public/race-center/social/reports/review", include_in_schema=False)
+def race_center_social_reports_review(request:Request,limit:int=70):
+    _race_staff_or_403(request)
+    return race_center_social_v2.moderation_queue(limit)
+
+
+@router.put("/api/public/race-center/social/reports/{report_id}/review", include_in_schema=False)
+def race_center_social_reports_act(request:Request,report_id:int,body:RaceSocialReportReview):
+    _social_same_origin(request)
+    staff=_race_staff_or_403(request)
+    enforce_rate_limit(request,"rc-social-review",45,300)
+    try:
+        return race_center_social_v2.review_report(staff.id,report_id,body.action,body.note)
+    except ValueError as exc:
+        raise HTTPException(status_code=400,detail=str(exc))
+
+
 @router.get("/api/public/race-center/feed", include_in_schema=False)
 def race_center_feed(request: Request, limit: int = 40):
     account = race_center_accounts.account_from_request(request)
@@ -788,13 +915,14 @@ def race_center_feed(request: Request, limit: int = 40):
             for item in race_center_accounts.list_follows(account.id)
             if item.get("kind") == "series" and item.get("key")
         ]
-    return {
-        "posts": race_center_accounts.list_posts(
-            viewer_user_id=account.id if account else None,
-            limit=limit,
-            series_keys=series_keys or None,
-        )
-    }
+    posts = race_center_accounts.list_posts(
+        viewer_user_id=account.id if account else None,
+        limit=limit,
+        series_keys=series_keys or None,
+    )
+    race_center_social_v2.attach_media(posts)
+    race_center_social_v2.enrich_replies(posts)
+    return {"posts":posts}
 
 
 @router.post("/api/public/race-center/feed", include_in_schema=False)
@@ -842,7 +970,7 @@ def race_center_comment(request: Request, post_id: int, body: RaceCommentCreate)
     account = _race_account_or_401(request)
     enforce_rate_limit(request, "race-center-comment", 30, 300)
     try:
-        result = race_center_accounts.add_comment(account.id, post_id, body.body)
+        result = race_center_social_v2.add_thread_comment(account.id, post_id, body.body)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return result
@@ -903,6 +1031,7 @@ def race_center_people_follow(request: Request, body: RaceUserFollowChange, back
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     if result.get("created"):
+        race_center_social_v2.notify_follow(account.id,body.user_id)
         background_tasks.add_task(race_center_follower_notifications.send_follower_email, body.user_id, account.id)
     return {
         "ok": True,
