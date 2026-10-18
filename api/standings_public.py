@@ -209,7 +209,8 @@ class RaceReactionChange(BaseModel):
 
 
 class RaceCommentCreate(BaseModel):
-    body: str = Field(min_length=1, max_length=280)
+    body: str = Field(min_length=1, max_length=600)
+    parent_comment_id: int | None = Field(default=None,gt=0)
 
 
 class RaceUserFollowChange(BaseModel):
@@ -970,7 +971,7 @@ def race_center_comment(request: Request, post_id: int, body: RaceCommentCreate)
     account = _race_account_or_401(request)
     enforce_rate_limit(request, "race-center-comment", 30, 300)
     try:
-        result = race_center_social_v2.add_thread_comment(account.id, post_id, body.body)
+        result = race_center_social_v2.add_thread_comment(account.id, post_id, body.body,body.parent_comment_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return result
