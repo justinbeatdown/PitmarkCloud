@@ -61,6 +61,20 @@ class PrtSession(Base):
     data_json: Mapped[str] = mapped_column(Text)
 
 
+class PrtPublicSharing(Base):
+    """Separate, revocable consent for displaying PRT sessions on a public page."""
+    __tablename__ = "race_center_prt_public_sharing"
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("race_center_users.id", ondelete="CASCADE"), primary_key=True
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    changed_at: Mapped[float] = mapped_column(Float, default=time.time)
+
+
+class PublicSharingChoice(BaseModel):
+    public: bool
+
+
 class LinkApproval(BaseModel):
     code: str = Field(min_length=6, max_length=12)
     consent_private_history: bool = False
@@ -273,6 +287,81 @@ def prt_my_summary(request: Request):
         "wins": sum(int(row.get("finishing_position") or 0) == 1 for row in finished),
         "top_fives": sum(int(row.get("finishing_position") or 0) <= 5 for row in finished),
         "best_lap": min((float(row.get("best_lap") or 0) for row in data if float(row.get("best_lap") or 0) > 0), default=0),
+    }
+
+
+PUBLIC_SESSION_FIELDS = (
+    "date", "track", "car", "series", "laps", "incidents",
+    "finishing_position", "starting_position", "best_lap", "strength_of_field",
+)
+
+
+def _public_session(row: dict) -> dict:
+    # Important: never publish iRacing identifiers, device tokens or raw source IDs.
+    return {key: row.get(key) for key in PUBLIC_SESSION_FIELDS}
+
+
+def _public_summary(data: list[dict]) -> dict:
+    finished = [row for row in data if int(row.get("finishing_position") or 0) > 0]
+    return {
+        "sessions": len(data),
+        "laps": sum(int(row.get("laps") or 0) for row in data),
+        "wins": sum(int(row.get("finishing_position") or 0) == 1 for row in finished),
+        "top_fives": sum(0 < int(row.get("finishing_position") or 0) <= 5 for row in finished),
+        "best_lap": min(
+            (float(row.get("best_lap") or 0) for row in data if float(row.get("best_lap") or 0) > 0),
+            default=0,
+        ),
+    }
+
+
+@router.get("/api/public/race-center/prt/sharing")
+def prt_get_sharing(request: Request):
+    owner = _account(request)
+    with SessionLocal() as db:
+        record = db.get(PrtPublicSharing, owner.id)
+        return {"public": bool(record and record.enabled)}
+
+
+@router.put("/api/public/race-center/prt/sharing")
+def prt_set_sharing(request: Request, choice: PublicSharingChoice):
+    _same_site(request)
+    owner = _account(request)
+    with SessionLocal() as db:
+        record = db.get(PrtPublicSharing, owner.id)
+        if record is None:
+            record = PrtPublicSharing(user_id=owner.id)
+            db.add(record)
+        record.enabled = bool(choice.public)
+        record.changed_at = time.time()
+        db.commit()
+    return {"public": choice.public, "ok": True}
+
+
+@router.get("/api/public/race-center/prt/public/{handle}")
+def prt_public_racing_history(handle: str, limit: int = 25, offset: int = 0):
+    """Explicitly published results only. Everyone else receives no race data."""
+    if limit < 1 or limit > 100 or offset < 0 or offset > 100000:
+        raise HTTPException(status_code=422, detail="Invalid public race page")
+    profile = race_center_accounts.public_profile_by_handle(handle)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    user_id = int(profile["id"])
+    with SessionLocal() as db:
+        share = db.get(PrtPublicSharing, user_id)
+        if not share or not share.enabled:
+            return {"public": False}
+        rows = db.scalars(select(PrtSession).where(PrtSession.user_id == user_id)).all()
+        data = [json.loads(row.data_json) for row in rows]
+    data.sort(key=lambda item: str(item.get("date") or ""), reverse=True)
+    summary = _public_summary(data)
+    visible = [_public_session(row) for row in data[offset:offset + limit]]
+    return {
+        "public": True,
+        "summary": summary,
+        "sessions": visible,
+        "offset": offset,
+        "next_offset": offset + len(visible) if offset + len(visible) < len(data) else None,
     }
 
 

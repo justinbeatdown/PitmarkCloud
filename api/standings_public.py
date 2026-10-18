@@ -9,7 +9,7 @@ import threading
 import time
 
 import httpx
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 from PIL import Image, ImageOps
@@ -19,6 +19,7 @@ from services.racing_events import get_racing_event_hub
 from services.grassroots_racing import get_grassroots_catalog
 from services import race_center_accounts
 from services import race_center_entities
+from services import race_center_follower_notifications
 from utils.config import settings
 from utils.security import enforce_rate_limit
 
@@ -191,6 +192,10 @@ class RaceCommentCreate(BaseModel):
 
 class RaceUserFollowChange(BaseModel):
     user_id: int = Field(gt=0)
+
+
+class RaceFollowerEmailChoice(BaseModel):
+    enabled: bool
 
 
 class RaceDriverClaimCreate(BaseModel):
@@ -863,14 +868,29 @@ def race_center_public_profile(request: Request, handle: str):
     return profile
 
 
+@router.get("/api/public/race-center/follower-emails", include_in_schema=False)
+def race_center_follower_email_preferences(request: Request):
+    account = _race_account_or_401(request)
+    return race_center_follower_notifications.preference(account.id)
+
+
+@router.put("/api/public/race-center/follower-emails", include_in_schema=False)
+def race_center_follower_email_update(request: Request, body: RaceFollowerEmailChoice):
+    account = _race_account_or_401(request)
+    enforce_rate_limit(request, "race-center-follower-email-preference", 12, 300)
+    return race_center_follower_notifications.update_preference(account.id, body.enabled)
+
+
 @router.put("/api/public/race-center/people/follow", include_in_schema=False)
-def race_center_people_follow(request: Request, body: RaceUserFollowChange):
+def race_center_people_follow(request: Request, body: RaceUserFollowChange, background_tasks: BackgroundTasks):
     account = _race_account_or_401(request)
     enforce_rate_limit(request, "race-center-people-follow", 60, 300)
     try:
-        race_center_accounts.follow_user(account.id, body.user_id)
+        result = race_center_accounts.follow_user(account.id, body.user_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    if result.get("created"):
+        background_tasks.add_task(race_center_follower_notifications.send_follower_email, body.user_id, account.id)
     return {
         "ok": True,
         "connections": race_center_accounts.connection_counts(account.id),

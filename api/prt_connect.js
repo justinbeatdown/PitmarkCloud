@@ -56,8 +56,11 @@
         code, consent_private_history: Boolean($('consent') && $('consent').checked)
       });
       if (!result.ok) throw new Error('Approval did not finish. Please retry.');
-      state('feedback','Computer approved! Return to PRT and wait for it to confirm your Race Center connection.','ok');
+      state('feedback','Computer approved! Opening your Race Center driver profile…','ok');
       approval.textContent = 'Computer approved';
+      // Desktop PRT polls independently for the approved token.
+      // Send the driver to their actual Race Center profile after confirmation.
+      setTimeout(() => { window.location.assign('/race-center/me'); }, 1400);
     } catch (error) {
       state('feedback',explain(error),'error');
       approval.disabled = false;

@@ -11,6 +11,11 @@ on:
       - 'api/standings_public.html'
       - 'api/standings_public.js'
       - 'tests/test_prt_racer_profile_dashboard_contract.py'
+      - 'services/race_center_follower_notifications.py'
+      - 'services/race_center_accounts.py'
+      - 'services/database.py'
+      - 'api/standings_public.py'
+      - 'tests/test_prt_public_race_history_runtime.py'
       - 'main.py'
       - 'tests/test_prt_race_center_bridge_contract.py'
       - '.github/workflows/prt-race-center-bridge.yml'
@@ -36,5 +41,6 @@ jobs:
       - run: node --check api/standings_public.js
       - run: node --check api/prt_connect.js
       - run: pip install -r requirements.txt
+      - run: PYTHONPATH=. python tests/test_prt_public_race_history_runtime.py
       - run: PYTHONPATH=. python tests/test_prt_bridge_import_smoke.py
       - run: node --check api/race_center_profile.js

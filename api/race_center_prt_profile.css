@@ -1,3 +1,42 @@
+/* Profile card must be a real padded card, not just a border-color tint.
+   Prevent the visible orange outline and children from clipping at its edges. */
+body[data-view="profile"] .public-profile-main .profile-racing-card.prt-private-panel{
+  position:relative;display:block;width:100%;min-width:0;max-width:100%;
+  box-sizing:border-box;overflow:hidden;
+  padding:clamp(18px,2.5vw,30px);
+  border:1px solid rgba(255,85,0,.35);
+  border-radius:20px;
+  margin:22px 0 0;
+  background:linear-gradient(145deg,rgba(255,85,0,.055),transparent 36%),#11161b;
+  box-shadow:0 18px 44px rgba(0,0,0,.20);
+}
+body[data-view="profile"] .public-profile-main .profile-racing-card.prt-private-panel[hidden]{display:none!important}
+.prt-private-panel > #prt-history{display:block;height:0;line-height:0;scroll-margin-top:80px}
+.prt-private-panel .prt-topbar>div{min-width:0;flex:1}
+.prt-private-panel #profilePrtPrivateSummary,.prt-private-panel #profilePrtRecentRaces{min-width:0;max-width:100%}
+.prt-private-panel .prt-metrics{width:100%;min-width:0;box-sizing:border-box}
+.prt-private-panel .prt-metric{min-width:0;box-sizing:border-box}
+.prt-private-panel .prt-races{max-width:100%;min-width:0;box-sizing:border-box;overflow-x:auto}
+.prt-private-panel h2{margin:6px 0 12px}
+.prt-privacy-pill.is-public{color:#ffd1af;border-color:#a95d25}
+.prt-share-control{background:#0c1116;border:1px solid #34414b;border-radius:13px;padding:18px;margin:18px 0 12px}
+.prt-share-control[hidden]{display:none!important}
+.prt-share-control>div strong{display:block;color:#fff;font-size:14px}
+.prt-share-control>div p{font-size:12px;color:#aebdcb;line-height:1.65;margin:7px 0 14px}
+.prt-share-toggle{display:flex;align-items:flex-start;gap:10px;color:#e5ecf2;font-weight:650;font-size:13px;cursor:pointer;margin-bottom:12px}
+.prt-share-toggle input{width:18px;height:18px;accent-color:#ff5500;flex:none;margin:0}
+.prt-share-control button,.prt-load-more{border-radius:9px;background:#ff5500;border:1px solid #ff5500;color:#160c08;padding:10px 14px;font-size:12px;font-weight:800;cursor:pointer}
+.prt-share-control button:disabled,.prt-load-more:disabled{opacity:.55;cursor:wait}
+.prt-share-message{font-size:12px;min-height:1em;line-height:1.5;color:#9fdfc0;margin:10px 0 0}
+.prt-share-message.error{color:#ff9c8e}
+#prtLoadMoreSlot{display:flex;justify-content:center;margin-top:13px}
+#prtLoadMoreSlot:empty{display:none}
+@media(max-width:700px){
+  body[data-view="profile"] .public-profile-main .profile-racing-card.prt-private-panel{padding:17px;border-radius:14px}
+  .prt-private-panel .prt-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .prt-private-panel .prt-topbar{gap:10px}
+}
+
 .prt-private-panel{border-color:rgba(255,85,0,.33);background:linear-gradient(145deg,rgba(255,85,0,.06),transparent 35%),#12161b}
 .prt-private-panel[hidden]{display:none!important}
 .prt-private-panel .prt-topbar{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
@@ -26,3 +65,28 @@
 .prt-actions a:first-child{border-color:#ff5500;background:#ff5500;color:#160a03}
 .prt-actions a:hover{filter:brightness(1.1)}
 @media(max-width:700px){.prt-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.prt-metric{padding:12px}}
+
+
+/* Race Center profile header: normal navigation control, not a floating purple name badge. */
+body[data-view="profile"] .profile-header-link{
+  display:inline-flex;align-items:center;justify-content:center;min-height:35px;
+  padding:8px 13px;border:1px solid #374550;border-radius:9px;
+  color:#f4f6f8;background:#141c23;font:800 12px/1.2 "Segoe UI",Arial,sans-serif;
+  white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s;
+}
+body[data-view="profile"] .profile-header-link:hover{background:#202d38;border-color:#ff5500;color:#fff}
+body[data-view="profile"] .profile-follow-feedback{color:#b2d0c3;font-size:12px;line-height:1.4;align-self:center}
+body[data-view="profile"] #profileFollowButton:disabled{opacity:.65;cursor:wait}
+.profile-email-notifications{
+  margin:18px 0 12px;background:#0c1116;
+  border:1px solid #334351;border-radius:13px;padding:17px;color:#dce6ee;font-size:13px;
+}
+.profile-email-notifications[hidden]{display:none!important}
+.profile-email-notifications strong{font-size:14px;color:#fff}
+.profile-email-notifications p{color:#a3b2c1;line-height:1.55}
+.profile-email-notifications label{display:flex;align-items:center;gap:10px;margin:11px 0 14px;cursor:pointer;font-weight:700}
+.profile-email-notifications input{accent-color:#ff5500;width:18px;height:18px}
+.profile-email-notifications button{background:#ff5500;border:1px solid #ff5500;color:#130700;
+  font-size:12px;font-weight:800;border-radius:8px;padding:10px 14px;cursor:pointer}
+.profile-email-notifications button:disabled{opacity:.55;cursor:default}
+#profileFollowerEmailStatus{min-height:16px;margin:11px 0 0}

@@ -24,7 +24,22 @@ assert 'id="profilePrtPrivateStats" hidden' in page
 assert 'id="profilePrtRecentRaces"' in page
 assert '/race-center-prt-profile.css' in page
 assert 'const ownPrt = Boolean(account.authenticated && account.profile && account.profile.handle === profile.handle)' in profile
-assert 'if(ownPrt)await renderPrtOwnerDashboard()' in profile
+assert 'await renderPrtOwnerDashboard()' in profile
+assert 'await renderPrtVisitorDashboard()' in profile
+assert '/api/public/race-center/prt/sharing' in profile
+assert '/api/public/race-center/prt/public/' in profile
+assert 'id="prtPublicSharingChoice"' in page
+assert 'id="prtSaveSharing"' in page
+assert 'id="prtPrivacyPill"' in page
+assert 'PrtPublicSharing' in api
+assert '@router.put("/api/public/race-center/prt/sharing")' in api
+assert '@router.get("/api/public/race-center/prt/public/{handle}")' in api
+assert '_same_site(request)' in api
+assert 'share or not share.enabled' in api
+assert 'PUBLIC_SESSION_FIELDS' in api
+assert 'window.location.assign' in (ROOT/"api/prt_connect.js").read_text(encoding="utf-8")
+assert "padding:clamp(18px" in style
+assert "overflow:hidden" in style
 assert "/api/public/race-center/prt/my-summary" in profile
 assert "/api/public/race-center/prt/my-sessions" in profile
 assert "history.visibility!=='private'" in profile

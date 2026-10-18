@@ -719,6 +719,7 @@ def identity_for_user(user_id: int) -> dict:
 def follow_user(follower_user_id: int, followed_user_id: int) -> dict:
     if follower_user_id == followed_user_id:
         raise ValueError("You cannot follow yourself.")
+    created = False
     with SessionLocal() as db:
         target = db.get(RaceCenterUser, followed_user_id)
         if not target:
@@ -733,7 +734,8 @@ def follow_user(follower_user_id: int, followed_user_id: int) -> dict:
                 followed_user_id=followed_user_id,
             ))
             db.commit()
-    return {"ok": True}
+            created = True
+    return {"ok": True, "created": created}
 
 
 def unfollow_user(follower_user_id: int, followed_user_id: int) -> dict:
