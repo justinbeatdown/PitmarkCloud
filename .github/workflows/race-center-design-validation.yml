@@ -1,0 +1,26 @@
+name: Race Center design validation
+on:
+  pull_request:
+    paths:
+      - 'api/race_center_refined.css'
+      - 'api/standings_public.html'
+      - 'api/race_center_profile.html'
+      - 'api/standings_public.py'
+      - 'tests/test_race_center_design_refresh_contract.py'
+      - '.github/workflows/race-center-design-validation.yml'
+jobs:
+  design-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python tests/test_race_center_design_refresh_contract.py
+      - run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          ast.parse(Path('api/standings_public.py').read_text(encoding='utf-8'))
+          print('Race Center backend route syntax OK')
+          PY
