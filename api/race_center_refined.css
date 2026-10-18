@@ -1,0 +1,395 @@
+/* Pitmark Race Center — unified visual system, October 2026.
+ * Purpose: one accessible, consistent product surface across home, racing,
+ * directory, community and profile pages. This file loads LAST by design.
+ * It does not alter feed logic, identities, data permissions, or navigation routes.
+ */
+:root{
+  --rc-ink:#090c10;--rc-surface:#11171d;--rc-raised:#161e26;
+  --rc-edge:#2a3641;--rc-soft:rgba(255,255,255,.055);
+  --rc-orange:#ff5500;--rc-warm:#ff925c;
+  --rc-quiet:#a6b4c2;--rc-muted:#8798a9;
+  --rc-round:17px;--rc-round-lg:23px;
+  --rc-shadow:0 16px 56px rgba(0,0,0,.23);
+  --radius:var(--rc-round);--radius-sm:11px;
+  --line:#293540;--line-soft:rgba(255,255,255,.09);
+  --muted:var(--rc-quiet);--dim:var(--rc-muted);
+  --max:1460px;
+}
+html{scroll-padding-top:92px}
+body{
+  background:
+    radial-gradient(ellipse 64% 500px at 78% -110px,rgba(255,85,0,.105),transparent 75%),
+    linear-gradient(180deg,#090c10 0%,#0b0e12 32%,#0a0d11 100%);
+  color:#f4f6f8;
+  line-height:1.5;
+  text-rendering:optimizeLegibility;
+}
+body:before{
+  content:"";height:1px;position:absolute;top:var(--header-h);left:0;right:0;
+  background:linear-gradient(90deg,transparent,rgba(255,85,0,.25),transparent);
+  pointer-events:none;z-index:1;
+}
+body :is(h1,h2,h3,h4,strong){text-wrap:pretty}
+body :is(input,textarea,select){accent-color:var(--rc-orange)}
+body :is(a,button,input,select,textarea,summary):focus-visible{
+  outline:2px solid #ff995f;outline-offset:3px;
+}
+body :is(button,a,summary){-webkit-tap-highlight-color:transparent}
+body :is(button,a)[disabled]{cursor:not-allowed}
+::selection{background:rgba(255,85,0,.4);color:#fff}
+.eyebrow,.toolbar-kicker{
+  color:#ff8c55;letter-spacing:.115em;font-weight:850;
+  font-size:11px;line-height:1.35
+}
+.loading-card,.empty-card,.v8-empty{
+  border:1px dashed #394754;border-radius:14px;
+  background:linear-gradient(135deg,#121920,#0e1419);
+  color:#a9bacb;padding:24px;line-height:1.55;
+}
+
+/* Header and information architecture */
+.site-header{
+  background:rgba(9,13,17,.96);
+  border-bottom:1px solid #26313a;
+  box-shadow:0 8px 40px rgba(0,0,0,.18);
+  backdrop-filter:blur(20px) saturate(1.16)
+}
+.header-inner{width:min(1560px,calc(100% - 48px));height:74px;gap:18px}
+.brand{gap:11px;flex-shrink:0}
+.brand img{width:148px;height:auto;max-height:51px;object-fit:contain}
+.brand-product{border-left:1px solid #35414b;padding-left:12px}
+.brand-product strong{font-size:14px;letter-spacing:-.025em}
+.site-header nav{
+  justify-content:center;gap:2px;
+  overflow:visible!important;
+  white-space:nowrap;
+}
+.site-header nav>a,.rc-more-menu>summary{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:39px;padding:8px 10px;
+  border:1px solid transparent;border-radius:9px;
+  color:#b3c1cf;font-size:12px;font-weight:750;
+  transition:color .16s,background .16s,border-color .16s;
+}
+.site-header nav>a:hover,.rc-more-menu>summary:hover{
+  background:#19232c;border-color:#2c3843;color:#fff
+}
+.site-header nav>a.active{
+  background:#211a17;border-color:rgba(255,85,0,.42);
+  box-shadow:inset 0 -2px 0 rgba(255,85,0,.68);color:#fff
+}
+.rc-more-menu{position:relative;z-index:90;flex:0 0 auto}
+.rc-more-menu>summary{
+  list-style:none;cursor:pointer;user-select:none;gap:7px
+}
+.rc-more-menu>summary::-webkit-details-marker{display:none}
+.rc-more-menu>summary:after{content:"⌄";color:#ff8c55;font-size:15px;margin-top:-3px}
+.rc-more-menu[open]>summary{
+  background:#19232c;border-color:#40505f;color:#fff
+}
+.rc-more-links{
+  position:absolute;right:0;top:calc(100% + 9px);
+  width:225px;padding:7px;display:grid;gap:2px;
+  background:#111920;border:1px solid #35434f;border-radius:14px;
+  box-shadow:0 20px 60px rgba(0,0,0,.47);
+  z-index:100
+}
+.rc-more-links a{
+  padding:12px 13px!important;min-height:40px;
+  font-size:12px!important;color:#c6d0d9!important;
+  border-radius:8px!important;display:block
+}
+.rc-more-links a:hover,.rc-more-links a.active{
+  background:rgba(255,85,0,.13)!important;color:#fff!important;
+}
+.rc-more-menu:has(a.active)>summary{border-color:rgba(255,85,0,.4);color:#fff}
+.account-zone{min-width:0!important;flex:0 0 auto;gap:8px}
+.account-button,#myRacerProfileShortcut,.profile-header-link{
+  border-radius:9px!important;min-height:38px;padding:8px 12px!important;
+  border:1px solid #3a4855!important;
+  background:#151e27!important;
+  color:#f2f5f7!important;
+  font-size:12px!important;font-weight:750!important;
+  box-shadow:none!important;
+}
+#myRacerProfileShortcut{
+  border-color:rgba(255,85,0,.45)!important;
+  background:rgba(255,85,0,.13)!important;color:#ffc8a9!important
+}
+.account-button:hover,#myRacerProfileShortcut:hover,.profile-header-link:hover{
+  border-color:#ff7430!important;background:#212a32!important
+}
+.header-health{padding:8px 10px;font-size:11px;border-radius:9px}
+.header-health.good i{box-shadow:0 0 0 3px rgba(57,217,138,.1)}
+
+/* Shared layout and headings */
+main,.public-profile-main{min-width:0}
+.content-section{margin-top:42px}
+.section-head,.v7-page-head,.drivers-head,.v7-directory-head,.consumer-home-head{
+  display:flex;align-items:end;justify-content:space-between;gap:22px;margin-bottom:20px;
+}
+.section-head h2,.v7-page-head h2,.drivers-head h2,
+.v7-directory-head h2,.consumer-home-head h2,.pulse-head h2{
+  margin:7px 0 0;
+  font-size:clamp(24px,2.5vw,35px);
+  line-height:1.12;letter-spacing:-.047em;
+}
+.section-head p,.v7-page-head p,.drivers-head p,
+.v7-directory-head p,.consumer-home-head p{
+  max-width:800px;color:var(--rc-quiet);font-size:13px;line-height:1.6;margin:8px 0 0
+}
+.section-link,.consumer-block-head a,.pulse-action{
+  color:#ffae82;font-size:12px;font-weight:800;white-space:nowrap
+}
+.section-link:hover,.consumer-block-head a:hover,.pulse-action:hover{color:#ffd0b1}
+.button,.consumer-customize,.favorites-filter{
+  border-radius:10px;min-height:43px;
+  padding:11px 16px;font-size:13px;font-weight:760;
+  transition:transform .15s,background .15s,border-color .15s,box-shadow .15s
+}
+.button.primary{color:#160a04;background:#ff5500;border-color:#ff5500;box-shadow:0 7px 28px rgba(255,85,0,.17)}
+.button.primary:hover{background:#ff7534;box-shadow:0 10px 30px rgba(255,85,0,.24)}
+.button:not(.primary){background:#182028;border-color:#34434e}
+.button:not(.primary):hover{background:#222e39;border-color:#60717e}
+.section-head .button{flex-shrink:0}
+:is(.driver-search,.search,.race-search-box) input::placeholder{color:#8292a2;opacity:1}
+:is(.driver-search,.search,.race-search-box):focus-within{
+  border-color:rgba(255,132,66,.75);
+  box-shadow:0 0 0 3px rgba(255,85,0,.10)
+}
+
+/* Home: a confident, focused masthead */
+body[data-view="hub"] .hero{
+  position:relative;min-height:0;
+  padding:60px 0 45px;gap:clamp(26px,4vw,68px);
+  grid-template-columns:minmax(0,1.13fr) minmax(305px,.87fr);
+}
+body[data-view="hub"] .hero-copy{min-width:0}
+body[data-view="hub"] .version-line:before{
+  content:"";display:block;width:22px;height:2px;border-radius:2px;background:var(--rc-orange)
+}
+body[data-view="hub"] .hero h1{
+  max-width:760px;margin:18px 0 22px;
+  font-size:clamp(56px,6.2vw,92px);line-height:.95;letter-spacing:-.07em;
+}
+body[data-view="hub"] .hero h1 em{color:#ff7130}
+body[data-view="hub"] .hero-copy>p{
+  max-width:640px;color:#bac4ce;
+  font-size:clamp(16px,1.55vw,19px);line-height:1.65;
+}
+body[data-view="hub"] .hero-actions{margin-top:27px;gap:11px}
+body[data-view="hub"] .hero-board{
+  border-radius:var(--rc-round-lg);border:1px solid #394650;
+  background:linear-gradient(140deg,rgba(255,85,0,.08),transparent 33%),linear-gradient(145deg,#19232a,#0e141a);
+  box-shadow:0 22px 70px rgba(0,0,0,.3);isolation:isolate
+}
+body[data-view="hub"] .hero-board>div{padding:23px;min-height:139px;border-color:#2c3841;min-width:0}
+body[data-view="hub"] .hero-board strong{font-size:clamp(30px,3.8vw,49px);font-variant-numeric:tabular-nums}
+body[data-view="hub"] .hero-board span{font-size:11px;color:#b7c2ce}
+body[data-view="hub"] .hero-board small{font-size:11px;color:#8f9cab}
+body[data-view="hub"] .hero-board>div:nth-child(2) strong{color:#ffb27a}
+body[data-view="hub"] .race-search-dock{
+  margin-top:32px;border-color:#35434e;
+  background:linear-gradient(140deg,#171f27,#0d1319);
+  box-shadow:0 14px 44px rgba(0,0,0,.17)
+}
+body[data-view="hub"] .race-search-dock input{font-size:14px}
+body[data-view="hub"] .race-pulse{margin-top:16px}
+body[data-view="hub"] .home-race-pulse{
+  background:linear-gradient(150deg,#131b22,#0c1116);
+  border:1px solid #303d47;border-radius:20px;padding:24px
+}
+body[data-view="hub"] .pulse-grid{gap:11px}
+body[data-view="hub"] .home-race-pulse .pulse-card{
+  min-height:114px;background:#0f161d;border:1px solid #2d3944;border-radius:13px;padding:17px
+}
+body[data-view="hub"] .home-race-pulse .pulse-card>strong{
+  color:#fff;font-size:clamp(27px,3.2vw,39px)
+}
+body[data-view="hub"] .home-race-pulse .pulse-card>span{
+  font-size:11px;color:#a8bac9;font-weight:840;letter-spacing:.09em
+}
+body[data-view="hub"] .home-race-pulse .pulse-card small{
+  font-size:11px;color:#93a3b2;line-height:1.5
+}
+body[data-view="hub"] .my-series-shell{margin-top:18px;border-top:1px solid #2b3742;padding-top:17px}
+body[data-view="hub"] #hubNavigation{gap:12px!important;margin-top:34px!important}
+body[data-view="hub"] .hub-nav-card{
+  min-height:148px!important;padding:22px!important;
+  border:1px solid #303e49;border-radius:16px;
+  background:linear-gradient(135deg,#172027,#0d141a);
+  box-shadow:0 8px 24px rgba(0,0,0,.1);
+}
+body[data-view="hub"] .hub-nav-card:hover{
+  border-color:rgba(255,85,0,.7);
+  box-shadow:0 14px 35px rgba(0,0,0,.26)
+}
+body[data-view="hub"] .hub-nav-icon{
+  width:46px;height:46px;border-radius:12px;font-size:12px
+}
+body[data-view="hub"] .hub-nav-card strong{font-size:19px}
+body[data-view="hub"] .hub-nav-card p{color:#a4b2c0;font-size:12px;line-height:1.55;margin-top:5px}
+body[data-view="hub"] .hub-nav-card b{font-size:23px}
+body[data-view="hub"] .content-section{margin-top:50px}
+body[data-view="hub"] .consumer-home-head{gap:20px}
+body[data-view="hub"] .consumer-home-block{
+  background:linear-gradient(145deg,rgba(22,29,36,.95),rgba(12,18,23,.95));
+  border:1px solid #303b45;border-radius:17px;padding:20px;
+  box-shadow:0 12px 37px rgba(0,0,0,.10)
+}
+body[data-view="hub"] .consumer-block-head strong{font-size:16px}
+body[data-view="hub"] .consumer-home-split{gap:15px}
+body[data-view="hub"] .consumer-card{border:1px solid #303d48;border-radius:14px}
+body[data-view="hub"] .consumer-card:hover{border-color:#ff7940}
+
+/* Racing directories, detail pages and all repeating data cards */
+.series-directory-card,.driver-directory-card,.v7-entity-card,
+.driver-detail-card,.series-profile-hero,.driver-profile-hero,
+.v7-profile-hero,.v7-race-day-card,.v7-health-card,.v7-brief-card,
+.series-card,.event-card,.schedule-card,.leader-card,.mover-card,
+.v8-person-card,.v8-story-card,.v8-native-story,
+.v8-grassroots-columns>div,.v8-live-stage-shell,
+.race-social :is(.social-feed-card,.social-composer-card,.unified-race-feed){
+  border-color:#303c47;
+  border-radius:var(--rc-round);
+  background-color:var(--rc-surface);
+}
+:is(.series-directory-card,.driver-directory-card,.v7-entity-card,.series-card,.event-card,
+.schedule-card,.leader-card,.mover-card,.v8-person-card,.v8-story-card){
+  transition:transform .16s,border-color .16s,box-shadow .16s
+}
+:is(.series-directory-card,.driver-directory-card,.v7-entity-card,.series-card,.event-card,
+.schedule-card,.leader-card,.mover-card,.v8-person-card,.v8-story-card):hover{
+  border-color:rgba(255,125,52,.55);
+  box-shadow:0 12px 34px rgba(0,0,0,.24)
+}
+:is(.drivers-grid,.series-directory-grid,.v7-entity-grid,.v8-people-grid,.v8-story-grid){
+  gap:16px
+}
+:is(.drivers-meta,.v7-directory-meta){
+  background:#111921;border:1px solid #283540;border-radius:11px;padding:11px 14px;
+  color:#a2b3c3;font-size:12px
+}
+:is(.drivers-meta,.v7-directory-meta) strong{color:#f3f7fa}
+:is(.driver-search,.search){border-color:#35434f;background:#0b1117;border-radius:11px}
+:is(.driver-search,.search) input{color:#f5f7fa}
+.v7-page-head,.v7-directory-head,.drivers-head{padding-bottom:16px;border-bottom:1px solid #2e3842}
+.series-card h4,.driver-directory-card h3,.series-directory-card h3{
+  letter-spacing:-.028em;line-height:1.2
+}
+.v7-entity-profile .v7-profile-hero,.driver-profile-page .driver-profile-hero{box-shadow:var(--rc-shadow)}
+.v8-person-card,.v8-story-card{overflow:hidden}
+.v8-community-hero,.v8-story-page>header{
+  border-radius:20px;
+  background:linear-gradient(110deg,rgba(255,85,0,.08),transparent 58%),#131a21;
+  border:1px solid #34414c
+}
+.v8-person-copy p,.v8-story-copy p{color:#b1bdc9;line-height:1.55}
+.v8-grassroots-columns>div{overflow:hidden}
+.v8-grassroots-columns>div header{background:rgba(255,255,255,.025)}
+.v8-live-stage-shell{box-shadow:var(--rc-shadow);border-color:#3c4853}
+.v8-native-story{overflow:hidden}
+
+/* Profile surfaces, and the newly working public racing history. */
+body[data-view="profile"] .public-profile-main{max-width:1320px;padding-top:30px}
+body[data-view="profile"] .public-profile-hero{
+  border:1px solid #34424e;border-radius:22px;
+  background:radial-gradient(ellipse at 9% 8%,rgba(255,85,0,.065),transparent 40%),linear-gradient(150deg,#172028,#10161d);
+  box-shadow:var(--rc-shadow)
+}
+body[data-view="profile"] .public-profile-copy h1{letter-spacing:-.056em}
+body[data-view="profile"] .profile-racing-card:not(.prt-private-panel),body[data-view="profile"] .profile-wall{
+  border:1px solid #2d3a46;border-radius:19px;
+  background:#11181f;padding:clamp(18px,2.35vw,30px);
+  margin-top:22px
+}
+body[data-view="profile"] .profile-racing-card .section-head,
+body[data-view="profile"] .profile-wall .section-head{margin-bottom:17px}
+body[data-view="profile"] .profile-racing-card:not(.prt-private-panel) h2,
+body[data-view="profile"] .profile-wall h2{font-size:clamp(24px,2.4vw,31px)}
+body[data-view="profile"] .profile-wall-composer,
+body[data-view="profile"] .profile-wall-post{
+  border-radius:13px;border-color:#34424e
+}
+body[data-view="profile"] .profile-followed-racing{gap:9px}
+body[data-view="profile"] .profile-followed-racing>span{font-size:12px;padding:11px 13px}
+body[data-view="profile"] .profile-racing-card[hidden],body[data-view="profile"] .profile-wall [hidden]{display:none!important}
+
+/* Tables and form controls: readable on desktop, scrollable on mobile */
+:is(.standings-table-wrap,.schedule-table-wrap,.table-wrap,.prt-races){
+  border:1px solid #2c3843;border-radius:13px;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+}
+:is(.standings-table-wrap,.schedule-table-wrap,.table-wrap,.prt-races) table{
+  font-variant-numeric:tabular-nums;
+}
+:is(.standings-table-wrap,.schedule-table-wrap,.table-wrap,.prt-races) :is(td,th){line-height:1.45}
+:is(.standings-table-wrap,.schedule-table-wrap,.table-wrap,.prt-races) th{
+  background:#19232c;color:#b8c6d3;font-size:11px;letter-spacing:.055em
+}
+:is(.standings-table-wrap,.schedule-table-wrap,.table-wrap,.prt-races) tbody tr:hover{
+  background:rgba(255,255,255,.035)
+}
+dialog{border:1px solid #42505d;background:#121920;color:#eef3f7;box-shadow:0 24px 100px rgba(0,0,0,.65)}
+dialog::backdrop{background:rgba(2,5,9,.76);backdrop-filter:blur(5px)}
+input,textarea,select{min-width:0}
+:is(.account-form,.series-submit-grid,.consumer-onboarding) input:focus-visible{
+  border-color:#ff884a;box-shadow:0 0 0 3px rgba(255,85,0,.13)
+}
+/* Footers and micro-copy */
+.site-footer{border-color:#28333e}
+.footer-links a{font-size:12px;color:#9fb0be}
+.footer-brand p{font-size:12px;color:#98a8b7}
+
+/* Responsive behavior: never allow design refinements to override PRT's mobile dock. */
+@media(max-width:1450px){
+  .header-inner{gap:12px}
+  .site-header nav>a,.rc-more-menu>summary{padding:8px 8px;font-size:11px}
+  .brand img{width:132px}
+  .header-health{display:none}
+}
+@media(max-width:1100px){
+  body[data-view="hub"] .hero{grid-template-columns:1fr;gap:24px;padding-top:40px}
+  body[data-view="hub"] .hero-board{max-width:none}
+  body[data-view="hub"] .hero-board>div{min-height:116px}
+  .site-header nav{gap:0}
+  .site-header nav>a,.rc-more-menu>summary{font-size:11px;padding:8px 7px}
+}
+@media(max-width:820px){
+  .rc-more-menu{display:none}
+  .header-inner{width:calc(100% - 20px)!important}
+  body[data-view="hub"] .hero{padding:27px 0 25px}
+  body[data-view="hub"] .hero h1{font-size:clamp(43px,11.5vw,69px);line-height:.99}
+  body[data-view="hub"] .home-race-pulse{padding:15px}
+  body[data-view="hub"] .hero-board>div{min-height:91px;padding:14px}
+  body[data-view="hub"] .consumer-home-block{padding:15px}
+  body[data-view="hub"] .content-section{margin-top:35px}
+  body[data-view="hub"] #hubNavigation{margin-top:23px!important}
+  body[data-view="hub"] .hub-nav-card{min-height:107px!important;padding:16px!important}
+  body[data-view="hub"] .hub-nav-card p{font-size:12px!important}
+  body[data-view="profile"] .public-profile-main{width:calc(100% - 20px);padding-top:20px}
+  body[data-view="profile"] .public-profile-hero{padding:19px;gap:17px}
+  body[data-view="profile"] .profile-racing-card:not(.prt-private-panel),
+  body[data-view="profile"] .profile-wall{padding:19px}
+  body[data-view="profile"] .profile-account-zone{display:flex!important}
+  body[data-view="profile"] .site-header nav{display:none!important}
+}
+@media(max-width:540px){
+  .rc-more-links{display:none}
+  body[data-view="hub"] .hero h1{font-size:43px}
+  body[data-view="hub"] .home-race-pulse .pulse-grid{grid-template-columns:1fr 1fr}
+  body[data-view="hub"] .home-race-pulse .pulse-card{min-height:108px!important;padding:12px!important}
+  body[data-view="hub"] .home-race-pulse .pulse-card>strong{font-size:28px}
+  body[data-view="hub"] .hero-actions{gap:8px}
+  body[data-view="hub"] .hero-actions .button{min-width:0;overflow-wrap:anywhere}
+  body[data-view="profile"] .public-profile-hero{grid-template-columns:1fr}
+  body[data-view="profile"] .public-profile-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+  body[data-view="profile"] .public-profile-stats>div{padding:11px 9px}
+  body[data-view="profile"] .public-profile-stats strong{font-size:19px}
+  body[data-view="profile"] .public-profile-copy h1{font-size:clamp(34px,9vw,54px)}
+}
+@media(prefers-reduced-motion:reduce){
+  body :is(a,button,summary){transition:none!important}
+  body :is(a,button,summary):hover{transform:none!important}
+  html{scroll-behavior:auto}
+}
