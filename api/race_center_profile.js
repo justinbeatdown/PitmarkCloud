@@ -452,6 +452,8 @@ async function loadFollowerEmailPreference(){
   const save=$('#profileFollowerEmailSave');
   const status=$('#profileFollowerEmailStatus');
   if(!box||!field||!save||!status)return;
+  const section=$('#followerEmailSection');
+  if(section)section.hidden=false;
   box.hidden=false;
   try{
     const pref=await apiJson('/api/public/race-center/follower-emails');
