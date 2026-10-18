@@ -6,8 +6,8 @@
   <title>Race Center Profile — Pitmark Racing Co.</title>
   <meta name="theme-color" content="#090b0e">
   <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-v7-profile-20260923">
-  <link rel="stylesheet" href="/race-center-prt-profile.css?v=20261017-public-20261018">
-  <link rel="stylesheet" href="/race-center-refined.css?v={{PITMARK_VERSION}}-staff-owner-logo-20261018">
+  <link rel="stylesheet" href="/race-center-prt-profile.css?v=20261018-social-stats-owner">
+  <link rel="stylesheet" href="/race-center-refined.css?v={{PITMARK_VERSION}}-social-stats-owner-20261018">
 </head>
 <body data-view="profile" data-profile-handle="{{PROFILE_HANDLE}}">
   <header class="site-header">
@@ -80,10 +80,10 @@
           <a class="button" id="profileEditButton" href="/race-center" hidden>Edit profile</a>
         </div>
       </div>
-      <div class="public-profile-stats">
-        <div><strong id="publicProfileFollowers">0</strong><span>Followers</span></div>
-        <div><strong id="publicProfileFollowing">0</strong><span>Following</span></div>
-        <div><strong id="publicProfileSeries">0</strong><span>Series</span></div>
+      <div class="public-profile-stats" aria-label="Explore profile connections">
+        <div><button type="button" class="profile-stat-action" data-profile-list="followers" aria-haspopup="dialog" aria-controls="profileConnectionsDialog" aria-label="View followers"><strong id="publicProfileFollowers">0</strong><span>Followers <span aria-hidden="true">↗</span></span></button></div>
+        <div><button type="button" class="profile-stat-action" data-profile-list="following" aria-haspopup="dialog" aria-controls="profileConnectionsDialog" aria-label="View people this racer follows"><strong id="publicProfileFollowing">0</strong><span>Following <span aria-hidden="true">↗</span></span></button></div>
+        <div><button type="button" class="profile-stat-action" data-profile-list="series" aria-haspopup="dialog" aria-controls="profileConnectionsDialog" aria-label="View followed series"><strong id="publicProfileSeries">0</strong><span>Series <span aria-hidden="true">↗</span></span></button></div>
       </div>
     </section>
 
@@ -125,7 +125,7 @@
       <h3 class="prt-history-title" id="profilePrtRecentTitle">Recent races</h3>
       <div id="profilePrtRecentRaces" class="prt-races"></div>
       <div id="prtLoadMoreSlot"></div>
-      <div class="prt-actions" id="prtOwnerActions">
+      <div class="prt-actions" id="prtOwnerActions" hidden>
         <a href="/race-center/prt-connect">Manage PRT connection</a>
         <a href="/race-center?account=1">Edit my racer profile</a>
       </div>
@@ -150,6 +150,22 @@
       <div class="profile-wall-feed" id="profileWallFeed"><div class="loading-card">Loading wall…</div></div>
     </section>
   </main>
+
+  <dialog id="profileConnectionsDialog" class="profile-connections-dialog" aria-labelledby="profileConnectionsTitle">
+    <div class="profile-connections-shell">
+      <header class="profile-connections-head">
+        <div><span class="eyebrow">RACE CENTER SOCIAL</span><h2 id="profileConnectionsTitle">Followers</h2><p id="profileConnectionsSubtitle">People in this driver's racing community.</p></div>
+        <button type="button" id="profileConnectionsClose" class="profile-connections-close" aria-label="Close connections">×</button>
+      </header>
+      <div class="profile-connections-tabs" role="group" aria-label="Explore profile">
+        <button type="button" data-profile-list="followers">Followers</button>
+        <button type="button" data-profile-list="following">Following</button>
+        <button type="button" data-profile-list="series">Series</button>
+      </div>
+      <div id="profileConnectionsResults" class="profile-connections-results" role="status" aria-live="polite"></div>
+      <div class="profile-connections-more" id="profileConnectionsMore"></div>
+    </div>
+  </dialog>
 
   <nav class="rc-profile-quick-nav" aria-label="Mobile Race Center navigation">
     <a href="/race-center">Home</a>
@@ -176,6 +192,6 @@
       </div>
     </div>
   </footer>
-  <script src="/race-center-profile.js?v={{PITMARK_VERSION}}-staff-owner-logo-20261018" defer></script>
+  <script src="/race-center-profile.js?v={{PITMARK_VERSION}}-social-stats-owner-20261018" defer></script>
 </body>
 </html>

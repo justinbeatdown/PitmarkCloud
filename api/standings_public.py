@@ -856,6 +856,19 @@ def race_center_people_discover(request: Request, limit: int = 12):
     return {"people": race_center_accounts.discover_people(account.id, limit=limit)}
 
 
+@router.get("/api/public/race-center/people/{handle}/connections", include_in_schema=False)
+def race_center_public_connections(handle: str, kind: str = "followers", limit: int = 30, offset: int = 0):
+    """Public display names / public profile links only; no private account data."""
+    if kind not in {"followers", "following"} or not 1 <= limit <= 50 or not 0 <= offset <= 100000:
+        raise HTTPException(status_code=422, detail="Invalid connections page.")
+    result = race_center_accounts.public_profile_connections(
+        handle, kind, limit=limit, offset=offset
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="Race Center profile not found.")
+    return result
+
+
 @router.get("/api/public/race-center/people/{handle}", include_in_schema=False)
 def race_center_public_profile(request: Request, handle: str):
     account = race_center_accounts.account_from_request(request)

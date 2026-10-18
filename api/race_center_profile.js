@@ -357,6 +357,8 @@ async function renderPrtVisitorDashboard(){
   const more=$('#prtLoadMoreSlot');
   if(!panel||!status||!metrics||!races||!more||!profile)return;
   panel.hidden=true;
+  if($('#prtOwnerActions'))$('#prtOwnerActions').hidden=true;
+  if($('#prtPublicSharingControls'))$('#prtPublicSharingControls').hidden=true;
   try{
     const endpoint='/api/public/race-center/prt/public/'+encodeURIComponent(profile.handle);
     const first=await apiJson(endpoint+'?limit=25&offset=0');
@@ -496,6 +498,129 @@ async function loadFollowerEmailPreference(){
   });
 }
 
+let connectionsGeneration=0;
+
+function connectionsSetTabs(mode){
+  document.querySelectorAll('#profileConnectionsDialog [data-profile-list]').forEach(button=>{
+    const selected=button.dataset.profileList===mode;
+    button.classList.toggle('active',selected);
+    button.setAttribute('aria-pressed',String(selected));
+  });
+}
+
+function connectionsLink(item,isSeries){
+  const a=document.createElement('a');
+  a.className='profile-connection-person';
+  a.href=isSeries?
+    '/race-center/series/'+encodeURIComponent(String(item.key||'')):
+    '/race-center/u/'+encodeURIComponent(String(item.handle||''));
+  if(isSeries){
+    const symbol=document.createElement('span');
+    symbol.className='profile-connection-fallback series-symbol';
+    symbol.textContent='S';
+    a.appendChild(symbol);
+  }else{
+    const avatar=document.createElement('span');
+    avatar.className='profile-connection-fallback';
+    avatar.textContent=initials(item.display_name||item.handle);
+    const img=document.createElement('img');
+    img.alt='';
+    img.loading='lazy';
+    img.src='/api/public/race-center/profile-photo/'+encodeURIComponent(String(item.handle||''));
+    img.addEventListener('load',()=>{avatar.textContent='';avatar.appendChild(img);});
+    a.appendChild(avatar);
+  }
+  const info=document.createElement('span');
+  info.className='profile-connection-copy';
+  const title=document.createElement('strong');
+  title.textContent=isSeries?String(item.label||item.key):String(item.display_name||item.handle);
+  info.appendChild(title);
+  const secondary=document.createElement('small');
+  secondary.textContent=isSeries?'Racing series':
+    '@'+String(item.handle||'')+
+    (item.official_badge?.kind==='partner'?' · Official Partner':'');
+  info.appendChild(secondary);
+  a.appendChild(info);
+  const arrow=document.createElement('span');
+  arrow.className='profile-connection-arrow';
+  arrow.textContent='↗';
+  arrow.setAttribute('aria-hidden','true');
+  a.appendChild(arrow);
+  return a;
+}
+
+async function openConnections(mode){
+  const dialog=$('#profileConnectionsDialog');
+  const results=$('#profileConnectionsResults');
+  const more=$('#profileConnectionsMore');
+  if(!dialog||!profile||!['followers','following','series'].includes(mode))return;
+  const generation=++connectionsGeneration;
+  const label={followers:'Followers',following:'Following',series:'Followed series'}[mode];
+  $('#profileConnectionsTitle').textContent=label;
+  $('#profileConnectionsSubtitle').textContent=mode==='followers'?
+    'People following '+String(profile.display_name||profile.handle)+'.':
+    mode==='following'?'People '+String(profile.display_name||profile.handle)+' follows.':
+    'Racing series '+String(profile.display_name||profile.handle)+' follows.';
+  connectionsSetTabs(mode);
+  results.replaceChildren();
+  more.replaceChildren();
+  const wait=document.createElement('p');
+  wait.className='profile-connections-empty';
+  wait.textContent=mode==='series'?'Loading followed series…':'Loading racers…';
+  results.appendChild(wait);
+  if(!dialog.open)dialog.showModal();
+  if(mode==='series'){
+    if(generation!==connectionsGeneration)return;
+    const series=Array.isArray(profile.series)?profile.series:[];
+    results.replaceChildren();
+    if(!series.length){
+      const p=document.createElement('p');p.className='profile-connections-empty';
+      p.textContent='No racing series followed yet.';
+      results.appendChild(p);
+    }else series.forEach(item=>results.appendChild(connectionsLink(item,true)));
+    return;
+  }
+  const endpoint='/api/public/race-center/people/'+encodeURIComponent(String(profile.handle))+
+    '/connections?kind='+encodeURIComponent(mode);
+  const showPage=async(offset,append)=>{
+    const payload=await apiJson(endpoint+'&limit=30&offset='+offset);
+    if(generation!==connectionsGeneration)return;
+    if(!append)results.replaceChildren();
+    const people=Array.isArray(payload.people)?payload.people:[];
+    if(!people.length&&!append){
+      const p=document.createElement('p');p.className='profile-connections-empty';
+      p.textContent=mode==='followers'?'No followers yet.':'Not following other racers yet.';
+      results.appendChild(p);
+    }else people.forEach(item=>results.appendChild(connectionsLink(item,false)));
+    more.replaceChildren();
+    if(payload.next_offset!==null&&payload.next_offset!==undefined){
+      const button=document.createElement('button');
+      button.type='button';button.className='button profile-connections-load-more';
+      button.textContent='Load more racers';
+      more.appendChild(button);
+      button.addEventListener('click',async()=>{
+        button.disabled=true;button.textContent='Loading…';
+        try{await showPage(payload.next_offset,true);}
+        catch(error){button.disabled=false;button.textContent='Retry loading';}
+      });
+    }
+  };
+  try{await showPage(0,false);}
+  catch(error){
+    if(generation!==connectionsGeneration)return;
+    results.replaceChildren();
+    const p=document.createElement('p');p.className='profile-connections-empty';
+    p.textContent='Could not load '+mode+'. Please try again.';
+    results.appendChild(p);
+  }
+}
+
+document.querySelectorAll('[data-profile-list]').forEach(button=>{
+  button.addEventListener('click',()=>openConnections(button.dataset.profileList));
+});
+$('#profileConnectionsClose')?.addEventListener('click',()=>$('#profileConnectionsDialog').close());
+$('#profileConnectionsDialog')?.addEventListener('close',()=>{connectionsGeneration++;});
+
 async function load(){
   try{
     [account,profile]=await Promise.all([
@@ -507,6 +632,8 @@ async function load(){
     renderProfile();
     renderWall();
     const ownPrt = Boolean(account.authenticated && Number(account.id)===Number(profile.id));
+    const ownerActions=$('#prtOwnerActions');
+    if(ownerActions)ownerActions.hidden=!ownPrt;
     const emailSection=$('#followerEmailSection');
     if(emailSection)emailSection.hidden=!ownPrt;
     const emailControls=$('#profileFollowerNotifications');
