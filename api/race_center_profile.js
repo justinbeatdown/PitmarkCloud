@@ -465,7 +465,8 @@ async function load(){
     }else{
       await renderPrtVisitorDashboard();
     }
-    $('#profileAccountButton').textContent=account.authenticated?(account.display_name||account.email||'My Race Center'):'My Race Center';
+    $('#profileAccountButton').textContent=account.authenticated?'My Profile':'Sign in';
+    $('#profileAccountButton').href=account.authenticated?'/race-center/me':'/race-center?account=1';
     document.title=(profile.display_name||profile.handle)+' — Pitmark Race Center';
   }catch(error){
     $('#publicProfileName').textContent='Profile unavailable';
@@ -498,15 +499,28 @@ $('#profilePhotoInput')?.addEventListener('change',async event=>{
 });
 
 $('#profileFollowButton')?.addEventListener('click',async()=>{
-  if(!account.authenticated){location.href='/race-center';return;}
+  if(!account.authenticated){location.href='/race-center?account=1';return;}
   if(!profile)return;
-  const following=$('#profileFollowButton').dataset.following==='1';
+  const button=$('#profileFollowButton');
+  if(button.disabled)return;
+  const following=button.dataset.following==='1';
+  const status=$('#profileFollowFeedback');
+  button.disabled=true;
+  if(status)status.textContent=following?'Unfollowing…':'Following…';
   try{
-    const payload=await apiJson('/api/public/race-center/people/follow',{method:following?'DELETE':'POST',body:JSON.stringify({user_id:profile.id})});
-    profile.viewer_follows=!following;
-    profile.followers=Math.max(0,Number(profile.followers||0)+(following?-1:1));
+    await apiJson('/api/public/race-center/people/follow',{
+      method:following?'DELETE':'PUT',
+      body:JSON.stringify({user_id:profile.id})
+    });
+    // Refresh from the server rather than guessing the updated count.
+    profile=await apiJson('/api/public/race-center/people/'+encodeURIComponent(handle));
     renderProfile();
-  }catch(_error){}
+    if(status)status.textContent=following?'Unfollowed.':'Following.';
+  }catch(error){
+    if(status)status.textContent=error.message||'Could not update follow. Try again.';
+  }finally{
+    button.disabled=false;
+  }
 });
 
 $('#profilePostInput')?.addEventListener('input',event=>{
