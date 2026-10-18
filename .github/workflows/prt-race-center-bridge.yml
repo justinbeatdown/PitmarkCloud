@@ -13,6 +13,9 @@ on:
       - 'tests/test_prt_racer_profile_dashboard_contract.py'
       - 'services/race_center_follower_notifications.py'
       - 'services/race_center_accounts.py'
+      - 'api/race_center_refined.css'
+      - 'tests/test_race_center_official_partner_badge_contract.py'
+      - 'tests/test_race_center_official_partner_runtime.py'
       - 'services/database.py'
       - 'api/standings_public.py'
       - 'tests/test_prt_public_race_history_runtime.py'
@@ -40,7 +43,9 @@ jobs:
       - run: python tests/test_prt_racer_profile_dashboard_contract.py
       - run: node --check api/standings_public.js
       - run: node --check api/prt_connect.js
+      - run: python tests/test_race_center_official_partner_badge_contract.py
       - run: pip install -r requirements.txt
+      - run: PYTHONPATH=. python tests/test_race_center_official_partner_runtime.py
       - run: PYTHONPATH=. python tests/test_prt_public_race_history_runtime.py
       - run: PYTHONPATH=. python tests/test_prt_bridge_import_smoke.py
       - run: node --check api/race_center_profile.js
