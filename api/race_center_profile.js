@@ -446,6 +446,44 @@ async function prtOwnerSharingControls(){
   });
 }
 
+async function loadFollowerEmailPreference(){
+  const box=$('#profileFollowerNotifications');
+  const field=$('#profileFollowerEmailToggle');
+  const save=$('#profileFollowerEmailSave');
+  const status=$('#profileFollowerEmailStatus');
+  if(!box||!field||!save||!status)return;
+  box.hidden=false;
+  try{
+    const pref=await apiJson('/api/public/race-center/follower-emails');
+    field.checked=Boolean(pref.enabled);
+    if(!pref.provider_configured){
+      save.disabled=true;
+      field.disabled=true;
+      status.textContent='Email delivery is not yet configured. Notifications remain off.';
+      return;
+    }
+    status.textContent=pref.enabled?'New-follower emails are enabled.':'New-follower emails are off.';
+  }catch(error){
+    save.disabled=true;field.disabled=true;
+    status.textContent='Notification settings are temporarily unavailable.';
+    return;
+  }
+  save.addEventListener('click',async()=>{
+    save.disabled=true;
+    status.textContent='Saving…';
+    try{
+      const result=await apiJson('/api/public/race-center/follower-emails',{
+        method:'PUT',body:JSON.stringify({enabled:Boolean(field.checked)})
+      });
+      status.textContent=result.enabled?
+        'Enabled. You will be emailed when a new racer follows you.':
+        'Disabled. You will not receive new-follower emails.';
+    }catch(error){
+      status.textContent=error.message||'Could not save notification settings.';
+    }finally{save.disabled=false;}
+  });
+}
+
 async function load(){
   try{
     [account,profile]=await Promise.all([
@@ -462,6 +500,7 @@ async function load(){
     if(ownPrt){
       await renderPrtOwnerDashboard();
       await prtOwnerSharingControls();
+      await loadFollowerEmailPreference();
     }else{
       await renderPrtVisitorDashboard();
     }
