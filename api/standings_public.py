@@ -981,6 +981,11 @@ def public_race_center_profile_js():
     return _asset("race_center_profile.js", "application/javascript")
 
 
+@router.get("/race-center-refined.css", include_in_schema=False)
+def public_race_center_refined_css():
+    return _asset("race_center_refined.css", "text/css")
+
+
 @router.get("/standings.css", include_in_schema=False)
 def public_standings_css():
     return _asset("standings_public.css", "text/css")

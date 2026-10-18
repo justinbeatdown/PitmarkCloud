@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="/race-center-v8.css?v={{PITMARK_VERSION}}-community-visibility-hotfix-20260924">
   <link rel="stylesheet" href="/race-center-owner-hub.css?v={{PITMARK_VERSION}}-racer-home-20260924">
   <link rel="stylesheet" href="/race-center-mobile.css?v={{PITMARK_VERSION}}-mobile-header-fix-20260925">
+  <link rel="stylesheet" href="/race-center-refined.css?v={{PITMARK_VERSION}}-design-refresh-20261018">
   <script data-cfasync="false" src="/standings.js?v={{PITMARK_VERSION}}-community-router-20260924" defer></script>
   <script data-cfasync="false" src="/race-center-v5.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924" defer></script>
   <script data-cfasync="false" src="/race-center-v6.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924" defer></script>
@@ -45,17 +46,26 @@
       </a>
       <nav aria-label="Race Center navigation">
         <a href="/race-center" data-race-view="hub">Home</a>
+        <a href="/race-center/live" data-race-view="live">Live + Next</a>
         <a href="/race-center/community" data-race-view="community">Community</a>
         <a href="/race-center/drivers" data-race-view="drivers">Drivers</a>
         <a href="/race-center/series" data-race-view="series">Series</a>
-        <a href="/race-center/tracks" data-race-view="tracks">Tracks</a>
-        <a href="/race-center/events" data-race-view="events">Events</a>
         <a href="/race-center/standings" data-race-view="standings">Standings</a>
         <a href="/race-center/schedules" data-race-view="schedules">Schedules</a>
-        <a href="/race-center/live" data-race-view="live">Live + Next</a>
-        <a href="/race-center/my-racing" data-race-view="my-racing">My Racing</a>
-        <a href="https://pitmarkracing.com/blogs/racing-culture" target="_blank" rel="noopener">Racing Culture ↗</a>
-        <a href="https://pitmarkracing.com" target="_blank" rel="noopener">Pitmark ↗</a>
+        <details class="rc-more-menu">
+          <summary>Explore</summary>
+          <div class="rc-more-links">
+            <a class="rc-more-compact-only" href="/race-center/series">Series</a>
+            <a class="rc-more-compact-only" href="/race-center/standings">Standings</a>
+            <a class="rc-more-compact-only" href="/race-center/schedules">Schedules</a>
+            <a href="/race-center/tracks" data-race-view="tracks">Tracks</a>
+            <a href="/race-center/teams" data-race-view="teams">Teams</a>
+            <a href="/race-center/events" data-race-view="events">Events</a>
+            <a href="/race-center/my-racing" data-race-view="myracing">My Racing</a>
+            <a href="https://pitmarkracing.com/blogs/racing-culture" target="_blank" rel="noopener noreferrer">Racing Culture ↗</a>
+            <a href="https://pitmarkracing.com" target="_blank" rel="noopener noreferrer">Pitmark Shop ↗</a>
+          </div>
+        </details>
       </nav>
       <div class="account-zone">
         <a class="account-button" id="myRacerProfileShortcut" href="/race-center/me" hidden>My Profile</a>
@@ -71,8 +81,8 @@
         <div class="version-line">
           <span class="eyebrow">PITMARK RACE CENTER</span>
         </div>
-        <h1 id="heroTitle">Your racing life.<br><em>One place.</em></h1>
-        <p id="heroIntro">Follow drivers, teams, tracks and series. Find schedules, results, stories and race-day updates in a home built around racing.</p>
+        <h1 id="heroTitle">Your racing world.<br><em>Connected.</em></h1>
+        <p id="heroIntro">Follow the drivers and teams you care about. Discover live racing, verified results, race schedules, and the community around every track.</p>
         <div class="hero-actions" id="heroActions">
           <a class="button primary" href="/race-center/community">Open the community</a>
           <a class="button secondary" href="/race-center/drivers">Find a driver</a>
