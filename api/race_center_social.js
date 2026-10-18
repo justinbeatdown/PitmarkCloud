@@ -316,7 +316,12 @@ async function boot(){
     $('followMetrics').textContent='Personalized from your followed racers and series.';
   }
   selectFeed(new URLSearchParams(location.search).get('feed')==='discover'?'discover':'following');
-  if(me.authenticated)loadNotifications();
+  if(me.authenticated){
+    loadNotifications();
+    if(new URLSearchParams(location.search).get('notifications')==='1'){
+      $('socialNotifications').showModal();
+    }
+  }
 }
 $('followingTab').addEventListener('click',()=>selectFeed('following'));
 $('discoverTab').addEventListener('click',()=>selectFeed('discover'));
