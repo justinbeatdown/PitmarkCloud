@@ -1,0 +1,34 @@
+name: Race Center social V2 validation
+on:
+  pull_request:
+    paths:
+      - 'services/race_center_social_v2.py'
+      - 'services/race_center_accounts.py'
+      - 'services/database.py'
+      - 'api/standings_public.py'
+      - 'api/standings_public.html'
+      - 'api/standings_public.js'
+      - 'api/race_center_profile.*'
+      - 'api/race_center_refined.css'
+      - 'api/race_center_admin.html'
+      - 'api/race_center_social*'
+      - 'tests/test_race_center_social_v2_*'
+      - '.github/workflows/race-center-social-v2-validation.yml'
+jobs:
+  social-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python tests/test_race_center_social_v2_contract.py
+      - run: node --check api/race_center_social.js
+      - run: node --check api/race_center_social_moderation.js
+      - run: node --check api/race_center_profile.js
+      - run: node --check api/standings_public.js
+      - run: pip install -r requirements.txt
+      - run: PYTHONPATH=. python tests/test_race_center_social_v2_runtime.py
+      - run: PYTHONPATH=. python tests/test_race_center_staff_admin_runtime.py
+      - run: PYTHONPATH=. python tests/test_race_center_social_avatar_runtime.py
