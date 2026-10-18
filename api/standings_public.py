@@ -976,6 +976,27 @@ def public_race_center_user_profile(handle: str):
     return HTMLResponse(html, headers={"Cache-Control": "no-cache, no-store"})
 
 
+@router.get("/race-center/admin", response_class=HTMLResponse, include_in_schema=False)
+def race_center_staff_admin(request: Request):
+    # Security: this is not a cosmetic badge check. The server verifies the
+    # Race Center session and Pitmark staff identity before showing the page.
+    _race_staff_or_403(request)
+    return HTMLResponse(
+        (ASSET_DIR / "race_center_admin.html").read_text(encoding="utf-8"),
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+    )
+
+
+@router.get("/race-center-admin.css", include_in_schema=False)
+def race_center_admin_css():
+    return _asset("race_center_admin.css", "text/css")
+
+
+@router.get("/race-center-admin.js", include_in_schema=False)
+def race_center_admin_js():
+    return _asset("race_center_admin.js", "application/javascript")
+
+
 @router.get("/race-center-profile.js", include_in_schema=False)
 def public_race_center_profile_js():
     return _asset("race_center_profile.js", "application/javascript")
