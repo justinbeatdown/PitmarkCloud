@@ -15,6 +15,8 @@ on:
       - 'tests/test_prt_racer_profile_dashboard_contract.py'
       - 'services/race_center_follower_notifications.py'
       - 'services/race_center_accounts.py'
+      - 'tests/test_race_center_social_avatar_runtime.py'
+      - 'tests/test_race_center_social_avatar_wall_contract.py'
       - 'tests/test_race_center_public_social_lists_runtime.py'
       - 'tests/test_race_center_profile_social_lists_contract.py'
       - 'api/race_center_refined.css'
@@ -45,11 +47,13 @@ jobs:
       - run: python tests/test_prt_race_center_bridge_contract.py
       - run: python tests/test_prt_connect_csp_contract.py
       - run: python tests/test_prt_racer_profile_dashboard_contract.py
+      - run: python tests/test_race_center_social_avatar_wall_contract.py
       - run: python tests/test_race_center_profile_social_lists_contract.py
       - run: node --check api/standings_public.js
       - run: node --check api/prt_connect.js
       - run: python tests/test_race_center_official_partner_badge_contract.py
       - run: pip install -r requirements.txt
+      - run: PYTHONPATH=. python tests/test_race_center_social_avatar_runtime.py
       - run: PYTHONPATH=. python tests/test_race_center_public_social_lists_runtime.py
       - run: PYTHONPATH=. python tests/test_race_center_staff_admin_runtime.py
       - run: PYTHONPATH=. python tests/test_race_center_official_partner_runtime.py
