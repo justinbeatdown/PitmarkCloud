@@ -114,6 +114,8 @@ function renderAccount(){
   loggedIn.hidden=!authed;
   const quickProfile=$('#myRacerProfileShortcut');
   if(quickProfile)quickProfile.hidden=!authed;
+  const socialAlerts=$('#raceSocialAlertsShortcut');
+  if(socialAlerts)socialAlerts.hidden=!authed;
   const staffLink=$('#raceStaffAdminShortcut');
   if(staffLink)staffLink.hidden=!(authed && state.account.profile && state.account.profile.staff && state.account.profile.staff.label);
   if(authed){
