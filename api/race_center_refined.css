@@ -543,3 +543,61 @@ body[data-view="hub"] #raceSearchDock .race-search-results{
   body[data-view="hub"] #raceSearchDock input{min-height:47px;font-size:16px}
   body[data-view="hub"] #raceSearchDock kbd{display:none}
 }
+
+
+/* Verified Pitmark Official Partner recognition — blue, distinctly not staff. */
+body[data-view="profile"] .pitmark-staff-badge.pitmark-partner-badge{
+  display:inline-flex;
+  min-width:248px!important;
+  min-height:64px!important;
+  padding:8px 15px 8px 10px!important;
+  gap:13px!important;
+  align-items:center;
+  border:1px solid rgba(55,177,255,.63)!important;
+  border-radius:14px!important;
+  background:
+    radial-gradient(ellipse at 0% 0%,rgba(47,162,255,.21),transparent 72%),
+    linear-gradient(120deg,rgba(14,48,79,.94),rgba(9,23,42,.96))!important;
+  box-shadow:0 11px 34px rgba(22,127,233,.14),inset 0 0 0 1px rgba(183,228,255,.07)!important;
+}
+body[data-view="profile"] .pitmark-staff-badge.pitmark-partner-badge[hidden]{display:none!important}
+.pitmark-partner-badge .pitmark-partner-symbol{
+  position:relative;
+  width:49px;height:49px;flex:0 0 49px;
+  display:grid;place-items:center;
+  border:1px solid rgba(118,210,255,.72);border-radius:12px;
+  background:linear-gradient(142deg,#1b89d9,#0b3e78);
+  color:#effaff;
+  font:italic 900 26px/1 Inter,"Segoe UI",Arial,sans-serif;
+  text-shadow:0 1px 10px rgba(129,219,255,.5);
+  box-shadow:0 4px 14px rgba(0,115,229,.2);
+  transform:skew(-5deg);
+}
+.pitmark-partner-badge .pitmark-partner-symbol:after{
+  content:"✓";position:absolute;right:-7px;bottom:-5px;
+  width:17px;height:17px;display:grid;place-items:center;
+  border:2px solid #0d2441;border-radius:50%;
+  background:#64d1ff;color:#063153;
+  font:900 12px/1 Inter,"Segoe UI",Arial,sans-serif;
+  text-shadow:none;transform:skew(5deg)
+}
+body[data-view="profile"] .pitmark-staff-badge.pitmark-partner-badge b{
+  color:#f6fbff!important;
+  font-size:12px!important;
+  letter-spacing:.075em!important;
+  white-space:nowrap;
+}
+body[data-view="profile"] .pitmark-staff-badge.pitmark-partner-badge small{
+  color:#76d2ff!important;
+  font-size:10px!important;
+  font-weight:780;
+}
+@media(max-width:760px){
+  body[data-view="profile"] .pitmark-staff-badge.pitmark-partner-badge{
+    min-width:0!important;
+    max-width:100%;
+  }
+  .pitmark-partner-badge .pitmark-partner-symbol{
+    width:42px;height:42px;flex-basis:42px;font-size:23px
+  }
+}
