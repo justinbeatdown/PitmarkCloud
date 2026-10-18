@@ -47,6 +47,7 @@
       <nav aria-label="Race Center navigation">
         <a href="/race-center" data-race-view="hub">Home</a>
         <a href="/race-center/live" data-race-view="live">Live + Next</a>
+        <a href="/race-center/social">Following</a>
         <a href="/race-center/community" data-race-view="community">Community</a>
         <a href="/race-center/drivers" data-race-view="drivers">Drivers</a>
         <a href="/race-center/series" data-race-view="series">Series</a>
@@ -69,6 +70,7 @@
       </nav>
       <div class="account-zone">
         <a class="account-button rc-staff-shortcut" id="raceStaffAdminShortcut" href="/race-center/admin" hidden>Staff Admin</a>
+        <a class="account-button" id="raceSocialAlertsShortcut" href="/race-center/social?notifications=1" hidden>Alerts</a>
         <a class="account-button" id="myRacerProfileShortcut" href="/race-center/me" hidden>My Profile</a>
         <button class="account-button" id="accountButton" type="button">My Race Center</button>
         <span class="header-health" id="headerStatus"><i></i> Loading data</span>
@@ -158,7 +160,7 @@
 
       <div class="consumer-home-split">
         <section class="consumer-home-block">
-          <div class="consumer-block-head"><div><span class="consumer-section-icon">★</span><strong>Following</strong></div><a href="/race-center/my-racing">Open My Racing →</a></div>
+          <div class="consumer-block-head"><div><span class="consumer-section-icon">★</span><strong>Following</strong></div><a href="/race-center/social">Open Following feed →</a></div>
           <div class="consumer-rail" id="consumerFollowingGrid"><div class="consumer-skeleton"></div><div class="consumer-skeleton"></div></div>
           <div class="consumer-sub-actions"><a href="/race-center/my-racing#alerts">Alert settings</a><button class="consumer-link-button consumer-customize" type="button">Edit interests</button></div>
         </section>

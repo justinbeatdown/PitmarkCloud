@@ -563,6 +563,10 @@ def list_posts(
     limit: int = 40,
     series_keys: list[str] | None = None,
     author_user_id: int | None = None,
+    driver_keys: list[str] | None = None,
+    following_only: bool = False,
+    discover_all: bool = False,
+    offset: int = 0,
 ) -> list[dict]:
     with SessionLocal() as db:
         stmt = select(RaceCenterPost).where(
@@ -576,7 +580,18 @@ def list_posts(
             followed_people = list(db.scalars(select(RaceCenterConnection.followed_user_id).where(
                 RaceCenterConnection.follower_user_id == viewer_user_id
             )).all())
-        if not author_user_id and (series_keys or followed_people):
+        if following_only and not author_user_id:
+            # Only my posts, explicitly followed people, drivers and series.
+            # Never pull all generic posts into the Following timeline.
+            conditions = [RaceCenterPost.user_id == viewer_user_id]
+            if followed_people:
+                conditions.append(RaceCenterPost.user_id.in_(followed_people))
+            if series_keys:
+                conditions.append(RaceCenterPost.series_key.in_(series_keys))
+            if driver_keys:
+                conditions.append(RaceCenterPost.driver_key.in_(driver_keys))
+            stmt = stmt.where(__import__("sqlalchemy").or_(*conditions))
+        elif not discover_all and not author_user_id and (series_keys or followed_people):
             conditions = [RaceCenterPost.user_id == viewer_user_id] if viewer_user_id else []
             if followed_people:
                 conditions.append(RaceCenterPost.user_id.in_(followed_people))
@@ -584,7 +599,8 @@ def list_posts(
                 conditions.append(RaceCenterPost.series_key.in_(series_keys))
             conditions.append(RaceCenterPost.series_key == "")
             stmt = stmt.where(__import__("sqlalchemy").or_(*conditions))
-        posts = list(db.scalars(stmt.order_by(RaceCenterPost.created_at.desc()).limit(min(max(limit, 1), 80))).all())
+        posts = list(db.scalars(stmt.order_by(RaceCenterPost.created_at.desc(), RaceCenterPost.id.desc())
+                               .offset(max(0,min(offset,100000))).limit(min(max(limit,1),80))).all())
         if not posts:
             return []
         user_ids = {p.user_id for p in posts}
@@ -648,7 +664,7 @@ def list_posts(
                 "owner": bool(viewer_user_id and post.user_id == viewer_user_id),
                 "reactions": counts.get(post.id, {}),
                 "viewer_reactions": sorted(viewer_reactions.get(post.id, set())),
-                "comments": comment_map.get(post.id, [])[-6:],
+                "comments": comment_map.get(post.id, [])[-30:],
                 "comment_count": len(comment_map.get(post.id, [])),
             })
         return out

@@ -123,6 +123,7 @@ def init_database() -> None:
     from services import racing_standings  # noqa: F401
     from services import race_center_accounts  # noqa: F401
     from services import race_center_follower_notifications  # noqa: F401
+    from services import race_center_social_v2  # noqa: F401
     from services import race_center_entities  # noqa: F401
     from services import race_center_owner_hub  # noqa: F401
 

@@ -114,6 +114,8 @@ function renderAccount(){
   loggedIn.hidden=!authed;
   const quickProfile=$('#myRacerProfileShortcut');
   if(quickProfile)quickProfile.hidden=!authed;
+  const socialAlerts=$('#raceSocialAlertsShortcut');
+  if(socialAlerts)socialAlerts.hidden=!authed;
   const staffLink=$('#raceStaffAdminShortcut');
   if(staffLink)staffLink.hidden=!(authed && state.account.profile && state.account.profile.staff && state.account.profile.staff.label);
   if(authed){
@@ -136,6 +138,13 @@ async function syncAccount(){
     state.account={authenticated:false,follows:[]};
   }
   renderAccount();
+  if(state.account?.authenticated){
+    apiJson('/api/public/race-center/social/notifications?limit=1').then(result=>{
+      const link=$('#raceSocialAlertsShortcut');
+      if(link)link.textContent=Number(result.unread)>0?
+        'Alerts ('+Math.min(Number(result.unread),99)+(Number(result.unread)>99?'+':'')+')':'Alerts';
+    }).catch(()=>{});
+  }
   if(state.payload)render();
   if(new URLSearchParams(location.search).get('account')==='1'){
     const dialog=$('#accountDialog');

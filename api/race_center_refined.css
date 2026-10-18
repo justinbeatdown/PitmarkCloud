@@ -817,3 +817,22 @@ body[data-view="profile"] .profile-wall-post .profile-post-interactions{
 }
 .profile-post-feedback{flex:1 0 100%;min-height:0;color:#ffc4ae;font-size:12px}
 .profile-post-feedback:empty{display:none}
+
+/* Media from Race Center social composer remains visible on public racer profiles. */
+body[data-view="profile"] .profile-wall-post .profile-post-attachment{
+  display:block;width:100%;height:auto;max-height:520px;object-fit:contain;
+  background:#091018;border:1px solid #34434e;border-radius:12px;margin:13px 0;
+}
+body[data-view="profile"] .profile-wall-post .profile-post-comment.is-reply{
+  margin-left:18px;padding-left:12px;border-left:2px solid #ff773b;
+}
+body[data-view="profile"] .profile-wall-post .profile-reply-button{
+  margin-top:7px;font-size:11px;padding:5px 8px;color:#ffc4a4;
+  background:#1b242c;border:1px solid #3d4e5b;border-radius:7px;cursor:pointer;
+}
+body[data-view="profile"] .profile-wall-post .profile-reply-context{
+  display:block;flex-basis:100%;font-size:11px;color:#ffb28b;
+}
+
+body[data-view="profile"] #profileSocialAlerts[hidden]{display:none!important}
+body[data-view="profile"] #profileSocialAlerts:not([hidden]){border-color:rgba(255,85,0,.3)!important}
