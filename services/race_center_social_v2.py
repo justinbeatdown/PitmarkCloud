@@ -209,6 +209,7 @@ def get_feed(user_id:int|None,mode:str="following",limit:int=30,offset:int=0):
         series_keys=series if mode=="following" else None,
         driver_keys=drivers if mode=="following" else None,
         following_only=mode=="following",
+        discover_all=mode=="discover",
     )
     attach_media(posts);enrich_replies(posts)
     # Source-backed series race-day entries, never fabricated user posts.
