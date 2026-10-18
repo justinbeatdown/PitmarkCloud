@@ -823,6 +823,11 @@ def race_center_social_css():
     return _asset("race_center_social.css","text/css")
 
 
+@router.get("/race-center-social-moderation.js", include_in_schema=False)
+def race_center_social_moderation_js():
+    return _asset("race_center_social_moderation.js","application/javascript")
+
+
 @router.get("/race-center-social.js", include_in_schema=False)
 def race_center_social_js():
     return _asset("race_center_social.js","application/javascript")
