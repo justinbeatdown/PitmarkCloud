@@ -46,7 +46,7 @@ function renderAvatar(){
 function renderProfile(){
   if(!profile)return;
   const identity=profile.identity||{};
-  const owner=Boolean(account.authenticated&&account.profile&&account.profile.handle===profile.handle);
+  const owner=Boolean(account.authenticated && Number(account.id)===Number(profile.id));
   $('#publicProfileName').textContent=profile.display_name||profile.handle;
   $('#publicProfileHandle').textContent='@'+profile.handle;
   $('#publicProfileRole').textContent=roleLabel(identity.account_type);
@@ -506,7 +506,15 @@ async function load(){
     wall=wallPayload.posts||[];
     renderProfile();
     renderWall();
-    const ownPrt = Boolean(account.authenticated && account.profile && account.profile.handle === profile.handle);
+    const ownPrt = Boolean(account.authenticated && Number(account.id)===Number(profile.id));
+    const emailSection=$('#followerEmailSection');
+    if(emailSection)emailSection.hidden=!ownPrt;
+    const emailControls=$('#profileFollowerNotifications');
+    if(emailControls)emailControls.hidden=!ownPrt;
+    const sharingControls=$('#prtPublicSharingControls');
+    if(sharingControls)sharingControls.hidden=true;
+    const adminLink=$('#profileStaffAdminLink');
+    if(adminLink)adminLink.hidden=!Boolean(account.authenticated && account.profile && account.profile.staff && account.profile.staff.label);
     const box=$('#profilePrtPrivateStats');
     if(box)box.hidden=!ownPrt;
     if(ownPrt){
