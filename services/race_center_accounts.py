@@ -565,6 +565,7 @@ def list_posts(
     author_user_id: int | None = None,
     driver_keys: list[str] | None = None,
     following_only: bool = False,
+    discover_all: bool = False,
     offset: int = 0,
 ) -> list[dict]:
     with SessionLocal() as db:
@@ -590,7 +591,7 @@ def list_posts(
             if driver_keys:
                 conditions.append(RaceCenterPost.driver_key.in_(driver_keys))
             stmt = stmt.where(__import__("sqlalchemy").or_(*conditions))
-        elif not author_user_id and (series_keys or followed_people):
+        elif not discover_all and not author_user_id and (series_keys or followed_people):
             conditions = [RaceCenterPost.user_id == viewer_user_id] if viewer_user_id else []
             if followed_people:
                 conditions.append(RaceCenterPost.user_id.in_(followed_people))
