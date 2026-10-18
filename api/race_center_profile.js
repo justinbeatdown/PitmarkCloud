@@ -120,11 +120,51 @@ function renderProfile(){
 function renderWall(){
   const host=$('#profileWallFeed');
   if(!host)return;
-  host.innerHTML=wall.length?wall.map(post=>'<article class="profile-wall-post">'+
-    '<header><div><strong>'+esc(post.author?.display_name||profile?.display_name||'Racer')+'</strong><span>@'+esc(post.author?.handle||profile?.handle||'')+' · '+esc(ago(post.created_at))+'</span></div></header>'+
-    '<p>'+esc(post.body).replace(/\n/g,'<br>')+'</p>'+
-    '<footer><span>🏁 '+String(post.reactions?.checkered||0)+'</span><span>🔥 '+String(post.reactions?.fire||0)+'</span><span>💬 '+String(post.comment_count||0)+'</span></footer>'+
-  '</article>').join(''):'<div class="loading-card">Nothing posted here yet.</div>';
+  host.replaceChildren();
+  if(!wall.length){
+    const empty=document.createElement('div');
+    empty.className='loading-card';
+    empty.textContent='Nothing posted here yet.';
+    host.appendChild(empty);
+    return;
+  }
+  wall.forEach(post=>{
+    const article=document.createElement('article');
+    article.className='profile-wall-post';
+    const header=document.createElement('header');
+    header.className='profile-post-header';
+    const author=post.author||{};
+    const handle=String(author.handle||profile?.handle||'');
+    const authorLink=document.createElement('a');
+    authorLink.className='profile-post-author-link';
+    authorLink.href='/race-center/u/'+encodeURIComponent(handle);
+    authorLink.appendChild(racerAvatar({
+      display_name:author.display_name||profile?.display_name||'Racer',
+      handle
+    },'profile-connection-fallback profile-post-avatar'));
+    const details=document.createElement('span');
+    details.className='profile-post-author-details';
+    const displayName=document.createElement('strong');
+    displayName.textContent=String(author.display_name||profile?.display_name||'Racer');
+    const meta=document.createElement('small');
+    meta.textContent='@'+handle+' · '+ago(post.created_at);
+    details.append(displayName,meta);
+    authorLink.appendChild(details);
+    header.appendChild(authorLink);
+    const body=document.createElement('p');
+    body.className='profile-post-body';
+    body.textContent=String(post.body||'');
+    const footer=document.createElement('footer');
+    for(const [icon,count] of [
+      ['🏁',post.reactions?.checkered],['🔥',post.reactions?.fire],['💬',post.comment_count]
+    ]){
+      const span=document.createElement('span');
+      span.textContent=icon+' '+String(Number(count)||0);
+      footer.appendChild(span);
+    }
+    article.append(header,body,footer);
+    host.appendChild(article);
+  });
 }
 
 async function prepareProfilePhoto(file){
@@ -508,6 +548,32 @@ function connectionsSetTabs(mode){
   });
 }
 
+function racerAvatar(person, className='profile-connection-fallback'){
+  const name=String(person?.display_name||person?.handle||'Racer');
+  const avatar=document.createElement('span');
+  avatar.className=className;
+  const fallback=document.createElement('span');
+  fallback.className='profile-avatar-initials';
+  fallback.textContent=initials(name);
+  avatar.appendChild(fallback);
+  const handle=String(person?.handle||'').trim();
+  if(handle){
+    // Append the image to the DOM before requesting it. An unattached lazy
+    // image can remain unloaded indefinitely inside the connections popup.
+    const img=document.createElement('img');
+    img.alt='';
+    img.loading='eager';
+    img.decoding='async';
+    img.addEventListener('load',()=>{
+      if(img.naturalWidth>0)avatar.classList.add('has-photo');
+    });
+    img.addEventListener('error',()=>{img.remove();avatar.classList.remove('has-photo');});
+    avatar.appendChild(img);
+    img.src='/api/public/race-center/profile-photo/'+encodeURIComponent(handle);
+  }
+  return avatar;
+}
+
 function connectionsLink(item,isSeries){
   const a=document.createElement('a');
   a.className='profile-connection-person';
@@ -520,15 +586,7 @@ function connectionsLink(item,isSeries){
     symbol.textContent='S';
     a.appendChild(symbol);
   }else{
-    const avatar=document.createElement('span');
-    avatar.className='profile-connection-fallback';
-    avatar.textContent=initials(item.display_name||item.handle);
-    const img=document.createElement('img');
-    img.alt='';
-    img.loading='lazy';
-    img.src='/api/public/race-center/profile-photo/'+encodeURIComponent(String(item.handle||''));
-    img.addEventListener('load',()=>{avatar.textContent='';avatar.appendChild(img);});
-    a.appendChild(avatar);
+    a.appendChild(racerAvatar(item));
   }
   const info=document.createElement('span');
   info.className='profile-connection-copy';
