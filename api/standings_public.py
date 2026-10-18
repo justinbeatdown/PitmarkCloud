@@ -874,13 +874,36 @@ async def race_center_social_media_upload(request:Request,post_id:int,media:Uplo
 
 
 @router.get("/api/public/race-center/feed/{post_id}/media", include_in_schema=False)
-def race_center_social_media_get(post_id:int):
+def race_center_social_media_get(request:Request,post_id:int):
     media=race_center_social_v2.media_for_post(post_id)
     if media is None:raise HTTPException(status_code=404,detail="Media not found.")
     data,mime=media
-    return Response(data,media_type=mime,headers={
-        "X-Content-Type-Options":"nosniff","Cache-Control":"public, max-age=300"
-    })
+    headers={
+        "X-Content-Type-Options":"nosniff",
+        "Cache-Control":"public, max-age=300",
+        "Accept-Ranges":"bytes",
+    }
+    size=len(data)
+    value=request.headers.get("range","").strip()
+    if value and value.startswith("bytes="):
+        import re
+        found=re.fullmatch(r"bytes=(\d*)-(\d*)",value)
+        if found:
+            start_text,end_text=found.groups()
+            if not start_text and end_text:
+                count=int(end_text)
+                start=max(0,size-count)
+                end=size-1
+            else:
+                start=int(start_text) if start_text else 0
+                end=int(end_text) if end_text else size-1
+            if start>=size or start>end or end<0:
+                return Response(status_code=416,headers={**headers,"Content-Range":f"bytes */{size}"})
+            end=min(end,size-1)
+            chunk=data[start:end+1]
+            return Response(chunk,status_code=206,media_type=mime,
+                headers={**headers,"Content-Range":f"bytes {start}-{end}/{size}","Content-Length":str(len(chunk))})
+    return Response(data,media_type=mime,headers=headers)
 
 
 @router.post("/api/public/race-center/social/report", include_in_schema=False)
