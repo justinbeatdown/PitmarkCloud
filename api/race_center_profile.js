@@ -117,7 +117,13 @@ function renderProfile(){
   renderAvatar();
 }
 
-function renderWall(){
+async function refreshProfileWall(openCommentsFor=null){
+  const data=await apiJson('/api/public/race-center/profile-wall/'+encodeURIComponent(handle));
+  wall=Array.isArray(data.posts)?data.posts:[];
+  renderWall(openCommentsFor);
+}
+
+function renderWall(openCommentsFor=null){
   const host=$('#profileWallFeed');
   if(!host)return;
   host.replaceChildren();
@@ -134,35 +140,141 @@ function renderWall(){
     const header=document.createElement('header');
     header.className='profile-post-header';
     const author=post.author||{};
-    const handle=String(author.handle||profile?.handle||'');
+    const authorHandle=String(author.handle||profile?.handle||'');
     const authorLink=document.createElement('a');
     authorLink.className='profile-post-author-link';
-    authorLink.href='/race-center/u/'+encodeURIComponent(handle);
+    authorLink.href='/race-center/u/'+encodeURIComponent(authorHandle);
     authorLink.appendChild(racerAvatar({
       display_name:author.display_name||profile?.display_name||'Racer',
-      handle
+      handle:authorHandle
     },'profile-connection-fallback profile-post-avatar'));
     const details=document.createElement('span');
     details.className='profile-post-author-details';
     const displayName=document.createElement('strong');
     displayName.textContent=String(author.display_name||profile?.display_name||'Racer');
     const meta=document.createElement('small');
-    meta.textContent='@'+handle+' · '+ago(post.created_at);
+    meta.textContent='@'+authorHandle+' · '+ago(post.created_at);
     details.append(displayName,meta);
     authorLink.appendChild(details);
     header.appendChild(authorLink);
+    if(post.owner){
+      const remove=document.createElement('button');
+      remove.type='button';remove.className='profile-post-delete';
+      remove.textContent='Delete';remove.setAttribute('aria-label','Delete my post');
+      remove.addEventListener('click',async()=>{
+        if(!confirm('Delete this Race Center post?'))return;
+        remove.disabled=true;
+        try{
+          await apiJson('/api/public/race-center/feed/'+encodeURIComponent(String(post.id)),{method:'DELETE'});
+          await refreshProfileWall();
+        }catch(error){
+          remove.disabled=false;
+          alert(error.message||'Could not delete post.');
+        }
+      });
+      header.appendChild(remove);
+    }
     const body=document.createElement('p');
     body.className='profile-post-body';
     body.textContent=String(post.body||'');
-    const footer=document.createElement('footer');
-    for(const [icon,count] of [
-      ['🏁',post.reactions?.checkered],['🔥',post.reactions?.fire],['💬',post.comment_count]
-    ]){
-      const span=document.createElement('span');
-      span.textContent=icon+' '+String(Number(count)||0);
-      footer.appendChild(span);
+
+    const actions=document.createElement('footer');
+    actions.className='profile-post-interactions';
+    for(const [reaction,emoji,label] of [['checkered','🏁','Race flag'],['fire','🔥','Fire']]){
+      const button=document.createElement('button');
+      button.type='button';button.className='profile-post-reaction';
+      const active=Array.isArray(post.viewer_reactions)&&post.viewer_reactions.includes(reaction);
+      button.setAttribute('aria-pressed',String(active));
+      if(active)button.classList.add('is-active');
+      button.textContent=emoji+' '+String(Number(post.reactions?.[reaction])||0);
+      button.setAttribute('aria-label',label+' reaction');
+      button.addEventListener('click',async()=>{
+        if(!account.authenticated){location.href='/race-center?account=1';return;}
+        button.disabled=true;
+        try{
+          await apiJson('/api/public/race-center/feed/'+encodeURIComponent(String(post.id))+'/reaction',{
+            method:'POST',body:JSON.stringify({reaction})
+          });
+          await refreshProfileWall();
+        }catch(error){
+          button.disabled=false;
+          feedback.textContent=error.message||'Could not update reaction.';
+        }
+      });
+      actions.appendChild(button);
     }
-    article.append(header,body,footer);
+    const comments=document.createElement('details');
+    comments.className='profile-post-comments';
+    comments.open=String(openCommentsFor||'')===String(post.id);
+    const summary=document.createElement('summary');
+    summary.textContent='💬 '+String(Number(post.comment_count)||0)+' comments';
+    comments.appendChild(summary);
+    const thread=document.createElement('div');
+    thread.className='profile-post-comment-thread';
+    const items=Array.isArray(post.comments)?post.comments:[];
+    if(!items.length){
+      const empty=document.createElement('p');
+      empty.className='profile-comments-empty';
+      empty.textContent='No comments yet. Start the conversation.';
+      thread.appendChild(empty);
+    }
+    items.forEach(comment=>{
+      const line=document.createElement('div');
+      line.className='profile-post-comment';
+      const who=comment.author||{};
+      const commentHandle=String(who.handle||'');
+      const link=document.createElement('a');
+      link.className='profile-post-comment-avatar';
+      link.href=commentHandle?'/race-center/u/'+encodeURIComponent(commentHandle):'/race-center';
+      link.appendChild(racerAvatar({display_name:who.display_name||'Racer',handle:commentHandle},
+        'profile-connection-fallback profile-comment-avatar'));
+      line.appendChild(link);
+      const textWrap=document.createElement('div');
+      const authorName=document.createElement('a');
+      authorName.className='profile-comment-name';
+      authorName.href=link.href;
+      authorName.textContent=String(who.display_name||who.handle||'Racer');
+      const messageBody=document.createElement('p');
+      messageBody.textContent=String(comment.body||'');
+      textWrap.append(authorName,messageBody);
+      line.appendChild(textWrap);
+      thread.appendChild(line);
+    });
+    comments.appendChild(thread);
+    const form=document.createElement('form');
+    form.className='profile-comment-form';
+    const input=document.createElement('textarea');
+    input.rows=2;input.maxLength=280;
+    input.placeholder=account.authenticated?'Write a comment…':'Sign in to comment…';
+    input.setAttribute('aria-label','Comment on post');
+    const send=document.createElement('button');
+    send.type='submit';send.textContent='Post comment';
+    const message=document.createElement('span');
+    message.className='profile-post-feedback';
+    message.setAttribute('role','status');
+    form.append(input,send,message);
+    form.addEventListener('submit',async event=>{
+      event.preventDefault();
+      if(!account.authenticated){location.href='/race-center?account=1';return;}
+      const content=input.value.trim();
+      if(!content)return;
+      send.disabled=true;message.textContent='Posting…';
+      try{
+        await apiJson('/api/public/race-center/feed/'+encodeURIComponent(String(post.id))+'/comments',{
+          method:'POST',body:JSON.stringify({body:content})
+        });
+        await refreshProfileWall(post.id);
+      }catch(error){
+        message.textContent=error.message||'Could not post comment.';
+        send.disabled=false;
+      }
+    });
+    comments.appendChild(form);
+    actions.appendChild(comments);
+    const feedback=document.createElement('p');
+    feedback.className='profile-post-feedback';
+    feedback.setAttribute('role','status');
+    article.append(header,body,actions,feedback);
     host.appendChild(article);
   });
 }
