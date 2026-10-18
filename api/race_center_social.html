@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#090d12">
+  <title>Following · Pitmark Race Center</title>
+  <link rel="stylesheet" href="/race-center-social.css?v=20261017-social-v2">
+  <script src="/race-center-social.js?v=20261017-social-v2" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to feed</a>
+<header class="rc-social-header">
+  <div class="rc-social-head-inner">
+    <a href="/race-center" class="rc-social-logo"><img src="/prt-logo.png" alt="Pitmark Racing Co."><span>Race Center</span></a>
+    <nav aria-label="Race Center social">
+      <a href="/race-center">Home</a>
+      <a href="/race-center/social" aria-current="page">Following</a>
+      <a href="/race-center/community">Community</a>
+      <a href="/race-center/drivers">Drivers</a>
+      <a href="/race-center/series">Series</a>
+    </nav>
+    <div class="rc-social-header-actions">
+      <button id="notificationBell" type="button" class="rc-notification-bell" aria-haspopup="dialog" aria-label="Notifications">Notifications <span id="notificationCount" hidden>0</span></button>
+      <a href="/race-center/me" id="socialProfileLink">My Profile</a>
+    </div>
+  </div>
+</header>
+<main class="rc-social-shell" id="main">
+  <div class="rc-social-layout">
+    <section class="rc-social-main" aria-labelledby="socialHeading">
+      <header class="rc-social-intro">
+        <div><span class="rc-kicker">PITMARK · THE PADDOCK</span><h1 id="socialHeading">Your racing community.</h1><p>People, drivers, series and race-day moments, connected to the racing you follow.</p></div>
+      </header>
+      <div class="rc-social-tabs" role="tablist" aria-label="Feed type">
+        <button type="button" id="followingTab" role="tab" aria-selected="true" aria-controls="socialFeed">Following</button>
+        <button type="button" id="discoverTab" role="tab" aria-selected="false" aria-controls="socialFeed">Discover</button>
+      </div>
+      <div class="rc-auth-note" id="socialAuthNote" hidden><strong>Get your personal racing feed.</strong><p>Sign in and follow racers, series and tracks to see their updates here.</p><a href="/race-center?account=1">Sign in to Race Center →</a></div>
+      <form id="socialComposer" class="rc-composer" hidden>
+        <div class="rc-composer-title"><span class="rc-kicker">TRACKSIDE</span><strong>Share with the racing community</strong></div>
+        <label for="socialBody" class="visually-hidden">Your racing update</label>
+        <textarea id="socialBody" name="body" rows="3" maxlength="600" placeholder="What's happening on or off the track?" required></textarea>
+        <div id="composerMediaPreview" class="rc-composer-preview" hidden></div>
+        <div class="rc-compose-tools">
+          <label for="socialMediaInput" class="rc-attach-media">Add photo or short video <input id="socialMediaInput" name="media" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"></label>
+          <label for="socialTopic" class="rc-post-topic">Tag your racing <select id="socialTopic" name="topic"><option value="">General post</option></select></label>
+          <span class="rc-post-limit">Photos up to 5 MB · video up to 12 MB</span>
+          <button type="submit" id="publishSocialPost" class="rc-primary">Post update</button>
+        </div>
+        <p class="rc-feedback" id="socialComposeStatus" role="status" aria-live="polite"></p>
+      </form>
+      <div class="rc-racing-activity" id="followingActivity" hidden>
+        <div class="rc-section-head"><div><span class="rc-kicker">FROM YOUR SERIES</span><h2>Race-day updates</h2></div><a href="/race-center/my-racing">Manage follows →</a></div>
+        <div id="followingActivityCards" class="rc-activity-grid"></div>
+      </div>
+      <div class="rc-section-head rc-feed-heading"><div><span class="rc-kicker" id="feedKicker">PERSONAL TIMELINE</span><h2 id="feedHeading">From your racing</h2></div><button id="refreshFeed" type="button">Refresh ↻</button></div>
+      <div id="socialFeed" role="tabpanel" aria-live="polite"><div class="rc-feed-empty">Loading racing updates…</div></div>
+      <div class="rc-pager" id="feedMore"></div>
+    </section>
+    <aside class="rc-social-side">
+      <section class="rc-side-card"><span class="rc-kicker">YOUR PADDOCK</span><h2>Make racing yours.</h2><p>Follow a driver or series, then their public updates and relevant race activity appear in Following.</p><div id="followMetrics" class="rc-follow-metrics">Sign in to see your follows.</div><a class="rc-side-link" href="/race-center/community">Discover racers ↗</a><a class="rc-side-link" href="/race-center/series">Explore series ↗</a></section>
+      <section class="rc-side-card"><span class="rc-kicker">YOUR RACING</span><h2>From simulator to community.</h2><p>Your public PRT results live on your driver profile, with visibility under your control.</p><a class="rc-side-link" href="/race-center/me">View racer profile ↗</a></section>
+    </aside>
+  </div>
+</main>
+<dialog id="socialNotifications" class="rc-social-dialog" aria-labelledby="notificationsTitle">
+  <div class="rc-dialog-head"><div><span class="rc-kicker">RACE CENTER SOCIAL</span><h2 id="notificationsTitle">Notifications</h2></div><button type="button" id="closeNotifications" aria-label="Close notifications">×</button></div>
+  <div id="notificationsList"><p class="rc-feed-empty">Loading notifications…</p></div>
+  <div class="rc-dialog-footer"><button type="button" id="markNotificationsRead">Mark all as read</button></div>
+</dialog>
+<dialog id="socialReportDialog" class="rc-social-dialog" aria-labelledby="reportTitle">
+  <div class="rc-dialog-head"><div><span class="rc-kicker">KEEP RACING WELCOMING</span><h2 id="reportTitle">Report content</h2></div><button type="button" id="closeSocialReport" aria-label="Close report form">×</button></div>
+  <form id="socialReportForm">
+    <p>Reports are reviewed by Pitmark staff. Reporting is private and doesn't automatically remove content.</p>
+    <label>Reason <select name="reason" required><option value="spam">Spam</option><option value="harassment">Harassment</option><option value="abuse">Abusive content</option><option value="impersonation">Impersonation</option><option value="unsafe">Unsafe content</option><option value="other">Other</option></select></label>
+    <label>Additional details (optional) <textarea name="details" rows="3" maxlength="1000" placeholder="What should the moderators know?"></textarea></label>
+    <button type="submit" class="rc-primary" id="sendSocialReport">Send report</button>
+    <p id="socialReportFeedback" class="rc-feedback" role="status" aria-live="polite"></p>
+  </form>
+</dialog>
+<footer class="rc-social-footer"><a href="/race-center">Race Center</a> · <a href="/race-center/community">Community</a> · <a href="/race-center/privacy">Privacy</a> · PITMARK RACING CO. · LEAVE YOUR MARK.</footer>
+</body></html>
