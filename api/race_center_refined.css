@@ -99,6 +99,7 @@ body :is(button,a)[disabled]{cursor:not-allowed}
   font-size:12px!important;color:#c6d0d9!important;
   border-radius:8px!important;display:block
 }
+.rc-more-links .rc-more-compact-only{display:none}
 .rc-more-links a:hover,.rc-more-links a.active{
   background:rgba(255,85,0,.13)!important;color:#fff!important;
 }
@@ -347,6 +348,12 @@ input,textarea,select{min-width:0}
   .site-header nav>a,.rc-more-menu>summary{padding:8px 8px;font-size:11px}
   .brand img{width:132px}
   .header-health{display:none}
+}
+@media (min-width:821px) and (max-width:1200px){
+  .site-header nav>a[href="/race-center/series"],
+  .site-header nav>a[href="/race-center/standings"],
+  .site-header nav>a[href="/race-center/schedules"]{display:none}
+  .site-header nav .rc-more-links .rc-more-compact-only{display:block}
 }
 @media(max-width:1100px){
   body[data-view="hub"] .hero{grid-template-columns:1fr;gap:24px;padding-top:40px}
