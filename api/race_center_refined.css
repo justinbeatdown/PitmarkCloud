@@ -643,3 +643,86 @@ body[data-view="profile"] #profileStaffAdminLink:not([hidden]){
   background:rgba(255,85,0,.13)!important;
   color:#ffbc98!important;
 }
+
+
+/* Profile visibility must beat layout rules such as .prt-actions{display:flex}.
+   Hidden means hidden for every public visitor, regardless of shared CSS. */
+body[data-view="profile"] #prtOwnerActions[hidden],
+body[data-view="profile"] #prtPublicSharingControls[hidden],
+body[data-view="profile"] #followerEmailSection[hidden],
+body[data-view="profile"] #profileFollowerNotifications[hidden]{
+  display:none!important;
+}
+/* Interactive social counts */
+body[data-view="profile"] .public-profile-stats>div{padding:0}
+body[data-view="profile"] .profile-stat-action{
+  display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
+  width:100%;height:100%;min-height:66px;padding:10px 12px;
+  color:#f6f8fa;background:transparent;border:0;text-align:left;
+  border-radius:11px;cursor:pointer;
+  transition:background .15s,box-shadow .15s;
+}
+body[data-view="profile"] .profile-stat-action:hover,
+body[data-view="profile"] .profile-stat-action:focus-visible{
+  background:rgba(255,85,0,.12);box-shadow:inset 0 0 0 1px rgba(255,85,0,.4);
+}
+body[data-view="profile"] .profile-stat-action strong{
+  display:block;font-variant-numeric:tabular-nums;font-size:23px;line-height:1.2
+}
+body[data-view="profile"] .profile-stat-action>span{
+  display:block;margin-top:6px;text-transform:uppercase;
+  letter-spacing:.05em;font-weight:800;font-size:10px;color:#9eafbd;
+}
+body[data-view="profile"] .profile-stat-action>span span{color:#ff995f}
+.profile-connections-dialog{
+  width:min(540px,calc(100vw - 28px));max-height:min(78vh,800px);
+  padding:0;border:1px solid #3d4a57;border-radius:18px;
+  background:#101820;color:#f3f7fa;overflow:auto;
+}
+.profile-connections-dialog::backdrop{background:rgba(3,7,10,.78);backdrop-filter:blur(5px)}
+.profile-connections-shell{padding:clamp(18px,3vw,25px)}
+.profile-connections-head{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;margin-bottom:17px}
+.profile-connections-head h2{font-size:29px;line-height:1.15;margin:8px 0;letter-spacing:-.04em}
+.profile-connections-head p{color:#adbcc9;font-size:13px;margin:0;line-height:1.5}
+.profile-connections-close{
+  flex:0 0 36px;width:36px;height:36px;border:1px solid #354652;border-radius:9px;
+  background:#18232c;color:#f4f6f8;font-size:23px;cursor:pointer
+}
+.profile-connections-close:hover{border-color:#ff8447}
+.profile-connections-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:16px 0}
+.profile-connections-tabs button{
+  padding:11px 6px;border:1px solid #35424f;border-radius:9px;background:#141e26;
+  color:#c6d1dd;font-size:12px;font-weight:800;cursor:pointer
+}
+.profile-connections-tabs button.active,
+.profile-connections-tabs button:hover{border-color:#ff7939;color:#fff;background:#2b201c}
+.profile-connections-results{display:grid;gap:8px}
+.profile-connection-person{
+  display:flex;align-items:center;gap:12px;min-width:0;
+  padding:10px 12px;border:1px solid #2e3c47;border-radius:11px;
+  background:#0c1319;text-decoration:none;color:#f4f7fa
+}
+.profile-connection-person:hover{border-color:#ff793a;background:#18232b;color:#fff}
+.profile-connection-fallback{
+  display:grid;place-items:center;overflow:hidden;flex:0 0 46px;
+  width:46px;height:46px;border-radius:11px;
+  background:#22313c;color:#ffb18b;font-size:15px;font-weight:900
+}
+.profile-connection-fallback img{width:100%;height:100%;display:block;object-fit:cover}
+.profile-connection-fallback.series-symbol{background:rgba(255,85,0,.14);color:#ff9d68}
+.profile-connection-copy{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+.profile-connection-copy strong{font-size:13px;color:#f4f6f8;overflow-wrap:anywhere}
+.profile-connection-copy small{color:#a4b4c2;font-size:11px;overflow-wrap:anywhere}
+.profile-connection-arrow{font-size:16px;color:#ffa36b}
+.profile-connections-empty{padding:30px 14px;color:#b9c6d1;text-align:center;border:1px dashed #374958;border-radius:10px;font-size:13px}
+.profile-connections-more{display:flex;justify-content:center;padding-top:13px}
+.profile-connections-load-more{width:100%}
+@media(max-width:540px){
+  body[data-view="profile"] .profile-stat-action{padding:9px 7px;min-height:60px}
+  body[data-view="profile"] .profile-stat-action strong{font-size:19px}
+  body[data-view="profile"] .profile-stat-action>span{font-size:9px}
+  .profile-connections-dialog{max-height:calc(90vh - env(safe-area-inset-top))}
+}
+@media(prefers-reduced-motion:reduce){
+  body[data-view="profile"] .profile-stat-action{transition:none}
+}
