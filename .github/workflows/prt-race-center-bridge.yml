@@ -7,6 +7,8 @@ on:
       - 'api/prt_connect.js'
       - 'tests/test_prt_connect_csp_contract.py'
       - 'api/race_center_profile.*'
+      - 'api/race_center_admin.*'
+      - 'tests/test_race_center_staff_admin_runtime.py'
       - 'api/race_center_prt_profile.css'
       - 'api/standings_public.html'
       - 'api/standings_public.js'
@@ -45,6 +47,7 @@ jobs:
       - run: node --check api/prt_connect.js
       - run: python tests/test_race_center_official_partner_badge_contract.py
       - run: pip install -r requirements.txt
+      - run: PYTHONPATH=. python tests/test_race_center_staff_admin_runtime.py
       - run: PYTHONPATH=. python tests/test_race_center_official_partner_runtime.py
       - run: PYTHONPATH=. python tests/test_prt_public_race_history_runtime.py
       - run: PYTHONPATH=. python tests/test_prt_bridge_import_smoke.py
