@@ -855,6 +855,16 @@ async function load(){
     }else{
       await renderPrtVisitorDashboard();
     }
+    const alerts=$('#profileSocialAlerts');
+    if(alerts){
+      alerts.hidden=!account.authenticated;
+      if(account.authenticated){
+        apiJson('/api/public/race-center/social/notifications?limit=1').then(result=>{
+          alerts.textContent=Number(result.unread)>0?
+            'Alerts ('+Math.min(Number(result.unread),99)+(Number(result.unread)>99?'+':'')+')':'Alerts';
+        }).catch(()=>{});
+      }
+    }
     $('#profileAccountButton').textContent=account.authenticated?'My Profile':'Sign in';
     $('#profileAccountButton').href=account.authenticated?'/race-center/me':'/race-center?account=1';
     document.title=(profile.display_name||profile.handle)+' — Pitmark Race Center';
