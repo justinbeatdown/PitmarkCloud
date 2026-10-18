@@ -72,6 +72,17 @@
       </div>
     </section>
 
+    <section class="profile-racing-card profile-follow-notification-card" id="followerEmailSection" hidden>
+      <div class="section-head"><div><span class="eyebrow">RACE CENTER SOCIAL</span><h2>Follower alerts</h2></div></div>
+      <div id="profileFollowerNotifications" class="profile-email-notifications" hidden>
+        <div><strong>New follower notifications</strong>
+        <p>Receive an email when another racer follows you. Off until you enable it. Up to 10 emails per day, with repeat notifications suppressed.</p></div>
+        <label for="profileFollowerEmailToggle"><input id="profileFollowerEmailToggle" type="checkbox"> Email me about new followers</label>
+        <button type="button" id="profileFollowerEmailSave">Save email preference</button>
+        <p id="profileFollowerEmailStatus" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+
     <section class="profile-racing-card prt-private-panel" id="profilePrtPrivateStats" hidden aria-label="Your private PRT racing dashboard">
       <span id="prt-history"></span>
       <div class="prt-topbar">
@@ -83,13 +94,6 @@
         <span class="prt-privacy-pill" id="prtPrivacyPill">Private to you</span>
       </div>
       <p class="prt-status" id="profilePrtStatus" role="status" aria-live="polite">Checking your PRT connection…</p>
-      <div id="profileFollowerNotifications" class="profile-email-notifications" hidden>
-        <div><strong>New follower notifications</strong>
-        <p>Receive an email when another racer follows you. Off until you enable it. Up to 10 emails per day, with repeat notifications suppressed.</p></div>
-        <label for="profileFollowerEmailToggle"><input id="profileFollowerEmailToggle" type="checkbox"> Email me about new followers</label>
-        <button type="button" id="profileFollowerEmailSave">Save email preference</button>
-        <p id="profileFollowerEmailStatus" role="status" aria-live="polite"></p>
-      </div>
       <div id="profilePrtPrivateSummary"></div>
       <div class="prt-share-control" id="prtPublicSharingControls" hidden>
         <div>
