@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b0e12">
+  <title>Staff Admin · Pitmark Race Center</title>
+  <link rel="stylesheet" href="/race-center-admin.css?v=20261018">
+  <script src="/race-center-admin.js?v=20261018" defer></script>
+</head>
+<body>
+<a class="skip" href="#adminMain">Skip to admin dashboard</a>
+<header class="admin-header">
+  <div class="admin-header-inner">
+    <a class="admin-brand" href="/race-center" aria-label="Pitmark Race Center home">
+      <img src="/prt-logo.png" alt="Pitmark Racing Co.">
+      <span>RACE CENTER <small>STAFF ADMIN</small></span>
+    </a>
+    <div class="admin-header-links">
+      <a href="/race-center">Race Center</a>
+      <a href="/race-center/me">My Profile</a>
+      <span class="staff-locked">STAFF ONLY</span>
+    </div>
+  </div>
+</header>
+<main class="admin-shell" id="adminMain">
+  <div class="admin-heading">
+    <p class="eyebrow">PITMARK RACING CO. · OPERATIONS</p>
+    <h1>Race Center Staff Admin</h1>
+    <p class="subhead">Review what racers submit, approve verified ownership claims, and connect editorial coverage to official racing profiles. Changes here affect public Race Center content.</p>
+  </div>
+  <div class="admin-status" id="adminStatus" role="status" aria-live="polite">Loading staff queues…</div>
+  <div class="metric-grid" aria-label="Pending review counts">
+    <div class="metric"><strong id="pendingSeries">—</strong><span>Series pending</span></div>
+    <div class="metric"><strong id="pendingClaims">—</strong><span>Ownership claims pending</span></div>
+    <div class="metric"><strong id="totalPending">—</strong><span>Total requiring review</span></div>
+  </div>
+  <nav class="admin-tabs" aria-label="Staff workspace sections">
+    <a href="#series-review">Series submissions</a>
+    <a href="#claim-review">Ownership claims</a>
+    <a href="#editorial-links">Editorial links</a>
+  </nav>
+  <section class="review-panel" id="series-review" aria-labelledby="seriesHeading">
+    <div class="panel-heading">
+      <div><span class="eyebrow">INBOX / 01</span><h2 id="seriesHeading">Submitted racing series</h2><p>Review source links before changing the submission's status. Approval does not automatically import a complete racing schedule.</p></div>
+      <button class="button secondary" id="refreshSeries" type="button">Refresh</button>
+    </div>
+    <div class="review-list" id="seriesQueue">Loading submissions…</div>
+  </section>
+  <section class="review-panel" id="claim-review" aria-labelledby="claimsHeading">
+    <div class="panel-heading">
+      <div><span class="eyebrow">INBOX / 02</span><h2 id="claimsHeading">Official entity claims</h2><p>Check supporting evidence before approving control of a driver, team, track or series identity. Review actions are recorded in the claim audit trail.</p></div>
+      <button class="button secondary" id="refreshClaims" type="button">Refresh</button>
+    </div>
+    <div class="review-list" id="claimQueue">Loading claims…</div>
+  </section>
+  <section class="review-panel" id="editorial-links" aria-labelledby="editorialHeading">
+    <div class="panel-heading">
+      <div><span class="eyebrow">PUBLISH / 03</span><h2 id="editorialHeading">Attach editorial coverage</h2><p>Connect an existing article or official coverage URL to a Race Center entity. This creates a link; it does not publish or rewrite the article itself.</p></div>
+    </div>
+    <form class="editorial-form" id="editorialForm">
+      <label>Entity type
+        <select name="entity_type" required>
+          <option value="series">Series</option><option value="driver">Driver</option>
+          <option value="team">Team</option><option value="track">Track</option>
+          <option value="event">Event</option>
+        </select>
+      </label>
+      <label>Entity key <input name="entity_key" maxlength="220" placeholder="Exact Race Center entity key" required></label>
+      <label class="wide">Article title <input name="title" maxlength="240" placeholder="Article title" required></label>
+      <label class="wide">Article URL <input name="url" type="url" maxlength="4000" placeholder="https://…" required></label>
+      <label class="wide">Short summary (optional) <textarea name="summary" maxlength="4000" rows="3" placeholder="What readers will find"></textarea></label>
+      <button type="submit" class="button primary" id="attachEditorial">Attach article</button>
+      <p id="editorialStatus" role="status" aria-live="polite"></p>
+    </form>
+  </section>
+</main>
+<footer class="admin-footer">PITMARK RACING CO. · STAFF ACTIONS REQUIRE AUTHORIZATION · <a href="/race-center">BACK TO RACE CENTER</a></footer>
+</body></html>
