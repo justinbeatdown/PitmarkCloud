@@ -426,3 +426,120 @@ input,textarea,select{min-width:0}
   .rc-profile-quick-nav a:last-child{color:#ffc6a3;background:rgba(255,85,0,.14)}
   .rc-profile-quick-nav a:hover{background:#26323d;color:#fff}
 }
+
+
+/* October search-field QA: the old generated ::after hint was squeezed onto
+ * a borderless label above the search input. Use two real, independently
+ * wrapping pieces of text inside one self-contained, generously padded dock. */
+body[data-view="hub"] #raceSearchDock{
+  display:block;
+  box-sizing:border-box;
+  width:min(100%,760px);
+  max-width:100%;
+  margin-top:30px;
+  padding:16px 17px 17px;
+  border:1px solid #354550;
+  border-radius:17px;
+  background:linear-gradient(145deg,#161e26,#10161d);
+  box-shadow:0 12px 34px rgba(0,0,0,.22);
+  overflow:visible;
+}
+#raceSearchDock .rc-search-heading{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:baseline;
+  justify-content:flex-start;
+  column-gap:12px;
+  row-gap:3px;
+  min-width:0;
+  margin:0 0 11px;
+  line-height:1.35;
+}
+#raceSearchDock .rc-search-heading label{
+  display:inline-block;
+  flex:0 0 auto;
+  margin:0;
+  padding:0;
+  cursor:text;
+}
+#raceSearchDock .rc-search-heading label span{
+  display:block;
+  color:#ff9c68;
+  font-size:11px;
+  font-weight:850;
+  text-transform:uppercase;
+  letter-spacing:.095em;
+  white-space:normal;
+}
+#raceSearchDock .rc-search-heading label span::after{content:none!important}
+#raceSearchDock .rc-search-heading>span{
+  display:inline-block;
+  color:#a4b2c1;
+  font-size:12px;
+  font-weight:550;
+  letter-spacing:0;
+  white-space:normal;
+}
+body[data-view="hub"] #raceSearchDock .race-search-box{
+  display:grid;
+  grid-template-columns:20px minmax(0,1fr) auto;
+  align-items:center;
+  box-sizing:border-box;
+  min-height:52px;
+  height:auto;
+  width:100%;
+  padding:0 12px;
+  border:1px solid #40515e;
+  border-radius:11px;
+  background:#0a1016;
+  box-shadow:none;
+}
+body[data-view="hub"] #raceSearchDock .race-search-box:focus-within{
+  border-color:#ff8547;
+  box-shadow:0 0 0 3px rgba(255,85,0,.12);
+}
+body[data-view="hub"] #raceSearchDock .rc-search-icon{
+  font-size:20px;line-height:1;color:#ff965e;
+}
+body[data-view="hub"] #raceSearchDock input{
+  min-height:50px;
+  min-width:0;
+  width:100%;
+  font-family:Inter,system-ui,"Segoe UI",sans-serif;
+  font-size:14px;
+  font-weight:550;
+  line-height:1.45;
+  color:#f4f6f8;
+  padding:9px 3px;
+}
+body[data-view="hub"] #raceSearchDock input::placeholder{color:#8998a8}
+body[data-view="hub"] #raceSearchDock kbd{
+  padding:5px 8px;
+  border-radius:7px;
+  border-color:#3d4a56;
+  color:#b6c2cf;
+  font-family:ui-monospace,Consolas,monospace;
+  font-size:12px;
+  font-weight:750;
+  line-height:1.1;
+}
+body[data-view="hub"] #raceSearchDock .race-search-results{
+  left:0;right:0;top:calc(100% + 8px);max-width:100%;
+}
+@media(max-width:680px){
+  body[data-view="hub"] #raceSearchDock{
+    margin-top:23px;
+    padding:13px;
+    border-radius:14px;
+  }
+  #raceSearchDock .rc-search-heading{
+    align-items:flex-start;
+    flex-direction:column;
+    row-gap:3px;
+    margin-bottom:10px;
+  }
+  #raceSearchDock .rc-search-heading>span{font-size:11px}
+  body[data-view="hub"] #raceSearchDock .race-search-box{min-height:49px}
+  body[data-view="hub"] #raceSearchDock input{min-height:47px;font-size:16px}
+  body[data-view="hub"] #raceSearchDock kbd{display:none}
+}

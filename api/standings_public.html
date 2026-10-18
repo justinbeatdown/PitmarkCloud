@@ -87,12 +87,15 @@
           <a class="button primary" href="/race-center/community">Open the community</a>
           <a class="button secondary" href="/race-center/drivers">Find a driver</a>
         </div>
-        <div class="race-search-dock" id="raceSearchDock">
-          <label for="raceSearchInput"><span>SEARCH RACE CENTER</span></label>
+        <div class="race-search-dock" id="raceSearchDock" role="search">
+          <div class="rc-search-heading">
+            <label for="raceSearchInput"><span>Search Race Center</span></label>
+            <span id="raceSearchHelp">Drivers, teams, series and events</span>
+          </div>
           <div class="race-search-box">
-            <span aria-hidden="true">⌕</span>
-            <input id="raceSearchInput" type="search" autocomplete="off" placeholder="Driver, number, team, series, event…">
-            <kbd>/</kbd>
+            <span class="rc-search-icon" aria-hidden="true">⌕</span>
+            <input id="raceSearchInput" type="search" autocomplete="off" aria-describedby="raceSearchHelp" placeholder="Find a driver, number, team, series or event…">
+            <kbd title="Press / to focus search" aria-label="Press slash to search">/</kbd>
           </div>
           <div class="race-search-results" id="raceSearchResults" hidden></div>
         </div>
