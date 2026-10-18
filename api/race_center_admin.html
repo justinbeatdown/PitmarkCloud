@@ -7,6 +7,7 @@
   <title>Staff Admin · Pitmark Race Center</title>
   <link rel="stylesheet" href="/race-center-admin.css?v=20261018">
   <script src="/race-center-admin.js?v=20261018" defer></script>
+  <script src="/race-center-social-moderation.js?v=20261017" defer></script>
 </head>
 <body>
 <a class="skip" href="#adminMain">Skip to admin dashboard</a>
@@ -38,6 +39,7 @@
   <nav class="admin-tabs" aria-label="Staff workspace sections">
     <a href="#series-review">Series submissions</a>
     <a href="#claim-review">Ownership claims</a>
+    <a href="#social-moderation">Social moderation</a>
     <a href="#editorial-links">Editorial links</a>
   </nav>
   <section class="review-panel" id="series-review" aria-labelledby="seriesHeading">
@@ -53,6 +55,15 @@
       <button class="button secondary" id="refreshClaims" type="button">Refresh</button>
     </div>
     <div class="review-list" id="claimQueue">Loading claims…</div>
+  </section>
+  <section class="review-panel" id="social-moderation" aria-labelledby="socialModHeading">
+    <div class="panel-heading">
+      <div><span class="eyebrow">SAFETY / 04</span><h2 id="socialModHeading">Social reports & moderation</h2>
+        <p>Review reported posts and comments. Dismiss false reports, or remove harmful content. Every decision records the reviewing staff account.</p>
+      </div>
+      <button type="button" class="button secondary" id="refreshSocialReports">Refresh</button>
+    </div>
+    <div class="review-list" id="socialReportsQueue" role="status" aria-live="polite">Loading social reports…</div>
   </section>
   <section class="review-panel" id="editorial-links" aria-labelledby="editorialHeading">
     <div class="panel-heading">
