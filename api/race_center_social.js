@@ -81,16 +81,21 @@ async function loadFeed(append=false){
     const payload=await api(currentFeedURL(append?nextOffset:0));
     if(gen!==requestGeneration)return;
     const posts=Array.isArray(payload.posts)?payload.posts:[];
+    const updates=Array.isArray(payload.updates)?payload.updates:[];
     currentPosts=append?currentPosts.concat(posts):posts;
     nextOffset=payload.next_offset;
     if(!append)host.replaceChildren();
-    if(!currentPosts.length){
+    if(!currentPosts.length&&!updates.length){
       host.appendChild(mode==='following'?
         empty('No posts from your racing follows yet. Follow drivers, teams or series, or share the first update.','/race-center/community','Find racers to follow →'):
         empty('No racing posts yet. Be the first to share something from the paddock.'));
     }else{
-      if(!append)currentPosts.forEach(post=>host.appendChild(renderPost(post)));
-      else posts.forEach(post=>host.appendChild(renderPost(post)));
+      const combined=[
+        ...posts.map(post=>({type:'person',date:post.created_at,record:post})),
+        ...updates.map(update=>({type:'entity',date:update.created_at,record:update}))
+      ].sort((left,right)=>(Date.parse(right.date||'')||0)-(Date.parse(left.date||'')||0));
+      combined.forEach(item=>host.appendChild(item.type==='person'?
+        renderPost(item.record):renderEntityUpdate(item.record)));
     }
     if(!append)sectionSeries(Array.isArray(payload.activities)?payload.activities:[]);
     pager.replaceChildren();
@@ -114,6 +119,30 @@ async function loadFeed(append=false){
     if(!append){host.replaceChildren(empty(err.message||'Could not load feed.'));sectionSeries([]);}
     else{pager.replaceChildren(empty('Could not load more posts. Try refreshing.'));}
   }
+}
+function renderEntityUpdate(item){
+  const card=make('article','rc-post rc-entity-update');
+  const heading=make('header','rc-post-head');
+  const name=make('div','rc-entity-identity');
+  name.append(make('small','rc-kicker',String(item.entity_type||'RACING').toUpperCase()+' UPDATE'),
+              make('strong','',item.entity_name||'Race Center racing'));
+  const stamp=make('span','rc-time',timeAgo(item.created_at));
+  heading.append(name,stamp);
+  card.append(heading,make('p','rc-post-body',item.body||''));
+  if(item.media_url){
+    const picture=make('img','rc-post-media');
+    picture.src=String(item.media_url);picture.alt='Photo shared with this racing update';
+    picture.loading='lazy';
+    card.appendChild(picture);
+  }
+  const type=String(item.entity_type||'');
+  const route=type==='series'?'/race-center/series/':
+    type==='team'?'/race-center/team/':type==='track'?'/race-center/track/':
+    type==='event'?'/race-center/event/':'/race-center/drivers';
+  const link=make('a','rc-entity-open','View racing profile →');
+  link.href=type==='driver'?route:route+encodeURIComponent(String(item.entity_key||''));
+  card.appendChild(link);
+  return card;
 }
 function reportButton(type,id){
   const button=make('button','rc-text-button','Report');
