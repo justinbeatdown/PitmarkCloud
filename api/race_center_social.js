@@ -286,7 +286,7 @@ async function publish(event){
   event.preventDefault();
   const body=$('socialBody').value.trim();
   const media=$('socialMediaInput').files[0];
-  if(!body){$('socialComposeStatus').textContent='Write a racing update first.';return;}
+  if(!body&&!media){$('socialComposeStatus').textContent='Write an update or select a photo/video.';return;}
   if(media){
     const max=media.type.startsWith('video/')?12*1024*1024:5*1024*1024;
     if(media.size>max){$('socialComposeStatus').textContent='File exceeds the allowed size.';return;}
@@ -294,7 +294,7 @@ async function publish(event){
   const btn=$('publishSocialPost');
   btn.disabled=true;$('socialComposeStatus').textContent='Publishing…';
   const value=$('socialTopic').value||'';
-  const bodyData={body};
+  const bodyData={body:body||(media?.type.startsWith('video/')?'Shared a racing video':'Shared a racing photo')};
   if(value.startsWith('series:'))bodyData.series_key=value.slice(7);
   if(value.startsWith('driver:'))bodyData.driver_key=value.slice(7);
   try{
