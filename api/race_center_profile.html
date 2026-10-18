@@ -7,6 +7,7 @@
   <meta name="theme-color" content="#090b0e">
   <link rel="stylesheet" href="/standings.css?v={{PITMARK_VERSION}}-race-center-v7-profile-20260923">
   <link rel="stylesheet" href="/race-center-prt-profile.css?v=20261017-public-20261018">
+  <link rel="stylesheet" href="/race-center-refined.css?v={{PITMARK_VERSION}}-design-refresh-20261018">
 </head>
 <body data-view="profile" data-profile-handle="{{PROFILE_HANDLE}}">
   <header class="site-header">
@@ -16,18 +17,24 @@
         <span class="brand-product"><strong>Race Center</strong><small>Profile</small></span>
       </a>
       <nav aria-label="Pitmark navigation">
-        <a href="https://pitmarkracing.com">Shop</a>
-        <a href="/prt">PRT</a>
-        <a href="/race-center" class="active" aria-current="page">Race Center</a>
+        <a href="/race-center">Home</a>
+        <a href="/race-center/live">Live + Next</a>
         <a href="/race-center/community">Community</a>
         <a href="/race-center/drivers">Drivers</a>
         <a href="/race-center/series">Series</a>
-        <a href="/race-center/tracks">Tracks</a>
-        <a href="/race-center/events">Events</a>
         <a href="/race-center/standings">Standings</a>
         <a href="/race-center/schedules">Schedules</a>
-        <a href="/race-center/live">Live + Next</a>
-        <a href="/racing-desk">Racing Desk</a>
+        <details class="rc-more-menu">
+          <summary>Explore</summary>
+          <div class="rc-more-links">
+            <a href="/race-center/tracks">Tracks</a>
+            <a href="/race-center/teams">Teams</a>
+            <a href="/race-center/events">Events</a>
+            <a href="/race-center/my-racing">My Racing</a>
+            <a href="https://pitmarkracing.com/blogs/racing-culture" target="_blank" rel="noopener noreferrer">Racing Culture ↗</a>
+            <a href="https://pitmarkracing.com" target="_blank" rel="noopener noreferrer">Pitmark Shop ↗</a>
+          </div>
+        </details>
       </nav>
       <div class="account-zone profile-account-zone">
         <a class="profile-header-link" id="profileAccountButton" href="/race-center/me">My Profile</a>
@@ -135,6 +142,14 @@
       <div class="profile-wall-feed" id="profileWallFeed"><div class="loading-card">Loading wall…</div></div>
     </section>
   </main>
+
+  <nav class="rc-profile-quick-nav" aria-label="Mobile Race Center navigation">
+    <a href="/race-center">Home</a>
+    <a href="/race-center/live">Live</a>
+    <a href="/race-center/community">Community</a>
+    <a href="/race-center/drivers">Drivers</a>
+    <a href="/race-center/me">My Profile</a>
+  </nav>
 
   <footer class="site-footer">
     <div class="footer-main">
