@@ -65,6 +65,16 @@ function renderProfile(){
       staffBadge.classList.toggle('is-founder',staff.level==='founder');
     }
   }
+  const official=profile.official_badge||{};
+  const partnerBadge=$('#pitmarkPartnerBadge');
+  if(partnerBadge){
+    const isPartner=official.kind==='partner'&&Boolean(official.label);
+    partnerBadge.hidden=!isPartner;
+    if(isPartner){
+      partnerBadge.querySelector('b').textContent=official.label;
+      partnerBadge.querySelector('small').textContent=official.subtitle||'Pitmark Racing Co.';
+    }
+  }
   const verified=$('#publicProfileVerified');
   verified.hidden=identity.verification_status!=='verified';
   if(!verified.hidden)verified.textContent='✓ '+(identity.official_label||'Verified');
