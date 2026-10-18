@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - 'api/race_center_refined.css'
+      - 'api/race_center_admin.*'
+      - 'api/race_center_profile.html'
+      - 'api/race_center_profile.js'
+      - 'api/standings_public.js'
+      - 'tests/test_race_center_staff_admin_and_owner_visibility.py'
       - 'api/standings_public.html'
       - 'api/race_center_profile.html'
       - 'api/standings_public.py'
@@ -18,6 +23,10 @@ jobs:
         with:
           python-version: '3.12'
       - run: python tests/test_race_center_design_refresh_contract.py
+      - run: python tests/test_race_center_staff_admin_and_owner_visibility.py
+      - run: node --check api/race_center_admin.js
+      - run: node --check api/race_center_profile.js
+      - run: node --check api/standings_public.js
       - run: python tests/test_race_center_home_search_contract.py
       - run: |
           python - <<'PY'
