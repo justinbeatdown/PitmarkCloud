@@ -29,7 +29,8 @@ class ControlCenterPwaRetirementContract(unittest.TestCase):
         self.assertNotIn("HTMLResponse", recovery)
 
         manifest = self.read("api/control.webmanifest")
-        self.assertIn("/control-reset?source=pwa-20260918", manifest)
+        self.assertIn('"start_url":"/control"', manifest)
+        self.assertNotIn('"start_url":"/control-reset', manifest)
 
         init_text = self.read("api/__init__.py")
         self.assertIn("control_center_recovery", init_text)
