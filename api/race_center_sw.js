@@ -1,4 +1,4 @@
-const CACHE='pitmark-race-center-shell-20260924-2';
+const CACHE='pitmark-race-center-v7-shell-4';
 const SHELL=[
   '/race-center',
   '/race-center/drivers',
@@ -29,7 +29,12 @@ const SHELL=[
 ];
 
 self.addEventListener('install',event=>{
-  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).catch(()=>{}));
+  event.waitUntil(caches.open(CACHE).then(async cache=>{
+    const assets=SHELL.filter(path=>path!=='/race-center'&&!path.startsWith('/race-center/'));
+    await Promise.all(assets.map(async path=>{
+      try{const response=await fetch(path,{credentials:'omit'});if(response.ok)await cache.put(path,response);}catch(_error){}
+    }));
+  }).catch(()=>{}));
   self.skipWaiting();
 });
 
@@ -49,15 +54,23 @@ self.addEventListener('fetch',event=>{
     return;
   }
 
-  if(url.pathname.startsWith('/race-center')||url.pathname.startsWith('/standings.')||url.pathname.startsWith('/race-center-v')){
-    event.respondWith(
-      fetch(request).then(response=>{
+  // Never persist personalized pages, credentials, error responses or videos.
+  const isStatic=/\\.(?:css|js|png|svg|webp|ico|webmanifest)$/.test(url.pathname);
+  const publicAsset=isStatic && !url.pathname.startsWith('/api/');
+  if(!publicAsset)return;
+
+  event.respondWith(
+    fetch(request).then(response=>{
+      if(response.ok && response.type==='basic' && !request.headers.has('authorization')){
         const copy=response.clone();
-        caches.open(CACHE).then(cache=>cache.put(request,copy)).catch(()=>{});
-        return response;
-      }).catch(()=>caches.match(request).then(hit=>hit||caches.match('/race-center')))
-    );
-  }
+        event.waitUntil(caches.open(CACHE).then(cache=>cache.put(request,copy)).catch(()=>{}));
+      }
+      return response;
+    }).catch(async()=>{
+      const hit=await caches.match(request);
+      return hit||Response.error();
+    })
+  );
 });
 
 self.addEventListener('push',event=>{

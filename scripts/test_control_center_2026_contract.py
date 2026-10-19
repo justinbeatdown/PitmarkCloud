@@ -88,7 +88,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("/control-center-app.js", html)
         self.assertIn("type=\"module\"", html)
         self.assertIn("RedirectResponse", ui)
-        self.assertIn("/control-reset?source=mobile-retired-20260918", ui)
+        self.assertIn("return RedirectResponse(", ui)
         self.assertIn("control_mobile_login.html", ui)
 
     def test_current_hq_module_graph_is_served(self):
@@ -279,10 +279,10 @@ class ControlCenter2026Contract(unittest.TestCase):
     def test_legacy_mobile_mail_shell_is_retired(self):
         legacy_html = self.read("api/control_mobile.html")
         legacy_js = self.read("api/control_center_overhaul.js")
-        self.assertIn("/control-reset?source=legacy-template", legacy_html)
+        self.assertIn("url=/control", legacy_html)
         self.assertNotIn("Pitmark Mail", legacy_html)
         self.assertNotIn("data-pm26-nav=\"comms\"", legacy_html)
-        self.assertIn("/control-reset?source=legacy-ui", legacy_js)
+        self.assertNotIn("control-mail-client", legacy_js)
 
     def test_hq_stays_actionable_without_checklist(self):
         views = self.read("api/control_center_views.js")
@@ -1491,7 +1491,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         self.assertIn("Array.from(document.querySelectorAll('main > section')).forEach(", consumer)
 
         for asset in (
-            "/standings.js?v={{PITMARK_VERSION}}-community-router-20260924",
+            "/standings.js?v={{PITMARK_VERSION}}-staff-admin-20261018",
             "/race-center-v7.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
             "/race-center-consumer.js?v={{PITMARK_VERSION}}-media-fallback-fix-20260924",
         ):
@@ -1506,7 +1506,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         body_start = html.index("<body")
         self.assertLess(head_end, body_start)
         for asset in (
-            "/standings.js?v={{PITMARK_VERSION}}-community-router-20260924",
+            "/standings.js?v={{PITMARK_VERSION}}-staff-admin-20261018",
             "/race-center-v5.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
             "/race-center-v6.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
             "/race-center-v7.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
@@ -1542,7 +1542,7 @@ class ControlCenter2026Contract(unittest.TestCase):
         security = self.read("utils/security.py")
 
         for asset in (
-            "/standings.js?v={{PITMARK_VERSION}}-community-router-20260924",
+            "/standings.js?v={{PITMARK_VERSION}}-staff-admin-20261018",
             "/race-center-v5.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
             "/race-center-v6.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
             "/race-center-v7.js?v={{PITMARK_VERSION}}-home-up-next-fallback-20260924",
@@ -2119,8 +2119,8 @@ class ControlCenter2026Contract(unittest.TestCase):
         for asset in legacy_assets:
             self.assertNotIn(asset, route_source)
             self.assertNotIn(asset, mobile_source)
-        self.assertIn("filename = 'control_center.html' if user_from_request(request) else 'control_login.html'", route_source)
-        self.assertIn("/control-reset?source=mobile-retired-20260918", mobile_source)
+        self.assertIn("return _guarded_html('control_center.html', guard=True)", route_source)
+        self.assertIn("url='/control'", mobile_source)
         self.assertIn("control_mobile_login.html", mobile_source)
 
 
