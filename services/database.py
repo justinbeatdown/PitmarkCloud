@@ -106,6 +106,7 @@ def _guard_daily_campaign_schedule_collisions(session, flush_context, instances)
 def init_database() -> None:
     from services import persistent_store  # noqa: F401
     from services import discord_hq_store  # noqa: F401
+    from services import discord_motorsports  # noqa: F401
     from services import control_center  # noqa: F401
     from services import control_auth  # noqa: F401
     from services import racing_community  # noqa: F401
