@@ -11,6 +11,7 @@ from services import (
     discord_hq_moderation,
     discord_hq_store,
     discord_hq_support,
+    discord_motorsports,
 )
 from services.discord_hq_common import (
     ADMINISTRATOR,
@@ -29,7 +30,7 @@ from services.discord_hq_common import (
 )
 from utils.config import settings
 
-HQ_COMMANDS = {"hq", "ticket", "mod"}
+HQ_COMMANDS = {"hq", "ticket", "mod", "motorsports"}
 
 from services.discord_hq_commands import command_definitions
 
@@ -181,6 +182,14 @@ async def handle_command(payload: dict[str, Any]) -> dict[str, Any]:
     data = payload.get("data") or {}
     name = str(data.get("name") or "")
     sub, options = _subcommand(data)
+
+    if name == "motorsports":
+        if not _is_owner(payload):
+            return _content("Motorsports setup is owner-only.", True)
+        if sub == "setup":
+            asyncio.create_task(_motorsports_job(payload), name="pitmark-motorsports-setup")
+            return _defer()
+        return _content("Unknown Motorsports action.", True)
 
     if name == "hq":
         if not _is_owner(payload):
@@ -657,6 +666,14 @@ async def _maintenance_job(
             f"❌ Pitmark HQ maintenance failed: `{str(exc)[:1200]}`"
         )
     await edit_original(payload, text)
+
+
+async def _motorsports_job(payload: dict[str, Any]) -> None:
+    try:
+        result = await discord_motorsports.setup(_guild_id(payload))
+    except Exception as exc:
+        result = f"❌ Motorsports setup failed before completion: {str(exc)[:500]}"
+    await edit_original(payload, result)
 
 
 async def _log_denied(
