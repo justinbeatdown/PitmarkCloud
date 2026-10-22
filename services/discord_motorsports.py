@@ -186,3 +186,70 @@ def snapshot_channels(snapshot_id: int) -> list[dict[str, Any]]:
     with SessionLocal() as db:
         row = db.get(MotorsportsDiscordSnapshot, snapshot_id)
         return json.loads(row.payload_json)["channels"] if row else []
+
+
+# Explicitly limited to the six Motorsports channels. Do not alter the category
+# or other guild channels, roles, members, or existing permission overwrites.
+PRIVATE_CHANNELS = {"driver-paddock", "race-operations", "team-schedule", "team-media"}
+PUBLIC_CHANNELS = {"motorsports-announcements", "motorsports-general"}
+VIEW_CHANNEL = 1 << 10
+SEND_MESSAGES = 1 << 11
+
+async def permissions(guild_id: str) -> str:
+    """Snapshot, then set owner-approved visibility using channel-specific overwrites."""
+    async with httpx.AsyncClient(headers=headers(), timeout=30) as client:
+        guild = await _api(client, "GET", f"/guilds/{guild_id}")
+        if str(guild.get("id")) != guild_id:
+            raise RuntimeError("Configured guild mismatch; no permissions changed.")
+        roles = await _api(client, "GET", f"/guilds/{guild_id}/roles")
+        channels = await _api(client, "GET", f"/guilds/{guild_id}/channels")
+        snapshot_id = _persist_snapshot(guild_id, {"guild": guild, "roles": roles, "channels": channels})
+        role_map = {r["name"]: str(r["id"]) for r in roles}
+        missing = [name for name in ROLES if name not in role_map]
+        if missing:
+            return f"⚠️ Snapshot #{snapshot_id} saved. Required roles missing: {', '.join(missing)}. No changes."
+        cats = [c for c in channels if c.get("type") == 4 and c.get("name") == CATEGORY]
+        if len(cats) != 1:
+            return f"⚠️ Snapshot #{snapshot_id} saved. Expected exactly one Motorsports category; no changes."
+        cat_id = str(cats[0]["id"])
+        targets = {c["name"]: c for c in channels if str(c.get("parent_id")) == cat_id and c.get("type") == 0}
+        if any(name not in targets for name in PRIVATE_CHANNELS | PUBLIC_CHANNELS):
+            return f"⚠️ Snapshot #{snapshot_id} saved. Motorsports channels missing; no changes."
+        modified = []
+        for name in sorted(PRIVATE_CHANNELS | PUBLIC_CHANNELS):
+            ch = targets[name]
+            existing = list(ch.get("permission_overwrites") or [])
+            overwrites = {(str(o["id"]), int(o["type"])): dict(o) for o in existing}
+            def set_bits(role_id: str, allow: int, deny: int) -> None:
+                key = (role_id, 0)
+                item = overwrites.get(key, {"id": role_id, "type": 0, "allow": "0", "deny": "0"})
+                a, d = int(item.get("allow") or 0), int(item.get("deny") or 0)
+                a = (a | allow) & ~deny
+                d = (d | deny) & ~allow
+                item.update(allow=str(a), deny=str(d))
+                overwrites[key] = item
+            if name in PRIVATE_CHANNELS:
+                set_bits(guild_id, 0, VIEW_CHANNEL)
+                for role_name in ROLES:
+                    set_bits(role_map[role_name], VIEW_CHANNEL, 0)
+            else:
+                set_bits(guild_id, VIEW_CHANNEL, 0)
+                if name == "motorsports-announcements":
+                    set_bits(guild_id, 0, SEND_MESSAGES)
+                    for role_name in (ROLES[0], ROLES[1]):
+                        set_bits(role_map[role_name], SEND_MESSAGES | VIEW_CHANNEL, 0)
+            desired = list(overwrites.values())
+            canon = lambda values: sorted((str(o["id"]), int(o["type"]), int(o.get("allow") or 0), int(o.get("deny") or 0)) for o in values)
+            if canon(existing) == canon(desired):
+                continue
+            await _api(client, "PATCH", f"/channels/{ch['id']}",
+                       json={"permission_overwrites": desired},
+                       headers={**headers(), "X-Audit-Log-Reason": "Owner-approved Pitmark Motorsports channel visibility"})
+            modified.append(name)
+        verify = await _api(client, "GET", f"/guilds/{guild_id}/channels")
+        after = {str(c["id"]): c for c in verify}
+        if any(str(targets[n]["id"]) not in after for n in PRIVATE_CHANNELS | PUBLIC_CHANNELS):
+            return f"⚠️ Snapshot #{snapshot_id} saved; modified {modified}; verification incomplete."
+        return (f"✅ Motorsports permissions applied. Snapshot #{snapshot_id} saved. "
+                f"Updated {len(modified)} Motorsports channels. Public: announcements/general; "
+                "private: paddock/operations/schedule/media. Existing non-Motorsports channels untouched.")
