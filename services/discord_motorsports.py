@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import asyncio
+import random
 import logging
 from datetime import datetime, timezone
 from typing import Any
@@ -39,9 +41,22 @@ class MotorsportsDiscordSnapshot(Base):
 
 
 async def _api(client: httpx.AsyncClient, method: str, path: str, **kwargs: Any) -> Any:
-    response = await client.request(method, f"{DISCORD_API}{path}", **kwargs)
-    response.raise_for_status()
-    return response.json() if response.content else {}
+    for attempt in range(7):
+        response = await client.request(method, f"{DISCORD_API}{path}", **kwargs)
+        if response.status_code == 429:
+            try:
+                info = response.json()
+                delay = float(info.get("retry_after", 1.0))
+            except (ValueError, TypeError):
+                delay = 1.0
+            delay = max(delay, float(response.headers.get("Retry-After", 0) or 0))
+            if attempt == 6:
+                raise RuntimeError("Discord rate limit persisted after safe retries")
+            await asyncio.sleep(min(90.0, max(0.5, delay) + random.uniform(0.1, 0.4)))
+            continue
+        response.raise_for_status()
+        return response.json() if response.content else {}
+    raise RuntimeError("Discord request could not complete")
 
 
 def _persist_snapshot(guild_id: str, payload: dict[str, Any]) -> int:
@@ -99,8 +114,6 @@ async def setup(guild_id: str) -> str:
                 created.append(f"channel: #{name}")
             after_roles = await _api(client, "GET", f"/guilds/{guild_id}/roles")
             after_channels = await _api(client, "GET", f"/guilds/{guild_id}/channels")
-            initial_role_ids = {r["id"] for r in roles}
-            initial_channel_ids = {c["id"] for c in snapshot_channels(snapshot_id)}
             old_roles = {r["id"]: r for r in roles}
             old_channels = {c["id"]: c for c in snapshot_channels(snapshot_id)}
             new_roles = {r["id"]: r for r in after_roles}
