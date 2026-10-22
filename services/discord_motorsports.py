@@ -72,6 +72,27 @@ def _persist_snapshot(guild_id: str, payload: dict[str, Any]) -> int:
         return row.id
 
 
+def _normalized_channel_field(channel: dict[str, Any], field: str) -> Any:
+    """Compare semantics, not Discord's optional/ordering representation."""
+    value = channel.get(field)
+    if field == "permission_overwrites":
+        entries = value or []
+        return sorted(
+            (str(item.get("id")), str(item.get("type")),
+             str(item.get("allow") or "0"), str(item.get("deny") or "0"))
+            for item in entries
+        )
+    if field == "rate_limit_per_user":
+        return int(value or 0)
+    if field == "nsfw":
+        return bool(value)
+    if field == "parent_id":
+        return str(value) if value is not None else None
+    if field == "topic":
+        return value or ""
+    return value
+
+
 async def setup(guild_id: str) -> str:
     """Backup first; only create absent roles/category/channels. Never edit existing objects."""
     async with httpx.AsyncClient(headers=headers(), timeout=30) as client:
@@ -136,8 +157,17 @@ async def setup(guild_id: str) -> str:
                 after = new_channels.get(channel_id)
                 if after is None:
                     drift.append(f"missing pre-existing channel {channel_id}")
-                elif any(before.get(field) != after.get(field) for field in channel_fields):
-                    drift.append(f"channel {channel_id} settings changed")
+                else:
+                    changed_fields = [
+                        field for field in channel_fields
+                        if _normalized_channel_field(before, field)
+                        != _normalized_channel_field(after, field)
+                    ]
+                    if changed_fields:
+                        drift.append(
+                            f"channel {channel_id} changed fields: "
+                            + ", ".join(changed_fields)
+                        )
             if drift:
                 log.warning("Discord structure drift during Motorsports setup (snapshot=%s): %s",
                             snapshot_id, drift)
