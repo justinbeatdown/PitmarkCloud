@@ -18,7 +18,7 @@ from services.database import database_status
 from utils.security import MAX_REQUEST_BODY, enforce_rate_limit
 
 router = APIRouter()
-HQ_COMMANDS = {"hq", "ticket", "mod"}
+HQ_COMMANDS = {"hq", "ticket", "mod", "motorsports"}
 
 
 @router.get("/bot/status")
