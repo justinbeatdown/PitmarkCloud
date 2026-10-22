@@ -118,10 +118,35 @@ async def setup(guild_id: str) -> str:
             old_channels = {c["id"]: c for c in snapshot_channels(snapshot_id)}
             new_roles = {r["id"]: r for r in after_roles}
             new_channels = {c["id"]: c for c in after_channels}
-            if any(new_roles.get(k) != v for k,v in old_roles.items()) or any(new_channels.get(k) != v for k,v in old_channels.items()):
-                log.error("Existing Discord object changed during setup; backup ID %s", snapshot_id)
-                return f"⚠️ Created {len(created)} additions, but pre-existing objects changed concurrently. Review snapshot #{snapshot_id}."
-            return f"✅ Motorsports setup finished. Snapshot #{snapshot_id} saved; {len(created)} new objects created. Existing roles/channels unchanged."
+            # Discord may update read-only/transient fields or channel positions
+            # after new categories/channels are added. Only compare stable,
+            # user-configurable fields, and distinguish external drift from actions
+            # performed by this add-only command.
+            role_fields = ("name", "permissions", "color", "hoist", "mentionable")
+            channel_fields = ("name", "type", "parent_id", "permission_overwrites",
+                              "topic", "nsfw", "rate_limit_per_user")
+            drift = []
+            for role_id, before in old_roles.items():
+                after = new_roles.get(role_id)
+                if after is None:
+                    drift.append(f"missing pre-existing role {role_id}")
+                elif any(before.get(field) != after.get(field) for field in role_fields):
+                    drift.append(f"role {role_id} settings changed")
+            for channel_id, before in old_channels.items():
+                after = new_channels.get(channel_id)
+                if after is None:
+                    drift.append(f"missing pre-existing channel {channel_id}")
+                elif any(before.get(field) != after.get(field) for field in channel_fields):
+                    drift.append(f"channel {channel_id} settings changed")
+            if drift:
+                log.warning("Discord structure drift during Motorsports setup (snapshot=%s): %s",
+                            snapshot_id, drift)
+                return (f"⚠️ Motorsports inventory checked. Snapshot #{snapshot_id} saved; "
+                        f"{len(created)} additions. Existing settings differ from the "
+                        f"pre-run snapshot: {', '.join(drift[:5])}. "
+                        "The setup command only creates objects and did not edit them.")
+            return (f"✅ Motorsports setup verified. Snapshot #{snapshot_id} saved; "
+                    f"{len(created)} additions. Existing role/channel settings preserved.")
         except Exception as exc:
             log.exception("Motorsports Discord setup partial failure; snapshot=%s", snapshot_id)
             return f"⚠️ Setup stopped. Snapshot #{snapshot_id} saved; created {len(created)} objects before error: {str(exc)[:350]}. Re-running safely skips existing items."
