@@ -6,6 +6,7 @@ def command_definitions() -> list[dict[str, Any]]:
     user_option = {"name": "user", "description": "Discord member.", "type": 6, "required": True}
     reason_option = {"name": "reason", "description": "Reason for this action.", "type": 3, "required": False, "max_length": 500}
     return [
+        {"name": "motorsports", "description": "Pitmark Motorsports owner-only setup.", "type": 1, "options": [{"name": "setup", "description": "Back up server structure and add Motorsports channels and roles only.", "type": 1}]},
         {
             "name": "hq",
             "description": "Pitmark HQ infrastructure controls. Owner only.",
