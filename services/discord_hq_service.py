@@ -186,8 +186,8 @@ async def handle_command(payload: dict[str, Any]) -> dict[str, Any]:
     if name == "motorsports":
         if not _is_owner(payload):
             return _content("Motorsports setup is owner-only.", True)
-        if sub == "setup":
-            asyncio.create_task(_motorsports_job(payload), name="pitmark-motorsports-setup")
+        if sub in {"setup", "permissions"}:
+            asyncio.create_task(_motorsports_job(payload, sub), name=f"pitmark-motorsports-{sub}")
             return _defer()
         return _content("Unknown Motorsports action.", True)
 
@@ -668,9 +668,12 @@ async def _maintenance_job(
     await edit_original(payload, text)
 
 
-async def _motorsports_job(payload: dict[str, Any]) -> None:
+async def _motorsports_job(payload: dict[str, Any], action: str) -> None:
     try:
-        result = await discord_motorsports.setup(_guild_id(payload))
+        if action == "permissions":
+            result = await discord_motorsports.permissions(_guild_id(payload))
+        else:
+            result = await discord_motorsports.setup(_guild_id(payload))
     except Exception as exc:
         result = f"❌ Motorsports setup failed before completion: {str(exc)[:500]}"
     await edit_original(payload, result)
