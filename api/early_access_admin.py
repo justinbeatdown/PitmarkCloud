@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from html import escape
+from os import getenv
 from pathlib import Path
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
@@ -20,6 +21,17 @@ ASSET_DIR = Path(__file__).resolve().parent
 LEGACY_APPLICATIONS_URL = "https://docs.google.com/spreadsheets/d/1RkAGF91DM-xGEUrnS4c6sTNud_PUajsGKL5So2Bybec/edit"
 EASTERN = ZoneInfo("America/New_York")
 PRT_URL = "https://prt.pitmarkracing.com/prt"
+
+
+def _discord_onboarding() -> str:
+    invite = (getenv("DISCORD_SUPPORT_INVITE_URL") or "").strip()
+    join_line = f"Join our Discord: {invite}" if invite.startswith("https://") else "Join the official Pitmark Racing Co. Discord community using our server invite."
+    return ("Join the Pitmark Discord & connect your account:\n"
+            f"{join_line}\n"
+            "Once you've joined, open PRT and connect your Discord account through the app's Discord integration. "
+            "Make sure you're signed into the same Discord account that joined the server. "
+            "Linking your account lets PRT recognize you for the appropriate Early Access Discord roles and channels. "
+            "If a role doesn't appear, let us know in Discord so we can help.\n")
 
 
 def _submitted_label(value: str | None) -> str:
@@ -78,6 +90,7 @@ Your Early Access code:
 
 Install the latest PRT Early Access build from the link above, open PRT, go to Settings → Access & Licensing → PRT Early Access, paste the code, and choose ACTIVATE EARLY ACCESS. Your code is personal and binds to your PRT device when activated.
 
+{_discord_onboarding()}
 Once you’re installed, get some laps in and use PRT like you normally would during practice, qualifying, and races. We especially want feedback on:
 
 • Overlay accuracy and responsiveness
@@ -164,6 +177,7 @@ Your Early Access code:
 
 Install the latest PRT Early Access build from the link above, open PRT, go to Settings → Access & Licensing → PRT Early Access, paste the code, and choose ACTIVATE EARLY ACCESS. Your code is personal and binds to your PRT device when activated.
 
+{_discord_onboarding()}
 {use_copy}
 
 {feedback}
