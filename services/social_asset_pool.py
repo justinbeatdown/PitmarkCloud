@@ -72,9 +72,33 @@ def store_uploaded_image(*, data: bytes, filename: str, mime_type: str) -> dict:
     token = secrets.token_urlsafe(32)
     safe_name = re.sub(r"[^A-Za-z0-9._-]+", "-", (filename or "pitmark-upload").strip())[:220] or "pitmark-upload"
     with SessionLocal() as db:
+        # Autopilot retries and recurring campaigns must reuse identical uploads.
+        # Compare bytes, never filenames alone: campaign filenames are reused
+        # for genuinely different images as well.
+        from sqlalchemy import func
+        candidates = db.scalars(
+            select(SocialAssetUpload)
+            .where(
+                SocialAssetUpload.filename == safe_name,
+                SocialAssetUpload.mime_type == clean_type,
+                func.octet_length(SocialAssetUpload.data) == len(data),
+            )
+            .order_by(SocialAssetUpload.id.desc())
+            .limit(16)
+        ).all()
+        for existing in candidates:
+            if existing.data == data:
+                return {
+                    "id": existing.id,
+                    "public_token": existing.public_token,
+                    "filename": existing.filename,
+                    "mime_type": existing.mime_type,
+                    "size": len(data),
+                    "reused": True,
+                }
         row = SocialAssetUpload(public_token=token, filename=safe_name, mime_type=clean_type, data=data)
         db.add(row); db.commit(); db.refresh(row)
-        return {"id": row.id, "public_token": row.public_token, "filename": row.filename, "mime_type": row.mime_type, "size": len(data)}
+        return {"id": row.id, "public_token": row.public_token, "filename": row.filename, "mime_type": row.mime_type, "size": len(data), "reused": False}
 
 
 def get_uploaded_image(public_token: str) -> dict | None:
