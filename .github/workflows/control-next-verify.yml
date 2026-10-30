@@ -7,6 +7,7 @@ on:
       - 'api/control_next.html'
       - 'api/control_next.css'
       - 'api/control_next.js'
+      - 'api/control_next_modules.js'
       - 'api/control_center_ui.py'
       - 'scripts/test_control_next_contract.py'
       - '.github/workflows/control-next-verify.yml'
@@ -17,6 +18,7 @@ on:
       - 'api/control_next.html'
       - 'api/control_next.css'
       - 'api/control_next.js'
+      - 'api/control_next_modules.js'
       - 'api/control_center_ui.py'
       - 'scripts/test_control_next_contract.py'
 jobs:
@@ -33,6 +35,8 @@ jobs:
       - name: Parse route code
         run: python -m py_compile api/control_center_next.py api/control_center_ui.py
       - name: Validate JavaScript
-        run: node --check api/control_next.js
+        run: |
+          node --check api/control_next.js
+          node --check api/control_next_modules.js
       - name: Verify owner HQ contracts
         run: python scripts/test_control_next_contract.py -v
