@@ -1,0 +1,38 @@
+name: Control Center 2.0 Verify
+
+on:
+  pull_request:
+    paths:
+      - 'api/control_center_next.py'
+      - 'api/control_next.html'
+      - 'api/control_next.css'
+      - 'api/control_next.js'
+      - 'api/control_center_ui.py'
+      - 'scripts/test_control_next_contract.py'
+      - '.github/workflows/control-next-verify.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'api/control_center_next.py'
+      - 'api/control_next.html'
+      - 'api/control_next.css'
+      - 'api/control_next.js'
+      - 'api/control_center_ui.py'
+      - 'scripts/test_control_next_contract.py'
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Parse route code
+        run: python -m py_compile api/control_center_next.py api/control_center_ui.py
+      - name: Validate JavaScript
+        run: node --check api/control_next.js
+      - name: Verify owner HQ contracts
+        run: python scripts/test_control_next_contract.py -v

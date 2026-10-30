@@ -70,12 +70,36 @@ def _guarded_html(filename: str, *, guard: bool) -> HTMLResponse:
 @router.get('/control', response_class=HTMLResponse, include_in_schema=False)
 def control(request: Request):
     if user_from_request(request):
-        return _guarded_html('control_center.html', guard=True)
+        return _guarded_html('control_next.html', guard=True)
     # Serve the lightweight sign-in on phones instead of the image-heavy desktop login.
     user_agent = (request.headers.get('user-agent') or '').lower()
     if any(marker in user_agent for marker in ('iphone', 'ipad', 'ipod', 'android', 'mobile')):
         return _guarded_html('control_mobile_login.html', guard=False)
     return _guarded_html('control_login.html', guard=False)
+
+
+@router.get('/control/classic', response_class=HTMLResponse, include_in_schema=False)
+def control_classic(request: Request):
+    if user_from_request(request):
+        return _guarded_html('control_center.html', guard=True)
+    return RedirectResponse(url='/control', status_code=302)
+
+
+@router.get('/control/next', response_class=HTMLResponse, include_in_schema=False)
+def control_next_preview(request: Request):
+    if user_from_request(request):
+        return _guarded_html('control_next.html', guard=True)
+    return RedirectResponse(url='/control', status_code=302)
+
+
+@router.get('/control-next.css', include_in_schema=False)
+def control_next_css():
+    return _text_asset('control_next.css', 'text/css')
+
+
+@router.get('/control-next.js', include_in_schema=False)
+def control_next_js():
+    return _text_asset('control_next.js', 'application/javascript')
 
 
 @router.get('/control-reset', response_class=HTMLResponse, include_in_schema=False)
@@ -460,3 +484,8 @@ def prt_update_manifest():
         media_type='application/json',
         headers={'Cache-Control': 'no-store'},
     )
+
+
+# V2 read-model routes belong to the authenticated Control Center surface.
+from api.control_center_next import router as owner_hq_router
+router.include_router(owner_hq_router)
