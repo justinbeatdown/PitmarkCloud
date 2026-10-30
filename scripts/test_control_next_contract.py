@@ -19,6 +19,7 @@ class OwnerHQContracts(unittest.TestCase):
         if not node:
             self.skipTest("Node is not installed")
         subprocess.run([node, "--check", str(ROOT / "api/control_next.js")], check=True)
+        subprocess.run([node, "--check", str(ROOT / "api/control_next_modules.js")], check=True)
 
     def test_owner_route_and_classic_fallback(self):
         source = (ROOT / "api/control_center_ui.py").read_text(encoding="utf-8")
@@ -61,6 +62,38 @@ class OwnerHQContracts(unittest.TestCase):
         self.assertIn('src="/control-logo-badge.png"', html)
         self.assertIn('role="dialog"', html)
         self.assertIn('aria-live="polite"', html)
+
+    def test_full_overhaul_workspace_navigation(self):
+        html = (ROOT / "api/control_next.html").read_text(encoding="utf-8")
+        js = (ROOT / "api/control_next.js").read_text(encoding="utf-8")
+        module = (ROOT / "api/control_next_modules.js").read_text(encoding="utf-8")
+        api = (ROOT / "api/control_center_next.py").read_text(encoding="utf-8")
+        for name in ("inbox", "mail", "content", "relationships", "prt", "work", "racing", "store", "growth", "systems"):
+            self.assertIn(f'data-view="{name}"', html)
+        self.assertIn("mountWorkspace(view,root", module)
+        self.assertIn("WORKSPACE_VIEWS.has(view)", js)
+        self.assertIn('"/api/control/hq/v2/records/{kind}"', api)
+        self.assertIn("limit: int = Query(default=35", api)
+        self.assertIn("const ttl=new Map()", module)
+        self.assertIn("inflight=new Map()", module)
+        self.assertIn("'mail-form'", module)
+        self.assertIn("'contact-form'", module)
+        self.assertIn("'post-form'", module)
+        self.assertNotIn("'/control/classic#content'", js)
+        self.assertNotIn('href="/control/classic#content"', html)
+
+    def test_mobile_canonical_route_and_css(self):
+        html = (ROOT / "api/control_next.html").read_text(encoding="utf-8")
+        ui = (ROOT / "api/control_center_ui.py").read_text(encoding="utf-8")
+        css = (ROOT / "api/control_next.css").read_text(encoding="utf-8")
+        self.assertIn('id="mobile-dim"', html)
+        self.assertIn("return RedirectResponse(", ui)
+        self.assertIn("url='/control'", ui)
+        self.assertIn("control_next_modules_js", ui)
+        self.assertIn("@media(max-width:530px)", css)
+        self.assertIn("font:800 clamp(30px", css)
+        self.assertNotIn("'Barlow Condensed'", css)
+        self.assertNotIn("Impact,sans-serif", css)
 
     def test_no_shield_queue_exposure(self):
         html = (ROOT / "api/control_next.html").read_text(encoding="utf-8")
