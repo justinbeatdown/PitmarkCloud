@@ -4,12 +4,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import json
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 
 from services.control_auth import require_control_user
-from services.control_center import BlogDraft, OutreachContact, ShopifyPublishRecord, SocialPost
+from services.control_center import BlogDraft, OutreachContact, ShopifyPublishRecord, SocialPost, serialize
 from services.database import SessionLocal
 from services.persistent_store import get_runtime_state, set_runtime_state
 
@@ -76,7 +76,6 @@ def _snapshot(since):
         social_total = db.scalar(select(func.count(SocialPost.id))) or 0
         posts = db.scalars(select(SocialPost).order_by(SocialPost.updated_at.desc(), SocialPost.id.desc()).limit(100)).all()
         articles = db.scalars(select(ShopifyPublishRecord).order_by(ShopifyPublishRecord.created_at.desc()).limit(70)).all()
-        drafts = db.scalars(select(BlogDraft).where(BlogDraft.status == "draft").order_by(BlogDraft.updated_at.desc()).limit(15)).all()
         relationships = db.scalars(select(OutreachContact).order_by(OutreachContact.updated_at.desc(), OutreachContact.id.desc()).limit(250)).all()
         pending_posts = db.scalar(select(func.count(SocialPost.id)).where(SocialPost.status == "pending")) or 0
         scheduled_posts = db.scalar(select(func.count(SocialPost.id)).where(SocialPost.status == "scheduled")) or 0
@@ -89,17 +88,17 @@ def _snapshot(since):
             stamp = _as_datetime(post.updated_at)
             if status in ACTIVITY_POST_STATES and stamp and stamp >= since:
                 events.append(_event("post:%s" % post.id, "content", post.title or "Social post published",
-                                     stamp, "/control/classic#content", "%s · recorded as published locally" % post.platform,
+                                     stamp, "#content", "%s · recorded as published locally" % post.platform,
                                      "Pitmark publishing record"))
             if status in ATTENTION_POST_STATES:
                 actions.append(_action("post:%s" % post.id, "publishing", post.title or "Publishing needs review",
-                                       "/control/classic#content", "%s · %s. Reconcile provider status before retrying." % (post.platform, post.status),
+                                       "#content", "%s · %s. Reconcile provider status before retrying." % (post.platform, post.status),
                                        "critical", stamp))
         for article in articles:
             stamp = _as_datetime(article.created_at)
             if str(article.status or "").lower() in ACTIVITY_ARTICLE_STATES and stamp and stamp >= since:
                 # A durable Shopify article URL is stronger proof than a local draft status.
-                target = article.url if str(article.url or "").startswith("https://") else "/control/classic#content"
+                target = article.url if str(article.url or "").startswith("https://") else "#content"
                 events.append(_event("article:%s" % article.id, "article", article.title, stamp, target,
                                      "Shopify publication record", "Shopify publish record"))
         for person in relationships:
@@ -107,20 +106,17 @@ def _snapshot(since):
             title = person.organization or person.name or "Relationship"
             if stamp and stamp >= since and str(person.stage or "").lower() not in CLOSED_STAGES:
                 events.append(_event("relationship:%s" % person.id, "relationship", title, stamp,
-                                     "/control/classic#partnerships", "Relationship updated · %s" % person.stage,
+                                     "#relationships", "Relationship updated · %s" % person.stage,
                                      "Pitmark relationships"))
             follow = _as_datetime(person.next_follow_up)
             if follow and follow <= _now() and str(person.stage or "").lower() not in CLOSED_STAGES:
                 actions.append(_action("followup:%s" % person.id, "relationship", "Follow up · %s" % title,
-                                       "/control/classic#partnerships", "Due %s · %s" % (follow.strftime("%b %d"), person.stage),
+                                       "#relationships", "Due %s · %s" % (follow.strftime("%b %d"), person.stage),
                                        "action", follow))
-        for draft in drafts:
-            # Drafts are not themselves emergencies; keep them visible in the content workspace.
-            pass
 
     if pending_posts:
         actions.append(_action("content-approvals", "approval", "%s social approvals pending" % pending_posts,
-                               "/control/classic#content", "Review the existing publishing queue; no automatic approval.",
+                               "#content", "Review the existing publishing queue; no automatic approval.",
                                "action", _now()))
     events.sort(key=lambda x: x["at"] or "", reverse=True)
     rank = {"critical": 0, "action": 1, "opportunity": 2}
@@ -172,3 +168,50 @@ def record_visit(request: Request):
     state["last_visit"] = now
     set_runtime_state(_view(user), json.dumps(state))
     return {"ok": True, "last_visit": now}
+
+
+@router.get("/api/control/hq/v2/records/{kind}")
+def owner_records(
+    kind: str,
+    request: Request,
+    status: str = "",
+    q: str = Query(default="", max_length=100),
+    limit: int = Query(default=35, ge=1, le=75),
+    offset: int = Query(default=0, ge=0, le=10000),
+):
+    """Bounded, queryable data for native workspaces; no whole-table frontend fetch."""
+    user = require_control_user(request, None)
+    if user is None:
+        raise HTTPException(401, "A signed-in owner is required.")
+    models = {"posts": SocialPost, "relationships": OutreachContact, "editorial": BlogDraft}
+    model = models.get(kind)
+    if model is None:
+        raise HTTPException(404, "Unknown operating area.")
+    conditions = []
+    status = (status or "").strip().lower()
+    if status:
+        if kind == "posts" and status == "attention":
+            conditions.append(SocialPost.status.in_(ATTENTION_POST_STATES))
+        else:
+            conditions.append(model.status == status if kind != "relationships" else model.stage == status)
+    if q.strip():
+        term = "%" + q.strip().replace("%", r"\%").replace("_", r"\_") + "%"
+        if kind == "posts":
+            conditions.append(or_(SocialPost.title.ilike(term), SocialPost.body.ilike(term), SocialPost.platform.ilike(term)))
+        elif kind == "relationships":
+            conditions.append(or_(OutreachContact.name.ilike(term), OutreachContact.organization.ilike(term)))
+        else:
+            conditions.append(BlogDraft.title.ilike(term))
+    with SessionLocal() as db:
+        total = int(db.scalar(select(func.count(model.id)).where(*conditions)) or 0)
+        stmt = select(model).where(*conditions).order_by(model.id.desc()).offset(offset).limit(limit)
+        rows = list(db.scalars(stmt).all())
+        return {
+            "items": [serialize(row) for row in rows],
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "has_more": offset + len(rows) < total,
+            "source": "pitmark_cloud",
+            "generated_at": _now().isoformat(),
+        }
