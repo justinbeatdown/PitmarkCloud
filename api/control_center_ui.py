@@ -102,6 +102,11 @@ def control_next_js():
     return _text_asset('control_next.js', 'application/javascript')
 
 
+@router.get('/control-next-modules.js', include_in_schema=False)
+def control_next_modules_js():
+    return _text_asset('control_next_modules.js', 'application/javascript')
+
+
 @router.get('/control-reset', response_class=HTMLResponse, include_in_schema=False)
 def control_reset(request: Request):
     # Installed PWAs may keep the old /control-reset launch URL permanently.

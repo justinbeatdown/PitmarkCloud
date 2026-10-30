@@ -5,10 +5,11 @@
 <meta name="theme-color" content="#0b0d10"><meta name="color-scheme" content="dark">
 <link rel="icon" href="/control-favicon.png">
 <title>Pitmark HQ · Control Center 2.0</title>
-<link rel="stylesheet" href="/control-next.css?v=2">
-<script type="module" src="/control-next.js?v=2"></script>
+<link rel="stylesheet" href="/control-next.css?v=20261030full1">
+<script type="module" src="/control-next.js?v=20261030full1"></script>
 </head>
 <body>
+<div class="mobile-dim" id="mobile-dim" aria-hidden="true"></div>
 <div class="shell" id="app">
   <aside class="side" id="side">
     <a class="brand" href="/control#hq" aria-label="Pitmark HQ home">
@@ -18,13 +19,17 @@
     <nav aria-label="Pitmark areas">
       <a class="nav-link active" href="#hq" data-view="hq"><i>◈</i><span>Headquarters</span></a>
       <a class="nav-link" href="#inbox" data-view="inbox"><i>◉</i><span>Decision inbox</span><b id="nav-badge" hidden></b></a>
+      <a class="nav-link" href="#mail" data-view="mail"><i>✉</i><span>Mail &amp; features</span></a>
       <a class="nav-link" href="#activity" data-view="activity"><i>↗</i><span>Activity feed</span></a>
       <div class="nav-rule"></div>
       <div class="side-kicker sub">COMPANY</div>
       <a class="nav-link" href="#content" data-view="content"><i>▣</i><span>Content studio</span></a>
+      <a class="nav-link" href="#work" data-view="work"><i>☷</i><span>Work &amp; priorities</span></a>
       <a class="nav-link" href="#relationships" data-view="relationships"><i>◇</i><span>Relationships</span></a>
-      <a class="nav-link" href="#products" data-view="products"><i>⚑</i><span>Products & racing</span></a>
-      <a class="nav-link" href="#growth" data-view="growth"><i>◫</i><span>Growth & revenue</span></a>
+      <a class="nav-link" href="#prt" data-view="prt"><i>P</i><span>PRT operations</span></a>
+      <a class="nav-link" href="#racing" data-view="racing"><i>⚑</i><span>Race Center</span></a>
+      <a class="nav-link" href="#store" data-view="store"><i>◇</i><span>Store &amp; commerce</span></a>
+      <a class="nav-link" href="#growth" data-view="growth"><i>◫</i><span>Growth &amp; revenue</span></a>
       <div class="nav-rule"></div>
       <div class="side-kicker sub">PLATFORM</div>
       <a class="nav-link" href="#systems" data-view="systems"><i>⌁</i><span>Systems</span></a>

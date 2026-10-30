@@ -157,6 +157,7 @@ class OutreachCreate(BaseModel):
 
 
 class OutreachUpdate(BaseModel):
+    name: str | None = None
     organization: str | None = None
     contact_type: str | None = None
     email: str | None = None
