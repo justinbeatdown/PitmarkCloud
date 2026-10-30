@@ -244,13 +244,14 @@ async function mountGrowth(root,ctx){
  pane('RECOMMENDATIONS','Where to focus',(d.recommendations||[]).map(x=>row(x.title,esc(x.priority||'recommendation'),x.reason||'', '')).join('')||note('No recommendations','The operating intelligence system returned no new actions.'))+'</div>'+
  '<p class="workspace-note">Window: last 30 days. Generated '+esc(when(d.generated_at))+'. Dashboards never substitute zero for disconnected providers.</p>';
 }
-async function mountSystems(root){
- const settled=await Promise.allSettled([read('/api/control/status',12000,9000),read('/api/control/notifications',12000,9000)]);
- const status=settled[0].status==='fulfilled'?settled[0].value:null,notifs=settled[1].status==='fulfilled'?settled[1].value:null;
- const rows=(notifs?.items||[]).filter(x=>x.status==='unread').slice(0,35).map(x=>row(x.title||'Operational signal',esc(x.priority||'info')+' · '+esc(x.module||'Pitmark'),x.detail||x.reason||'', '')).join('');
+async function mountSystems(root,ctx){
+ let notifications=null,error=null;
+ try{notifications=await read('/api/control/notifications',12000,9000);}catch(e){error=e;}
+ const alive=ctx.core?.status==='live';
+ const rows=(notifications?.items||[]).filter(x=>x.status==='unread').slice(0,35).map(x=>row(x.title||'Operational signal',esc(x.priority||'info')+' · '+esc(x.module||'Pitmark'),x.detail||x.reason||'', '')).join('');
  root.innerHTML=heading('Systems','Source health, operational notifications and real failure states.',refresh())+
- '<div class="workspace-pair">'+pane('RUNTIME','Cloud health',status?row('Pitmark Cloud',esc(status.version||'Version unavailable'),status.status||'Connected to runtime endpoint',''):note('Runtime unavailable',settled[0].reason?.message||'Status request failed.'))+
- pane('NOTIFICATIONS','Needs investigation',rows||note('No unread notifications',settled[1].status==='fulfilled'?'Nothing currently unread.':'Could not read notifications.'))+'</div><p class="workspace-note">Security systems continue behind the scenes. This view does not expose Shield/private security event details.</p>';
+ '<div class="workspace-pair">'+pane('RUNTIME','Cloud health',row('Pitmark Cloud',esc(alive?'Operations connected':'Operational status unavailable'),alive?'Owner HQ read source responded.':'The owner HQ data source could not respond.', ''))+
+ pane('NOTIFICATIONS','Needs investigation',rows||note('No unread notifications',error?'Notifications unavailable: '+error.message:'Nothing currently unread.'))+'</div><p class="workspace-note">Security systems continue behind the scenes. This view does not expose Shield or other sensitive security-event details.</p>';
 }
 export const WORKSPACE_VIEWS=new Set(['inbox','mail','content','relationships','prt','work','racing','store','growth','systems']);
 export async function mountWorkspace(view,root,ctx={},force=false){
