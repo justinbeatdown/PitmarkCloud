@@ -11,7 +11,7 @@ const errorBox=(err)=>'<div class="error-banner"><strong>Unable to load this wor
 const field=(name,label,value='',type='text',extra='')=>'<div class="field"><label for="'+esc(name)+'">'+esc(label)+'</label><input class="field-input" id="'+esc(name)+'" name="'+esc(name)+'" type="'+esc(type)+'" value="'+esc(value||'')+'" '+extra+'></div>';
 const tag=(v)=>'<span class="inline-status">'+esc(String(v||'unknown').replaceAll('_',' '))+'</span>';
 const row=(name,meta,body,controls='',classes='')=>'<article class="workspace-row '+esc(classes)+'"><div class="meta">'+meta+'</div><h3>'+esc(name||'Untitled')+'</h3>'+(body?'<p>'+esc(short(body,430))+'</p>':'')+(controls?'<div class="actions">'+controls+'</div>':'')+'</article>';
-const ttl=new Map(),sections={inbox:'action',mail:'inbox',content:'pending',relationships:'all',prt:'applications',work:'now',racing:'results',store:'overview',growth:'30',systems:'health'};
+const ttl=new Map(),inflight=new Map(),currentRecords={},sections={inbox:'action',mail:'inbox',content:'pending',relationships:'all',prt:'applications',work:'now',racing:'results',store:'overview',growth:'30',systems:'health'};
 const selections={mail:null,contact:null,post:null,work:null};
 const pagination={content:0,relationships:0,mail:0};
 let active=0;
@@ -31,8 +31,9 @@ async function request(url,options={},timeout=8500){
 async function read(url,ttlMs=12000,timeout=8500){
  const cached=ttl.get(url),now=Date.now();
  if(cached&&now-cached.at<ttlMs)return cached.value;
- const data=await request(url,{},timeout);
- ttl.set(url,{value:data,at:Date.now()});return data;
+ if(inflight.has(url))return inflight.get(url);
+ const pending=request(url,{},timeout).then(data=>{ttl.set(url,{value:data,at:Date.now()});return data;}).finally(()=>inflight.delete(url));
+ inflight.set(url,pending);return pending;
 }
 const invalidate=(prefix='')=>{for(const k of ttl.keys())if(!prefix||k.includes(prefix))ttl.delete(k);};
 const write=(url,method,body)=>request(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)},15000);
@@ -93,6 +94,7 @@ async function mountContent(root,ctx){
  const opts={limit:35,offset:pagination.content,status:tab==='editorial'?'draft':tab};
  const resource=tab==='editorial'?'editorial':'posts';
  const data=await read(urlSearch(resource,opts),14000,8500);
+ currentRecords.content=data.items||[];
  let rows=(data.items||[]).map(p=>{
   if(tab==='editorial'){
    return row(p.title,esc(p.content_type||'Article')+' · '+esc(when(p.updated_at))+' · '+esc(p.status),'Editorial draft',
@@ -135,6 +137,7 @@ function postEditor(p){
 }
 async function mountRelationships(root,ctx){
  const data=await read(urlSearch('relationships',{limit:35,offset:pagination.relationships,q:searchValue}),12000,8500);
+ currentRecords.relationships=data.items||[];
  const selected=selections.contact;
  const right=selected?contactEditor(selected):null;
  const left=pane('PITMARK NETWORK','Partners & contacts',
@@ -184,7 +187,7 @@ async function mountPRT(root,ctx){
 async function mountWork(root,ctx){
  const tab=sections.work;
  const d=await read('/api/control/work?view='+encodeURIComponent(tab),14000,8500);
- const items=d.items||[],selected=selections.work;
+ const items=d.items||[],selected=selections.work;currentRecords.work=items;
  let editor=selected?pane('MASTER CHECKLIST',selected.task||'Task','<form class="workspace-form" id="work-form">'+
  '<div class="meta">'+esc(selected.area||'')+' · Priority '+esc(selected.priority||'—')+'</div>'+
  '<div class="field"><label for="work-status">Status</label><select id="work-status" class="field-input">'+['Active','Waiting','Monitoring','Blocked','Done'].map(s=>'<option'+(String(selected.status||'').toLowerCase()===s.toLowerCase()?' selected':'')+'>'+s+'</option>').join('')+'</select></div>'+
@@ -292,21 +295,18 @@ async function handleAction(action,root,ctx){
  if(type==='post-close'){selections.post=null;return mountWorkspace(view,root,ctx);}
  if(type==='post-new'){selections.post={id:null,platform:'facebook',title:'',body:'',status:'pending'};return mountWorkspace('content',root,ctx);}
  if(type==='post-edit'){
-   const rows=await read(urlSearch('posts',{limit:75,status:sections.content==='attention'?'attention':sections.content}),0);
-   selections.post=(rows.items||[]).find(p=>String(p.id)===args[1])||null;
+   selections.post=(currentRecords.content||[]).find(p=>String(p.id)===args[1])||null;
    if(!selections.post)return alert('This post is not in the current page. Search or switch to the matching status.');
    return mountWorkspace('content',root,ctx);
  }
  if(type==='contact-new'){selections.contact={id:null,stage:'prospect',contact_type:'track'};return mountWorkspace('relationships',root,ctx);}
  if(type==='contact-close'){selections.contact=null;return mountWorkspace('relationships',root,ctx);}
  if(type==='contact-edit'){
-   const d=await read(urlSearch('relationships',{limit:35,offset:pagination.relationships,q:searchValue}),0);
-   selections.contact=(d.items||[]).find(p=>String(p.id)===args[1])||null;return mountWorkspace('relationships',root,ctx);
+   selections.contact=(currentRecords.relationships||[]).find(p=>String(p.id)===args[1])||null;return mountWorkspace('relationships',root,ctx);
  }
  if(type==='work-close'){selections.work=null;return mountWorkspace('work',root,ctx);}
  if(type==='work-edit'){
-   const d=await read('/api/control/work?view='+encodeURIComponent(sections.work),0);
-   selections.work=(d.items||[]).find(p=>String(p.row_number)===args[1])||null;return mountWorkspace('work',root,ctx);
+   selections.work=(currentRecords.work||[]).find(p=>String(p.row_number)===args[1])||null;return mountWorkspace('work',root,ctx);
  }
  const changes={
   'post-approve':['/api/control/autopilot/posts/'+args[1]+'/decision','POST',{action:'approve'},'Approve this post?'],
@@ -333,7 +333,7 @@ async function handleSubmit(form,root,ctx){
    email:document.getElementById('contact-email').value.trim(),
    contact_type:document.getElementById('contact-type').value.trim(),
    stage:document.getElementById('contact-stage').value.trim(),
-   next_follow_up:document.getElementById('contact-follow').value||null,
+   next_follow_up:document.getElementById('contact-follow').value||'',
    notes:document.getElementById('contact-notes').value
   };
   if(!payload.name)return alert('Contact name required.');
