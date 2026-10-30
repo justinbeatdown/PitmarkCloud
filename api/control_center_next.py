@@ -215,3 +215,20 @@ def owner_records(
             "source": "pitmark_cloud",
             "generated_at": _now().isoformat(),
         }
+
+
+@router.get("/api/control/hq/v2/record/{kind}/{record_id}")
+def owner_record_detail(kind: str, record_id: int, request: Request):
+    """Deep links from the owner action queue load exactly one source record."""
+    user = require_control_user(request, None)
+    if user is None:
+        raise HTTPException(401, "A signed-in owner is required.")
+    models = {"post": SocialPost, "relationship": OutreachContact, "editorial": BlogDraft}
+    model = models.get(kind)
+    if model is None or record_id < 1:
+        raise HTTPException(404, "Unknown record.")
+    with SessionLocal() as db:
+        row = db.get(model, record_id)
+        if row is None:
+            raise HTTPException(404, "Record not found.")
+        return {"kind": kind, "item": serialize(row), "source": "pitmark_cloud"}
