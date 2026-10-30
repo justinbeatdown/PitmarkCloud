@@ -73,13 +73,20 @@ async function mountMail(root,ctx){
  else right=pane('CONVERSATIONS','Read & reply',note('Choose a conversation','Open a message on the left to read, reply, or save a draft.'));
  root.innerHTML=heading('Mail & features','A real inbox inside Pitmark HQ. Read replies, keep feature interviews moving, and respond when ready.',refresh())+'<div class="workspace-pair">'+left+right+'</div>';
 }
+function plainMessage(m){
+ if(m.text)return m.text;
+ if(!m.html)return '(No message body)';
+ try{return new DOMParser().parseFromString(m.html,'text/html').body.textContent||'(No readable body)';}
+ catch{return '(HTML message — body unavailable)';}
+}
 function mailThread(data){
  const messages=data.messages||[],t=data.thread||{};
  const last=[...messages].reverse().find(m=>m.direction==='inbound')||messages[messages.length-1]||{};
  const raw=String(last.from||'');
- const replies=messages.map(m=>row(m.from||'Pitmark',esc(m.direction||'message')+' · '+esc(when(m.created_at)),short(m.text||'HTML-only message — use the Gmail view for formatting.',2500))).join('');
+ const replies=messages.map(m=>row(m.from||'Pitmark',esc(m.direction||'message')+' · '+esc(when(m.created_at)),short(plainMessage(m),3500),
+  button('Attachments','mail-attachments:'+m.id,'btn mini'))).join('');
  return pane('THREAD / '+esc(when(t.last_message_at)),t.subject||'Conversation','<div style="max-height:440px;overflow:auto">'+(replies||note('No messages','This conversation has no saved messages.'))+'</div>'+
- '<div class="workspace-controls">'+button('Reply','mail-reply','btn accent')+button('New message','mail-compose','btn outline')+'</div>');
+ (data.attachmentsHtml||'')+'<div class="workspace-controls">'+button('Reply','mail-reply','btn accent')+button('New message','mail-compose','btn outline')+'</div>');
 }
 function mailCompose(o={}){
  const s=o.subject||'',to=o.to||'',id=o.reply_id||'',body=o.body||'';
@@ -291,6 +298,19 @@ async function handleAction(action,root,ctx){
  if(type==='mail-open'){
    try{const d=await request('/api/control/email/threads/'+encodeURIComponent(args[1]));selections.mail={thread:d};invalidate('/api/control/email/threads?');return mountWorkspace('mail',root,ctx);}
    catch(e){return alert(e.message);}
+ }
+ if(type==='mail-attachments'){
+   try{
+     const id=Number(args[1]);if(!Number.isSafeInteger(id)||id<=0)return;
+     const items=await read('/api/control/email/messages/'+id+'/attachments',30000,11000);
+     const rows=Array.isArray(items)?items:[];
+     const html=rows.length?'<div class="workspace-row"><h3>Attachments</h3>'+
+       rows.map(a=>'<p>'+esc(a.filename||'Attachment')+' · '+fmt(a.size)+' bytes '+
+         (String(a.download_url||'').startsWith('/api/control/email/messages/')?
+          '<a href="'+esc(a.download_url)+'" class="btn mini">Download ↗</a>':'(No downloadable file)')+'</p>').join('')+'</div>':
+       '<div class="workspace-row"><p>No attachments were returned for this message.</p></div>';
+     if(selections.mail?.thread){selections.mail.thread.attachmentsHtml=html;return mountWorkspace('mail',root,ctx);}
+   }catch(e){alert('Could not load attachments: '+e.message);}return;
  }
  if(type==='mail-draft')return sendOrDraft(false,root,ctx);
  if(type==='post-close'){selections.post=null;return mountWorkspace(view,root,ctx);}
