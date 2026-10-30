@@ -484,3 +484,8 @@ def prt_update_manifest():
         media_type='application/json',
         headers={'Cache-Control': 'no-store'},
     )
+
+
+# V2 read-model routes belong to the authenticated Control Center surface.
+from api.control_center_next import router as owner_hq_router
+router.include_router(owner_hq_router)
