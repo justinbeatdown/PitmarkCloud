@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d10"><meta name="color-scheme" content="dark">
+<link rel="icon" href="/control-favicon.png">
+<title>Pitmark HQ · Control Center 2.0</title>
+<link rel="stylesheet" href="/control-next.css?v=2">
+<script type="module" src="/control-next.js?v=2"></script>
+</head>
+<body>
+<div class="shell" id="app">
+  <aside class="side" id="side">
+    <a class="brand" href="/control#hq" aria-label="Pitmark HQ home">
+      <img src="/control-logo-badge.png" alt=""><span><b>PITMARK</b><small>CONTROL CENTER <em>2.0</em></small></span>
+    </a>
+    <div class="side-kicker">OPERATIONS</div>
+    <nav aria-label="Pitmark areas">
+      <a class="nav-link active" href="#hq" data-view="hq"><i>◈</i><span>Headquarters</span></a>
+      <a class="nav-link" href="#inbox" data-view="inbox"><i>◉</i><span>Decision inbox</span><b id="nav-badge" hidden></b></a>
+      <a class="nav-link" href="#activity" data-view="activity"><i>↗</i><span>Activity feed</span></a>
+      <div class="nav-rule"></div>
+      <div class="side-kicker sub">COMPANY</div>
+      <a class="nav-link" href="#content" data-view="content"><i>▣</i><span>Content studio</span></a>
+      <a class="nav-link" href="#relationships" data-view="relationships"><i>◇</i><span>Relationships</span></a>
+      <a class="nav-link" href="#products" data-view="products"><i>⚑</i><span>Products & racing</span></a>
+      <a class="nav-link" href="#growth" data-view="growth"><i>◫</i><span>Growth & revenue</span></a>
+      <div class="nav-rule"></div>
+      <div class="side-kicker sub">PLATFORM</div>
+      <a class="nav-link" href="#systems" data-view="systems"><i>⌁</i><span>Systems</span></a>
+    </nav>
+    <div class="side-bottom"><div class="system-inline"><span class="live-dot" id="side-dot"></span><div><strong>Pitmark Cloud</strong><small id="side-state">Connecting</small></div></div><a href="/control/classic#hq" class="classic-link">Classic Control Center ↗</a></div>
+  </aside>
+  <div class="body">
+    <header class="top"><button class="mobile-menu" id="menu" aria-label="Toggle navigation">☰</button>
+      <div class="crumb"><span>CONTROL CENTER</span><b>/</b><strong id="crumb-view">HEADQUARTERS</strong></div>
+      <div class="top-right"><span class="sync-label" id="sync-label">Connecting to Pitmark</span><button type="button" class="icon-button" id="search-open" title="Search Pitmark" aria-label="Search Pitmark">⌕ <kbd>Ctrl K</kbd></button><button class="icon-button" id="refresh" type="button" aria-label="Refresh current data">↻</button><div class="avatar" title="Owner">JO</div></div>
+    </header>
+    <main id="main" aria-live="polite">
+      <div class="skeleton-head"></div><div class="skeleton-grid"><div></div><div></div><div></div></div>
+    </main>
+    <footer class="footer"><span>© PITMARK RACING CO. · LEAVE YOUR MARK.</span><span>Built to keep moving even when you're away.</span></footer>
+  </div>
+</div>
+<div class="overlay" id="search-overlay" hidden><div class="search-dialog" role="dialog" aria-modal="true" aria-labelledby="search-title"><div class="search-top"><strong id="search-title">Search Pitmark</strong><button type="button" id="search-close" aria-label="Close search">×</button></div><input id="search-input" placeholder="Find drivers, partnerships, tasks, posts…" autocomplete="off"><div id="search-results" class="search-results"><p>Searches Pitmark's existing Control Center index.</p></div><div class="search-footer">ESC to close · Source records open in Classic Control Center</div></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+</body></html>
