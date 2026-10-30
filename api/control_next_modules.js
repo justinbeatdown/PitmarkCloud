@@ -284,7 +284,18 @@ async function handleAction(action,root,ctx){
  const args=action.split(':'),type=args[0],view=location.hash.slice(1);
  if(type==='refresh')return mountWorkspace(view,root,ctx,true);
  if(type==='tab'){sections[args[1]]=args[2];pagination[args[1]]=0;if(args[1]==='content')selections.post=null;if(args[1]==='mail')selections.mail=null;return mountWorkspace(args[1],root,ctx);}
- if(type==='navigate'){const target=args[1]||'#inbox';const id=args[2]||'';if(id.startsWith('post')){sections.content='attention';selections.post=null;}if(id.startsWith('contact')){sections.relationships='all';selections.contact=null;}location.hash=target;return;}
+ if(type==='navigate'){
+   const target=args[1]||'#inbox',entity=args[2]||'',id=Number(args[3]);
+   if(entity==='post'&&Number.isSafeInteger(id)&&id>0){
+     try{const detail=await request('/api/control/hq/v2/record/post/'+id);sections.content='attention';selections.post=detail.item;}
+     catch(e){alert('Post details unavailable: '+e.message);selections.post=null;}
+   }else if(entity==='contact'&&Number.isSafeInteger(id)&&id>0){
+     try{const detail=await request('/api/control/hq/v2/record/relationship/'+id);selections.contact=detail.item;}
+     catch(e){alert('Relationship details unavailable: '+e.message);selections.contact=null;}
+   }
+   if(location.hash===target)mountWorkspace(target.slice(1),root,ctx);else location.hash=target;
+   return;
+ }
  if(type==='page'){const key=args[1];const prev=args[2]==='prev';pagination[key]=Math.max(0,pagination[key]+(prev?-35:35));return mountWorkspace(view,root,ctx);}
  if(type==='mail-compose'){selections.mail={type:'compose'};return mountWorkspace('mail',root,ctx);}
  if(type==='mail-cancel'){selections.mail=null;return mountWorkspace('mail',root,ctx);}
