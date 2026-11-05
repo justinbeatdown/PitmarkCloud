@@ -275,6 +275,31 @@ async def sync_social_media_feed() -> dict[str, Any]:
         key=lambda p: (p["published_at"], p["key"]),
     )[:MAX_POSTS_PER_POLL]
 
+    # When a newly created feed channel has no history, showcase up to one
+    # recently published post per platform. This permits a safe end-to-end
+    # launch test without reposting to Facebook/Instagram or changing a queue.
+    # Once a Discord post is present (and tracked), regular scheduling resumes.
+    if not seen and not history and not source_errors:
+        latest_by_platform: dict[str, dict[str, Any]] = {}
+        sample_cutoff = now - timedelta(hours=3)
+        for post in posts:
+            if not (sample_cutoff <= post["published_at"] <= now + timedelta(minutes=2)):
+                continue
+            platform = post["platform"]
+            current = latest_by_platform.get(platform)
+            if current is None or post["published_at"] > current["published_at"]:
+                latest_by_platform[platform] = post
+        if latest_by_platform:
+            sample = sorted(
+                latest_by_platform.values(),
+                key=lambda p: (p["published_at"], p["key"]),
+            )
+            candidates = sample[:2]
+            log.info(
+                "Seeding empty Discord #%s with %s recent verified post(s).",
+                CHANNEL_NAME, len(candidates),
+            )
+
     posted = 0
     for post in candidates:
         if post["url"] not in history:
