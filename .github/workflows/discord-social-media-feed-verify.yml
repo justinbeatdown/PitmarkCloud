@@ -1,0 +1,37 @@
+name: Discord Social Media Feed Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'services/discord_social_media_feed.py'
+      - 'services/discord_gateway_service.py'
+      - 'scripts/test_discord_social_media_feed.py'
+      - '.github/workflows/discord-social-media-feed-verify.yml'
+  push:
+    branches: [main, feature/discord-social-media-feed]
+    paths:
+      - 'services/discord_social_media_feed.py'
+      - 'services/discord_gateway_service.py'
+      - 'scripts/test_discord_social_media_feed.py'
+      - '.github/workflows/discord-social-media-feed-verify.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Compile Discord feed and gateway
+        run: python -m py_compile services/discord_social_media_feed.py services/discord_gateway_service.py scripts/test_discord_social_media_feed.py
+      - name: Test direct-link social feed
+        run: python -m unittest scripts.test_discord_social_media_feed -v
+      - name: Check existing Racing Culture feed regression
+        run: python -m unittest scripts.test_discord_racing_culture_feed -v
