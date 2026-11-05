@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 from urllib.parse import urlencode
+import httpx
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, Response, RedirectResponse
@@ -67,31 +68,88 @@ def pitmark_media_kit_css():
     )
 
 
-# Current public media kit and stable backward-compatible logo URLs.
-# The official high-definition masters are kept in Shopify Files.
+# Same-origin official brand image endpoints. External CDN links can be blocked by
+# browser privacy tools or site security policies, so do not make page images
+# and partner downloads depend on a direct cross-site image URL.
+_BRAND_ASSETS = {
+    "primary": (
+        "https://cdn.shopify.com/s/files/1/1067/3913/8641/files/pitmark-logo-primary-2026.png?v=1793849599",
+        "pitmark_logo_wide.png",
+    ),
+    "tagline": (
+        "https://cdn.shopify.com/s/files/1/1067/3913/8641/files/pitmark-logo-tagline-2026.png?v=1793849604",
+        "pitmark_logo_wide.png",
+    ),
+    "emblem": (
+        "https://cdn.shopify.com/s/files/1/1067/3913/8641/files/pitmark-emblem-round-2026.png?v=1793849613",
+        "prt-current-logo.png",
+    ),
+}
+_BRAND_CACHE: dict[str, bytes] = {}
+_PNG_SIGNATURE = bytes.fromhex("89504e470d0a1a0a")
+
+
+def _brand_png(kind: str, filename: str | None = None) -> Response:
+    url, fallback = _BRAND_ASSETS[kind]
+    content = _BRAND_CACHE.get(kind)
+    source = "shopify"
+    if content is None:
+        try:
+            with httpx.Client(follow_redirects=True, timeout=8.0) as client:
+                fetched = client.get(url, headers={"User-Agent": "PitmarkBrandAssets/2026"})
+                fetched.raise_for_status()
+                if not fetched.content.startswith(_PNG_SIGNATURE) or len(fetched.content) > 8_000_000:
+                    raise ValueError("Invalid official Pitmark PNG")
+                content = fetched.content
+                _BRAND_CACHE[kind] = content
+        except (httpx.HTTPError, ValueError, OSError):
+            # Always present an image rather than a broken image icon.
+            content = (ASSET_DIR / fallback).read_bytes()
+            source = "fallback"
+    headers = {
+        "Cache-Control": "public, max-age=300" if source == "shopify" else "no-store",
+        "X-Pitmark-Logo-Source": source,
+    }
+    if filename:
+        headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return Response(content=content, media_type="image/png", headers=headers)
+
+
 @router.get("/media-kit", response_class=HTMLResponse, include_in_schema=False)
 def pitmark_media_kit():
     return _html("media_kit.html")
 
 
+@router.get("/brand/primary.png", include_in_schema=False)
 @router.get("/pitmark-media-logo-wide.png", include_in_schema=False)
-def pitmark_media_wide_logo():
-    return RedirectResponse(url="https://cdn.shopify.com/s/files/1/1067/3913/8641/files/pitmark-logo-primary-2026.png?v=1793849599", status_code=307)
+def pitmark_brand_primary():
+    return _brand_png("primary")
 
 
+@router.get("/brand/tagline.png", include_in_schema=False)
+def pitmark_brand_tagline():
+    return _brand_png("tagline")
+
+
+@router.get("/brand/emblem.png", include_in_schema=False)
 @router.get("/pitmark-media-logo-round.png", include_in_schema=False)
-def pitmark_media_round_logo():
-    return RedirectResponse(url="https://cdn.shopify.com/s/files/1/1067/3913/8641/files/pitmark-emblem-round-2026.png?v=1793849613", status_code=307)
+def pitmark_brand_emblem():
+    return _brand_png("emblem")
 
 
 @router.get("/media-kit/download/wide-logo.png", include_in_schema=False)
 def download_pitmark_wide_logo():
-    return RedirectResponse(url="https://cdn.shopify.com/s/files/1/1067/3913/8641/files/pitmark-logo-primary-2026.png?v=1793849599", status_code=307)
+    return _brand_png("primary", "Pitmark_Racing_Co_Wide_Logo.png")
 
 
 @router.get("/media-kit/download/round-logo.png", include_in_schema=False)
 def download_pitmark_round_logo():
-    return RedirectResponse(url="https://cdn.shopify.com/s/files/1/1067/3913/8641/files/pitmark-emblem-round-2026.png?v=1793849613", status_code=307)
+    return _brand_png("emblem", "Pitmark_Racing_Co_Round_Mark.png")
+
+
+@router.get("/media-kit/download/tagline-logo.png", include_in_schema=False)
+def download_pitmark_tagline_logo():
+    return _brand_png("tagline", "Pitmark_Racing_Co_Leave_Your_Mark.png")
 
 
 @router.get("/links", response_class=HTMLResponse, include_in_schema=False)
