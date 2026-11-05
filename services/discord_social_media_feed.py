@@ -62,7 +62,7 @@ def _permalink(value: Any, platform: str) -> str:
     )
     if parsed.scheme != "https" or not any(host == h or host.endswith("." + h) for h in allowed):
         return ""
-    return url if parsed.path or parsed.query else ""
+    return url if parsed.path not in {"", "/"} or parsed.query else ""
 
 
 def _clean_caption(value: Any) -> str:
