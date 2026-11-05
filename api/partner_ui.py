@@ -35,4 +35,4 @@ def partner_guide_css():
 
 @router.get("/pitmark_favicon.png", include_in_schema=False)
 def partner_favicon():
-    return RedirectResponse(url="https://cdn.shopify.com/s/files/1/1067/3913/8641/files/pitmark-emblem-round-2026.png?v=1793849613", status_code=307)
+    return RedirectResponse(url="/brand/emblem.png", status_code=307)
