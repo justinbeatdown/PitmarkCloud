@@ -836,3 +836,7 @@ body[data-view="profile"] .profile-wall-post .profile-reply-context{
 
 body[data-view="profile"] #profileSocialAlerts[hidden]{display:none!important}
 body[data-view="profile"] #profileSocialAlerts:not([hidden]){border-color:rgba(255,85,0,.3)!important}
+
+/* Race Center 2026 sub-brand: transparent dedicated racing lockup. */
+.site-header .brand img{width:182px;max-height:64px;height:auto;object-fit:contain}
+@media(max-width:1450px){.site-header .brand img{width:164px;max-height:58px}}

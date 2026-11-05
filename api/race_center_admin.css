@@ -46,3 +46,6 @@ h1{font-size:clamp(38px,5vw,65px);letter-spacing:-.06em;line-height:1.05;margin:
 @media(max-width:720px){.admin-shell{padding:26px 13px 55px}.review-panel{padding:17px;border-radius:14px}.metric-grid{gap:8px}.metric{padding:14px;min-height:96px}.metric strong{font-size:29px}.metric span{font-size:10px}.admin-brand img{width:92px}.admin-header-inner{padding:10px}.staff-locked{display:none}.admin-header-links a{padding:7px;font-size:11px}.review-actions textarea{flex-basis:100%}}
 @media(max-width:520px){.admin-brand span{display:none}.editorial-form{grid-template-columns:1fr}.editorial-form label{grid-column:1/-1}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* Dedicated transparent Race Center brand; keep Staff Admin label. */
+.admin-brand img{width:169px;max-height:62px}

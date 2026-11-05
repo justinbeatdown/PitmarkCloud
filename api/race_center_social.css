@@ -97,3 +97,8 @@ textarea::placeholder{color:#8496a4}textarea:focus,select:focus{border-color:#ff
 .rc-entity-identity strong{font-size:17px;letter-spacing:-.025em}
 .rc-entity-open{display:inline-flex;border:1px solid #40505c;background:#17252e;color:#bfdbed;padding:9px 13px;border-radius:9px;font-weight:850;font-size:12px}
 .rc-entity-open:hover{border-color:#ff9056}
+
+/* Race Center 2026 standalone identity (no duplicate wordmark text). */
+.rc-social-logo img{width:174px;max-height:62px}
+@media(max-width:1120px){.rc-social-logo img{width:154px;max-height:55px}}
+@media(max-width:670px){.rc-social-logo img{width:138px;max-height:49px}}

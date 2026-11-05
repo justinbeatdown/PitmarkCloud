@@ -151,3 +151,7 @@
 /* Accessible interactive affordances and reduced-motion support. */
 .rc-mobile-nav a:focus-visible,.rc-install-banner button:focus-visible{outline:3px solid #ff8a48;outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.rc-mobile-nav *,.rc-install-banner *{transition:none!important;animation:none!important}}
+
+/* Preserve readable dedicated Race Center lockup on compact headers. */
+@media(max-width:820px){.site-header .brand img{width:150px!important;max-width:150px!important;height:53px!important;max-height:53px!important}}
+@media(max-width:480px){.site-header .brand img{width:136px!important;max-width:136px!important;height:48px!important;max-height:48px!important}}
