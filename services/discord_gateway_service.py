@@ -10,7 +10,7 @@ import httpx
 
 from utils.config import settings
 from services.discord_hq_common import log_named
-from services import discord_bot_service, discord_hq_service, discord_hq_moderation, discord_live_network, discord_racing_culture_feed, discord_service, prt_licensing_store, prt_release_announcements
+from services import discord_bot_service, discord_hq_service, discord_hq_moderation, discord_live_network, discord_racing_culture_feed, discord_social_media_feed, discord_service, prt_licensing_store, prt_release_announcements
 
 log = logging.getLogger("pitmark.discord.gateway")
 DISCORD_API = "https://discord.com/api/v10"
@@ -429,9 +429,24 @@ async def _watch_racing_culture_feed() -> None:
         await asyncio.sleep(600)
 
 
+async def _watch_social_media_feed() -> None:
+    """Mirror newly published social posts to Discord HQ, with their actual permalinks."""
+    while True:
+        try:
+            result = await discord_social_media_feed.sync_social_media_feed()
+            posted = int(result.get("posted") or 0)
+            if posted:
+                log.info("Social-media feed shared %s new post(s).", posted)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("Discord social-media feed sync failed.")
+        await asyncio.sleep(300)
+
+
 class PitmarkPresenceClient(discord.Client):
     async def on_ready(self) -> None:
-        global _release_watcher_task, _racing_culture_feed_task, _live_network_task, _beta_tester_role_task
+        global _release_watcher_task, _racing_culture_feed_task, _social_media_feed_task, _live_network_task, _beta_tester_role_task
 
         await self.change_presence(
             status=discord.Status.online,
@@ -466,6 +481,15 @@ class PitmarkPresenceClient(discord.Client):
             _racing_culture_feed_task = asyncio.create_task(
                 _watch_racing_culture_feed(),
                 name="pitmark-racing-culture-feed",
+            )
+
+        if (
+            discord_social_media_feed.configured()
+            and (_social_media_feed_task is None or _social_media_feed_task.done())
+        ):
+            _social_media_feed_task = asyncio.create_task(
+                _watch_social_media_feed(),
+                name="pitmark-social-media-feed",
             )
 
         hq_guild = next((item for item in self.guilds if _is_hq_guild(item)), None)
@@ -651,6 +675,7 @@ _client: PitmarkPresenceClient | None = None
 _task: asyncio.Task | None = None
 _release_watcher_task: asyncio.Task | None = None
 _racing_culture_feed_task: asyncio.Task | None = None
+_social_media_feed_task: asyncio.Task | None = None
 _live_network_task: asyncio.Task | None = None
 _beta_tester_role_task: asyncio.Task | None = None
 
@@ -686,7 +711,7 @@ async def start() -> None:
 
 
 async def stop() -> None:
-    global _client, _task, _release_watcher_task, _racing_culture_feed_task, _live_network_task, _beta_tester_role_task
+    global _client, _task, _release_watcher_task, _racing_culture_feed_task, _social_media_feed_task, _live_network_task, _beta_tester_role_task
 
     if _release_watcher_task:
         if not _release_watcher_task.done():
@@ -709,6 +734,17 @@ async def stop() -> None:
         except Exception:
             pass
         _racing_culture_feed_task = None
+
+    if _social_media_feed_task:
+        if not _social_media_feed_task.done():
+            _social_media_feed_task.cancel()
+        try:
+            await _social_media_feed_task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            pass
+        _social_media_feed_task = None
 
     if _live_network_task:
         if not _live_network_task.done():
