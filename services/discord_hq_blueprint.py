@@ -216,6 +216,7 @@ PUBLIC_CATEGORY_SPECS = [
         "🟠 PITMARK CENTRAL",
         [
             ("pitmark-chat", 0, "The main Pitmark community paddock.", "public", None),
+            ("social-media", 0, "Latest Pitmark Facebook and Instagram posts with direct links to follow and engage.", "readonly", None),
             ("showcase", 0, "Share rigs, wins, paints, screenshots, clips and Pitmark gear.", "public", None),
             ("ideas-and-feedback", 15, "Ideas and feedback for the Pitmark ecosystem.", "public", ["Idea", "Racing Tools", "Pitmark Cloud", "Store", "Discord", "Website", "Reviewing", "Planned", "In Progress"]),
         ],
