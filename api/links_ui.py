@@ -67,27 +67,31 @@ def pitmark_media_kit_css():
     )
 
 
+# Current public media kit and stable backward-compatible logo URLs.
+# The official high-definition masters are kept in Shopify Files.
+@router.get("/media-kit", response_class=HTMLResponse, include_in_schema=False)
+def pitmark_media_kit():
+    return _html("media_kit.html")
+
+
 @router.get("/pitmark-media-logo-wide.png", include_in_schema=False)
 def pitmark_media_wide_logo():
-    from fastapi.responses import FileResponse
-    return FileResponse(ASSET_DIR / "pitmark_logo_wide.png", media_type="image/png")
+    return RedirectResponse(url="https://cdn.shopify.com/s/files/1/1067/3913/8641/files/pitmark-logo-primary-2026.png?v=1793849599", status_code=307)
 
 
 @router.get("/pitmark-media-logo-round.png", include_in_schema=False)
 def pitmark_media_round_logo():
-    from fastapi.responses import FileResponse
-    return FileResponse(ASSET_DIR / "pitmark_favicon.png", media_type="image/png")
+    return RedirectResponse(url="https://cdn.shopify.com/s/files/1/1067/3913/8641/files/pitmark-emblem-round-2026.png?v=1793849613", status_code=307)
+
 
 @router.get("/media-kit/download/wide-logo.png", include_in_schema=False)
 def download_pitmark_wide_logo():
-    from fastapi.responses import FileResponse
-    return FileResponse(ASSET_DIR / "pitmark_logo_wide.png", media_type="image/png", filename="Pitmark_Racing_Co_Wide_Logo.png")
+    return RedirectResponse(url="https://cdn.shopify.com/s/files/1/1067/3913/8641/files/pitmark-logo-primary-2026.png?v=1793849599", status_code=307)
 
 
 @router.get("/media-kit/download/round-logo.png", include_in_schema=False)
 def download_pitmark_round_logo():
-    from fastapi.responses import FileResponse
-    return FileResponse(ASSET_DIR / "pitmark_favicon.png", media_type="image/png", filename="Pitmark_Racing_Co_Round_Mark.png")
+    return RedirectResponse(url="https://cdn.shopify.com/s/files/1/1067/3913/8641/files/pitmark-emblem-round-2026.png?v=1793849613", status_code=307)
 
 
 @router.get("/links", response_class=HTMLResponse, include_in_schema=False)
