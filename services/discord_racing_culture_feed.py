@@ -272,11 +272,9 @@ async def sync_racing_culture_feed() -> dict[str, Any]:
                 and article["published_at"] >= created_at
             ][-3:]
 
-        candidates = [
-            article
-            for article in candidates
-            if str(article.get("image") or "").strip()
-        ]
+        # An article's featured image is optional. Do not suppress a valid
+        # published Racing Culture story just because Shopify has no image.
+        # _article_payload adds the image to the embed only when available.
 
         posted = 0
         for article in candidates:
