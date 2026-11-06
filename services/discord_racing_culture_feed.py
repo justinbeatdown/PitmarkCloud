@@ -63,7 +63,7 @@ def _recent_articles(limit: int = 12) -> list[dict[str, Any]]:
               body
               isPublished
               publishedAt
-              image { originalSrc }
+              image { url }
               blog { handle title }
             }
           }
@@ -82,7 +82,7 @@ def _recent_articles(limit: int = 12) -> list[dict[str, Any]]:
         title = _clean(article.get("title"), 256)
         if not handle or not title:
             continue
-        image = str(((article.get("image") or {}).get("originalSrc") or "")).strip()
+        image = str(((article.get("image") or {}).get("url") or "")).strip()
         articles.append(
             {
                 "id": str(article.get("id") or ""),
@@ -272,9 +272,14 @@ async def sync_racing_culture_feed() -> dict[str, Any]:
                 and article["published_at"] >= created_at
             ][-3:]
 
-        # An article's featured image is optional. Do not suppress a valid
-        # published Racing Culture story just because Shopify has no image.
-        # _article_payload adds the image to the embed only when available.
+        # Publishing policy: every Racing Culture article needs a featured image.
+        # Never relay image-less articles as if they are publication-ready.
+        missing_images = [article["title"] for article in candidates if not str(article.get("image") or "").strip()]
+        if missing_images:
+            log.warning("Racing Culture articles missing required featured images; skipping Discord posts: %s", missing_images)
+        candidates = [
+            article for article in candidates if str(article.get("image") or "").strip()
+        ]
 
         posted = 0
         for article in candidates:
