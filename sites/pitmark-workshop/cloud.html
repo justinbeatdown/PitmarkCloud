@@ -19,7 +19,7 @@ function cloudLabel(label,cls){const e=$('cloudStatus');if(e){e.textContent=labe
 function save(){try{localStorage.setItem(KEY,JSON.stringify(db));$('storageState').textContent='Local backup OK';$('storageState').className='pill good';if(cloudReady&&!cloudBlocked){cloudNeedsSave=true;cloudLabel('Cloud: saving…','warn');clearTimeout(cloudTimer);cloudTimer=setTimeout(pushCloud,550)}return true}catch(e){$('storageState').textContent='Storage blocked';$('storageState').className='pill bad';notify('Unable to save locally! Export a backup.');if(cloudReady&&!cloudBlocked){cloudNeedsSave=true;clearTimeout(cloudTimer);cloudTimer=setTimeout(pushCloud,550)}return false}}
 async function pushCloud(){if(!cloudReady||cloudBlocked||cloudBusy||!cloudNeedsSave)return;cloudBusy=true;cloudNeedsSave=false;const snapshot=JSON.stringify(db);const revision=cloudRevision;try{const r=await fetch('/api/workshop/state',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({state:JSON.parse(snapshot),revision})});if(r.status===409){cloudBlocked=true;cloudLabel('Cloud conflict — export backup','bad');notify('Cloud was changed on another device. Export backup before reloading.');return}if(r.status===401){cloudBlocked=true;cloudLabel('Login expired — reload','bad');notify('Login expired; export backup then reload.');return}if(!r.ok)throw Error('Save HTTP '+r.status);const payload=await r.json();cloudRevision=payload.revision;cloudLabel('Cloud: saved','good')}catch(err){cloudNeedsSave=true;cloudLabel('Cloud offline — local copy safe','warn')}finally{cloudBusy=false;if(cloudNeedsSave&&!cloudBlocked){clearTimeout(cloudTimer);cloudTimer=setTimeout(pushCloud,5000)}}}
 async function initCloud(){try{const r=await fetch('/api/workshop/state',{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error('Cloud HTTP '+r.status);const payload=await r.json();cloudRevision=payload.revision||0;if(payload.state){db=normalize(payload.state);try{localStorage.setItem(KEY,JSON.stringify(db))}catch(_){}$('homeNotes').value=db.notes;$('bigNotes').value=db.notes;render();cloudLabel('Cloud: connected','good')}else{const localCount=db.jobs.length+db.inventory.length+db.press.length+(db.notes?1:0);cloudReady=true;cloudLabel('Cloud: new workspace','warn');if(localCount){if(confirm('You have workshop entries stored in this browser. Upload them to your new cloud workspace?')){save()}else{notify('Local entries kept; nothing uploaded yet')}}else{save()}return}cloudReady=true;}catch(err){cloudLabel('Cloud unavailable — local only','bad');notify('Unable to connect to workshop cloud. Local entries remain available.')}}
-function orderBadge(value,type){const str=String(value||'Unknown').replace(/_/g,' ').toLowerCase();const label=str.replace(/\\b\\w/g,c=>c.toUpperCase());const el=mk('span',label,'shop-badge');if((type==='payment'&&/paid|partially refunded/.test(str))||(type==='fulfillment'&&/fulfilled/.test(str)&&!/unfulfilled/.test(str)))el.classList.add('success');else if(/pending|in progress|partial|on hold|scheduled/.test(str))el.classList.add('progress');else if(/failed|void|cancel|unpaid|expired/.test(str))el.classList.add('alert');return el}
+function orderBadge(value,type){const str=String(value||'Unknown').replace(/_/g,' ').toLowerCase();const label=str.replace(/\b\w/g,c=>c.toUpperCase());const el=mk('span',label,'shop-badge');if((type==='payment'&&/paid|partially refunded/.test(str))||(type==='fulfillment'&&/fulfilled/.test(str)&&!/unfulfilled/.test(str)))el.classList.add('success');else if(/pending|in progress|partial|on hold|scheduled/.test(str))el.classList.add('progress');else if(/failed|void|cancel|unpaid|expired/.test(str))el.classList.add('alert');return el}
 function shopDate(value){if(!value)return 'Date not available';const dt=new Date(value);return Number.isNaN(dt.getTime())?'Date not available':dt.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}
 async function refreshOrders(){
  const root=$('shopifyOrders');if(!root)return;
@@ -53,12 +53,9 @@ async function refreshOrders(){
    });
    const foot=mk('div','','shop-foot');
    foot.append(mk('span',items.reduce((n,x)=>n+(Number(x.quantity)||0),0)+' total item(s)','shop-source'));
-   const idMatch=String(o.id||'').match(/\\/Order\\/(\\d+)$/);
-   if(idMatch){
-    const link=mk('a','Open in Shopify ↗','shop-open');
-    link.href='https://admin.shopify.com/store/pitmark-racing-co/orders/'+idMatch[1];
-    link.target='_blank';link.rel='noopener noreferrer';foot.append(link);
-   } else foot.append(mk('span','Open Shopify admin to view order','shop-source'));
+   const link=mk('a','View Shopify orders ↗','shop-open');
+   link.href='https://admin.shopify.com';
+   link.target='_blank';link.rel='noopener noreferrer';foot.append(link);
    card.append(head,lines,foot);list.append(card)
   });
   root.append(summary,list)
