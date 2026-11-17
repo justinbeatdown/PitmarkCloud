@@ -167,6 +167,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "default-src 'none'; style-src 'self'; script-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; "
                 "frame-ancestors 'none'; base-uri 'none'; form-action 'self'; img-src 'self'"
             )
+        elif request.url.path == "/workshop":
+            # Authenticated internal workshop view. Inline dashboard bundle is
+            # served same-origin; all API requests remain same-origin only.
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; "
+                "connect-src 'self'; img-src 'self' https:; font-src 'self'; "
+                "frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
+            )
         elif request.url.path.startswith("/api/control/content/paint-studio"):
             # Paint Studio is an authenticated internal application. Its engine and API
             # calls stay same-origin; local PSD/reference previews use blob/data URLs.
