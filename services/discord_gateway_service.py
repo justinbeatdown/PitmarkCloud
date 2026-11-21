@@ -77,6 +77,8 @@ def _official_links_payload(guild_id: str, support_channel_id: str | None) -> di
                     "📘 **Facebook** — https://www.facebook.com/profile.php?id=61593441036636\n"
                     "𝕏 **X** — https://x.com/pitmarkracing\n"
                     "▶️ **YouTube** — https://www.youtube.com/@pitmarkracing\n"
+                    "💼 **LinkedIn** — https://www.linkedin.com/company/146890366/\n"
+                    "🦋 **Bluesky** — https://bsky.app/profile/pitmarkracing.bsky.social\n"
                     "💬 **Discord** — https://discord.gg/jP6fQuW7dr\n\n"
                     f"🛟 **Discord Support**\n{support_line}"
                 ),
@@ -111,6 +113,8 @@ def _official_links_payload(guild_id: str, support_channel_id: str | None) -> di
                     _link_button("Race Center", "https://pitmarkracing.com/pages/race-center", "🏁"),
                     _link_button("Racing Culture", "https://pitmarkracing.com/blogs/racing-culture", "📰"),
                     _link_button("Discord", "https://discord.gg/jP6fQuW7dr", "💬"),
+                    _link_button("LinkedIn", "https://www.linkedin.com/company/146890366/", "💼"),
+                    _link_button("Bluesky", "https://bsky.app/profile/pitmarkracing.bsky.social", "🦋"),
                 ],
             },
         ],
