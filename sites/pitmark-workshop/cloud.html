@@ -98,7 +98,7 @@ window.addEventListener('storage',e=>{if(e.key===KEY&&e.newValue){try{db=normali
 
 // Apparel pricing: bounded inputs and dynamic-programming gang-sheet bundle selection.
 const quoteTiers=[{feet:1,cost:16.99},{feet:2,cost:19.99},{feet:5,cost:49.99},{feet:7,cost:69.99},{feet:10,cost:89.99},{feet:15,cost:109.99},{feet:20,cost:129.99},{feet:30,cost:179.99},{feet:40,cost:210.99}];
-const quoteMoney=n=>'</body></html>+n.toFixed(2);
+const quoteMoney=n=>'$'+n.toFixed(2);
 function quoteRead(id,min,max){const n=Number($(id).value);return Number.isFinite(n)?Math.min(max,Math.max(min,n)):min}
 function quoteTransferCost(feet){if(!feet)return 0;const d=new Array(feet+1).fill(Infinity);d[0]=0;for(let i=1;i<=feet;i++)for(const tier of quoteTiers)d[i]=Math.min(d[i],tier.cost+d[Math.max(0,i-tier.feet)]);return d[feet]}
 let quoteLast='';
