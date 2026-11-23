@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse, PlainTextResponse
 from utils.security import SecurityHeadersMiddleware, security_summary
 
-from api import workshop, device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_2026, control_center_v19, control_center_v195, control_access_v191, control_center_ui, control_native_ops, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, prt_testimonial_asset, early_access_admin, astra_director, standings_public, race_center_v8, racing_network, results_sweep, prl, prl_public_docs, links_ui, prt_race_center_bridge
+from api import tiktok_oauth, workshop, device, discord, discord_bot, entitlements, health, live_session, results, shopify, control_center, control_center_2026, control_center_v19, control_center_v195, control_access_v191, control_center_ui, control_native_ops, social_publish, social_context_v191, social_operator, email_center, email_center_v19, prt_analytics_v191, content_tools, prt_ui, prt_testimonial_asset, early_access_admin, astra_director, standings_public, race_center_v8, racing_network, results_sweep, prl, prl_public_docs, links_ui, prt_race_center_bridge
 from utils.config import settings
 from utils.logger import configure_logging
 from services import discord_gateway_service, discord_hq_content, prt_access_bans, prt_licensing_store, results_sweep as results_sweep_service, pitmark_mail
@@ -616,6 +616,7 @@ if settings.cors_origin_list:
         allow_headers=["Content-Type", "Authorization", "X-Pitmark-Admin-Key", "X-Signature-Ed25519", "X-Signature-Timestamp"],
     )
 
+app.include_router(tiktok_oauth.router, tags=['tiktok-oauth'])
 app.include_router(workshop.router, tags=['workshop'])
 app.include_router(health.router)
 app.include_router(device.router, prefix="/api/device", tags=["device-security"])
