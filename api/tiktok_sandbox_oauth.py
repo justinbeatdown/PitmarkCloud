@@ -352,3 +352,35 @@ async def send_demo(request: Request):
     persistent_store.set_runtime_state(flag, str(response.json().get("id") or "sent"))
     return _message("TikTok test announcement posted!",
                     "The authorized TikTok video was sent to Discord #social-media. Switch to Discord to verify the announcement.")
+
+@router.get("/auth/tiktok/sandbox/demo/check")
+async def check_demo(request: Request):
+    """Read-only verification: never publishes or changes Discord messages."""
+    _require_owner(request)
+    from services import discord_social_media_feed as feed
+    from services.discord_hq_common import discord_request, DISCORD_API
+    if not settings.discord_hq_guild_id or not settings.discord_bot_token:
+        return _message("Discord not configured", "The Discord bot or HQ server is not configured.", 503)
+    try:
+        response = await discord_request("GET", f"{DISCORD_API}/guilds/{settings.discord_hq_guild_id}/channels")
+        response.raise_for_status()
+        channel = next((item for item in response.json()
+                        if str(item.get("name") or "").lower() == feed.CHANNEL_NAME
+                        and item.get("type") == 0), None)
+        if not channel:
+            return _message("Discord channel missing", "The #social-media text channel was not found.", 404)
+        messages = await discord_request("GET", f"{DISCORD_API}/channels/{channel['id']}/messages", params={"limit": 100})
+        messages.raise_for_status()
+        found = [m for m in messages.json()
+                 if "TIKTOK SANDBOX DEMONSTRATION" in str(m.get("content") or "")]
+        if found:
+            latest = found[0]
+            return _message("TikTok demo message confirmed in Discord!",
+                            "A real sandbox announcement exists in #social-media. Discord message ID: " + str(latest.get("id") or "unknown"))
+        return _message("No sandbox announcement found",
+                        "The latest 100 messages in #social-media contain no TikTok sandbox demonstration. "
+                        "No new announcement was sent by this check.")
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        log.warning("Unable to verify TikTok sandbox announcement in Discord")
+        return _message("Discord verification unavailable",
+                        "Couldn't read the Discord channel. This check did not post anything.", 502)
