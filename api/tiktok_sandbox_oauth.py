@@ -10,7 +10,7 @@ import os
 import secrets
 import time
 from datetime import datetime, timezone
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import httpx
 from cryptography.fernet import Fernet, InvalidToken
@@ -253,3 +253,102 @@ def preview_videos(request: Request):
     except (httpx.HTTPError, ValueError):
         log.warning("TikTok sandbox video preview failed")
         raise HTTPException(status_code=502, detail="TikTok sandbox video retrieval failed.") from None
+
+def _sandbox_videos() -> list[dict]:
+    token = access_token()
+    if not token:
+        raise HTTPException(status_code=409, detail="TikTok sandbox is not connected.")
+    try:
+        response = httpx.post(
+            "https://open.tiktokapis.com/v2/video/list/",
+            headers={"Authorization": "Bearer " + token},
+            params={"fields": "id,create_time,title,video_description,share_url,cover_image_url"},
+            json={"max_count": 12},
+            timeout=20.0,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if (payload.get("error") or {}).get("code") not in (None, "ok"):
+            raise ValueError("TikTok rejected video retrieval")
+        return [v for v in ((payload.get("data") or {}).get("videos") or []) if isinstance(v, dict)]
+    except (httpx.HTTPError, ValueError) as exc:
+        log.warning("TikTok sandbox demo could not retrieve videos: %s", type(exc).__name__)
+        raise HTTPException(status_code=502, detail="TikTok video retrieval failed.") from None
+
+
+@router.get("/auth/tiktok/sandbox/demo")
+def demo_page(request: Request):
+    """A visible review demo with an explicit, one-time Discord test action."""
+    import html
+    _require_owner(request)
+    videos = _sandbox_videos()
+    elements = []
+    for video in videos:
+        vid = str(video.get("id") or "")
+        share = str(video.get("share_url") or "")
+        parsed = urlparse(share)
+        if not vid.isdigit() or parsed.scheme != "https" or parsed.hostname not in {"www.tiktok.com", "tiktok.com"}:
+            continue
+        caption = html.escape(str(video.get("video_description") or video.get("title") or "TikTok video")[:120])
+        elements.append("<option value='" + html.escape(vid, quote=True) + "'>" + caption + "</option>")
+    body = ("<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
+            "<title>PitmarkCloud TikTok Sandbox Demo</title><style>body{background:#101114;color:#f4f4f4;font:16px system-ui;padding:32px;max-width:760px;margin:auto}"
+            "h1{color:#ff5500}select,button{padding:14px;font:inherit;width:100%;margin:12px 0}button{background:#ff5500;border:0;color:white;cursor:pointer}"
+            "p{line-height:1.5}.note{color:#ccc}</style></head><body>"
+            "<h1>PitmarkCloud — TikTok Sandbox Demo</h1><p>Authorized TikTok account connected. Retrieved " + str(len(videos)) +
+            " videos through the TikTok Display API.</p><p class='note'>Choose an existing public video, then explicitly send one test announcement to Discord #social-media.</p>"
+            "<form method='post' action='/auth/tiktok/sandbox/demo/send'><label for='video'>Published video</label><select id='video' name='video_id'>" +
+            "".join(elements) + "</select><button type='submit'>Send a test TikTok announcement to Discord</button></form>"
+            "<p class='note'>This is a sandbox test. It does not publish to TikTok or enable automated Discord alerts.</p></body></html>")
+    return HTMLResponse(body, headers={"Cache-Control": "no-store"})
+
+
+@router.post("/auth/tiktok/sandbox/demo/send")
+async def send_demo(request: Request):
+    """Send only a user-selected verified TikTok video, once per sandbox."""
+    import html
+    from datetime import datetime, timezone
+    from services import discord_social_media_feed as feed
+    from services.discord_hq_common import discord_request, DISCORD_API
+
+    _require_owner(request)
+    origin = request.headers.get("origin") or ""
+    if origin != "https://pitmarkcloud.onrender.com":
+        raise HTTPException(status_code=403, detail="Invalid request origin.")
+    form = await request.form()
+    vid = str(form.get("video_id") or "")
+    if not vid.isdigit() or len(vid) > 30:
+        raise HTTPException(status_code=400, detail="Invalid video selection.")
+    videos = await __import__("asyncio").to_thread(_sandbox_videos)
+    video = next((v for v in videos if str(v.get("id") or "") == vid), None)
+    if not video:
+        raise HTTPException(status_code=400, detail="Video is not in the authorized TikTok feed.")
+    url = feed._permalink(video.get("share_url"), "tiktok")
+    if not url or "/@pitmarkracing/video/" not in urlparse(url).path:
+        raise HTTPException(status_code=400, detail="Unexpected TikTok video URL.")
+    if not settings.discord_bot_token or not settings.discord_hq_guild_id:
+        raise HTTPException(status_code=503, detail="Discord HQ bot is not configured.")
+    guild_id = str(settings.discord_hq_guild_id)
+    channel_id = await feed._ensure_channel(guild_id)
+    history = await feed._recent_link_history(channel_id)
+    flag = "pitmark_tiktok_sandbox_demo_sent_v1:" + vid
+    if url in history or persistent_store.get_runtime_state(flag):
+        return _message("TikTok demo already announced", "This video has already appeared in #social-media. Choose another video to test.")
+    try:
+        when = datetime.fromtimestamp(int(video.get("create_time")), tz=timezone.utc)
+    except (ValueError, TypeError, OverflowError):
+        when = datetime.now(timezone.utc)
+    cover = str(video.get("cover_image_url") or "")
+    post = {
+        "platform": "tiktok", "url": url,
+        "caption": feed._clean_caption(video.get("video_description") or video.get("title")),
+        "image": cover if cover.startswith("https://") else "",
+        "published_at": when,
+    }
+    payload = feed._payload(post)
+    payload["content"] = "🧪 **TIKTOK SANDBOX DEMONSTRATION** — A verified Pitmark video retrieved through the TikTok API."
+    response = await discord_request("POST", f"{DISCORD_API}/channels/{channel_id}/messages", json=payload)
+    response.raise_for_status()
+    persistent_store.set_runtime_state(flag, str(response.json().get("id") or "sent"))
+    return _message("TikTok test announcement posted!",
+                    "The authorized TikTok video was sent to Discord #social-media. Switch to Discord to verify the announcement.")
