@@ -282,6 +282,9 @@ def demo_page(request: Request):
     import html
     _require_owner(request)
     videos = _sandbox_videos()
+    csrf_time = str(int(time.time()))
+    csrf_sig = hmac.new(settings.pitmark_signing_secret.encode(), ("tiktok-demo:" + csrf_time).encode(), hashlib.sha256).hexdigest()
+    csrf = csrf_time + "." + csrf_sig
     elements = []
     for video in videos:
         vid = str(video.get("id") or "")
@@ -297,7 +300,7 @@ def demo_page(request: Request):
             "p{line-height:1.5}.note{color:#ccc}</style></head><body>"
             "<h1>PitmarkCloud — TikTok Sandbox Demo</h1><p>Authorized TikTok account connected. Retrieved " + str(len(videos)) +
             " videos through the TikTok Display API.</p><p class='note'>Choose an existing public video, then explicitly send one test announcement to Discord #social-media.</p>"
-            "<form method='post' action='/auth/tiktok/sandbox/demo/send'><label for='video'>Published video</label><select id='video' name='video_id'>" +
+            "<form method='post' action='/auth/tiktok/sandbox/demo/send'><input type='hidden' name='csrf_token' value='" + csrf + "'><label for='video'>Published video</label><select id='video' name='video_id'>" +
             "".join(elements) + "</select><button type='submit'>Send a test TikTok announcement to Discord</button></form>"
             "<p class='note'>This is a sandbox test. It does not publish to TikTok or enable automated Discord alerts.</p></body></html>")
     return HTMLResponse(body, headers={"Cache-Control": "no-store"})
@@ -312,10 +315,25 @@ async def send_demo(request: Request):
     from services.discord_hq_common import discord_request, DISCORD_API
 
     _require_owner(request)
-    origin = request.headers.get("origin") or ""
-    if origin != "https://pitmarkcloud.onrender.com":
-        raise HTTPException(status_code=403, detail="Invalid request origin.")
     form = await request.form()
+    csrf = str(form.get("csrf_token") or "")
+    try:
+        timestamp, signature = csrf.split(".", 1)
+        valid_time = abs(time.time() - int(timestamp)) <= 900
+        expected = hmac.new(
+            settings.pitmark_signing_secret.encode(),
+            ("tiktok-demo:" + timestamp).encode(),
+            hashlib.sha256,
+        ).hexdigest()
+        valid_csrf = valid_time and hmac.compare_digest(signature, expected)
+    except (ValueError, TypeError, AttributeError):
+        valid_csrf = False
+    if not valid_csrf:
+        raise HTTPException(status_code=403, detail="Demo form expired. Reload the page and try again.")
+    origin = request.headers.get("origin") or ""
+    if origin and origin not in {"https://pitmarkcloud.onrender.com", "null"}:
+        raise HTTPException(status_code=403, detail="Invalid request origin.")
+
     vid = str(form.get("video_id") or "")
     if not vid.isdigit() or len(vid) > 30:
         raise HTTPException(status_code=400, detail="Invalid video selection.")
