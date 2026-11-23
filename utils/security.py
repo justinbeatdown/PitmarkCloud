@@ -155,6 +155,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; frame-ancestors 'none'; "
                 "base-uri 'none'; form-action 'self'; img-src 'self'"
             )
+        elif request.url.path == "/auth/tiktok/sandbox/demo":
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; "
+                "base-uri 'none'; form-action 'self'; script-src 'none'"
+            )
         elif request.url.path.startswith("/control/early-access"):
             # Applicant Center is authenticated and server-rendered. Management forms
             # post only back to Pitmark's same origin; scripts and frames stay disabled.
