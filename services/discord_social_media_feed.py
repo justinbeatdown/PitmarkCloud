@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 import httpx
 
 from services import meta_publish_service, persistent_store
+from api import tiktok_oauth
 from services.discord_hq_common import DISCORD_API, discord_request
 from utils.config import settings
 
@@ -30,7 +31,7 @@ def _linkedin_token() -> str:
     return os.environ.get("LINKEDIN_ACCESS_TOKEN", "").strip()
 
 def _tiktok_token() -> str:
-    return os.environ.get("TIKTOK_DISPLAY_ACCESS_TOKEN", "").strip()
+    return tiktok_oauth.access_token()
 
 MAX_POSTS_PER_POLL = 3
 FOLLOW_LINKS = {
@@ -225,7 +226,12 @@ def _fetch_published_posts() -> tuple[list[dict[str, Any]], list[str]]:
             errors.append("linkedin")
 
     # TikTok's official Display API lists public videos after publication.
-    token = _tiktok_token()
+    try:
+        token = _tiktok_token()
+    except Exception:
+        log.warning("TikTok token refresh unavailable")
+        errors.append("tiktok")
+        token = ""
     if token:
         try:
             response = httpx.post(
