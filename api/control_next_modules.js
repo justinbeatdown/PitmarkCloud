@@ -182,7 +182,7 @@ async function mountPRT(root,ctx){
   listing=(d.items||[]).filter(p=>String(p.status||'open')!=='resolved').map(p=>row(p.title||p.summary||'Feedback',esc(p.kind||p.type||'Report')+' · '+esc(p.severity||'normal')+' · '+esc(p.status||'open'),p.description||p.notes||p.body||'',
   button('Reviewing','prt-feedback:'+p.id+':reviewing','btn mini')+button('Resolve','prt-feedback:'+p.id+':resolved','btn mini accent'))).join('')||note('No open feedback','No active product feedback was returned.');
  }else if(tab==='testers'){
-  listing=(d.invites||[]).slice(0,90).map(p=>row(p.applicant_name||p.tester_name||p.email,esc(p.status)+' · '+esc(p.tester_status||'unknown'),p.iracing_name||p.discord||p.discord_username||'', '')).join('')||note('No testers','No tester invitations returned.');
+  listing='<div class="field"><label for="prt-tester-search">Search testers</label><input class="field-input" id="prt-tester-search" type="search" placeholder="Name, email, Discord, status"><label for="prt-tester-status">Filter status</label><select class="field-input" id="prt-tester-status"><option value="">All statuses</option><option>issued</option><option>redeemed</option><option>revoked</option><option>expired</option></select></div><div id="prt-tester-results">'+(d.invites||[]).map(p=>'<div data-tester-search="'+esc([p.applicant_name,p.email,p.discord,p.iracing_name,p.status,p.tester_status].join(' ').toLowerCase())+'" data-tester-status="'+esc(p.status)+'">'+row(p.applicant_name||p.tester_name||p.email,esc(p.status)+' · '+esc(p.tester_status||'unknown'),[p.email,p.iracing_name||p.discord||p.discord_username,p.code_hint,p.expires_at?'Expires '+when(p.expires_at):''].filter(Boolean).join(' · '),button(p.status==='revoked'?'Restore + new code':'Reissue / reset device','prt-invite:'+p.id+':reissue','btn mini accent')+button('Issue + email code','prt-invite:'+p.id+':email','btn mini')+(p.status==='revoked'?'':button('Revoke access','prt-invite:'+p.id+':revoke','btn mini')))+'</div>').join('')+'</div>';
  }else{
   listing=(d.leaderboard||[]).slice(0,50).map(p=>row('#'+(p.position||'?')+' '+(p.tester_name||p.name||'Racer'),esc(p.qualified||0)+' qualified · '+esc(p.pending||0)+' pending',p.milestone_status||p.referral_code||'', '')).join('')||note('No race records','No founder-race results returned.');
  }
@@ -190,6 +190,11 @@ async function mountPRT(root,ctx){
  renderTabs('prt',[['applications','Applications'],['feedback','Feedback'],['testers','Testers'],['founders',"Founder’s Race"]])+
  pane('PITMARK RACING TOOLS',tab==='applications'?'Applicant review':tab==='feedback'?'Feedback queue':tab==='testers'?'Tester roster':"Founder's Race",listing)+
  '<p class="workspace-note">Accepting an applicant creates an Early Access invite and sends their onboarding email. Confirm before accepting.</p>';
+ if(tab==='testers'){
+  const q=root.querySelector('#prt-tester-search'),status=root.querySelector('#prt-tester-status');
+  const filter=()=>root.querySelectorAll('[data-tester-search]').forEach(el=>{el.hidden=!el.dataset.testerSearch.includes(q.value.trim().toLowerCase())||(!!status.value&&el.dataset.testerStatus!==status.value);});
+  q.addEventListener('input',filter);status.addEventListener('change',filter);
+ }
 }
 async function mountWork(root,ctx){
  const tab=sections.work;
@@ -348,6 +353,23 @@ async function handleAction(action,root,ctx){
  };
  if(type==='prt-app'){const s=args[2];changes[type]=['/api/control/ops/testers/'+args[1]+'/status','PATCH',{status:s},s==='accepted'?'Accept this person, create their invite, and send the onboarding email?':'Change applicant status to '+s+'?'];}
  if(type==='prt-feedback'){changes[type]=['/api/control/ops/feedback/'+args[1]+'/status','PATCH',{status:args[2]},'Change feedback status to '+args[2]+'?'];}
+ if(type==='prt-invite'){
+  const action=args[2];
+  if(!confirm(action==='revoke'?'Revoke this tester’s access and deactivate their device?':'Replace this tester’s code and reset their device? The old code will stop working.'+(action==='email'?' The new code will be emailed to their registered address.':'')))return;
+  busyMutation=true;
+  try{
+   const result=await write('/api/control/ops/testers/invites/'+args[1]+'/manage','POST',{status:action});
+   invalidate();
+   if(result.code){
+    const dialog=document.createElement('dialog');dialog.style.cssText='background:#171b20;color:#fff;border:1px solid #555;border-radius:12px;padding:24px;max-width:90vw';
+    dialog.innerHTML='<h2>New Early Access code</h2><p>'+esc(result.email_sent?'Replacement email sent.':result.email_error||'Share privately. The previous code is invalid.')+'</p><input readonly style="width:100%;padding:10px;color:#fff;background:#101215" value="'+esc(result.code)+'"><p>Expires '+esc(when(result.expires_at))+'</p><button type="button" class="btn accent">Copy code</button> <button type="button" class="btn outline">Close</button>';
+    const input=dialog.querySelector('input'),buttons=dialog.querySelectorAll('button');
+    buttons[0].onclick=async()=>{try{await navigator.clipboard.writeText(input.value);buttons[0].textContent='Copied';}catch{input.select();}};
+    buttons[1].onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();input.select();
+   }else alert('Access revoked.');
+   await mountWorkspace(view,root,ctx,true);
+  }catch(e){alert(e.message)}finally{busyMutation=false;}return;
+ }
  const task=changes[type];
  if(task){if(!confirm(task[3]))return;busyMutation=true;try{await write(task[0],task[1],task[2]);invalidate();if(type.startsWith('post')&&typeof ctx.refreshCore==='function')ctx.refreshCore();mountWorkspace(view,root,ctx,true);}catch(e){alert(e.message)}finally{busyMutation=false;}return;}
 }
