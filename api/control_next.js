@@ -1,4 +1,4 @@
-import { WORKSPACE_VIEWS, mountWorkspace } from './control-next-modules.js?v=20261030full1';
+import { WORKSPACE_VIEWS, mountWorkspace } from './control-next-modules.js?v=20261124prtmanagement1';
 /* Pitmark Control Center 2.0 — owner-first read-only shell.
    Mutations remain in existing approval-authorized tools; this view never retries or publishes. */
 const $ = (id) => document.getElementById(id);
