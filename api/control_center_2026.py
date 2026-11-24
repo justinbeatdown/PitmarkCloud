@@ -372,3 +372,53 @@ def ops_feedback_status(feedback_id: int, payload: StatusUpdate, request: Reques
     if result is None:
         raise HTTPException(404, "Feedback item not found.")
     return result
+
+
+
+@router.post("/api/control/ops/testers/invites/{invite_id}/manage")
+def ops_manage_tester(invite_id: int, payload: StatusUpdate, request: Request):
+    from services.control_access import access_from_request
+    from services.prt_licensing_store import (
+        _generate_early_access_code, reissue_early_access_invite, revoke_early_access_invite,
+    )
+    from services.pitmark_mail_identities import send_message as send_mail
+    _auth(request)
+    access = access_from_request(request)
+    if not access or not access.active or access.role not in {"owner", "admin"}:
+        raise HTTPException(403, "Owner or admin access required.")
+    # JSON-only mutation; reject cross-origin browser requests.
+    origin = request.headers.get("origin")
+    if origin:
+        from urllib.parse import urlparse
+        if urlparse(origin).netloc.lower() != request.headers.get("host", "").lower():
+            raise HTTPException(403, "Cross-origin request rejected.")
+    action = payload.status
+    if action == "revoke":
+        result = revoke_early_access_invite(invite_id)
+        if result is None:
+            raise HTTPException(404, "Tester invite not found.")
+        return {"status": "revoked", "invite": result}
+    if action not in {"reissue", "email"}:
+        raise HTTPException(400, "Unknown tester action.")
+    result = reissue_early_access_invite(invite_id, code=_generate_early_access_code())
+    if result is None:
+        raise HTTPException(404, "Tester invite not found.")
+    # Existing codes are stored as hashes: resending must issue a fresh code.
+    response = {"status": "issued", "code": result["code"], "expires_at": result["expires_at"], "email_sent": False}
+    if action == "email":
+        try:
+            send_mail(
+                to=[result["email"]],
+                subject="Your replacement PRT Early Access code",
+                text=(
+                    "Hey " + (result["applicant_name"] or "there").split()[0] + ",\n\n"
+                    "Here is your replacement PRT Early Access code:\n" + result["code"] +
+                    "\n\nOpen PRT > Settings > Access & Licensing > PRT Early Access and activate within 14 days."
+                    "\nYour previous code and device activation have been reset.\n\nPitmark Racing Co."
+                ),
+                from_identity="justin",
+            )
+            response["email_sent"] = True
+        except Exception:
+            response["email_error"] = "Email could not be sent. Copy the new code and deliver it privately."
+    return response
