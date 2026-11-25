@@ -534,6 +534,13 @@ class PitmarkPresenceClient(discord.Client):
             )
 
         try:
+            from services.discord_partner_showcase import sync_showcase
+            if hq_guild:
+                await sync_showcase(hq_guild, self.user)
+        except Exception:
+            log.exception("Pitmark partner showcase sync failed.")
+ 
+        try:
             await _sync_official_links_message(str(getattr(self.user, "id", "")))
         except Exception:
             # Presence and HTTP interactions must stay online even if the links card cannot sync.
