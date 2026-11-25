@@ -10,6 +10,7 @@ BASE = "https://cdn.shopify.com/s/files/1/1067/3913/8641/files/discord-showcase-
 FOOTER = "Pitmark Racing Co. • Leave Your Mark."
 ENTRIES = [
     ("Blake Murray | #133", "🏁 OFFICIALLY SPONSORED DRIVER", "Pitmark Racing Co. is proud to sponsor Blake Murray and the #133 in grassroots dirt racing.", "[Follow Blake on Facebook](https://www.facebook.com/share/19ZwJhqXix/)", "blake-133.png?v=1795583374"),
+    ("Adrian Featherston | F22", "🏁 PITMARK DRIVER PARTNER", "Dirt modified racer, Honor First Racing manager and setup engineer, and Pitmark Racing Tools tester, connecting real-world racing with competitive sim racing.", "[Read Adrian’s feature](https://pitmarkracing.com/blogs/racing-culture/adrian-featherston-building-for-something-bigger)", "adrian-f22.png?v=1795583494"),
     ("Cross Cannon Motorsports", "🤝 OFFICIAL PARTNER • SIM RACING TEAM", "Veteran-owned iRacing team bringing Pitmark branding to virtual competition.", "[Read the Pitmark feature](https://pitmarkracing.com/blogs/racing-culture/cross-cannon-motorsports-pitmark-iracing-team-feature-2026)", "cross-cannon.png?v=1795583377"),
     ("Matthews Racing", "🏎️ RACING TEAM", "Meet Matthews Racing and follow their racing journey.", "[Visit website](https://matthewsracing.com/)", "matthews.png?v=1795583380"),
     ("B&G Motorsports", "🏎️ MOTORSPORTS TEAM", "Explore B&G Motorsports and their racing program.", "[Visit website](https://bgmotorsports.us/)", "bg-motorsports.png?v=1795583392"),
