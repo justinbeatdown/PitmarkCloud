@@ -33,7 +33,7 @@ async def sync_showcase(guild, bot_user):
         cards = [intro]
         for name, category, description, links, asset in ENTRIES:
             card = discord.Embed(title=name, description=f"**{category}**\n\n{description}\n\n{links}", color=PITMARK_ORANGE)
-            card.set_thumbnail(url=BASE + asset)
+            card.set_image(url=BASE + asset)
             card.set_footer(text=FOOTER)
             cards.append(card)
         count = 0
