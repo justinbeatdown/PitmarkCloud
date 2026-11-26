@@ -514,14 +514,14 @@ def newsletter_articles(request: Request):
     try:
         data = graphql("""query PitReportArticles {
           articles(first: 30, sortKey: PUBLISHED_AT, reverse: true, query: "published_status:published") {
-            nodes { title handle publishedAt summary body blog { handle } image { originalSrc } }
+            nodes { title handle isPublished publishedAt summary body blog { handle } image { originalSrc } }
           }
         }""")
     except Exception:
         raise HTTPException(status_code=503, detail="Published article source unavailable")
     rows = []
     for article in (data.get('articles') or {}).get('nodes', []):
-        if not article.get('publishedAt') or not article.get('handle') or not (article.get('blog') or {}).get('handle'):
+        if not article.get('isPublished') or not article.get('publishedAt') or not article.get('handle') or not (article.get('blog') or {}).get('handle'):
             continue
         from datetime import datetime, timezone, timedelta
         from urllib.parse import quote
@@ -539,3 +539,13 @@ def newsletter_articles(request: Request):
                      'url': 'https://pitmarkracing.com/blogs/' + quote(article['blog']['handle'], safe='') + '/' + quote(article['handle'], safe=''),
                      'image': (article.get('image') or {}).get('originalSrc', '')})
     return {'articles': rows}
+
+
+@router.get('/control-newsletter.css', include_in_schema=False)
+def control_newsletter_css():
+    return FileResponse(ASSET_DIR / 'control_newsletter.css', media_type='text/css', headers={'Cache-Control': 'no-cache'})
+
+
+@router.get('/control-newsletter.js', include_in_schema=False)
+def control_newsletter_js():
+    return FileResponse(ASSET_DIR / 'control_newsletter.js', media_type='application/javascript', headers={'Cache-Control': 'no-cache'})
