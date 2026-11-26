@@ -494,3 +494,48 @@ def prt_update_manifest():
 # V2 read-model routes belong to the authenticated Control Center surface.
 from api.control_center_next import router as owner_hq_router
 router.include_router(owner_hq_router)
+
+
+@router.get('/control/newsletter', response_class=HTMLResponse, include_in_schema=False)
+def control_newsletter(request: Request):
+    if not user_from_request(request):
+        return RedirectResponse('/control', status_code=303)
+    return _guarded_html('control_newsletter.html', guard=False)
+
+
+@router.get('/api/control/newsletter/articles')
+def newsletter_articles(request: Request):
+    from fastapi import HTTPException
+    from services.control_auth import require_control_user
+    from services.shopify_service import graphql
+    from html import unescape
+    import re
+    require_control_user(request, None)
+    try:
+        data = graphql("""query PitReportArticles {
+          articles(first: 30, sortKey: PUBLISHED_AT, reverse: true, query: "published_status:published") {
+            nodes { title handle publishedAt summary body blog { handle } image { originalSrc } }
+          }
+        }""")
+    except Exception:
+        raise HTTPException(status_code=503, detail="Published article source unavailable")
+    rows = []
+    for article in (data.get('articles') or {}).get('nodes', []):
+        if not article.get('publishedAt') or not article.get('handle') or not (article.get('blog') or {}).get('handle'):
+            continue
+        from datetime import datetime, timezone, timedelta
+        from urllib.parse import quote
+        try:
+            published = datetime.fromisoformat(article['publishedAt'].replace('Z', '+00:00'))
+            if not datetime.now(timezone.utc) - timedelta(days=14) <= published <= datetime.now(timezone.utc):
+                continue
+        except (ValueError, TypeError):
+            continue
+        plain = unescape(re.sub(r'<[^>]*>', ' ', article.get('summary') or article.get('body') or ''))
+        plain = ' '.join(plain.split())
+        if len(plain) > 260:
+            plain = plain[:257].rsplit(' ', 1)[0] + '…'
+        rows.append({'title': article.get('title', ''), 'summary': plain,
+                     'url': 'https://pitmarkracing.com/blogs/' + quote(article['blog']['handle'], safe='') + '/' + quote(article['handle'], safe=''),
+                     'image': (article.get('image') or {}).get('originalSrc', '')})
+    return {'articles': rows}
