@@ -272,15 +272,7 @@ async def sync_racing_culture_feed() -> dict[str, Any]:
                 and article["published_at"] >= created_at
             ][-3:]
 
-        # Publishing policy: every Racing Culture article needs a featured image.
-        # Never relay image-less articles as if they are publication-ready.
-        missing_images = [article["title"] for article in candidates if not str(article.get("image") or "").strip()]
-        if missing_images:
-            log.warning("Racing Culture articles missing required featured images; skipping Discord posts: %s", missing_images)
-        candidates = [
-            article for article in candidates if str(article.get("image") or "").strip()
-        ]
-
+        # Published articles may be announced with or without a featured image.
         posted = 0
         for article in candidates:
             response = await client.post(

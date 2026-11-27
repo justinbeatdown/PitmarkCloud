@@ -26,8 +26,8 @@ class FakeClient:
         return FakeResponse()
 
 
-class RacingCultureImageGateTests(unittest.IsolatedAsyncioTestCase):
-    async def test_feed_holds_article_until_featured_image_exists(self):
+class RacingCultureOptionalImageTests(unittest.IsolatedAsyncioTestCase):
+    async def test_feed_posts_articles_with_or_without_featured_image(self):
         article = {
             "id": "gid://shopify/Article/1",
             "title": "Test Racing Story",
@@ -62,8 +62,12 @@ class RacingCultureImageGateTests(unittest.IsolatedAsyncioTestCase):
             patch.object(feed.httpx, "AsyncClient", side_effect=client_factory),
         ):
             held = await feed.sync_racing_culture_feed()
-            self.assertEqual(held["posted"], 0)
-            self.assertEqual(clients[0].posts, [])
+            self.assertEqual(held["posted"], 1)
+            self.assertEqual(len(clients[0].posts), 1)
+            text_embed = clients[0].posts[0]["json"]["embeds"][0]
+            self.assertNotIn("image", text_embed)
+            self.assertEqual(text_embed["url"], article["url"])
+            self.assertEqual(text_embed["title"], article["title"])
 
             article["image"] = "https://cdn.shopify.com/test-racing-story.jpg"
             posted = await feed.sync_racing_culture_feed()
